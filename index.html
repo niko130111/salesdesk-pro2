@@ -5,7 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>SalesDesk Pro — Nicolas</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"
+        integrity="sha512-ZwR1/gSZM3ai6vCdI+LVF1zSq/5HznD3ZSTk7kajkaj4D292NLuduDCO1c/NT8Id+jE58KYLKT7hXnbtryGmMg=="
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <style>
 :root {
   --bg: #f7f7f5;
@@ -99,7 +101,7 @@ main { max-width: 100%; margin: 0; padding: 6px 8px; }
 
 /* KPI STRIP */
 .kpi-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 10px; margin-bottom: 20px; }
-.kpi-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; position: relative; cursor: pointer; transition: border-color 0.15s; }
+.kpi-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; position: relative; transition: border-color 0.15s; }
 .kpi-card:hover { border-color: var(--border2); }
 
 /* Tooltip détail No Show au hover */
@@ -559,8 +561,8 @@ select.form-input { cursor: pointer; }
         <option>2024</option><option>2025</option><option selected>2026</option>
       </select>
     </div>
-    <div class="dark-toggle-wrap"><span>&#9790;</span><button id="dark-toggle-btn" class="dark-toggle" onclick="toggleDarkMode()" title="Mode sombre"></button></div>
-    <span id="sync-status" style="font-size:11px;font-weight:600;margin-left:8px;transition:color .3s;"></span>
+    <div class="dark-toggle-wrap"><span>&#9790;</span><button class="dark-toggle dark-toggle-btn" onclick="toggleDarkMode()" title="Mode sombre"></button></div>
+    <span class="sync-status" style="font-size:11px;font-weight:600;margin-left:8px;transition:color .3s;"></span>
     <button class="btn btn-sm btn-primary" onclick="openModal('newRdvModal')">+ Nouveau RDV</button>
     <div class="avatar" onclick="showPage('settings', document.querySelector('.nav-tab:last-child'))">N</div>
   </div>
@@ -657,6 +659,7 @@ select.form-input { cursor: pointer; }
       </div>
       <div style="font-size:48px;font-weight:900;color:var(--purple);line-height:1;flex-shrink:0;" id="daily-outbound-reste">-</div>
     </div>
+    <div id="daily-outbound-detail" style="font-size:11px;color:var(--text3);margin:2px 0 6px;"></div>
     <div style="background:rgba(124,58,237,.15);border-radius:8px;height:14px;overflow:hidden;">
       <div id="daily-bar-outbound" style="height:100%;background:var(--purple);border-radius:8px;transition:width .7s ease;width:0%;"></div>
     </div>
@@ -860,57 +863,74 @@ select.form-input { cursor: pointer; }
       KPIs — <span id="period-label">Avril 2026</span> — Nicolas
     </div>
     <div class="flex gap-8">
-      <span style="font-size:11px;color:var(--text3);">Objectif équipe affiché en gris</span>
+      <span style="font-size:11px;color:var(--text3);">Comparaison : moyenne de tes 3 derniers mois finis</span>
     </div>
   </div>
 
   <!-- KPI CARDS -->
   <div class="kpi-grid">
-    <div class="kpi-card" onclick="openEditKpi('rdv')">
+    <div class="kpi-card">
       <div class="kpi-label">Total RDV</div>
       <div class="kpi-value" id="kpi-rdv">6</div>
       <div class="kpi-sub" id="kpi-rdv-sub">rendez-vous</div>
-      <div class="kpi-vs"><span class="eq">moy. équipe 8</span></div>
+      <div class="kpi-vs"><span class="eq" id="bench-rdv">—</span></div>
     </div>
-    <div class="kpi-card" onclick="openEditKpi('showrate')">
+    <div class="kpi-card">
       <div class="kpi-label">Show Rate</div>
       <div class="kpi-value green" id="kpi-showrate">67%</div>
       <div class="kpi-sub" id="kpi-showrate-sub">4 présents</div>
-      <div class="kpi-vs"><span class="down">↓ moy. équipe 75%</span></div>
+      <div class="kpi-vs"><span id="bench-showrate">—</span></div>
     </div>
-    <div class="kpi-card has-noshow-tooltip" onclick="openEditKpi('noshow')">
+    <div class="kpi-card has-noshow-tooltip">
       <div class="kpi-label">No Show</div>
       <div class="kpi-value red" id="kpi-noshow">33%</div>
       <div class="kpi-sub" id="kpi-noshow-sub">2 absents</div>
-      <div class="kpi-vs"><span class="down">↑ moy. équipe 25%</span></div>
+      <div class="kpi-sub" id="kpi-noshow-detail" style="font-size:10.5px;opacity:.75;">—</div>
+      <div class="kpi-vs"><span id="bench-noshow">—</span></div>
       <div class="noshow-tooltip" id="kpi-noshow-tooltip">
         <div class="noshow-tooltip-row"><span class="noshow-tooltip-label">🚫 Vrais No Show</span><span class="noshow-tooltip-value" id="tt-ana-ns">—</span></div>
         <div class="noshow-tooltip-row"><span class="noshow-tooltip-label">❌ Annulés</span><span class="noshow-tooltip-value" id="tt-ana-an">—</span></div>
         <div class="noshow-tooltip-row"><span class="noshow-tooltip-label">🔄 Reprogrammés</span><span class="noshow-tooltip-value" id="tt-ana-re">—</span></div>
       </div>
     </div>
-    <div class="kpi-card" onclick="openEditKpi('signes')">
+    <div class="kpi-card">
       <div class="kpi-label">Signés</div>
       <div class="kpi-value" id="kpi-signes">2</div>
       <div class="kpi-sub">deals closés</div>
-      <div class="kpi-vs"><span class="eq">moy. équipe 2</span></div>
+      <div class="kpi-vs"><span class="eq" id="bench-signes">—</span></div>
     </div>
-    <div class="kpi-card" onclick="openEditKpi('closing')">
+    <div class="kpi-card">
       <div class="kpi-label">Closing</div>
       <div class="kpi-value green" id="kpi-closing">50%</div>
-      <div class="kpi-sub">Signés / Shows</div>
-      <div class="kpi-vs"><span class="up">↑ moy. équipe 33%</span></div>
+      <div class="kpi-sub" title="Signés du mois / Shows du mois. Avec un cycle de 2 à 4 semaines, les deux ne portent pas sur les mêmes prospects — voir la carte « Closing cohorte ».">Signés / Shows du mois</div>
+      <div class="kpi-vs"><span id="bench-closing">—</span></div>
     </div>
-    <div class="kpi-card" id="kpi-oneshot-card" onclick="openEditKpi('oneshot')">
+    <div class="kpi-card" id="kpi-oneshot-card">
       <div class="kpi-label">One Shot</div>
       <div class="kpi-value blue" id="kpi-oneshot">1</div>
       <div class="kpi-sub">deals one shot</div>
+      <div class="kpi-sub" id="kpi-oneshot-warn" style="display:none;color:var(--orange);font-size:10.5px;"></div>
     </div>
-    <div class="kpi-card" id="kpi-delai-card" onclick="openEditKpi('r1r2')">
-      <div class="kpi-label">Délai R1→R2</div>
-      <div class="kpi-value" id="kpi-r1r2">14<span style="font-size:14px;font-weight:400;"> j</span></div>
-      <div class="kpi-sub">sur 2 deals</div>
-      <div class="kpi-vs"><span class="eq">moy. équipe 14j</span></div>
+    <div class="kpi-card" id="kpi-delai-card" title="Temps moyen entre le R1 et la signature">
+      <div class="kpi-label">Cycle de vente</div>
+      <div class="kpi-value" id="kpi-r1r2">—</div>
+      <div class="kpi-sub" id="kpi-cycle-sub">R1 → signature</div>
+      <div class="kpi-vs"><span class="eq" id="bench-cycle">—</span></div>
+    </div>
+    <div class="kpi-card" title="Temps moyen entre le R1 et le R2 planifié">
+      <div class="kpi-label">Délai R1 → R2</div>
+      <div class="kpi-value" id="kpi-delai-r2">—</div>
+      <div class="kpi-sub" id="kpi-delai-r2-sub">R1 → R2</div>
+    </div>
+    <div class="kpi-card" title="Temps moyen entre la prise du RDV et le RDV lui-même. Explique le décalage entre une bonne semaine d'outbound et les shows qui en découlent.">
+      <div class="kpi-label">Délai prise → RDV</div>
+      <div class="kpi-value" id="kpi-delai-prise">—</div>
+      <div class="kpi-sub" id="kpi-delai-prise-sub">prise → RDV</div>
+    </div>
+    <div class="kpi-card" title="Des shows de ce mois, combien ont fini par signer à ce jour. Contrairement au closing mensuel, numérateur et dénominateur portent sur les mêmes prospects.">
+      <div class="kpi-label">Closing cohorte</div>
+      <div class="kpi-value green" id="kpi-closing-cohorte">—</div>
+      <div class="kpi-sub" id="kpi-closing-cohorte-sub">shows du mois ayant signé</div>
     </div>
   </div>
 
@@ -1021,6 +1041,7 @@ select.form-input { cursor: pointer; }
         <div style="flex:1;display:flex;flex-direction:column;gap:8px;">
           <div class="flex gap-8"><span style="width:10px;height:10px;border-radius:2px;background:#f59e0b;flex-shrink:0;"></span><span style="font-size:13px;" id="mand-label">Mandataire — <b>4</b></span></div>
           <div class="flex gap-8"><span style="width:10px;height:10px;border-radius:2px;background:#1a56db;flex-shrink:0;"></span><span style="font-size:13px;" id="ag-label">Agences — <b>2</b></span></div>
+          <div id="sans-type-warn" style="display:none;font-size:11px;color:var(--orange);margin-top:4px;line-height:1.4;"></div>
         </div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
@@ -1447,8 +1468,8 @@ select.form-input { cursor: pointer; }
       <div class="section-title">Pipeline — <span id="pipeline-period-title">Avril 2026</span></div>
       <div style="font-size:11px;color:var(--text3);margin-top:2px;">Mois sélectionné · Intéressés : mois en cours + reliquat depuis mars 2026</div>
     </div>
-    <div class="dark-toggle-wrap"><span>&#9790;</span><button id="dark-toggle-btn" class="dark-toggle" onclick="toggleDarkMode()" title="Mode sombre"></button></div>
-    <span id="sync-status" style="font-size:11px;font-weight:600;margin-left:8px;transition:color .3s;"></span>
+    <div class="dark-toggle-wrap"><span>&#9790;</span><button class="dark-toggle dark-toggle-btn" onclick="toggleDarkMode()" title="Mode sombre"></button></div>
+    <span class="sync-status" style="font-size:11px;font-weight:600;margin-left:8px;transition:color .3s;"></span>
     <button class="btn btn-sm btn-primary" onclick="openModal('newRdvModal')">+ Nouveau RDV</button>
   </div>
 
@@ -1518,8 +1539,8 @@ select.form-input { cursor: pointer; }
   <div class="section-header" style="margin-bottom:16px;">
     <div class="section-title">RDV — <span id="rdvtable-period">Avril 2026</span> <span style="font-size:10px;font-weight:400;color:var(--text3);text-transform:none;letter-spacing:0;">· Double-clic pour modifier une ligne</span></div>
     <div class="flex gap-8">
-      <div class="dark-toggle-wrap"><span>&#9790;</span><button id="dark-toggle-btn" class="dark-toggle" onclick="toggleDarkMode()" title="Mode sombre"></button></div>
-    <span id="sync-status" style="font-size:11px;font-weight:600;margin-left:8px;transition:color .3s;"></span>
+      <div class="dark-toggle-wrap"><span>&#9790;</span><button class="dark-toggle dark-toggle-btn" onclick="toggleDarkMode()" title="Mode sombre"></button></div>
+    <span class="sync-status" style="font-size:11px;font-weight:600;margin-left:8px;transition:color .3s;"></span>
     <button class="btn btn-sm btn-primary" onclick="openModal('newRdvModal')">+ Nouveau RDV</button>
     </div>
   </div>
@@ -2426,7 +2447,7 @@ select.form-input { cursor: pointer; }
     </div>
     <div class="modal-footer">
       <button class="btn" onclick="closeModal('kpiEditModal')">Annuler</button>
-      <button class="btn btn-primary" onclick="saveKpi()">Enregistrer</button>
+      <button class="btn btn-primary" onclick="closeModal('editKpiModal')">Fermer</button>
     </div>
   </div>
 </div>
@@ -2519,13 +2540,16 @@ let _syncTimeout = null;
 let _isSyncing = false;
 
 // Indicateur de statut sync dans la nav
+// FIX SD-15 : l'indicateur existe en 3 exemplaires (un par en-tête). getElementById
+// n'en renvoyait qu'un, donc sur deux pages sur trois on ne voyait jamais l'état de synchro.
 function setSyncStatus(status) {
-  const el = document.getElementById('sync-status');
-  if (!el) return;
-  if (status === 'saving')  { el.textContent = '⏳ Sauvegarde...'; el.style.color = 'var(--orange)'; }
-  if (status === 'saved')   { el.textContent = '✅ Sauvegardé';    el.style.color = 'var(--green)';  setTimeout(()=>{el.textContent='';el.style.color='';}, 2000); }
-  if (status === 'error')   { el.textContent = '⚠️ Hors ligne';    el.style.color = 'var(--red)';    }
-  if (status === 'loading') { el.textContent = '🔄 Chargement...'; el.style.color = 'var(--accent)'; }
+  const els = document.querySelectorAll('.sync-status');
+  if (!els.length) return;
+  const poser = (txt, couleur) => els.forEach(el => { el.textContent = txt; el.style.color = couleur; });
+  if (status === 'saving')  poser('⏳ Sauvegarde...', 'var(--orange)');
+  if (status === 'saved')   { poser('✅ Sauvegardé', 'var(--green)'); setTimeout(() => poser('', ''), 2000); }
+  if (status === 'error')   poser('⚠️ Hors ligne', 'var(--red)');
+  if (status === 'loading') poser('🔄 Chargement...', 'var(--accent)');
 }
 
 async function supabaseSave(data) {
@@ -2542,9 +2566,11 @@ async function supabaseSave(data) {
     });
     if (!res.ok) throw new Error('PATCH failed ' + res.status);
     setSyncStatus('saved');
+    return true;
   } catch(e) {
     console.warn('Supabase save error:', e);
     setSyncStatus('error');
+    return false;   // FIX SD-02 : l'appelant doit pouvoir savoir que la sauvegarde a echoue
   }
 }
 
@@ -2611,63 +2637,8 @@ function getBareme() {
   };
 }
 
-function getComm(r) {
-  const pack   = (r.pack   || '').trim();
-  const freq   = (r.freq   || '').trim();
-  const tier   = (r.tier   || 'T1').trim();
-  const fms    = (r.fms    || '').trim().toLowerCase();
-
-  // Remise : extraire le nombre depuis '-500€', '-50€', '500', '50' etc.
-  const remiseRaw = (r.remise || '').toString();
-  const remise = parseFloat(remiseRaw.replace(/[^0-9.]/g, '')) || 0;
-
-  // Déterminer si mars 2026 ou après
-  let isRecent = false;
-  if (r.date) {
-    const p = r.date.split('/');
-    if (p.length === 3) {
-      const y = parseInt(p[2]), m = parseInt(p[1]);
-      if (y > 2026 || (y === 2026 && m >= 3)) isRecent = true;
-    }
-  }
-
-  // Avant mars 2026 → commission saisie telle quelle
-  if (!isRecent) return parseFloat(r.commission) || 0;
-
-  // Pas signé → 0
-  if (r.result !== 'Signé') return 0;
-
-  // Pack inconnu → 0
-  if (!pack) return 0;
-
-  const b = getBareme();
-  const tierKey = ['T1','T2','T3','T4'].includes(tier) ? tier : 'T1';
-
-  // Vérifier que le pack existe dans le barème
-  if (!b.MRR_MENS[pack] || !b.PRIX_ANN[pack]) return 0;
-
-  let commPack = 0;
-  if (freq === 'Annuelle') {
-    const prixBrut = b.PRIX_ANN[pack][tierKey] || 0;
-    const prixNet  = Math.max(0, prixBrut - remise);
-    commPack = Math.round((prixNet / 12) * 3);
-  } else if (freq === 'Mensuelle') {
-    const mrrBrut = b.MRR_MENS[pack][tierKey] || 0;
-    const mrrNet  = Math.max(0, mrrBrut - remise);
-    commPack = Math.round(mrrNet * 1.5);
-  } else {
-    // One Shot ou vide → 0 pour l'instant
-    return parseFloat(r.commission) || 0;
-  }
-
-  // Part FMS
-  const fmsBase  = b.FMS_BASE[pack] || 0;
-  const fmsKey   = fms === '100%' ? '100%' : fms === '50%' ? '50%' : null;
-  const fmsPart  = fmsKey ? Math.round(fmsBase * (b.FMS_RATES[fmsKey][freq] || 0)) : 0;
-
-  return commPack + fmsPart;
-}
-
+// (Une première version de getComm vivait ici : déclarée deux fois, elle était morte
+// par hoisting. Supprimée — voir l'audit SD-14. La version active suit.)
 function getComm(r) {
   const b = getBareme();
   const pack   = (r.pack   || '').trim();
@@ -2703,6 +2674,8 @@ function getComm(r) {
     const mrrNet = Math.max(0, b.MRR_MENS[pack][tier] - remise);
     commPack = Math.round(mrrNet * 1.5);
   } else {
+    // One Shot : pas de barème automatique — la commission se saisit à la main.
+    // On retourne la valeur saisie ; si elle est vide, l'appelant peut le signaler.
     return parseFloat(r.commission) || 0;
   }
 
@@ -2815,25 +2788,62 @@ function loadStore() {
 }
 
 // Charger depuis Supabase au démarrage (async)
+// FIX SD-01 : on ne jette plus jamais le local.
+// Arbitrage par horodatage _lastWrite (posé par saveStore) : le plus récent gagne.
+// En cas d'égalité ou d'absence d'horodatage, le local est prioritaire — on ne perd pas
+// une saisie faite hors-ligne pour un cloud potentiellement périmé.
 async function initFromSupabase() {
   const cloudData = await supabaseLoad();
-  if (cloudData && Object.keys(cloudData).length > 0) {
-    // Merger : cloud prioritaire sur BUILTIN_DATA, local prioritaire sur cloud pour les nouveaux mois
-    const local = JSON.parse(localStorage.getItem('salesdesk_rdvs') || '{}');
-    // Si le cloud est plus récent, on l'utilise
-    _sessionStore = Object.assign({}, BUILTIN_DATA, cloudData, local);
-    // Mais si le local a des mois récents non présents dans cloud, cloud prend le tout
+  if (!cloudData || Object.keys(cloudData).length === 0) return;
+  let local = {};
+  try { local = JSON.parse(localStorage.getItem('salesdesk_rdvs') || '{}'); } catch(e) { local = {}; }
+
+  const tCloud = cloudData._lastWrite || '';
+  const tLocal = local._lastWrite || '';
+  const cloudGagne = tCloud && (!tLocal || tCloud > tLocal);
+
+  if (cloudGagne) {
+    // Le cloud est plus récent : il gagne, MAIS on réinjecte les clés que lui seul ignore
+    // (mois créés hors-ligne qui n'ont jamais été poussés).
     _sessionStore = Object.assign({}, BUILTIN_DATA, cloudData);
-    // Sauvegarder localement aussi
-    try { localStorage.setItem('salesdesk_rdvs', JSON.stringify(_sessionStore)); } catch {}
-    refreshAll();
+    for (const k in local) {
+      if (!local.hasOwnProperty(k) || k === '_lastWrite') continue;
+      if (!(k in cloudData)) _sessionStore[k] = local[k];
+    }
+  } else {
+    // Local au moins aussi récent : il gagne, complété par les clés présentes seulement en cloud.
+    _sessionStore = Object.assign({}, BUILTIN_DATA, cloudData, local);
+    // Le cloud est en retard → on le remet à niveau tout de suite.
+    if (tLocal && tLocal !== tCloud) { try { supabaseSave(_sessionStore); } catch(e) {} }
+  }
+
+  try { localStorage.setItem('salesdesk_rdvs', JSON.stringify(_sessionStore)); }
+  catch(e) { _signalerQuotaPlein(e); }
+  refreshAll();
+}
+
+// FIX SD-17 : le quota localStorage saturé ne doit plus échouer en silence.
+function _signalerQuotaPlein(e) {
+  console.error('Ecriture localStorage impossible :', e);
+  document.querySelectorAll('.sync-status').forEach(function(el) {
+    el.textContent = '⚠️ Stockage local plein'; el.style.color = 'var(--red)';
+  });
+  if (!window._quotaDejaSignale) {
+    window._quotaDejaSignale = true;
+    alert("⚠️ Le stockage local du navigateur est plein.\n\n"
+        + "Tes données continuent d'être sauvegardées dans le cloud, mais plus en local.\n"
+        + "Fais un backup (Objectifs & Config → Sauvegarde) et purge les transcriptions "
+        + "des anciens RDV pour libérer de la place.");
   }
 }
 
 function saveStore(store) {
+  // FIX SD-01 : horodatage utilisé pour arbitrer local vs cloud au démarrage.
+  store._lastWrite = new Date().toISOString();
   _sessionStore = store;
   // 1. Sauvegarder localement immédiatement
-  try { localStorage.setItem('salesdesk_rdvs', JSON.stringify(store)); } catch {}
+  try { localStorage.setItem('salesdesk_rdvs', JSON.stringify(store)); }
+  catch(e) { _signalerQuotaPlein(e); }
   // 2. Sauvegarder dans Supabase (debounce 1s pour éviter trop d'appels)
   if (_syncTimeout) clearTimeout(_syncTimeout);
   setSyncStatus('saving');
@@ -2897,6 +2907,7 @@ const state = {
 function refreshAll() {
   const kpis = computeKpis(state.month, state.year);
   renderKpis(kpis);
+  renderBenchmarks(kpis);
   renderAlert(kpis);
   renderCommission(kpis);
   renderDeals();
@@ -3051,9 +3062,56 @@ function updateField(idx, field, value, type) {
   }
 }
 
+// Remplace les anciennes comparaisons "moy. équipe", qui étaient du texte figé
+// dans le HTML (jamais recalculé, flèches incluses). On compare désormais au réel :
+// la moyenne de TES 3 derniers mois finis.
+function renderBenchmarks(kpis) {
+  const poser = (id, txt, sens) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = txt;
+    el.className = sens === 'up' ? 'up' : sens === 'down' ? 'down' : 'eq';
+  };
+  let st = null;
+  try { st = getLast3FinishedMonthsStats(); } catch (e) { st = null; }
+  if (!st || !st.moisAvecDonnees) {
+    ['bench-rdv','bench-showrate','bench-noshow','bench-signes','bench-closing','bench-cycle']
+      .forEach(id => poser(id, 'pas d\'historique', 'eq'));
+    return;
+  }
+  const nbMois = st.moisAvecDonnees;
+  const suffixe = ' (' + nbMois + ' mois)';
+  // Compare valeur du mois vs référence ; `mieuxSiBas` inverse le sens (no-show, cycle).
+  const cmp = (id, val, ref, unite, mieuxSiBas) => {
+    if (ref == null || isNaN(ref)) { poser(id, 'pas d\'historique', 'eq'); return; }
+    const r = Math.round(ref);
+    const sens = val === r ? 'eq' : (val > r) === !mieuxSiBas ? 'up' : 'down';
+    const fleche = sens === 'up' ? '↑ ' : sens === 'down' ? '↓ ' : '= ';
+    poser(id, fleche + 'moy. ' + r + unite + suffixe, sens);
+  };
+  cmp('bench-rdv',      kpis.total,      st.totalRdv / nbMois,     '',  false);
+  cmp('bench-showrate', kpis.showrate,   st.showRate,              '%', false);
+  cmp('bench-noshow',   kpis.noshowrate, 100 - st.showRate,        '%', true);
+  cmp('bench-signes',   kpis.signes,     st.totalSignes / nbMois,  '',  false);
+  cmp('bench-closing',  kpis.closing,    st.closingRate,           '%', false);
+  if (kpis.delai == null || st.cycleAvg == null) poser('bench-cycle', 'pas d\'historique', 'eq');
+  else cmp('bench-cycle', kpis.delai, st.cycleAvg, 'j', true);
+}
+
+// FIX SD-16 : un One Shot signé reste à 0 € tant que la commission n'est pas saisie
+// à la main (getComm ne sait pas la calculer). Autant le dire.
+function compterOneShotSansCommission(rows) {
+  return (rows || []).filter(r =>
+    r.result === 'Signé'
+    && (r.freq === 'One Shot' || r.oneshot === 'O')
+    && !(parseFloat(r.commission) > 0)
+  ).length;
+}
+
 function refreshKpis() {
   const kpis = computeKpis(state.month, state.year);
   renderKpis(kpis);
+  renderBenchmarks(kpis);
   renderAlert(kpis);
   renderCommission(kpis);
   renderDeals();
@@ -3222,10 +3280,32 @@ function calcOutboundPoints(events) {
   });
   return points;
 }
+// FIX SD-13 : la clé contenait l'heure de début du RDV. Un reschedule changeait la clé,
+// donc la pondération "Agences ×2" et le reclassement Inbound/Reschedule/PUB étaient perdus.
+// L'email du prospect, lui, ne bouge pas — et le type d'un prospect ne dépend pas de la date.
 function getOutboundOverrideKey(ev) {
-  const email = (ev.email||'').toLowerCase().trim();
+  const email = (ev.email || '').toLowerCase().trim();
+  if (email) return email;
   const startISO = ev.start ? new Date(ev.start).toISOString() : '';
-  return email + '|' + startISO;
+  return 'sansmail|' + startISO;
+}
+
+// Migration : replie les anciennes clés "email|2026-05-12T09:00:00.000Z" sur "email".
+// En cas de conflit, la valeur la plus récente (dernière clé rencontrée) gagne.
+function migrerClesOutbound() {
+  if (localStorage.getItem('salesdesk_fix_sd13') === 'done') return;
+  ['salesdesk_outbound_overrides', 'salesdesk_outbound_types'].forEach(function(storeKey) {
+    let map = {};
+    try { map = JSON.parse(localStorage.getItem(storeKey) || '{}'); } catch (e) { return; }
+    const out = {};
+    Object.keys(map).sort().forEach(function(k) {
+      const i = k.indexOf('|');
+      const nouvelle = (i > 0 && k.slice(i + 1).indexOf('T') >= 0) ? k.slice(0, i) : k;
+      out[nouvelle] = map[k];
+    });
+    try { localStorage.setItem(storeKey, JSON.stringify(out)); } catch (e) {}
+  });
+  localStorage.setItem('salesdesk_fix_sd13', 'done');
 }
 function changeOutboundSource(key, newSource) {
   saveOutboundOverride(key, newSource);
@@ -3301,8 +3381,8 @@ function renderOutboundTab(events, currentMonthKey) {
     const dupeBadge = isDuplicate ? '<span title="Email présent plusieurs fois (probable reschedule)" style="margin-left:6px;background:rgba(239,68,68,.1);color:#dc2626;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:700;">⚠️ DOUBLON</span>' : '';
     return `<tr style="${effectiveSource !== 'Outbound' ? 'opacity:.55;' : ''}">
       <td style="padding:8px;font-size:12px;font-weight:600;">${dateStr}<div style="font-size:10px;color:var(--text3);font-weight:400;">${heureStr}</div></td>
-      <td style="padding:8px;font-size:13px;font-weight:600;" colspan="2">${ev.name || '—'}${dupeBadge}</td>
-      <td style="padding:8px;font-size:11px;color:var(--text3);" colspan="2">${ev.email || '—'}</td>
+      <td style="padding:8px;font-size:13px;font-weight:600;" colspan="2">${escapeHtml(ev.name) || '—'}${dupeBadge}</td>
+      <td style="padding:8px;font-size:11px;color:var(--text3);" colspan="2">${escapeHtml(ev.email) || '—'}</td>
       <td style="padding:8px;" colspan="2">${badge}${ptBadge}</td>
       <td style="padding:8px;font-size:11px;color:var(--text3);" colspan="2">Créé le ${createdStr}</td>
       <td style="padding:8px;" colspan="3">
@@ -3374,9 +3454,6 @@ function renderRdvTable() {
     });
     outboundCount = obThisWeek.length;
     outboundPoints = calcOutboundPoints(obThisWeek);
-    console.log('[Outbound Tab] Total events:', allCalEv.length, '| Outbounds total:', outboundEvents.length, '| Cette semaine:', outboundCount, '| Points:', outboundPoints);
-  } else {
-    console.log('[Outbound Tab] weekEvents indisponible');
   }
   const r1CntEl = document.getElementById('rdv-tab-r1-count');
   const r2CntEl = document.getElementById('rdv-tab-r2-count');
@@ -3726,13 +3803,14 @@ function addToRdvTable(btn) {
   const statusPill = card.querySelector('.status-pill.active');
   const presRaw = statusPill ? statusPill.textContent.trim() : '';
   const presNorm = presRaw.includes('Annulé') ? 'Annulé' : presRaw.includes('Reprogrammé') ? 'Reprogrammé' : presRaw.includes('No') ? 'No Show' : presRaw.includes('Show') ? 'Show' : '';
-  const resultSels = card.querySelectorAll('.result-select');
-  const resRaw = resultSels[0] ? resultSels[0].value : '';
-  const resNorm = resRaw.includes('Signé') && !resRaw.includes('Non') ? 'Signé' :
-                  resRaw.includes('Non') ? 'Non signé' :
-                  resRaw.includes('R2') ? 'R2 planifié' : '';
-  // Type lu directement depuis le 2ème select de la carte
-  const type = resultSels[1] ? resultSels[1].value : 'Mandataire';
+  // FIX SD-10 : cette fonction lisait le résultat dans un <select> qui n'existe plus depuis
+  // le passage aux pills, et forçait donc toujours resNorm='' et type='Mandataire'.
+  const pillsGroup = card.querySelector('.rdv-result-pills');
+  const resultType = pillsGroup ? (pillsGroup.dataset.result || '') : '';
+  const resNorm = resultType === 'oneshot' ? 'Signé'
+                : resultType === 'nosign'  ? 'Non signé'
+                : resultType === 'r2'      ? 'R2 planifié' : '';
+  const type = lireTypeCarte(card, 'Mandataire');
 
   // Déterminer le bon mois depuis la date du RDV
   let targetMonth = state.month, targetYear = state.year;
@@ -3744,12 +3822,30 @@ function addToRdvTable(btn) {
     }
   }
 
-  addRdvToStore(targetMonth, targetYear, {
-    date: rdvDate || new Date().toLocaleDateString('fr-FR'),
-    datePrise: card.dataset.created || '',
-    client: name, presence: presNorm, result: resNorm,
-    source, type, pack: '', freq: '', oneshot: 'N', commission: 0
-  });
+  // FIX SD-10 : aucune vérification de doublon, contrairement à autoSyncCardToTable.
+  const _mk = targetYear + '-' + String(MONTHS_FR.indexOf(targetMonth) + 1).padStart(2, '0');
+  const _store = loadStore();
+  const _rows = _store[_mk] || [];
+  const _idx = _rows.findIndex(r => r.client === name && r.date === rdvDate);
+  if (_idx >= 0) {
+    if (presNorm) _rows[_idx].presence = presNorm;
+    if (resNorm)  _rows[_idx].result   = resNorm;
+    if (type)     _rows[_idx].type     = type;
+    if (source)   _rows[_idx].source   = source;
+    if (resNorm === 'Signé' && !_rows[_idx].dateSignature) {
+      _rows[_idx].dateSignature = new Date().toLocaleDateString('fr-FR');
+    }
+    _store[_mk] = _rows;
+    saveStore(_store);
+  } else {
+    addRdvToStore(targetMonth, targetYear, {
+      date: rdvDate || new Date().toLocaleDateString('fr-FR'),
+      datePrise: card.dataset.created || '',
+      client: name, presence: presNorm, result: resNorm,
+      source, type, pack: '', freq: '', oneshot: 'N', commission: 0,
+      dateSignature: resNorm === 'Signé' ? new Date().toLocaleDateString('fr-FR') : ''
+    });
+  }
 
   // Pipeline : R2 planifié → "Intéressé"
   if (resNorm === 'R2 planifié') {
@@ -3769,12 +3865,6 @@ function addToRdvTable(btn) {
   setTimeout(() => toast.remove(), 2000);
 
   refreshAll();
-}
-
-function saveCalendlyRdv() {
-  document.querySelectorAll('.rdv-card button[onclick="addToRdvTable(this)"]').forEach(btn => {
-    if (!btn.disabled) addToRdvTable(btn);
-  });
 }
 
 // ====== DONUT CHART ======
@@ -3973,20 +4063,30 @@ function restoreBackup(event) {
         'Continuer ?'
       );
       if (!ok) return;
-      // Backup de sécurité avant écrasement
-      try {
-        const safetyData = {};
-        for (let i = 0; i < localStorage.length; i++) {
-          const k = localStorage.key(i);
-          safetyData[k] = localStorage.getItem(k);
-        }
-        localStorage.setItem('_salesdesk_pre_restore_safety_' + Date.now(), JSON.stringify(safetyData));
-      } catch (e) {}
+      // FIX SD-02 : le filet de sécurité était écrit dans localStorage puis détruit par le clear().
+      // On le télécharge en fichier, hors du navigateur.
+      try { downloadBackup(); } catch (e) { console.warn('Backup de securite impossible:', e); }
       // Efface puis restaure
       localStorage.clear();
       Object.keys(parsed.data).forEach(k => {
         localStorage.setItem(k, parsed.data[k]);
       });
+      // FIX SD-02 : sans push cloud, initFromSupabase réécrasait la restauration au reload.
+      // On horodate les données restaurées et on les pousse AVANT de recharger.
+      let restaure = null;
+      try { restaure = JSON.parse(localStorage.getItem('salesdesk_rdvs') || '{}'); } catch (e) {}
+      if (restaure && Object.keys(restaure).length > 0) {
+        restaure._lastWrite = new Date().toISOString();
+        try { localStorage.setItem('salesdesk_rdvs', JSON.stringify(restaure)); } catch (e) {}
+        alert('✅ Restauration locale terminée.\n\nEnvoi vers le cloud, puis rechargement...');
+        supabaseSave(restaure).then(function(ok) {
+          if (ok) { location.reload(); return; }
+          alert('⚠️ Données restaurées en local, mais l\'envoi vers le cloud a échoué.\n\n'
+              + 'Ne recharge pas tout de suite : le cloud contient encore les anciennes données '
+              + 'et les réécrirait. Réessaie une sauvegarde quand la connexion revient.');
+        });
+        return;
+      }
       alert('✅ Restauration terminée.\n\nLa page va se recharger pour appliquer les changements.');
       location.reload();
     } catch (err) {
@@ -4131,8 +4231,19 @@ function getLast3FinishedMonthsStats() {
   var shows = r1Traites.filter(function(r) { return r.presence === 'Show'; });
   var signes = allRdvs.filter(function(r) { return r.result === 'Signé'; });
   var totalComm = signes.reduce(function(s, r) { return s + (getComm ? getComm(r) : (r.commission||0)); }, 0);
+  // Cycle de vente moyen sur la période (R1 → signature)
+  var _cycles = signes.filter(function(r) { return r.date && r.dateSignature; }).map(function(r) {
+    var p1 = String(r.date).split('/'), p2 = String(r.dateSignature).split('/');
+    if (p1.length !== 3 || p2.length !== 3) return null;
+    var d = Math.floor((new Date(+p2[2], +p2[1]-1, +p2[0]) - new Date(+p1[2], +p1[1]-1, +p1[0])) / 86400000);
+    return (isNaN(d) || d < 0) ? null : d;
+  }).filter(function(v) { return v !== null; });
+  var _moisAvecDonnees = months.filter(function(mk) { return (store[mk] || []).length > 0; }).length;
+
   return {
     months: months,
+    moisAvecDonnees: _moisAvecDonnees,
+    cycleAvg: _cycles.length ? Math.round(_cycles.reduce(function(a,b){return a+b;},0)/_cycles.length) : null,
     totalRdv: r1Traites.length,
     totalShows: shows.length,
     totalSignes: signes.length,
@@ -4380,14 +4491,15 @@ function selectDay(idx) {
       const srcColor = r.source === 'Inbound' ? 'var(--accent)' : (r.source === 'R2' ? 'var(--orange)' : 'var(--purple)');
       const srcBg = r.source === 'Inbound' ? 'var(--accent-bg)' : (r.source === 'R2' ? 'var(--orange-bg, #fff7ed)' : 'var(--purple-bg)');
       const rdvDateStr = r.start.toLocaleDateString('fr-FR');
-      return `<div class="rdv-card${r.source==='R2'?' is-r2':''}" id="rdv-${key}-${i}" data-source="${r.source}" data-name="${r.name}" data-email="${r.email}" data-date="${rdvDateStr}">
+      const _n = escapeHtml(r.name), _e = escapeHtml(r.email || ''), _ev = escapeHtml(r.eventName || '');
+      return `<div class="rdv-card${r.source==='R2'?' is-r2':''}" id="rdv-${key}-${i}" data-source="${r.source}" data-name="${_n}" data-email="${_e}" data-date="${rdvDateStr}">
         <div style="display:flex;flex-direction:column;align-items:center;gap:6px;min-width:52px;">
           <div class="rdv-time" style="${isPast ? 'color:var(--text3)' : ''}">${heure}</div>
           <span style="font-size:10px;font-weight:600;padding:2px 6px;border-radius:99px;background:${srcBg};color:${srcColor};white-space:nowrap;">${r.source}</span>
         </div>
         <div class="rdv-info">
-          <div class="rdv-name">${r.name}</div>
-          <div class="rdv-meta">${r.email} · ${r.eventName} · ${duree} min${isPast ? ' · <span style="color:var(--text3)">passé</span>' : ''}</div>
+          <div class="rdv-name">${_n}</div>
+          <div class="rdv-meta">${_e} · ${_ev} · ${duree} min${isPast ? ' · <span style="color:var(--text3)">passé</span>' : ''}</div>
           <div class="rdv-status" style="flex-wrap:wrap;">
             <button class="status-pill show" onclick="setStatus(this,'show')">● Show</button>
             <button class="status-pill noshow" onclick="setStatus(this,'noshow')">✗ No Show</button>
@@ -4460,28 +4572,8 @@ async function fetchWeekEvents() {
         const invData = await invRes.json();
         const inv = invData.collection?.[0];
 
-        // Détecter la source via l'event_type URI
-        // ⚠️ Priorité 1 : si l'event est un R2 (nom contient "Validation"), source = 'R2'
-        // Si l'event_type fait partie des types "solo" de Nicolas → Outbound
-        // Si c'est un Round Robin / type d'équipe → Inbound
-        const eventTypeUri = ev.event_type || '';
-        const eventNameLower = (ev.name || '').toLowerCase();
-        const outboundTypes = new Set(state.calendly.outboundEventTypes || JSON.parse(localStorage.getItem('calendly_outbound_types') || '[]'));
-        const inboundTypes = new Set(state.calendly.inboundEventTypes || JSON.parse(localStorage.getItem('calendly_inbound_types') || '[]'));
-        let source;
-        if (eventNameLower.includes('validation')) {
-          // R2 = Validation & lancement RealAdvisor (priorité absolue)
-          source = 'R2';
-        } else if (inboundTypes.has(eventTypeUri)) {
-          source = 'Inbound';
-        } else if (outboundTypes.has(eventTypeUri)) {
-          source = 'Outbound';
-        } else {
-          // Fallback: regarder les memberships
-          const memberships = ev.event_memberships || [];
-          const isRoundRobin = memberships.length > 1;
-          source = isRoundRobin ? 'Inbound' : 'Outbound';
-        }
+        // FIX SD-12 : détection unifiée avec dailyCalFetch (elles divergeaient).
+        const source = detecterSourceCalendly(ev);
 
         return {
           name: inv?.name || 'Invité',
@@ -4798,6 +4890,109 @@ function dailyCalRenderNav() {
   }).join('');
 }
 
+// ============================================================
+// CALENDLY — briques communes aux deux blocs de synchro
+// ------------------------------------------------------------
+// FIX SD-12 : la détection de source était dupliquée et divergente — dailyCalFetch
+// comparait à une seule URI en dur, fetchWeekEvents utilisait les listes configurées.
+// Un même RDV pouvait sortir Outbound d'un côté et Inbound de l'autre.
+// ============================================================
+const CALENDLY_OUTBOUND_URI = 'https://api.calendly.com/event_types/d6280962-6237-4f86-9d92-8320c817f400';
+
+function detecterSourceCalendly(ev) {
+  const nom = (ev.name || '').toLowerCase();
+  // R2 = "Validation & lancement RealAdvisor". Priorité absolue.
+  if (nom.indexOf('validation') >= 0 && nom.indexOf('lancement') >= 0) return 'R2';
+  if (/\br2\b/.test(nom)) return 'R2';
+
+  const type = ev.event_type || '';
+  let inbounds = [], outbounds = [];
+  try { inbounds  = state.calendly.inboundEventTypes  || JSON.parse(localStorage.getItem('calendly_inbound_types')  || '[]'); } catch (e) {}
+  try { outbounds = state.calendly.outboundEventTypes || JSON.parse(localStorage.getItem('calendly_outbound_types') || '[]'); } catch (e) {}
+  if (inbounds.indexOf(type) >= 0) return 'Inbound';
+  if (outbounds.indexOf(type) >= 0) return 'Outbound';
+  if (type === CALENDLY_OUTBOUND_URI) return 'Outbound';
+  // Repli : un Round Robin (plusieurs membres) est un lien d'équipe, donc Inbound.
+  return ((ev.event_memberships || []).length > 1) ? 'Inbound' : 'Outbound';
+}
+
+// FIX SD-07 : count=100 sans pagination tronquait silencieusement les longues plages.
+async function calendlyListerEvents(key, params, maxPages) {
+  const out = [];
+  let url = 'https://api.calendly.com/scheduled_events?' + params.toString();
+  let pages = 0;
+  const limite = maxPages || 10;
+  while (url && pages < limite) {
+    const res = await fetch(url, { headers: { Authorization: 'Bearer ' + key, 'Content-Type': 'application/json' } });
+    if (!res.ok) throw new Error('API error ' + res.status);
+    const data = await res.json();
+    (data.collection || []).forEach(ev => out.push(ev));
+    url = (data.pagination && data.pagination.next_page) ? data.pagination.next_page : null;
+    pages++;
+  }
+  if (url) console.warn('[Calendly] Pagination interrompue apres ' + limite + ' pages — resultats possiblement incomplets.');
+  return out;
+}
+
+// FIX SD-18 : les invités étaient récupérés un par un en série (N+1 allers-retours).
+async function calendlyEnrichirInvites(key, events) {
+  return Promise.all(events.map(async ev => {
+    let name = '—', email = '';
+    try {
+      const r = await fetch('https://api.calendly.com/scheduled_events/' + ev.uri.split('/').pop() + '/invitees?count=1',
+                            { headers: { Authorization: 'Bearer ' + key } });
+      const d = await r.json();
+      const inv = d.collection && d.collection[0];
+      if (inv) { name = inv.name || '—'; email = inv.email || ''; }
+    } catch (e) {}
+    return { ev: ev, name: name, email: email };
+  }));
+}
+
+// FIX SD-07 : compteur Outbound et déduplication par email sur 2 mois glissants.
+// Ils s'appuyaient sur `weekEvents`, qui ne contient qu'une semaine à partir du lundi
+// affiché — la fenêtre annoncée n'existait donc pas. Ce fetch la rend réelle.
+var _outbound2Mois = [];
+var _outbound2MoisEnCours = false;
+
+async function fetchOutbound2Mois() {
+  if (_outbound2MoisEnCours) return _outbound2Mois;
+  const key = state.calendly?.apiKey || localStorage.getItem('calendly_key');
+  if (!key) return _outbound2Mois;
+  _outbound2MoisEnCours = true;
+  try {
+    const now = new Date();
+    // On borne sur la date du RDV : un outbound pris il y a 2 mois a pu être posé
+    // jusqu'à ~2 mois plus tard, d'où la marge en avant.
+    const debut = new Date(now.getFullYear(), now.getMonth() - 3, 1);
+    const fin   = new Date(now.getFullYear(), now.getMonth() + 3, 0, 23, 59, 59);
+    const params = new URLSearchParams({
+      user: 'https://api.calendly.com/users/f350a265-f5cb-45f5-a491-b3c864a2f7d3',
+      min_start_time: debut.toISOString(),
+      max_start_time: fin.toISOString(),
+      count: '100'
+    });
+    const bruts = (await calendlyListerEvents(key, params, 20)).filter(ev => ev.status !== 'canceled');
+    const enrichis = await calendlyEnrichirInvites(key, bruts);
+    _outbound2Mois = enrichis.map(item => ({
+      start: new Date(item.ev.start_time),
+      end: new Date(item.ev.end_time),
+      name: item.name,
+      email: item.email,
+      source: detecterSourceCalendly(item.ev),
+      eventName: item.ev.name || '',
+      uri: item.ev.uri,
+      createdAt: item.ev.created_at ? new Date(item.ev.created_at) : null
+    }));
+    console.log('[Outbound 2 mois] ' + _outbound2Mois.length + ' events chargés, dont '
+              + _outbound2Mois.filter(e => e.source === 'Outbound').length + ' outbound.');
+  } catch (e) {
+    console.warn('[Outbound 2 mois] echec du chargement :', e);
+  }
+  _outbound2MoisEnCours = false;
+  return _outbound2Mois;
+}
+
 async function dailyCalFetch() {
   if (_dailyCalFetching) return;
   _dailyCalFetching = true;
@@ -4810,38 +5005,27 @@ async function dailyCalFetch() {
   if (statusEl) { statusEl.textContent = '⏳ Chargement...'; statusEl.style.background='var(--accent-bg)'; statusEl.style.color='var(--accent)'; }
   try {
     const userUri = 'https://api.calendly.com/users/f350a265-f5cb-45f5-a491-b3c864a2f7d3';
-    const outboundUri = 'https://api.calendly.com/event_types/d6280962-6237-4f86-9d92-8320c817f400';
-    // ⚠️ On enlève le filtre status='active' pour récupérer aussi les events reschedulés
-    // (Calendly considère parfois les events post-reschedule avec un statut différent)
-    // On filtre les 'canceled' nous-mêmes côté code pour plus de robustesse
+    // ⚠️ Pas de filtre status='active' : on veut aussi les events reschedulés.
+    // Les 'canceled' sont écartés côté code, c'est plus robuste.
     const params = new URLSearchParams({ user: userUri, min_start_time: start.toISOString(), max_start_time: end.toISOString(), count: '100' });
-    const res = await fetch('https://api.calendly.com/scheduled_events?' + params, { headers: { Authorization: 'Bearer ' + key, 'Content-Type': 'application/json' } });
-    if (!res.ok) throw new Error('API error ' + res.status);
-    const data = await res.json();
+    const bruts = (await calendlyListerEvents(key, params)).filter(ev => ev.status !== 'canceled');
+    const enrichis = await calendlyEnrichirInvites(key, bruts);
     _dailyCalWeekEvents = {};
-    for (const ev of (data.collection || [])) {
-      // Skip explicitly canceled events (sauf si rescheduled vers nouvelle date — celui-là est un autre event distinct)
-      if (ev.status === 'canceled') continue;
+    for (const item of enrichis) {
+      const ev = item.ev;
       const s = new Date(ev.start_time), e = new Date(ev.end_time);
       const dateKey = s.toLocaleDateString('fr-FR');
-      const isOutbound = ev.event_type === outboundUri;
-      let name = '—', email = '';
-      try {
-        const invRes = await fetch('https://api.calendly.com/scheduled_events/' + ev.uri.split('/').pop() + '/invitees', { headers: { Authorization: 'Bearer ' + key } });
-        const invData = await invRes.json();
-        const inv = invData.collection?.[0];
-        if (inv) { name = inv.name || '—'; email = inv.email || ''; }
-      } catch {}
+      const sourceLabel = detecterSourceCalendly(ev);   // FIX SD-12 : détection unifiée
+      const isR2 = sourceLabel === 'R2';
       if (!_dailyCalWeekEvents[dateKey]) _dailyCalWeekEvents[dateKey] = [];
-      // Détection R2 : event nommé "Validation & lancement RealAdvisor" (plus tolérante)
-      const evName = ev.name || '';
-      const evNameLower = evName.toLowerCase();
-      const isR2 = (evNameLower.indexOf('validation') >= 0 && evNameLower.indexOf('lancement') >= 0)
-                || (evNameLower.indexOf('r2') >= 0)
-                || (evNameLower.indexOf('realadvisor') >= 0 && evNameLower.indexOf('validation') >= 0);
-      const sourceLabel = isR2 ? 'R2' : (isOutbound ? 'Outbound' : 'Inbound');
-      if (isR2) console.log('[Calendly] R2 detecte :', evName, '·', name);
-      _dailyCalWeekEvents[dateKey].push({ start: s, end: e, name, email, source: sourceLabel, eventName: evName, isR2: isR2 });
+      _dailyCalWeekEvents[dateKey].push({
+        start: s, end: e, name: item.name, email: item.email,
+        source: sourceLabel, eventName: ev.name || '', isR2: isR2,
+        uri: ev.uri,
+        // FIX SD-06 : createdAt n'était pas lu ici, si bien que persistCalendlyEventsToStore
+        // datait la prise du RDV au jour de la synchro.
+        createdAt: ev.created_at ? new Date(ev.created_at) : null
+      });
     }
     // ❌ Matching auto R1 ↔ R2 DÉSACTIVÉ (créait des doublons)
     // Les R2 sont gérés UNIQUEMENT via le clic "R2 planifié" dans Quotidien sur la card R1
@@ -4926,7 +5110,10 @@ function persistCalendlyEventsToStore(weekEvents) {
         remise: '',
         dateR2: '',
         heureR2: '',
-        datePrise: new Date().toLocaleDateString('fr-FR'),
+        // FIX SD-06 : on datait la prise au jour de la synchro, ce qui rattachait
+        // l'outbound au mauvais mois. On utilise la date de création Calendly.
+        datePrise: ev.createdAt ? ev.createdAt.toLocaleDateString('fr-FR')
+                                : new Date().toLocaleDateString('fr-FR'),
         _calendlyImported: true
       });
       modified = true;
@@ -4937,7 +5124,7 @@ function persistCalendlyEventsToStore(weekEvents) {
     saveStore(store);
     // Re-render le RDV Table s'il est actif (pour que les nouveaux RDV apparaissent)
     if (typeof renderRdvTable === 'function') {
-      const rdvPage = document.getElementById('page-rdv-table');
+      const rdvPage = document.getElementById('page-rdvtable');   // FIX : l'id est page-rdvtable
       if (rdvPage && rdvPage.classList.contains('active')) renderRdvTable();
     }
   }
@@ -4965,15 +5152,16 @@ function dailyCalRenderDay(d) {
     const isPast  = r.end < now;
     const srcColor = r.source === 'Inbound' ? 'var(--accent)' : (r.source === 'R2' ? 'var(--orange)' : 'var(--purple)');
     const srcBg    = r.source === 'Inbound' ? 'var(--accent-bg)' : (r.source === 'R2' ? 'var(--orange-bg, #fff7ed)' : 'var(--purple-bg)');
-    return `<div class="rdv-card${r.source==='R2'?' is-r2':''}" id="dcal-${i}" data-source="${r.source}" data-name="${r.name}" data-email="${r.email||''}" data-date="${dateKey}" data-created="${r.createdAt ? r.createdAt.toLocaleDateString('fr-FR') : ''}">
+    const _n = escapeHtml(r.name), _e = escapeHtml(r.email || ''), _ev = escapeHtml(r.eventName || '');
+    return `<div class="rdv-card${r.source==='R2'?' is-r2':''}" id="dcal-${i}" data-source="${r.source}" data-name="${_n}" data-email="${_e}" data-date="${dateKey}" data-created="${r.createdAt ? r.createdAt.toLocaleDateString('fr-FR') : ''}">
       <div style="display:flex;flex-direction:column;align-items:center;gap:6px;min-width:52px;">
         <div class="rdv-time" style="${isPast?'color:var(--text3)':''}">${heure}</div>
         <span style="font-size:10px;font-weight:600;padding:2px 6px;border-radius:99px;background:${srcBg};color:${srcColor};white-space:nowrap;">${r.source}</span>
         <span style="font-size:10px;color:var(--text3);">${duree} min</span>
       </div>
       <div class="rdv-info" style="flex:1;">
-        <div class="rdv-name">${r.name}</div>
-        <div class="rdv-meta">${r.email||''} ${r.eventName ? '· '+r.eventName : ''}${isPast?' · <span style="color:var(--text3)">passé</span>':''}</div>
+        <div class="rdv-name">${_n}</div>
+        <div class="rdv-meta">${_e} ${_ev ? '· '+_ev : ''}${isPast?' · <span style="color:var(--text3)">passé</span>':''}</div>
         <div class="rdv-status" style="margin-top:8px;flex-wrap:wrap;">
           <button class="status-pill show" onclick="setStatus(this,'show')">● Show</button>
           <button class="status-pill noshow" onclick="setStatus(this,'noshow')">✗ No Show</button>
@@ -5104,8 +5292,69 @@ function dailyCalRefresh() {
 // ====== INIT ======
 let _calendlyKey = null;
 
+// ============================================================
+// REPARATION SD-03 — types écrasés par une valeur de Pack ou de Fréquence
+// ------------------------------------------------------------
+// Tant que le bug était actif, un clic sur une pill après avoir choisi un Pack
+// écrivait "Pro+" / "Annuelle" / ... dans le champ `type`. Ces lignes ne sont ni
+// mandataire ni agence : elles disparaissent du donut et du closing par type.
+// On récupère la valeur dans son bon champ quand il est vide, puis on vide `type`
+// pour que la ligne soit signalée plutôt que devinée.
+var _PACKS_CONNUS = ['Start+', 'Pro+', 'Expert+', 'Start', 'Pro', 'Expert'];
+var _FREQS_CONNUES = ['Annuelle', 'Mensuelle', 'One Shot'];
+var _TIERS_CONNUS  = ['T1', 'T2', 'T3', 'T4'];
+var _FMS_CONNUS    = ['100%', '50%', 'offert'];
+
+function reparerTypesCorrompus() {
+  if (localStorage.getItem('salesdesk_fix_sd03') === 'done') return;
+  var store = loadStore();
+  var suspects = [];
+  for (var mk in store) {
+    if (!store.hasOwnProperty(mk) || !/^\d{4}-\d{2}$/.test(mk)) continue;
+    var rows = store[mk] || [];
+    for (var i = 0; i < rows.length; i++) {
+      var t = (rows[i].type || '').trim();
+      if (!t) continue;
+      var tl = t.toLowerCase();
+      if (tl.indexOf('mandat') >= 0 || tl.indexOf('agence') >= 0) continue;
+      suspects.push({ mk: mk, i: i, row: rows[i], t: t });
+    }
+  }
+  if (suspects.length === 0) { localStorage.setItem('salesdesk_fix_sd03', 'done'); return; }
+
+  // Sauvegarde obligatoire avant toute modification du store
+  try { localStorage.setItem('salesdesk_rdvs_backup_' + Date.now(), JSON.stringify(store)); }
+  catch (e) { console.warn('Backup pre-reparation impossible:', e); }
+
+  var recuperes = 0;
+  suspects.forEach(function(sp) {
+    var r = sp.row, t = sp.t;
+    if (_PACKS_CONNUS.indexOf(t) >= 0)       { if (!r.pack) { r.pack = t; recuperes++; } }
+    else if (_FREQS_CONNUES.indexOf(t) >= 0) { if (!r.freq) { r.freq = t; recuperes++; } }
+    else if (_TIERS_CONNUS.indexOf(t) >= 0)  { if (!r.tier) { r.tier = t; recuperes++; } }
+    else if (_FMS_CONNUS.indexOf(t) >= 0)    { if (!r.fms)  { r.fms  = t; recuperes++; } }
+    r.type = '';              // à requalifier à la main dans la RDV Table
+    r._typeArequalifier = true;
+  });
+  saveStore(store);
+  localStorage.setItem('salesdesk_fix_sd03', 'done');
+  console.warn('[Reparation SD-03] ' + suspects.length + ' ligne(s) au type invalide corrigee(s), '
+             + recuperes + ' valeur(s) remise(s) dans le bon champ.');
+  setTimeout(function() {
+    alert('🔧 Réparation automatique\n\n'
+        + suspects.length + ' RDV avaient un type invalide (un Pack ou une Fréquence '
+        + 'écrit par erreur dans la colonne Type).\n\n'
+        + recuperes + ' valeur(s) ont été remises dans la bonne colonne.\n\n'
+        + 'Ces RDV sont maintenant SANS TYPE et surlignés en jaune dans la RDV Table : '
+        + 'repasse-les en Mandataire ou Agences pour que le donut et le closing par type '
+        + 'redeviennent justes.');
+  }, 2500);
+}
+
 window.addEventListener('load', async () => {
   initDefaultData();
+  reparerTypesCorrompus();
+  migrerClesOutbound();
   // Synchroniser le sélecteur mois/année avec le state (= mois courant par défaut)
   (function() {
     var ms = document.getElementById('monthSelect');
@@ -5171,6 +5420,8 @@ window.addEventListener('load', async () => {
     fetchWeekEvents().then(function() {
       renderDaily();
     }).catch(function(){});
+    // FIX SD-07 : fenêtre outbound de 2 mois, indépendante de la semaine affichée
+    fetchOutbound2Mois().then(function() { renderDaily(); }).catch(function(){});
     // Re-render de sécurité 3s après le démarrage
     setTimeout(function() {
       if (document.getElementById('page-daily').classList.contains('active')) renderDaily();
@@ -5222,6 +5473,30 @@ function getJoursOuvres(month, year) {
   return count || 1;
 }
 
+// ============================================================
+// HELPERS PARTAGÉS — une seule définition de "R1 traité" pour tout le dashboard.
+// Avant, Analytics, Global et l'historique mensuel comptaient chacun à leur façon.
+// ============================================================
+const PRESENCES_TRAITEES = ['Show', 'No Show', 'Annulé', 'Reprogrammé'];
+
+function estR1(r)      { return r && r.source !== 'R2'; }
+function estTraite(r)  { return r && PRESENCES_TRAITEES.indexOf((r.presence || '').trim()) >= 0; }
+function r1Traites(rows) { return (rows || []).filter(r => estR1(r) && estTraite(r)); }
+
+// Un prospect signé au R2 a son R1 en 'R2 planifié' (result vide) et la signature sur la ligne R2.
+// Pour savoir si un R1 a fini par signer, il faut donc regarder toutes les lignes du même client.
+function setDesClientsSignes(rows) {
+  const set = new Set();
+  (rows || []).forEach(r => {
+    if (r.result === 'Signé' && r.client) set.add(String(r.client).toLowerCase().trim());
+  });
+  return set;
+}
+function aFiniParSigner(r, set) {
+  if (r.result === 'Signé') return true;
+  return !!(r.client && set.has(String(r.client).toLowerCase().trim()));
+}
+
 function computeKpis(month, year) {
   const rows = getRdvs(month, year);
   const MONTHS_IDX = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
@@ -5270,24 +5545,72 @@ function computeKpis(month, year) {
   const rdvParJour = total > 0 ? (total / joursOuvres).toFixed(1) : '0';
   const showsParJour = shows > 0 ? (shows / joursOuvres).toFixed(1) : '0';
 
-  // Délai R1→R2
+  // Écart en jours entre deux dates "DD/MM/YYYY"
+  const _ecartJours = (d1, d2) => {
+    if (!d1 || !d2) return null;
+    const p1 = String(d1).split('/'), p2 = String(d2).split('/');
+    if (p1.length !== 3 || p2.length !== 3) return null;
+    const a = new Date(+p1[2], +p1[1]-1, +p1[0]), b = new Date(+p2[2], +p2[1]-1, +p2[0]);
+    if (isNaN(a) || isNaN(b)) return null;
+    return Math.floor((b - a) / 86400000);
+  };
+  const _moyenne = (arr) => arr.length ? Math.round(arr.reduce((x,y)=>x+y,0)/arr.length) : null;
+
+  // Cycle de vente : R1 → signature.
+  // (Anciennement libellé "Délai R1→R2" alors que le calcul n'a jamais porté sur dateR2.)
   let delai = null;
   if (hasDelai) {
-    const s2 = signesRows.filter(r => r.dateSignature);
-    if (s2.length > 0) {
-      const delays = s2.map(r => {
-        const p1 = r.date.split('/'); const p2 = r.dateSignature.split('/');
-        if (p1.length!==3||p2.length!==3) return 0;
-        return Math.max(0, Math.floor((new Date(+p2[2],+p2[1]-1,+p2[0]) - new Date(+p1[2],+p1[1]-1,+p1[0]))/86400000));
-      });
-      delai = Math.round(delays.reduce((a,b)=>a+b,0)/delays.length);
-    }
+    const ecarts = signesRows.filter(r => r.dateSignature)
+      .map(r => _ecartJours(r.date, r.dateSignature))
+      .filter(v => v !== null && v >= 0);
+    delai = _moyenne(ecarts);
   }
 
-  // Mandataire vs Agences — ce mois uniquement, exclure les R2 (cohérent avec Total RDV)
-  const mandataires = rowsR1.filter(r => (r.type||'').toLowerCase().includes('mandat'));
-  const agences = rowsR1.filter(r => (r.type||'').toLowerCase().includes('agence'));
-  const inbound = rowsR1.filter(r => r.source === 'Inbound');
+  // Vrai délai R1 → R2, celui que le libellé annonçait.
+  const _ecartsR2 = rowsR1.filter(r => r.dateR2 && r.dateR2.trim())
+    .map(r => _ecartJours(r.date, r.dateR2))
+    .filter(v => v !== null && v >= 0);
+  const delaiR1R2 = _moyenne(_ecartsR2);
+  const nbDelaiR1R2 = _ecartsR2.length;
+
+  // Délai prise → RDV : explique pourquoi une bonne semaine d'outbound
+  // ne se voit dans les shows que deux ou trois semaines plus tard.
+  const _ecartsPrise = rowsR1.filter(r => r.datePrise && r.datePrise.trim())
+    .map(r => _ecartJours(r.datePrise, r.date))
+    .filter(v => v !== null && v >= 0 && v < 200);
+  const delaiPriseRdv = _moyenne(_ecartsPrise);
+  const nbDelaiPriseRdv = _ecartsPrise.length;
+
+  // No-show détaillé : un reprogrammé est récupérable, pas un no-show sec.
+  const vraisNoShow  = rowsR1Traites.filter(r => r.presence === 'No Show').length;
+  const annules      = rowsR1Traites.filter(r => r.presence === 'Annulé').length;
+  const reprogrammes = rowsR1Traites.filter(r => r.presence === 'Reprogrammé').length;
+
+  // Closing en cohorte : des shows R1 de CE mois, combien ont fini par signer (à ce jour) ?
+  // Le closing mensuel classique divise les signés du mois par les shows du mois, alors que
+  // le cycle est de 2 à 4 semaines : les deux populations ne sont pas les mêmes.
+  const _toutesLignes = [];
+  const _st = loadStore();
+  for (const _k in _st) {
+    if (!_st.hasOwnProperty(_k) || !/^\d{4}-\d{2}$/.test(_k)) continue;
+    (_st[_k] || []).forEach(r => _toutesLignes.push(r));
+  }
+  const _setSignes = setDesClientsSignes(_toutesLignes);
+  const _cohorte = rowsR1Traites.filter(r => r.presence === 'Show');
+  const cohorteShows  = _cohorte.length;
+  const cohorteSignes = _cohorte.filter(r => aFiniParSigner(r, _setSignes)).length;
+  const closingCohorte = cohorteShows > 0 ? Math.round(cohorteSignes / cohorteShows * 100) : 0;
+
+  // FIX SD-05 : Mandataires + Agences doit égaler Total RDV (invariant 3).
+  // On compte donc sur rowsR1Traites, pas sur rowsR1 (qui inclut les RDV futurs).
+  const mandataires = rowsR1Traites.filter(r => (r.type||'').toLowerCase().includes('mandat'));
+  const agences = rowsR1Traites.filter(r => (r.type||'').toLowerCase().includes('agence'));
+  // Lignes traitées sans type exploitable : elles doivent être visibles, pas évaporées.
+  const sansType = rowsR1Traites.filter(r => {
+    const t = (r.type||'').toLowerCase();
+    return t.indexOf('mandat') < 0 && t.indexOf('agence') < 0;
+  });
+  const inbound = rowsR1Traites.filter(r => r.source === 'Inbound');
 
   // Outbound : compter par DATE DE PRISE (datePrise) et non date du RDV.
   //   - Inclut : tout outbound dont datePrise tombe dans le mois sélectionné (RDV peut être dans un autre mois)
@@ -5320,7 +5643,9 @@ function computeKpis(month, year) {
 
   return { total, shows, noshow, signes, closing, oneshot, showrate, noshowrate,
     commission, mrr, inbound, outbound, pub, rdvParJour, showsParJour, joursOuvres,
-    delai, hasDelai, hasOneShot, hasBonus, mandataires, agences, signesRows };
+    delai, hasDelai, hasOneShot, hasBonus, mandataires, agences, sansType, signesRows,
+    delaiR1R2, nbDelaiR1R2, delaiPriseRdv, nbDelaiPriseRdv,
+    reprogrammes, annules, vraisNoShow, closingCohorte, cohorteShows, cohorteSignes };
 }
 
 function renderBonusSteps(current, hasBonus) {
@@ -5420,15 +5745,40 @@ function renderKpis(kpis) {
   set('kpi-signes', kpis.signes);
   set('kpi-closing', kpis.closing + '%');
   set('kpi-oneshot', kpis.hasOneShot ? (kpis.oneshot ?? '—') : '—');
+  const nbOsVide = compterOneShotSansCommission(getRdvs(state.month, state.year));
+  const osEl = document.getElementById('kpi-oneshot-warn');
+  if (osEl) {
+    osEl.style.display = nbOsVide > 0 ? '' : 'none';
+    osEl.textContent = nbOsVide > 0 ? '⚠️ ' + nbOsVide + ' à chiffrer' : '';
+  }
 
   // One Shot card — masqué en Octobre uniquement
   const oneshotCard = document.getElementById('kpi-oneshot-card');
   if (oneshotCard) oneshotCard.style.display = kpis.hasOneShot ? '' : 'none';
 
-  // Délai card — masqué avant Mars 2026
+  // Délai card — masqué avant Mars 2026. Libellé corrigé : c'est le cycle de vente (R1→signature).
   const delaiCard = document.getElementById('kpi-delai-card');
   if (delaiCard) delaiCard.style.display = kpis.hasDelai ? '' : 'none';
-  if (kpis.hasDelai) set('kpi-r1r2', kpis.delai != null ? kpis.delai + ' j' : '—');
+  if (kpis.hasDelai) {
+    set('kpi-r1r2', kpis.delai != null ? kpis.delai + ' j' : '—');
+    set('kpi-cycle-sub', kpis.signes > 0 ? 'sur ' + kpis.signes + ' vente(s)' : 'aucune vente');
+  }
+
+  // Vrai délai R1 → R2
+  set('kpi-delai-r2', kpis.delaiR1R2 != null ? kpis.delaiR1R2 + ' j' : '—');
+  set('kpi-delai-r2-sub', kpis.nbDelaiR1R2 > 0 ? 'sur ' + kpis.nbDelaiR1R2 + ' R2 planifié(s)' : 'aucun R2 planifié');
+
+  // Délai prise → RDV
+  set('kpi-delai-prise', kpis.delaiPriseRdv != null ? kpis.delaiPriseRdv + ' j' : '—');
+  set('kpi-delai-prise-sub', kpis.nbDelaiPriseRdv > 0 ? 'sur ' + kpis.nbDelaiPriseRdv + ' RDV' : 'date de prise absente');
+
+  // Closing en cohorte
+  set('kpi-closing-cohorte', kpis.cohorteShows > 0 ? kpis.closingCohorte + '%' : '—');
+  set('kpi-closing-cohorte-sub', kpis.cohorteSignes + ' signés / ' + kpis.cohorteShows + ' shows du mois');
+
+  // No Show détaillé : le reprogrammé est récupérable, il ne doit pas être noyé dans le no-show.
+  set('kpi-noshow-detail',
+      kpis.vraisNoShow + ' no show · ' + kpis.annules + ' annulés · ' + kpis.reprogrammes + ' reprog.');
 
   // RDV/jour et Shows/jour
   set('rdv-par-jour', kpis.rdvParJour);
@@ -5436,14 +5786,24 @@ function renderKpis(kpis) {
   set('jours-ouvres', 'sur ' + kpis.joursOuvres + 'j ouvrés');
   set('shows-jours-ouvres', kpis.shows + ' présents');
 
-  // Mandataires vs Agences (exclure R2 pour cohérence avec rowsR1)
-  const rows = getRdvs(state.month, state.year).filter(r => r.source !== 'R2');
-  const mandRows = rows.filter(r => (r.type||'').toLowerCase().includes('mandat'));
-  const agRows = rows.filter(r => (r.type||'').toLowerCase().includes('agence'));
+  // FIX SD-05 : même population que le KPI "Total RDV" (R1 traités), sinon le total
+  // du donut dépasse le Total RDV dès qu'il reste un RDV futur dans le mois.
+  const mandRows = kpis.mandataires || [];
+  const agRows   = kpis.agences || [];
+  const stRows   = kpis.sansType || [];
   const nbMand = mandRows.length;
-  const nbAg = agRows.length;
+  const nbAg   = agRows.length;
+  const nbSansType = stRows.length;
 
-  set('donut-total', nbMand + nbAg);
+  set('donut-total', nbMand + nbAg + nbSansType);
+  // Les lignes sans type valide sont signalées au lieu de disparaître silencieusement.
+  const stEl = document.getElementById('sans-type-warn');
+  if (stEl) {
+    stEl.style.display = nbSansType > 0 ? '' : 'none';
+    stEl.innerHTML = nbSansType > 0
+      ? '⚠️ <b>' + nbSansType + '</b> RDV sans type — à requalifier dans la RDV Table'
+      : '';
+  }
   const mEl = document.getElementById('mand-label');
   if (mEl) mEl.innerHTML = 'Mandataire — <b>' + nbMand + '</b>';
   const aEl = document.getElementById('ag-label');
@@ -5592,8 +5952,8 @@ function renderCommission(kpis) {
 function toggleDarkMode() {
   var isDark = document.documentElement.getAttribute('data-theme') === 'dark';
   document.documentElement.setAttribute('data-theme', isDark ? 'light' : 'dark');
-  var btn = document.getElementById('dark-toggle-btn');
-  if (btn) btn.classList.toggle('on', !isDark);
+  // FIX SD-15 : trois en-têtes portaient le même id, getElementById n'en voyait qu'un.
+  document.querySelectorAll('.dark-toggle-btn').forEach(function(b) { b.classList.toggle('on', !isDark); });
   try { localStorage.setItem('sd_dark', !isDark ? '1' : '0'); } catch(e) {}
 }
 (function() {
@@ -5601,7 +5961,7 @@ function toggleDarkMode() {
     if (localStorage.getItem('sd_dark') === '1') {
       document.documentElement.setAttribute('data-theme', 'dark');
       document.addEventListener('DOMContentLoaded', function() {
-        var b = document.getElementById('dark-toggle-btn'); if(b) b.classList.add('on');
+        document.querySelectorAll('.dark-toggle-btn').forEach(function(b) { b.classList.add('on'); });
       });
     }
   } catch(e) {}
@@ -5840,23 +6200,28 @@ function renderDaily() {
   var _filterStartDate = _twoMonthsAgo > _outboundStartDate ? _twoMonthsAgo : _outboundStartDate;
   // Charger les overrides utilisateur (RDV reclassés en Inbound/Reschedule/PUB)
   var _outboundOverrides = (typeof loadOutboundOverrides === 'function') ? loadOutboundOverrides() : {};
-  function _getOverrideKey(e) {
-    var em = (e.email||'').toLowerCase().trim();
-    var iso = e.start ? new Date(e.start).toISOString() : '';
-    return em + '|' + iso;
-  }
-  var _allOutboundEvents = [];
-  if (typeof weekEvents !== 'undefined' && weekEvents) {
-    var _allCalEv = Object.values(weekEvents).reduce(function(acc, arr){ return acc.concat(arr); }, []);
-    _allOutboundEvents = _allCalEv.filter(function(e){
-      if (e.source !== 'Outbound') return false;
-      if (!e.createdAt || e.createdAt < _filterStartDate) return false;
-      // Si l'utilisateur a override en Inbound/Reschedule/PUB, on exclut du compteur
-      var ovr = _outboundOverrides[_getOverrideKey(e)];
-      if (ovr && ovr !== 'Outbound') return false;
-      return true;
-    });
-  }
+  // FIX SD-13 : même clé stable que getOutboundOverrideKey (email seul).
+  var _getOverrideKey = (typeof getOutboundOverrideKey === 'function')
+    ? getOutboundOverrideKey
+    : function(e) { return (e.email||'').toLowerCase().trim(); };
+  // FIX SD-07 : cette liste venait de `weekEvents`, alimenté par un fetch qui démarre
+  // au lundi de la semaine affichée. La fenêtre "2 mois glissants" ne voyait donc en
+  // pratique qu'une semaine de données : les reschedules d'un RDV déjà passé n'étaient
+  // pas reconnus comme doublons, et le total du mois était sous-compté.
+  // `_outbound2Mois` est alimenté par fetchOutbound2Mois(), qui interroge bien 2 mois.
+  var _sourceEvents = (typeof _outbound2Mois !== 'undefined' && _outbound2Mois && _outbound2Mois.length)
+    ? _outbound2Mois
+    : ((typeof weekEvents !== 'undefined' && weekEvents)
+        ? Object.values(weekEvents).reduce(function(acc, arr){ return acc.concat(arr); }, [])
+        : []);
+  var _allOutboundEvents = _sourceEvents.filter(function(e){
+    if (e.source !== 'Outbound') return false;
+    if (!e.createdAt || e.createdAt < _filterStartDate) return false;
+    // Si l'utilisateur a reclassé en Inbound/Reschedule/PUB, on exclut du compteur
+    var ovr = _outboundOverrides[_getOverrideKey(e)];
+    if (ovr && ovr !== 'Outbound') return false;
+    return true;
+  });
   // b) Déduplication par email : on garde uniquement la 1ère occurrence (la plus ancienne) pour chaque email
   var _seenEmails = {};
   var _uniqueOutbounds = [];
@@ -5903,13 +6268,18 @@ function renderDaily() {
 
   // Étape 3 : Affichage page Quotidien
   var outboundReste = Math.max(0, outboundCible - rdvOutboundSemaine);
+  // Le compteur est pondéré (Mandataire = 1, Agences = 2). "7" ne veut donc dire ni
+  // 7 RDV ni 7 prospects : on affiche les deux pour que le reste-à-faire soit actionnable.
   S('daily-outbound-reste', outboundReste > 0 ? outboundReste : '\u2713');
+  var _detailOb = document.getElementById('daily-outbound-detail');
+  if (_detailOb) {
+    _detailOb.textContent = _outboundThisWeek.length + ' RDV pris · ' + rdvOutboundSemaine
+                          + ' pts / ' + outboundCible + ' pts';
+  }
   setBar('daily-bar-rdv',      'daily-bar-rdv-pct',      rdvMois,            rdvNec,        '', 'daily-pct-rdv');
   setBar('daily-bar-outbound', 'daily-bar-outbound-pct', rdvOutboundSemaine, outboundCible, '', 'daily-pct-outbound');
   setBar('daily-bar-shows',    'daily-bar-shows-pct',    shows,              showNec,       '', 'daily-pct-shows');
   setBar('daily-bar-ventes',   'daily-bar-ventes-pct',   signes,             venteNec,      '', 'daily-pct-ventes');
-  setBar('daily-bar-shows',    'daily-bar-shows-pct',    shows,           showNec,       '', 'daily-pct-shows');
-  setBar('daily-bar-ventes',   'daily-bar-ventes-pct',   signes,          venteNec,      '', 'daily-pct-ventes');
   function toD(s){ if(!s) return null; var p=s.split('/'); if(p.length!==3) return null; var d=new Date(+p[2],+p[1]-1,+p[0]); return isNaN(d.getTime())?null:d; }
   var todayStr   = now.toLocaleDateString('fr-FR');
   var todayRows  = mRows.filter(function(r){ return r.date===todayStr; });
@@ -6261,6 +6631,7 @@ function renderDaily() {
       const k = state.calendly?.apiKey || localStorage.getItem('calendly_key');
       if (k) {
         fetchWeekEvents().then(function(){ renderDaily(); }).catch(function(){});
+        fetchOutbound2Mois().then(function(){ renderDaily(); }).catch(function(){});
       } else {
         renderDaily();
       }
@@ -6326,7 +6697,10 @@ function buildPipelineCard(r, col) {
   var tier  = (r.tier   && r.tier   !== '—' && r.tier   !== '') ? r.tier   : '';
   var type  = (r.type   && r.type   !== '—' && r.type   !== '') ? r.type   : '';
   var src   = (r.source && r.source !== '—' && r.source !== '') ? r.source : '';
-  var comm  = parseFloat(r.commission) || 0;
+  // FIX : lisait le champ brut, qui vaut 0 pour tout ce qui est créé depuis le Quotidien
+  // depuis mars 2026 (la commission est recalculée par getComm). Les deals récents
+  // s'affichaient donc « — » dans le Kanban.
+  var comm  = (typeof getComm === 'function') ? (getComm(r) || 0) : (parseFloat(r.commission) || 0);
   var sub   = [src, type, pack, freq].filter(Boolean).join(' · ');
   var bgMap = { signed:'var(--green-bg)', nosigned:'var(--red-bg)', noshow:'var(--surface)', interested:'#fff8ed', untreated:'var(--surface)' };
   var bg    = bgMap[col] || 'var(--surface)';
@@ -6345,7 +6719,7 @@ function buildPipelineCard(r, col) {
     + 'ondragstart="pipelineDragStart(event,this)" '
     + 'ondragend="pipelineDragEnd(event,this)" '
     + 'title="Cliquer pour ouvrir cette ligne dans le tableau RDV">'
-    + '<div class="pipeline-card-name">' + (r.client || '—') + '</div>'
+    + '<div class="pipeline-card-name">' + (escapeHtml(r.client) || '—') + '</div>'
     + '<div class="pipeline-card-sub">' + (r.date || '') + (sub ? ' · ' + sub : '') + '</div>'
     + '<div class="pipeline-card-footer">'
     + (comm > 0 ? '<span class="pipeline-card-amount">' + comm.toLocaleString('fr-FR') + ' €</span>' : '<span style="color:var(--text3);font-size:12px;">—</span>')
@@ -6640,20 +7014,26 @@ function getMonthlyBreakdown() {
     .sort()
     .reduce((acc, key) => {
       const rows = store[key] || [];
-      if (!rows.length) return acc;
+      if (!rows.length || !r1Traites(rows).length) return acc;
       const yr = parseInt(key.split('-')[0]);
       const mIdx = parseInt(key.split('-')[1]) - 1;
       if (isNaN(yr) || mIdx < 0 || mIdx > 11) return acc;
-      const shows  = rows.filter(r => normalizePresence(r.presence) === 'Show').length;
-      const noshow = rows.filter(r => normalizePresence(r.presence) === 'No Show').length;
+      // FIX SD-09 : on comptait rows.length brut (R2 + RDV futurs inclus), donc le même mois
+      // n'affichait jamais le même "RDV" ici et dans Analytics.
+      const base   = r1Traites(rows);
+      const shows  = base.filter(r => normalizePresence(r.presence) === 'Show').length;
+      const noshow = base.filter(r => normalizePresence(r.presence) === 'No Show').length;
+      // Les signés restent comptés sur toutes les lignes : une vente conclue au R2
+      // porte le résultat sur la ligne R2, qui n'est pas un R1.
       const signes = rows.filter(r => r.result === 'Sign\u00e9').length;
       const commission = rows.filter(r => r.result === 'Sign\u00e9').reduce((s,r) => s+getComm(r), 0);
+      const nbRdv  = base.length;
       acc.push({
         key, label: MFR[mIdx] + ' ' + yr,
-        rdv: rows.length, shows, noshow, signes, commission,
-        showrate: rows.length ? Math.round(shows/rows.length*100) : 0,
+        rdv: nbRdv, shows, noshow, signes, commission,
+        showrate: nbRdv ? Math.round(shows/nbRdv*100) : 0,
         closing:  shows ? Math.round(signes/shows*100) : 0,
-        transfo:  rows.length ? Math.round(signes/rows.length*100) : 0,
+        transfo:  nbRdv ? Math.round(signes/nbRdv*100) : 0,
       });
       return acc;
     }, []);
@@ -6704,10 +7084,16 @@ function renderGlobal() {
   const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
 
   // ── KPI de base ──
-  const totalRdv    = all.length;
-  const totalShows  = all.filter(r => normalizePresence(r.presence) === 'Show').length;
-  const totalNoshow = all.filter(r => normalizePresence(r.presence) === 'No Show').length;
-  const totalNonsigne = all.filter(r => normalizePresence(r.presence) === 'Show' && r.result !== 'Sign\u00e9').length;
+  // FIX SD-04 : `all` contenait les R2 ET les RDV futurs non qualifiés. Le show rate global
+  // était donc structurellement sous-évalué (chaque RDV à venir comptait comme un non-show).
+  const allR1T = r1Traites(all);
+  const setSignes = setDesClientsSignes(all);
+  const totalRdv    = allR1T.length;
+  const totalShows  = allR1T.filter(r => normalizePresence(r.presence) === 'Show').length;
+  const totalNoshow = allR1T.filter(r => normalizePresence(r.presence) === 'No Show').length;
+  // Un show dont la vente a été conclue au R2 n'est pas un "non signé".
+  const totalNonsigne = allR1T.filter(r =>
+    normalizePresence(r.presence) === 'Show' && !aFiniParSigner(r, setSignes)).length;
   const totalSignes = all.filter(r => r.result === 'Sign\u00e9').length;
   const showrate    = totalRdv   ? Math.round(totalShows  / totalRdv   * 100) : 0;
   const noshowrate  = totalRdv   ? Math.round(totalNoshow / totalRdv   * 100) : 0;
@@ -6716,13 +7102,23 @@ function renderGlobal() {
   const commTotal   = all.filter(r => r.result === 'Sign\u00e9').reduce((s,r) => s+getComm(r), 0);
   const commAvg     = totalSignes ? Math.round(commTotal / totalSignes) : 0;
 
+  // FIX SD-19 : 21 jours/mois en dur ignorait getJoursOuvres() et les jours fériés (invariant 5),
+  // et comptait le mois courant, forcément partiel, comme un mois plein.
+  const MFR_JO = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+  const joursTravailles = filteredMonths.reduce((acc, m) => {
+    const parts = String(m.key).split('-');
+    if (parts.length !== 2) return acc + 21;
+    const idx = parseInt(parts[1], 10) - 1;
+    if (idx < 0 || idx > 11) return acc + 21;
+    return acc + getJoursOuvres(MFR_JO[idx], parts[0]);
+  }, 0);
+
   // ── KPI affichage ──
-  set('g-data-info', totalRdv + ' RDV · ' + activeMois + ' mois');
+  set('g-data-info', totalRdv + ' RDV traités · ' + activeMois + ' mois · ' + joursTravailles + 'j ouvrés');
   const subEl = document.getElementById('g-header-sub');
   if (subEl) subEl.textContent = fromKey ? 'Depuis ' + (filterEl?.options[filterEl?.selectedIndex]?.text||'') + ' → Aujourd\'hui' : 'Toute la période · ' + activeMois + ' mois';
   set('g-total-rdv',    totalRdv);
   // RDV/jour et Show/jour globaux (sur toute la période)
-  const joursTravailles = activeMois * 21; // ~21j/mois
   const rdvParJourGlobal  = (totalRdv  / Math.max(joursTravailles,1)).toFixed(1);
   const showParJourGlobal = (totalShows / Math.max(joursTravailles,1)).toFixed(1);
   set('g-avg-rdv-sub',  activeMois + ' mois actifs · ' + (totalRdv/Math.max(activeMois,1)).toFixed(1) + ' RDV/mois');
@@ -8867,6 +9263,26 @@ window.addEventListener('load', function() {
 // =====================================================
 // Cette fonction synchronise une carte RDV avec la Table RDV
 // Elle est appelee automatiquement quand on change un statut ou un resultat
+// FIX SD-03 : les selects Pack/Fréq/Tier/FMS portent AUSSI la classe .result-select et
+// arrivent avant le select de type dans la carte. querySelector('.result-select') renvoyait
+// donc le Pack, qui finissait écrit dans le champ `type`.
+// On cible le select de type par son id, avec repli sur ses options.
+var TYPES_VALIDES = ['Mandataire', 'Agences'];
+function lireTypeCarte(card, defaut) {
+  if (!card) return defaut || 'Mandataire';
+  var sel = card.querySelector('[id^="dcal-type-"]') || card.querySelector('[id^="type-"]');
+  if (!sel) {
+    // Repli : le premier select dont les options sont bien Mandataire/Agences
+    var tous = card.querySelectorAll('select');
+    for (var i = 0; i < tous.length; i++) {
+      var v = tous[i].options && tous[i].options[0] ? tous[i].options[0].value : '';
+      if (TYPES_VALIDES.indexOf(v) >= 0) { sel = tous[i]; break; }
+    }
+  }
+  var val = sel && sel.value ? sel.value : '';
+  return TYPES_VALIDES.indexOf(val) >= 0 ? val : (defaut || 'Mandataire');
+}
+
 function autoSyncCardToTable(card) {
   if (!card) return;
 
@@ -8894,9 +9310,8 @@ function autoSyncCardToTable(card) {
   else if (resultType === 'nosign') { resNorm = 'Non signé'; }
   else if (resultType === 'r2') { resNorm = ''; } // R2 planifié = pas encore signé
 
-  // Type Mandataire/Agences (depuis le select restant)
-  var typeSel = card.querySelector('.result-select');
-  var type = typeSel && typeSel.value ? typeSel.value : 'Mandataire';
+  // Type Mandataire/Agences — FIX SD-03 (lisait le select Pack)
+  var type = lireTypeCarte(card, 'Mandataire');
 
   // Lire Pack / Fréq / Tier / FMS depuis les dropdowns de la card
   var packSel = card.querySelector('.dcal-pack');
@@ -8939,7 +9354,12 @@ function autoSyncCardToTable(card) {
     rows[existingIdx].presence = presNorm;
     rows[existingIdx].result = resNorm;
     rows[existingIdx].source = source || rows[existingIdx].source;
-    rows[existingIdx].type = type;
+    // FIX SD-03 : ne pas réécrire un type déjà valide avec le défaut de la carte
+    // (le select est toujours rendu sur "Mandataire", il n'est jamais pré-rempli depuis le store)
+    var typeExistant = (rows[existingIdx].type || '').toLowerCase();
+    var dejaValide = typeExistant.indexOf('mandat') >= 0 || typeExistant.indexOf('agence') >= 0;
+    var carteTouchee = !!(card.querySelector('[id^="dcal-type-"]') || card.querySelector('[id^="type-"]'));
+    if (!dejaValide || !carteTouchee || type !== 'Mandataire') rows[existingIdx].type = type;
     rows[existingIdx].oneshot = oneshotVal;
     // Pack / Fréq / Tier / FMS : update only if non-empty (don't overwrite saved values with blanks)
     if (pack) rows[existingIdx].pack = pack;
@@ -9016,99 +9436,13 @@ window.confirmR2Date = function() {
 };
 
 // =====================================================
-// PAQUET 6 : MATCHING AUTO R1 ↔ R2 via Calendly
+// PAQUET 6 : MATCHING AUTO R1 <-> R2 via Calendly — SUPPRIME
+// -----------------------------------------------------
+// autoMatchR2FromCalendly() creait des doublons ; elle etait desactivee depuis
+// longtemps mais toujours presente, donc reactivable par accident.
+// Les R2 se gerent uniquement via le clic "R2 planifie" sur la card R1 (Quotidien).
 // =====================================================
-// Après chaque fetch Calendly, on cherche les events R2 ("Validation & lancement RealAdvisor")
-// et on remplit dateR2/heureR2 dans la Table RDV en matchant par email du prospect
-function autoMatchR2FromCalendly(weekEvents) {
-  if (!weekEvents) return 0;
 
-  // Aplatir tous les events R2 de la semaine
-  var r2Events = [];
-  for (var dateKey in weekEvents) {
-    if (!weekEvents.hasOwnProperty(dateKey)) continue;
-    var arr = weekEvents[dateKey] || [];
-    for (var i = 0; i < arr.length; i++) {
-      if (arr[i].isR2) r2Events.push(arr[i]);
-    }
-  }
-  if (r2Events.length === 0) return 0;
-
-  // Helper : normalise un nom (minuscules, sans accents, sans espaces multiples)
-  var normName = function(s) {
-    if (!s) return '';
-    return s.toLowerCase()
-      .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // retirer accents
-      .replace(/[^a-z0-9 ]/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
-  };
-
-  var store = (typeof loadStore === 'function') ? loadStore() : {};
-  var matched = 0;
-
-  for (var k = 0; k < r2Events.length; k++) {
-    var r2 = r2Events[k];
-    var r2Email = (r2.email || '').toLowerCase().trim();
-    var r2NameNorm = normName(r2.name || '');
-
-    var r2Date = '', r2Time = '';
-    if (r2.start) {
-      var d = new Date(r2.start);
-      if (!isNaN(d)) {
-        r2Date = String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0') + '/' + d.getFullYear();
-        r2Time = String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
-      }
-    }
-    if (!r2Date) continue;
-    if (!r2Email && !r2NameNorm) continue; // ni email ni nom : impossible de matcher
-
-    // Parcourir tous les mois et chercher un R1 avec même email OU même nom + dateR2 vide
-    for (var monthKey in store) {
-      if (!store.hasOwnProperty(monthKey)) continue;
-      if (!/^\d{4}-\d{2}$/.test(monthKey)) continue;
-      var rows = store[monthKey] || [];
-      for (var idx = 0; idx < rows.length; idx++) {
-        var r1 = rows[idx];
-        if (r1.dateR2 && r1.dateR2.trim()) continue; // déjà rempli
-        var r1Email = (r1.email || '').toLowerCase().trim();
-        var r1NameNorm = normName(r1.client || '');
-
-        // Match par email exact (priorité 1)
-        var emailMatch = r2Email && r1Email && r1Email === r2Email;
-
-        // Match par nom : exact, ou inclusion d'un dans l'autre (gère prénom seul, etc.)
-        var nameMatch = false;
-        if (r2NameNorm && r1NameNorm) {
-          if (r1NameNorm === r2NameNorm) nameMatch = true;
-          else if (r2NameNorm.indexOf(r1NameNorm) >= 0 && r1NameNorm.length >= 3) nameMatch = true;
-          else if (r1NameNorm.indexOf(r2NameNorm) >= 0 && r2NameNorm.length >= 3) nameMatch = true;
-        }
-
-        if (emailMatch || nameMatch) {
-          rows[idx].dateR2 = r2Date;
-          rows[idx].heureR2 = r2Time;
-          matched++;
-          console.log('[Calendly→SalesDesk] R2 lie : ' + (r1.client || '?') + ' (' + (emailMatch ? 'email' : 'nom') + ')');
-        }
-      }
-      store[monthKey] = rows;
-    }
-  }
-
-  if (matched > 0) {
-    if (typeof saveStore === 'function') saveStore(store);
-    console.log('[Calendly→SalesDesk] ' + matched + ' R2 lié(s) automatiquement.');
-    if (typeof renderRdvTable === 'function') renderRdvTable();
-    if (typeof refreshAll === 'function') refreshAll();
-  }
-  return matched;
-}
-
-// =====================================================
-// PAQUET 7 : ENCOCHE VERTE PRÉPARÉ + ID prep stable
-// =====================================================
-// ID stable basé sur email+nom (persiste aux reprogrammations)
 function getPrepRdvId(email, name, fallbackCardId, fallbackDate) {
   if (email && email.trim()) return 'prep-' + email.toLowerCase().trim();
   if (name && name.trim()) return 'prep-name-' + name.toLowerCase().trim();
@@ -9171,7 +9505,7 @@ window.savePrepRdvData = function() {
 window.addEventListener('load', function() {
   setTimeout(updatePrepButtons, 2000);
   // Refresh périodique léger toutes les 5s pour capter les changements (utile si plusieurs onglets)
-  setInterval(updatePrepButtons, 5000);
+  setInterval(updatePrepButtons, 30000);      // idem
 });
 
 // =====================================================
@@ -9208,8 +9542,7 @@ function markCardAsProcessed(card) {
   else if (resultType === 'nosign') resNorm = 'Non signé';
   else if (resultType === 'r2') resNorm = 'R2 planifié';
 
-  var typeSel = card.querySelector('.result-select');
-  var type = typeSel && typeSel.value ? typeSel.value : 'Mandataire';
+  var type = lireTypeCarte(card, 'Mandataire');   // FIX SD-03 (lisait le select Pack)
   var timeEl = card.querySelector('.rdv-time');
   var heure = timeEl ? timeEl.textContent.trim() : '';
 
@@ -9479,9 +9812,25 @@ function confirmTerminerRdvDirect() {
   var rdvDate = card.dataset.date || '';
   var rdvId = cardId + '-' + rdvDate;
   if (rdvId && typeof markRdvAsProcessed === 'function') {
+    // FIX SD-11 : sans rdvDate, la clé stable "nom|date" ne pouvait pas être construite
+    // et le masquage retombait sur l'index de carte (dcal-3), qui bouge dès qu'un RDV
+    // est ajouté plus tôt dans la journée → la mauvaise carte disparaissait.
+    var pillStatut = card.querySelector('.status-pill.active');
+    var presTxt = pillStatut ? pillStatut.textContent.trim() : '';
+    var presence = presTxt.indexOf('Annulé') >= 0 ? 'Annulé'
+                 : presTxt.indexOf('Reprogrammé') >= 0 ? 'Reprogrammé'
+                 : presTxt.indexOf('No') >= 0 ? 'No Show'
+                 : presTxt.indexOf('Show') >= 0 ? 'Show' : '';
+    var groupePills = card.querySelector('.rdv-result-pills');
+    var typeRes = groupePills ? (groupePills.dataset.result || '') : '';
     markRdvAsProcessed(rdvId, {
       name: card.dataset.name || '',
       email: card.dataset.email || '',
+      rdvDate: rdvDate,
+      presence: presence,
+      result: typeRes === 'oneshot' ? 'Signé' : typeRes === 'nosign' ? 'Non signé' : typeRes === 'r2' ? 'R2 planifié' : '',
+      type: (typeof lireTypeCarte === 'function') ? lireTypeCarte(card, '') : '',
+      heure: (card.querySelector('.rdv-time') || {}).textContent || '',
       processedFrom: isR2Card ? 'terminer-r2' : 'terminer-r1'
     });
   }
@@ -9507,65 +9856,8 @@ function confirmTerminerRdvDirect() {
   _currentTerminerResult = null;
 }
 
-// Étape 2 validée : on applique le résultat + ouvre Post-RDV si demandé
-function confirmTerminerRdv() {
-  var card = _currentTerminerCard;
-  var result = _currentTerminerResult;
-  if (!card || !result) { closeTerminerModal(); return; }
-
-  var wantMail = document.getElementById('tcheck-mail');
-  var wantAnalyse = document.getElementById('tcheck-analyse');
-  var openMail = wantMail && wantMail.checked;
-  var openAnalyse = wantAnalyse && wantAnalyse.checked;
-
-  closeTerminerModal();
-
-  // Appliquer le résultat sur la carte (simule un clic sur la pill cachée)
-  // Les pills résultat existent encore dans le DOM (juste cachées en CSS)
-  var pillSelector = '.result-pill.' + result;
-  var pill = card.querySelector(pillSelector);
-  if (pill && typeof setResultPill === 'function') {
-    setResultPill(pill, result);
-  }
-
-  // Pour R2 : tenter le matching Calendly + setup automations
-  if (result === 'r2') {
-    handleR2Workflow(card);
-  }
-
-  // Si l'utilisateur veut générer le mail/analyse → ouvre la page Post-RDV
-  if (openMail || openAnalyse) {
-    if (typeof openPostRdv === 'function') {
-      // openPostRdv attend un bouton, on lui passe n'importe quel bouton de la carte
-      var anyBtn = card.querySelector('button');
-      if (anyBtn) {
-        openPostRdv(anyBtn);
-        // Faire défiler vers la section appropriée après un délai
-        setTimeout(function() {
-          var targetId = openMail ? 'postrdv-section-email' : 'postrdv-section-analyse';
-          var target = document.getElementById(targetId);
-          if (target) {
-            target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          }
-        }, 300);
-      }
-    }
-    if (typeof showCopyToast === 'function') {
-      var msgs = [];
-      if (openMail) msgs.push('mail');
-      if (openAnalyse) msgs.push('analyse');
-      showCopyToast('RDV terminé · génère ' + msgs.join(' + ') + ' ci-dessous');
-    }
-  } else {
-    if (typeof showCopyToast === 'function') {
-      showCopyToast('RDV terminé : ' + result);
-    }
-  }
-
-  // Reset
-  _currentTerminerCard = null;
-  _currentTerminerResult = null;
-}
+// (confirmTerminerRdv vivait ici : inatteignable, chooseTerminerResult appelle
+// toujours confirmTerminerRdvDirect. Supprimee — voir l'audit, section dette.)
 
 // Workflow R2 : vérifier que le R2 existe dans Calendly
 function handleR2Workflow(card) {
@@ -9626,7 +9918,7 @@ window.setStatus = function(btn, status) {
 window.addEventListener('load', function() {
   setTimeout(injectTerminerButtons, 1500);
   setTimeout(updateTerminerButtons, 1700);
-  setInterval(injectTerminerButtons, 5000);
+  setInterval(injectTerminerButtons, 30000);   // 5 s balayait le DOM en continu
 });
 
 </script>
