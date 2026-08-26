@@ -2800,7 +2800,14 @@ async function initFromSupabase() {
 
   const tCloud = cloudData._lastWrite || '';
   const tLocal = local._lastWrite || '';
-  const cloudGagne = tCloud && (!tLocal || tCloud > tLocal);
+  // Règle de transition : tant que le local n'est pas horodaté (première ouverture
+  // après cette mise à jour), on garde l'ancien comportement — le cloud fait foi —
+  // sinon un local périmé écraserait des données cloud saines.
+  //   ni l'un ni l'autre horodaté  → cloud (comportement historique)
+  //   cloud seul horodaté          → cloud
+  //   local seul horodaté          → local (le cloud n'a pas été réécrit depuis)
+  //   les deux                     → le plus récent
+  const cloudGagne = !tLocal || (tCloud && tCloud > tLocal);
 
   if (cloudGagne) {
     // Le cloud est plus récent : il gagne, MAIS on réinjecte les clés que lui seul ignore
@@ -2819,6 +2826,8 @@ async function initFromSupabase() {
 
   try { localStorage.setItem('salesdesk_rdvs', JSON.stringify(_sessionStore)); }
   catch(e) { _signalerQuotaPlein(e); }
+  // Le cloud peut ramener des lignes corrompues venues d'un autre appareil.
+  try { reparerTypesCorrompus(); } catch(e) { console.warn('reparation post-sync:', e); }
   refreshAll();
 }
 
@@ -3870,15 +3879,25 @@ function addToRdvTable(btn) {
 // ====== DONUT CHART ======
 let donutChart;
 function initDonut() {
-  const ctx = document.getElementById('donutChart').getContext('2d');
+  const el = document.getElementById('donutChart');
+  if (!el || typeof Chart === 'undefined') return;
+  const ctx = el.getContext('2d');
   const kpis = computeKpis(state.month, state.year);
+  // Les séries doivent être celles annoncées par la légende : Mandataire / Agences
+  // (+ les lignes sans type valide), pas Outbound / Inbound.
   donutChart = new Chart(ctx, {
     type: 'doughnut',
     data: {
-      datasets: [{ data: [kpis.outbound.length, kpis.inbound.length], backgroundColor: ['#f59e0b','#1a56db'], borderWidth: 2, borderColor: '#ffffff' }]
+      labels: ['Mandataire', 'Agences', 'Sans type'],
+      datasets: [{
+        data: [kpis.mandataires.length, kpis.agences.length, kpis.sansType.length],
+        backgroundColor: ['#f59e0b', '#1a56db', '#cbd5e1'],
+        borderWidth: 2, borderColor: '#ffffff'
+      }]
     },
     options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, cutout:'70%' }
   });
+  window._donutChart = donutChart;   // renderKpis met à jour cette référence
 }
 
 // ====== HISTO CHART ======
@@ -4902,7 +4921,9 @@ const CALENDLY_OUTBOUND_URI = 'https://api.calendly.com/event_types/d6280962-623
 function detecterSourceCalendly(ev) {
   const nom = (ev.name || '').toLowerCase();
   // R2 = "Validation & lancement RealAdvisor". Priorité absolue.
-  if (nom.indexOf('validation') >= 0 && nom.indexOf('lancement') >= 0) return 'R2';
+  // On reste sur "validation" seul, comme le faisait fetchWeekEvents : exiger aussi
+  // "lancement" ferait perdre le R2 sur un event nommé juste "Validation RealAdvisor".
+  if (nom.indexOf('validation') >= 0) return 'R2';
   if (/\br2\b/.test(nom)) return 'R2';
 
   const type = ev.event_type || '';
@@ -4935,18 +4956,43 @@ async function calendlyListerEvents(key, params, maxPages) {
 }
 
 // FIX SD-18 : les invités étaient récupérés un par un en série (N+1 allers-retours).
+// Mais un Promise.all sur toute la liste part à l'autre extrême : sur une plage de
+// plusieurs mois ça fait des centaines de requêtes simultanées, que Calendly throttle.
+// D'où : cache par event (un event passé ne change plus) + concurrence bornée.
+const _cacheInvites = new Map();
+const CALENDLY_CONCURRENCE = 6;
+
 async function calendlyEnrichirInvites(key, events) {
-  return Promise.all(events.map(async ev => {
-    let name = '—', email = '';
-    try {
-      const r = await fetch('https://api.calendly.com/scheduled_events/' + ev.uri.split('/').pop() + '/invitees?count=1',
-                            { headers: { Authorization: 'Bearer ' + key } });
-      const d = await r.json();
-      const inv = d.collection && d.collection[0];
-      if (inv) { name = inv.name || '—'; email = inv.email || ''; }
-    } catch (e) {}
-    return { ev: ev, name: name, email: email };
-  }));
+  const resultats = new Array(events.length);
+  let curseur = 0;
+
+  async function travailleur() {
+    while (curseur < events.length) {
+      const i = curseur++;
+      const ev = events[i];
+      if (_cacheInvites.has(ev.uri)) {
+        const c = _cacheInvites.get(ev.uri);
+        resultats[i] = { ev: ev, name: c.name, email: c.email };
+        continue;
+      }
+      let name = '—', email = '';
+      try {
+        const r = await fetch('https://api.calendly.com/scheduled_events/' + ev.uri.split('/').pop() + '/invitees?count=1',
+                              { headers: { Authorization: 'Bearer ' + key } });
+        if (r.ok) {
+          const d = await r.json();
+          const inv = d.collection && d.collection[0];
+          if (inv) { name = inv.name || '—'; email = inv.email || ''; }
+          _cacheInvites.set(ev.uri, { name: name, email: email });
+        }
+      } catch (e) {}
+      resultats[i] = { ev: ev, name: name, email: email };
+    }
+  }
+
+  const nb = Math.min(CALENDLY_CONCURRENCE, events.length);
+  await Promise.all(Array.from({ length: nb }, travailleur));
+  return resultats;
 }
 
 // FIX SD-07 : compteur Outbound et déduplication par email sur 2 mois glissants.
@@ -4955,24 +5001,32 @@ async function calendlyEnrichirInvites(key, events) {
 var _outbound2Mois = [];
 var _outbound2MoisEnCours = false;
 
-async function fetchOutbound2Mois() {
+var _outbound2MoisDernierFetch = 0;
+const OUTBOUND_INTERVALLE_MIN_MS = 15 * 60 * 1000;
+
+async function fetchOutbound2Mois(forcer) {
   if (_outbound2MoisEnCours) return _outbound2Mois;
+  // Cette plage couvre plusieurs mois : inutile de la relire toutes les 5 minutes.
+  if (!forcer && _outbound2Mois.length
+      && (Date.now() - _outbound2MoisDernierFetch) < OUTBOUND_INTERVALLE_MIN_MS) {
+    return _outbound2Mois;
+  }
   const key = state.calendly?.apiKey || localStorage.getItem('calendly_key');
   if (!key) return _outbound2Mois;
   _outbound2MoisEnCours = true;
   try {
     const now = new Date();
-    // On borne sur la date du RDV : un outbound pris il y a 2 mois a pu être posé
-    // jusqu'à ~2 mois plus tard, d'où la marge en avant.
-    const debut = new Date(now.getFullYear(), now.getMonth() - 3, 1);
-    const fin   = new Date(now.getFullYear(), now.getMonth() + 3, 0, 23, 59, 59);
+    // On borne sur la date du RDV. Un outbound pris il y a 2 mois a un RDV qui tombe
+    // en pratique dans cette fenêtre ; on garde une marge sans exploser le volume.
+    const debut = new Date(now.getFullYear(), now.getMonth() - 2, 1);
+    const fin   = new Date(now.getFullYear(), now.getMonth() + 2, 0, 23, 59, 59);
     const params = new URLSearchParams({
       user: 'https://api.calendly.com/users/f350a265-f5cb-45f5-a491-b3c864a2f7d3',
       min_start_time: debut.toISOString(),
       max_start_time: fin.toISOString(),
       count: '100'
     });
-    const bruts = (await calendlyListerEvents(key, params, 20)).filter(ev => ev.status !== 'canceled');
+    const bruts = (await calendlyListerEvents(key, params, 5)).filter(ev => ev.status !== 'canceled');
     const enrichis = await calendlyEnrichirInvites(key, bruts);
     _outbound2Mois = enrichis.map(item => ({
       start: new Date(item.ev.start_time),
@@ -4984,7 +5038,8 @@ async function fetchOutbound2Mois() {
       uri: item.ev.uri,
       createdAt: item.ev.created_at ? new Date(item.ev.created_at) : null
     }));
-    console.log('[Outbound 2 mois] ' + _outbound2Mois.length + ' events chargés, dont '
+    _outbound2MoisDernierFetch = Date.now();
+    console.log('[Outbound 2 mois] ' + _outbound2Mois.length + ' events, dont '
               + _outbound2Mois.filter(e => e.source === 'Outbound').length + ' outbound.');
   } catch (e) {
     console.warn('[Outbound 2 mois] echec du chargement :', e);
@@ -5130,6 +5185,23 @@ function persistCalendlyEventsToStore(weekEvents) {
   }
 }
 
+// Type déjà enregistré pour ce prospect à cette date, pour pré-remplir la carte.
+// Sans ça, le select repart toujours sur "Mandataire" et un ré-enregistrement
+// écrase un "Agences" saisi précédemment.
+function typeStockePourCarte(nom, dateKey) {
+  if (!nom || !dateKey) return '';
+  const p = String(dateKey).split('/');
+  if (p.length !== 3) return '';
+  const mk = p[2] + '-' + p[1].padStart(2, '0');
+  const rows = (loadStore()[mk] || []);
+  const row = rows.find(r => r.client === nom && r.date === dateKey);
+  if (!row) return '';
+  const t = (row.type || '').toLowerCase();
+  if (t.indexOf('mandat') >= 0) return 'Mandataire';
+  if (t.indexOf('agence') >= 0) return 'Agences';
+  return '';
+}
+
 function dailyCalRenderDay(d) {
   const dateKey = d.toLocaleDateString('fr-FR');
   const events  = _dailyCalWeekEvents[dateKey] || [];
@@ -5153,6 +5225,7 @@ function dailyCalRenderDay(d) {
     const srcColor = r.source === 'Inbound' ? 'var(--accent)' : (r.source === 'R2' ? 'var(--orange)' : 'var(--purple)');
     const srcBg    = r.source === 'Inbound' ? 'var(--accent-bg)' : (r.source === 'R2' ? 'var(--orange-bg, #fff7ed)' : 'var(--purple-bg)');
     const _n = escapeHtml(r.name), _e = escapeHtml(r.email || ''), _ev = escapeHtml(r.eventName || '');
+    const _typeStocke = typeStockePourCarte(r.name, dateKey);
     return `<div class="rdv-card${r.source==='R2'?' is-r2':''}" id="dcal-${i}" data-source="${r.source}" data-name="${_n}" data-email="${_e}" data-date="${dateKey}" data-created="${r.createdAt ? r.createdAt.toLocaleDateString('fr-FR') : ''}">
       <div style="display:flex;flex-direction:column;align-items:center;gap:6px;min-width:52px;">
         <div class="rdv-time" style="${isPast?'color:var(--text3)':''}">${heure}</div>
@@ -5196,8 +5269,8 @@ function dailyCalRenderDay(d) {
           ${r.source==='R2' ? '' : `<button class="result-pill r2" onclick="setResultPill(this,'r2')" style="font-size:11px;padding:3px 8px;border:1px solid var(--purple);background:white;color:var(--purple);border-radius:99px;cursor:pointer;font-weight:500;">📅 R2 planifié</button>`}
         </div>
         <select class="result-select" id="dcal-type-${i}">
-          <option value="Mandataire">🏠 Mandataire</option>
-          <option value="Agences">🏢 Agences</option>
+          <option value="Mandataire" ${_typeStocke !== 'Agences' ? 'selected' : ''}>🏠 Mandataire</option>
+          <option value="Agences" ${_typeStocke === 'Agences' ? 'selected' : ''}>🏢 Agences</option>
         </select>
         <div style="display:flex;gap:4px;flex-wrap:wrap;">
           ${r.source==='R2' ? '' : `<button class="btn btn-sm" style="font-size:11px;padding:3px 8px;background:var(--purple-bg);color:var(--purple);border-color:var(--purple);" onclick="openPrepRdv(this)" title="Préparer le RDV">📋 Préparer</button>`}
@@ -5306,7 +5379,9 @@ var _TIERS_CONNUS  = ['T1', 'T2', 'T3', 'T4'];
 var _FMS_CONNUS    = ['100%', '50%', 'offert'];
 
 function reparerTypesCorrompus() {
-  if (localStorage.getItem('salesdesk_fix_sd03') === 'done') return;
+  // Pas de drapeau "déjà fait" : la fonction est idempotente (après passage, les
+  // types invalides sont vides, donc plus rien à corriger) et doit pouvoir rejouer
+  // si le chargement Supabase ramène des lignes corrompues d'un autre appareil.
   var store = loadStore();
   var suspects = [];
   for (var mk in store) {
@@ -5320,7 +5395,7 @@ function reparerTypesCorrompus() {
       suspects.push({ mk: mk, i: i, row: rows[i], t: t });
     }
   }
-  if (suspects.length === 0) { localStorage.setItem('salesdesk_fix_sd03', 'done'); return; }
+  if (suspects.length === 0) return;
 
   // Sauvegarde obligatoire avant toute modification du store
   try { localStorage.setItem('salesdesk_rdvs_backup_' + Date.now(), JSON.stringify(store)); }
@@ -5337,7 +5412,6 @@ function reparerTypesCorrompus() {
     r._typeArequalifier = true;
   });
   saveStore(store);
-  localStorage.setItem('salesdesk_fix_sd03', 'done');
   console.warn('[Reparation SD-03] ' + suspects.length + ' ligne(s) au type invalide corrigee(s), '
              + recuperes + ' valeur(s) remise(s) dans le bon champ.');
   setTimeout(function() {
@@ -5403,8 +5477,19 @@ window.addEventListener('load', async () => {
     }
   }
   
-  initDonut();
-  initHistoChart();
+  // Les graphiques ne doivent jamais pouvoir empêcher le reste du dashboard de démarrer.
+  if (typeof Chart === 'undefined') {
+    console.error('Chart.js non chargé — les graphiques seront absents, le reste fonctionne.');
+    document.querySelectorAll('canvas').forEach(function(c) {
+      const msg = document.createElement('div');
+      msg.style.cssText = 'padding:12px;font-size:12px;color:var(--text3);text-align:center;';
+      msg.textContent = 'Graphique indisponible (Chart.js non chargé — vérifie ta connexion).';
+      if (c.parentElement) c.parentElement.replaceChild(msg, c);
+    });
+  } else {
+    try { initDonut(); } catch (e) { console.error('initDonut:', e); }
+    try { initHistoChart(); } catch (e) { console.error('initHistoChart:', e); }
+  }
   renderScaleRows();
   refreshAll();
   renderDaily();
@@ -5639,7 +5724,7 @@ function computeKpis(month, year) {
     }
     return false;
   });
-  const pub = rows.filter(r => r.source === 'PUB');
+  const pub = rowsR1Traites.filter(r => r.source === 'PUB');   // même population qu'inbound
 
   return { total, shows, noshow, signes, closing, oneshot, showrate, noshowrate,
     commission, mrr, inbound, outbound, pub, rdvParJour, showsParJour, joursOuvres,
@@ -5809,9 +5894,12 @@ function renderKpis(kpis) {
   const aEl = document.getElementById('ag-label');
   if (aEl) aEl.innerHTML = 'Agences — <b>' + nbAg + '</b>';
 
-  if (window._donutChart) {
-    window._donutChart.data.datasets[0].data = [nbMand, nbAg];
-    window._donutChart.update();
+  // Le total au centre doit correspondre aux tranches dessinées : on inclut donc
+  // la part "sans type" plutôt que d'afficher un total que le graphique ne montre pas.
+  const _donut = window._donutChart || (typeof donutChart !== 'undefined' ? donutChart : null);
+  if (_donut) {
+    _donut.data.datasets[0].data = [nbMand, nbAg, nbSansType];
+    _donut.update();
   }
 
   // Closing par type
@@ -7436,6 +7524,7 @@ function renderGlobal() {
   };
 
   function mkChart(id, type, data, opts) {
+    if (typeof Chart === 'undefined') return;   // pas de graphiques sans la lib, mais la page vit
     if (_globalCharts[id]) { try { _globalCharts[id].destroy(); } catch(e) {} }
     const ctx = document.getElementById(id);
     if (!ctx) return;
@@ -9354,12 +9443,10 @@ function autoSyncCardToTable(card) {
     rows[existingIdx].presence = presNorm;
     rows[existingIdx].result = resNorm;
     rows[existingIdx].source = source || rows[existingIdx].source;
-    // FIX SD-03 : ne pas réécrire un type déjà valide avec le défaut de la carte
-    // (le select est toujours rendu sur "Mandataire", il n'est jamais pré-rempli depuis le store)
-    var typeExistant = (rows[existingIdx].type || '').toLowerCase();
-    var dejaValide = typeExistant.indexOf('mandat') >= 0 || typeExistant.indexOf('agence') >= 0;
-    var carteTouchee = !!(card.querySelector('[id^="dcal-type-"]') || card.querySelector('[id^="type-"]'));
-    if (!dejaValide || !carteTouchee || type !== 'Mandataire') rows[existingIdx].type = type;
+    // Le select est désormais pré-rempli depuis le store (typeStockePourCarte),
+    // donc ce qu'il affiche fait foi : on écrit toujours, y compris un passage
+    // volontaire Agences → Mandataire.
+    rows[existingIdx].type = type;
     rows[existingIdx].oneshot = oneshotVal;
     // Pack / Fréq / Tier / FMS : update only if non-empty (don't overwrite saved values with blanks)
     if (pack) rows[existingIdx].pack = pack;
