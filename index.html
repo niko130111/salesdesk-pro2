@@ -578,9 +578,10 @@ select.form-input { cursor: pointer; }
 <!-- ===================== DAILY PAGE ===================== -->
 <div id="page-mesrdv" class="page">
   <div id="copilot-off">
-    <b>Le copilot ne répond pas.</b><br>Lance le serveur dans un terminal, puis reviens sur cet onglet.
+    <b>Le copilot ne répond pas.</b><br>1. Si Chrome affiche un bandeau « autoriser l'accès au réseau local », clique Autoriser.<br>2. Sinon, lance le serveur dans un terminal, puis reviens sur cet onglet.
     <code>cd ~/Desktop/"Mes projets"/sales-copilot/sales-copilot-v2/server && node server.js</code>
     <button class="btn btn-sm btn-primary" style="margin-top:12px;" onclick="ouvrirCopilot()">Réessayer</button>
+    <a class="btn btn-sm" style="margin-top:12px;margin-left:8px;" href="http://127.0.0.1:3015/live" target="_blank" rel="noopener">Ouvrir dans un onglet</a>
   </div>
   <iframe id="copilot-frame" title="Sales Copilot"></iframe>
 </div>
@@ -3725,9 +3726,12 @@ let _copilotCharge = false;
 function ouvrirCopilot() {
   const frame = document.getElementById('copilot-frame'), off = document.getElementById('copilot-off');
   if (_copilotCharge) return;
-  fetch(COPILOT_URL + '/rdvs', { mode: 'cors', cache: 'no-store' })
+  // Chrome peut demander l'autorisation « accès au réseau local » (bandeau en haut) : on n'attend pas plus de 6 s.
+  const ctrl = new AbortController(); const t = setTimeout(() => ctrl.abort(), 6000);
+  fetch(COPILOT_URL + '/rdvs', { mode: 'cors', cache: 'no-store', signal: ctrl.signal })
     .then(r => { if (!r.ok) throw new Error(r.status); frame.src = COPILOT_URL + '/live'; frame.style.display = ''; off.style.display = 'none'; _copilotCharge = true; })
-    .catch(() => { frame.style.display = 'none'; off.style.display = 'block'; });
+    .catch(() => { frame.style.display = 'none'; off.style.display = 'block'; })
+    .finally(() => clearTimeout(t));
 }
 function showPage(id, btn) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
