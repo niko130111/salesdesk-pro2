@@ -94,6 +94,12 @@ main { max-width: 100%; margin: 0; padding: 6px 8px; }
 #page-rdvtable main, #page-settings main { padding: 14px 20px; }
 .page { display: none; }
 .page.active { display: block; }
+/* Onglet Mes RDV : le copilot (serveur local 3015) dans la page */
+#page-mesrdv { margin: 0; padding: 0; }
+#page-mesrdv.active { display: flex; flex-direction: column; height: calc(100vh - 56px); }
+#copilot-frame { flex: 1; width: 100%; border: 0; background: #f7f7f5; }
+#copilot-off { display: none; margin: 40px auto; max-width: 560px; padding: 24px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); font-size: 14px; line-height: 1.6; }
+#copilot-off code { display: block; margin-top: 10px; padding: 10px 12px; background: var(--bg); border-radius: 6px; font-size: 12px; white-space: pre-wrap; user-select: all; }
 
 /* SECTION TITLES */
 .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
@@ -541,6 +547,7 @@ select.form-input { cursor: pointer; }
     SalesDesk Pro
   </a>
   <div class="nav-tabs">
+    <button class="nav-tab" onclick="showPage('mesrdv',this);togglePeriodSelector(false);ouvrirCopilot()">🎯 Mes RDV</button>
     <button class="nav-tab active" onclick="showPage('daily',this);renderDaily();dailyCalInit();
   initFromSupabase();togglePeriodSelector(false)">⚡ Quotidien</button>
     <button class="nav-tab" onclick="showPage('analytics',this);togglePeriodSelector(true)">📊 Analytics</button>
@@ -569,6 +576,14 @@ select.form-input { cursor: pointer; }
 </nav>
 
 <!-- ===================== DAILY PAGE ===================== -->
+<div id="page-mesrdv" class="page">
+  <div id="copilot-off">
+    <b>Le copilot ne répond pas.</b><br>Lance le serveur dans un terminal, puis reviens sur cet onglet.
+    <code>cd ~/Desktop/"Mes projets"/sales-copilot/sales-copilot-v2/server && node server.js</code>
+    <button class="btn btn-sm btn-primary" style="margin-top:12px;" onclick="ouvrirCopilot()">Réessayer</button>
+  </div>
+  <iframe id="copilot-frame" title="Sales Copilot"></iframe>
+</div>
 <div id="page-daily" class="page active">
 <main>
 
@@ -3704,6 +3719,16 @@ function mkTextMK(val, idx, field, placeholder, w, monthKey) {
 }
 
 // ====== NAVIGATION ======
+// Onglet Mes RDV : charge le copilot local dans l'iframe si le serveur tourne, sinon affiche la marche à suivre.
+const COPILOT_URL = 'http://127.0.0.1:3015';
+let _copilotCharge = false;
+function ouvrirCopilot() {
+  const frame = document.getElementById('copilot-frame'), off = document.getElementById('copilot-off');
+  if (_copilotCharge) return;
+  fetch(COPILOT_URL + '/rdvs', { mode: 'cors', cache: 'no-store' })
+    .then(r => { if (!r.ok) throw new Error(r.status); frame.src = COPILOT_URL + '/live'; frame.style.display = ''; off.style.display = 'none'; _copilotCharge = true; })
+    .catch(() => { frame.style.display = 'none'; off.style.display = 'block'; });
+}
 function showPage(id, btn) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
