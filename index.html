@@ -1492,6 +1492,16 @@ select.form-input { cursor: pointer; }
   <!-- Résumé rapide -->
   <div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;" id="pipeline-summary"></div>
 
+  <!-- Relances (lues depuis le copilot local : raison + relance saisies au débrief) -->
+  <div id="relances-wrap" style="display:none;margin-bottom:20px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px;">
+      <div class="section-title" style="font-size:14px;">📞 Relances <span id="relances-count" style="color:var(--text3);font-weight:500;"></span></div>
+      <div id="relances-filtres" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
+      <span id="relances-info" style="font-size:11px;color:var(--text3);margin-left:auto;"></span>
+    </div>
+    <div id="relances-liste"></div>
+  </div>
+
   <!-- Board 5 colonnes -->
   <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:20px;align-items:start;">
 
@@ -7015,6 +7025,7 @@ function renderPipeline() {
     { label:'No Shows',    val: cols.noshow.length,                                  color:'var(--text3)' },
     { label:'Commissions', val: commSignes.toLocaleString('fr-FR') + ' €',           color:'var(--orange)' },
   ];
+  renderRelances();
   setHTML('pipeline-summary', summary.map(function(d){
     return '<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:8px 14px;font-size:12px;">'
       + '<span style="color:var(--text3);">' + d.label + '</span> '
@@ -7024,6 +7035,50 @@ function renderPipeline() {
 }
 
 
+
+// ── RELANCES (copilot local) ───────────────────────────────
+// Le copilot enregistre au débrief : issue (perdu / rappel calé), raison, relance {quand, condition, note}.
+// Le SalesDesk les lit sur GET /relances quand le serveur tourne. Filtre par condition (si promo…).
+var _relances = null, _relancesFiltre = '';
+function renderRelances() {
+  var wrap = document.getElementById('relances-wrap'); if (!wrap) return;
+  if (typeof COPILOT_URL === 'undefined') return;
+  var ctrl = new AbortController(); var t = setTimeout(function(){ ctrl.abort(); }, 4000);
+  fetch(COPILOT_URL + '/relances', { mode:'cors', cache:'no-store', signal: ctrl.signal })
+    .then(function(r){ return r.json(); })
+    .then(function(d){ _relances = (d && d.relances) || []; wrap.style.display = ''; dessinerRelances(); })
+    .catch(function(){ if (_relances) return; wrap.style.display = 'none'; })
+    .finally(function(){ clearTimeout(t); });
+}
+function dessinerRelances() {
+  var liste = _relances || [];
+  var conds = {}; liste.forEach(function(r){ var c = (r.relance && r.relance.condition) || ''; if (c) conds[c] = (conds[c]||0) + 1; });
+  var filtres = document.getElementById('relances-filtres');
+  filtres.innerHTML = ['', ].concat(Object.keys(conds).sort()).map(function(c){
+    var on = _relancesFiltre === c;
+    return '<button class="btn btn-sm' + (on ? ' btn-primary' : '') + '" onclick="_relancesFiltre=\'' + c.replace(/'/g,"\\'") + '\';dessinerRelances()">' + (c ? escapeHtml(c) + ' (' + conds[c] + ')' : 'Toutes (' + liste.length + ')') + '</button>';
+  }).join('');
+  var rows = liste.filter(function(r){ return !_relancesFiltre || ((r.relance && r.relance.condition) === _relancesFiltre); });
+  rows.sort(function(a,b){ return ((a.relance&&a.relance.quand)||'9999').localeCompare((b.relance&&b.relance.quand)||'9999'); });
+  document.getElementById('relances-count').textContent = rows.length ? '· ' + rows.length + ' à rappeler' : '';
+  document.getElementById('relances-info').textContent = liste.length ? '' : 'Aucune relance enregistrée dans le copilot.';
+  var today = new Date().toISOString().slice(0,10);
+  document.getElementById('relances-liste').innerHTML = rows.length ? '<table style="width:100%;font-size:12.5px;border-collapse:collapse;"><thead><tr>' + ['Quand','Prospect','RDV','Issue','Raison','Condition','Note'].map(function(h){ return '<th style="text-align:left;padding:6px 8px;font-size:11px;color:var(--text3);border-bottom:1px solid var(--border);">' + h + '</th>'; }).join('') + '</tr></thead><tbody>'
+    + rows.map(function(r){
+      var q = (r.relance && r.relance.quand) || '';
+      var due = q && q <= today;
+      var qLabel = q ? q.split('-').reverse().join('/') : '—';
+      return '<tr style="border-bottom:1px solid var(--border);">'
+        + '<td style="padding:8px;font-weight:600;color:' + (due ? 'var(--red)' : 'var(--text)') + ';white-space:nowrap;">' + qLabel + (due ? ' ⏰' : '') + '</td>'
+        + '<td style="padding:8px;"><b>' + escapeHtml(r.nom) + '</b><div style="font-size:11px;color:var(--text3);">' + escapeHtml([r.reseau, r.secteur].filter(Boolean).join(' · ')) + '</div></td>'
+        + '<td style="padding:8px;white-space:nowrap;color:var(--text3);">' + (r.date ? r.date.split('-').reverse().join('/') : '') + '</td>'
+        + '<td style="padding:8px;">' + (r.outcome === 'perdu' ? '<span class="tag" style="color:var(--red);">Perdu</span>' : '<span class="tag">Rappel calé</span>') + '</td>'
+        + '<td style="padding:8px;">' + escapeHtml(r.raison || '—') + '</td>'
+        + '<td style="padding:8px;">' + escapeHtml((r.relance && r.relance.condition) || '—') + '</td>'
+        + '<td style="padding:8px;color:var(--text2);">' + escapeHtml((r.relance && r.relance.note) || '') + '</td>'
+        + '</tr>';
+    }).join('') + '</tbody></table>' : '<div style="font-size:12px;color:var(--text3);">Rien pour ce filtre.</div>';
+}
 
 // ── PIPELINE DRAG & DROP ────────────────────────────────────
 var _dragCard = null;
@@ -7404,8 +7459,8 @@ function renderGlobal() {
   if (tbody) {
     tbody.innerHTML = filteredMonths.map(m => {
       const C = (v, hi, mid) => v >= hi ? 'var(--green)' : v >= mid ? 'var(--orange)' : 'var(--red)';
-      return '<tr>'
-        + '<td style="font-weight:600;">' + m.label + '</td>'
+      return '<tr style="border-bottom:1px solid var(--border);">'
+        + '<td style="padding:8px;font-weight:600;">' + m.label + '</td>'
         + '<td>' + m.rdv + '</td>'
         + '<td style="color:var(--green);font-weight:500;">' + m.shows + '</td>'
         + '<td style="color:var(--red);font-weight:500;">'   + m.noshow + '</td>'
