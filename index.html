@@ -3798,16 +3798,18 @@ function sdAppliquerCopilot(m) {
     if (m.result === 'oneshot') { row.result = 'Signé'; row.oneshot = isR2 ? 'N' : 'O'; if (!row.dateSignature) row.dateSignature = new Date().toLocaleDateString('fr-FR'); }
     else if (m.result === 'nosign') { row.result = 'Non signé'; row.oneshot = 'N'; }
     else if (m.result === 'r2') { row.result = ''; row.oneshot = 'N'; }
+    else if (m.result === 'relance') { row.result = 'En attente'; row.oneshot = 'N'; } // pas de décision, pas de R2 → Intéressés + relance
     if (!row.presence) row.presence = 'Show';
   }
   store[mk] = rows; saveStore(store);
   if (m.sc === 'rdv_terminer') {
     markRdvAsProcessed('copilot|' + nom.toLowerCase() + '|' + dateFr, {
       name: nom, email: m.email || '', rdvDate: dateFr, presence: row.presence,
-      result: m.result === 'oneshot' ? 'Signé' : m.result === 'nosign' ? 'Non signé' : m.result === 'r2' ? 'R2 planifié' : '',
+      result: m.result === 'oneshot' ? 'Signé' : m.result === 'nosign' ? 'Non signé' : m.result === 'r2' ? 'R2 planifié' : m.result === 'relance' ? 'À relancer' : '',
       type: row.type, heure: m.heure || '', processedFrom: 'copilot'
     });
-    if (m.result === 'r2' && typeof showCopyToast === 'function') showCopyToast('📅 R2 planifié pour ' + nom + ' — prends le RDV « Validation & lancement » dans Calendly');
+    if (m.result === 'relance' && typeof showCopyToast === 'function') showCopyToast('📞 ' + nom + ' à relancer — dans Intéressés du Pipeline');
+    else if (m.result === 'r2' && typeof showCopyToast === 'function') showCopyToast('📅 R2 planifié pour ' + nom + ' — prends le RDV « Validation & lancement » dans Calendly');
     else if (typeof showCopyToast === 'function') showCopyToast('✅ RDV terminé depuis le copilot : ' + nom);
   }
   try { refreshAll(); } catch (e) {}
