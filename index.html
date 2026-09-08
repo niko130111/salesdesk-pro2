@@ -3802,6 +3802,17 @@ function sdAppliquerCopilot(m) {
     if (!row.presence) row.presence = 'Show';
   }
   store[mk] = rows; saveStore(store);
+  // No Show / Annulé depuis le copilot : traité tout de suite, comme un clic dans le Quotidien
+  const pres = c.presence;
+  if (m.sc === 'rdv_set' && (pres === 'No Show' || pres === 'Annulé')) {
+    markRdvAsProcessed('copilot|' + nom.toLowerCase() + '|' + dateFr, {
+      name: nom, email: m.email || '', rdvDate: dateFr, presence: pres, result: '', type: row.type, heure: m.heure || '', processedFrom: 'copilot'
+    });
+    if (pres === 'Annulé' && m.annuler && typeof sendMakeWebhook === 'function') {
+      try { sendMakeWebhook({ action: 'cancel', eventId: '', prospectName: nom, prospectEmail: m.email || '', rdvDate: dateFr, heure: m.heure || '', reason: 'Annulation depuis le copilot' }); } catch (e) {}
+    }
+    if (typeof showCopyToast === 'function') showCopyToast((pres === 'Annulé' ? '🚫 ' : '✗ ') + nom + ' · ' + pres + ' — traité');
+  }
   if (m.sc === 'rdv_terminer') {
     markRdvAsProcessed('copilot|' + nom.toLowerCase() + '|' + dateFr, {
       name: nom, email: m.email || '', rdvDate: dateFr, presence: row.presence,
