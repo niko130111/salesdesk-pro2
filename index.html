@@ -588,6 +588,12 @@ select.form-input { cursor: pointer; }
 <div id="page-daily" class="page active">
 <main>
 
+<!-- Relances du jour (copilot) : visible seulement s'il y en a -->
+<div id="relances-jour" class="alert-banner orange" style="display:none;cursor:pointer;justify-content:space-between;" onclick="[...document.querySelectorAll('.nav-tab')].find(function(b){return b.textContent.indexOf('Pipeline')>=0;}).click()" title="Voir la liste dans le Pipeline">
+  <div style="font-size:15px;font-weight:700;color:#92400e;" id="relances-jour-txt"></div>
+  <div style="font-size:12px;color:#92400e;" id="relances-jour-noms"></div>
+</div>
+
 <!-- ═══════════════════════════════════════════════
      BLOC 1 — HEADER PREMIUM
      Date grande · Objectif · Objectif ajusté · Activité
@@ -6177,6 +6183,7 @@ function adjustAbsence(delta) {
 }
 
 function renderDaily() {
+  try { chargerRelancesPourQuotidien(); } catch (e) {}
   var now = new Date();
   var jFR  = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
   var mFR  = ['janvier','f\u00e9vrier','mars','avril','mai','juin','juillet','ao\u00fbt','septembre','octobre','novembre','d\u00e9cembre'];
@@ -7121,8 +7128,28 @@ function renderRelances() {
   var ctrl = new AbortController(); var t = setTimeout(function(){ ctrl.abort(); }, 4000);
   fetch(COPILOT_URL + '/relances', { mode:'cors', cache:'no-store', signal: ctrl.signal })
     .then(function(r){ return r.json(); })
-    .then(function(d){ _relances = (d && d.relances) || []; wrap.style.display = ''; dessinerRelances(); })
+    .then(function(d){ _relances = (d && d.relances) || []; wrap.style.display = ''; dessinerRelances(); majAlerteRelances(); })
     .catch(function(){ if (_relances) return; wrap.style.display = 'none'; })
+    .finally(function(){ clearTimeout(t); });
+}
+// Alerte Quotidien : « x clients à relancer aujourd'hui » (date de relance atteinte ou dépassée)
+function majAlerteRelances() {
+  var el = document.getElementById('relances-jour'); if (!el) return;
+  var today = new Date().toISOString().slice(0, 10);
+  var dues = (_relances || []).filter(function(r){ var q = r.relance && r.relance.quand; return q && q <= today; });
+  if (!dues.length) { el.style.display = 'none'; return; }
+  el.style.display = 'flex';
+  document.getElementById('relances-jour-txt').textContent = '📞 ' + dues.length + (dues.length > 1 ? ' clients à relancer aujourd\'hui' : ' client à relancer aujourd\'hui');
+  document.getElementById('relances-jour-noms').textContent = dues.slice(0, 4).map(function(r){ return r.nom + (r.relance.condition ? ' (' + r.relance.condition + ')' : ''); }).join(' · ') + (dues.length > 4 ? ' · …' : '');
+}
+// Au chargement du Quotidien on va chercher les relances même sans passer par le Pipeline
+function chargerRelancesPourQuotidien() {
+  if (typeof COPILOT_URL === 'undefined') return;
+  var ctrl = new AbortController(); var t = setTimeout(function(){ ctrl.abort(); }, 4000);
+  fetch(COPILOT_URL + '/relances', { mode:'cors', cache:'no-store', signal: ctrl.signal })
+    .then(function(r){ return r.json(); })
+    .then(function(d){ _relances = (d && d.relances) || []; majAlerteRelances(); })
+    .catch(function(){})
     .finally(function(){ clearTimeout(t); });
 }
 function dessinerRelances() {
