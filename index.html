@@ -3743,6 +3743,82 @@ function ouvrirCopilot() {
     .catch(() => { frame.style.display = 'none'; off.style.display = 'block'; })
     .finally(() => clearTimeout(t));
 }
+// ── PONT COPILOT ─────────────────────────────────────────────
+// Le copilot (iframe « Mes RDV ») affiche et modifie présence / type / pack / fréq / tier / FMS et
+// « Terminer le RDV ». Il n'écrit JAMAIS lui-même : il envoie un message, c'est le SalesDesk qui
+// enregistre avec ses règles, puis renvoie l'état de tous les RDV au copilot. Un seul écrivain.
+const COPILOT_ORIGINE = COPILOT_URL;
+function copilotFenetre() { const f = document.getElementById('copilot-frame'); return f && f.contentWindow; }
+function frDepuisIso(iso) { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); return m ? m[3] + '/' + m[2] + '/' + m[1] : ''; }
+function isoDepuisFrSd(fr) { const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(fr || ''); return m ? m[3] + '-' + m[2] + '-' + m[1] : ''; }
+// État de chaque RDV des 30 derniers / 30 prochains jours, clé « nom|date ISO »
+function sdEtatRdvsPourCopilot() {
+  const store = loadStore();
+  const traites = new Set();
+  Object.values(store._processedRdvs || {}).forEach(e => { if (e && e.name && e.rdvDate) traites.add(e.name.toLowerCase().trim() + '|' + isoDepuisFrSd(e.rdvDate)); });
+  const now = Date.now(), out = {};
+  Object.keys(store).forEach(k => {
+    if (!/^\d{4}-\d{2}$/.test(k)) return;
+    (store[k] || []).forEach(r => {
+      if (!r || !r.client) return;
+      const iso = isoDepuisFrSd(r.date); if (!iso) return;
+      const t = new Date(iso + 'T00:00:00').getTime();
+      if (Math.abs(t - now) > 30 * 86400000) return;
+      const cle = r.client.toLowerCase().trim() + '|' + iso;
+      out[cle] = { nom: r.client, date: iso, source: r.source || '', type: r.type || '', presence: r.presence || '', pack: r.pack || '', freq: r.freq || '', tier: r.tier || '', fms: r.fms || '', result: r.result || '', traite: traites.has(cle) };
+    });
+  });
+  return out;
+}
+let _copilotPret = false, _copilotEnvoiTimer = null;
+function sdEnvoyerEtatCopilot() {
+  const w = copilotFenetre(); if (!w || !_copilotPret) return;
+  if (_copilotEnvoiTimer) clearTimeout(_copilotEnvoiTimer);
+  _copilotEnvoiTimer = setTimeout(() => { try { w.postMessage({ sd: 'etat', rdvs: sdEtatRdvsPourCopilot() }, COPILOT_ORIGINE); } catch (e) { console.warn('pont copilot', e); } }, 150);
+}
+// Applique une modification venue du copilot sur la ligne « client + date » du bon mois
+function sdAppliquerCopilot(m) {
+  const nom = String(m.nom || '').trim(), dateFr = frDepuisIso(m.date);
+  if (!nom || !dateFr) return;
+  const p = dateFr.split('/'); const mois = MONTHS_FR[parseInt(p[1], 10) - 1], annee = p[2];
+  const mk = monthKey(mois, annee);
+  const store = loadStore(); const rows = store[mk] || [];
+  let row = rows.find(r => r && (r.client || '').toLowerCase().trim() === nom.toLowerCase() && r.date === dateFr);
+  if (!row) { row = { date: dateFr, datePrise: '', client: nom, presence: '', result: '', source: m.source || 'Inbound', type: 'Mandataire', pack: '', freq: '', tier: '', fms: '', oneshot: 'N', commission: 0 }; rows.push(row); }
+  const c = m.champs || {};
+  ['presence', 'type', 'pack', 'freq', 'tier', 'fms'].forEach(k => { if (c[k] !== undefined && c[k] !== null) row[k] = String(c[k]); });
+  if (m.sc === 'rdv_terminer') {
+    const isR2 = row.source === 'R2';
+    if (m.result === 'oneshot') { row.result = 'Signé'; row.oneshot = isR2 ? 'N' : 'O'; if (!row.dateSignature) row.dateSignature = new Date().toLocaleDateString('fr-FR'); }
+    else if (m.result === 'nosign') { row.result = 'Non signé'; row.oneshot = 'N'; }
+    else if (m.result === 'r2') { row.result = ''; row.oneshot = 'N'; }
+    if (!row.presence) row.presence = 'Show';
+  }
+  store[mk] = rows; saveStore(store);
+  if (m.sc === 'rdv_terminer') {
+    markRdvAsProcessed('copilot|' + nom.toLowerCase() + '|' + dateFr, {
+      name: nom, email: m.email || '', rdvDate: dateFr, presence: row.presence,
+      result: m.result === 'oneshot' ? 'Signé' : m.result === 'nosign' ? 'Non signé' : m.result === 'r2' ? 'R2 planifié' : '',
+      type: row.type, heure: m.heure || '', processedFrom: 'copilot'
+    });
+    if (m.result === 'r2' && typeof showCopyToast === 'function') showCopyToast('📅 R2 planifié pour ' + nom + ' — prends le RDV « Validation & lancement » dans Calendly');
+    else if (typeof showCopyToast === 'function') showCopyToast('✅ RDV terminé depuis le copilot : ' + nom);
+  }
+  try { refreshAll(); } catch (e) {}
+  try { if (typeof renderDaily === 'function') renderDaily(); } catch (e) {}
+  sdEnvoyerEtatCopilot();
+}
+window.addEventListener('message', (ev) => {
+  if (ev.origin !== COPILOT_ORIGINE) return;
+  const w = copilotFenetre(); if (!w || ev.source !== w) return;
+  const m = ev.data || {};
+  if (m.sc === 'ready') { _copilotPret = true; sdEnvoyerEtatCopilot(); return; }
+  if (m.sc === 'rdv_set' || m.sc === 'rdv_terminer') sdAppliquerCopilot(m);
+});
+// Toute écriture du SalesDesk est reflétée dans le copilot (édition depuis « RDV traités » comprise)
+const _saveStoreAvantPont = saveStore;
+saveStore = function (store) { _saveStoreAvantPont(store); sdEnvoyerEtatCopilot(); };
+
 function showPage(id, btn) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
@@ -5312,7 +5388,6 @@ function dailyCalRenderDay(d) {
           <option value="Agences" ${_typeStocke === 'Agences' ? 'selected' : ''}>🏢 Agences</option>
         </select>
         <div style="display:flex;gap:4px;flex-wrap:wrap;">
-          ${r.source==='R2' ? '' : `<button class="btn btn-sm" style="font-size:11px;padding:3px 8px;background:var(--purple-bg);color:var(--purple);border-color:var(--purple);" onclick="openPrepRdv(this)" title="Préparer le RDV">📋 Préparer</button>`}
           ${r.source==='R2' ? '' : `<button class="btn btn-sm" style="font-size:11px;padding:3px 8px;background:#fff8ed;color:var(--orange);border-color:var(--orange);" onclick="openEmailR1(this)" title="Préparer l'email de suivi R1">📧 Email R1</button>`}
           <button class="btn btn-sm" style="font-size:11px;padding:3px 8px;" onclick="dailyCalAddOne(this)">+ Dashboard</button>
         </div>
