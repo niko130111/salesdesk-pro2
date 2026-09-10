@@ -8048,26 +8048,59 @@ function renderProcessedSection() {
   // Trier par heure de traitement (plus récent en premier)
   items.sort((a, b) => (b[1].processedAt || '').localeCompare(a[1].processedAt || ''));
 
+  // Ligne du store (client + date) : ce qu'on modifie ici, on le modifie là aussi
+  const ligneDe = (r) => {
+    const p = String(r.rdvDate || '').split('/'); if (p.length !== 3) return null;
+    const rows = loadStore()[p[2] + '-' + p[1].padStart(2, '0')] || [];
+    return rows.find(x => x && (x.client || '').toLowerCase().trim() === String(r.name || '').toLowerCase().trim() && x.date === r.rdvDate) || null;
+  };
+  const sel = (id, champ, options, val, vide) => '<select class="result-select" style="font-size:11px;padding:3px 6px;" onchange="majTraite(\'' + id.replace(/'/g, "\\'") + '\',\'' + champ + '\',this.value)">'
+    + (vide ? '<option value="">' + vide + '</option>' : '')
+    + options.map(o => '<option value="' + o[0] + '"' + (o[0] === (val || '') ? ' selected' : '') + '>' + o[1] + '</option>').join('') + '</select>';
   listEl.innerHTML = items.map(([id, r]) => {
     const heure = r.heure || '—';
-    const presIcon = r.presence === 'Show' ? '✓' : r.presence === 'No Show' ? '✗' : '•';
-    const presColor = r.presence === 'Show' ? 'var(--green)' : r.presence === 'No Show' ? 'var(--red)' : 'var(--text3)';
-    const resColor = r.result === 'Signé' ? 'var(--green)' : r.result === 'Non signé' ? 'var(--red)' : 'var(--text3)';
+    const row = ligneDe(r) || {};
     const srcColor = r.source === 'Inbound' ? 'var(--accent)' : r.source === 'Outbound' ? 'var(--purple)' : 'var(--orange)';
-    return `<div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);font-size:12px;">
+    const resultVal = (r.result === 'À relancer' || row.result === 'En attente') ? 'En attente' : (row.result || r.result || '');
+    return `<div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);font-size:12px;flex-wrap:wrap;">
       <div style="font-family:var(--mono);font-size:11px;color:var(--text3);min-width:42px;">${heure}</div>
-      <div style="flex:1;">
-        <div style="font-weight:600;color:var(--text);">${r.name}</div>
-        <div style="font-size:11px;color:var(--text3);margin-top:2px;">
-          <span style="color:${srcColor};font-weight:600;">${r.source||'—'}</span> ·
-          <span style="color:${presColor};font-weight:600;">${presIcon} ${r.presence||'—'}</span>
-          ${r.result ? ' · <span style="color:'+resColor+';font-weight:600;">'+r.result+'</span>' : ''}
-          ${r.type ? ' · '+r.type : ''}
-        </div>
+      <div style="flex:1;min-width:160px;">
+        <div style="font-weight:600;color:var(--text);">${escapeHtml(r.name)}</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:2px;"><span style="color:${srcColor};font-weight:600;">${r.source||row.source||'—'}</span> · ${r.rdvDate||''}</div>
       </div>
-      <div style="font-size:10px;color:var(--green);font-weight:700;text-transform:uppercase;letter-spacing:.05em;">✓ Enregistré</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+        ${sel(id, 'presence', [['Show','● Show'],['No Show','✗ No Show'],['Annulé','🚫 Annulé'],['Reprogrammé','🔄 Reprogrammé']], r.presence || row.presence, 'Présence —')}
+        ${sel(id, 'result', [['Signé','💰 Signé'],['Non signé','❌ Non signé'],['R2 planifié','📅 R2 planifié'],['En attente','📞 À relancer']], resultVal, 'Résultat —')}
+        ${sel(id, 'type', [['Mandataire','🏠 Mandataire'],['Agences','🏢 Agences']], row.type || r.type || 'Mandataire')}
+        ${sel(id, 'pack', [['Start+','Start+'],['Pro+','Pro+'],['Expert+','Expert+']], row.pack, 'Pack —')}
+        ${sel(id, 'freq', [['Annuelle','Annuelle'],['Mensuelle','Mensuelle']], row.freq, 'Fréq —')}
+        ${sel(id, 'tier', [['T1','T1'],['T2','T2'],['T3','T3'],['T4','T4']], row.tier, 'Tier —')}
+        ${sel(id, 'fms', [['100%','100%'],['50%','50%'],['offert','offert']], row.fms, 'FMS —')}
+        <button onclick="unarchiveProcessedRdv('${id.replace(/'/g,"\\'")}')" title="Remettre dans la liste active" style="font-size:11px;padding:4px 10px;border-radius:6px;background:var(--surface);border:1px solid var(--border);cursor:pointer;color:var(--text2);">↩</button>
+      </div>
     </div>`;
   }).join('');
+}
+// Modification d'un RDV traité : l'entrée « traité » ET la ligne du mois sont mises à jour (le copilot est prévenu via saveStore)
+function majTraite(rdvId, champ, valeur) {
+  const store = loadStore();
+  const e = (store._processedRdvs || {})[rdvId]; if (!e) return;
+  const p = String(e.rdvDate || '').split('/');
+  const mk = p.length === 3 ? p[2] + '-' + p[1].padStart(2, '0') : null;
+  const rows = mk ? (store[mk] || []) : [];
+  let row = rows.find(x => x && (x.client || '').toLowerCase().trim() === String(e.name || '').toLowerCase().trim() && x.date === e.rdvDate);
+  if (!row && mk) { row = { date: e.rdvDate, datePrise: '', client: e.name, presence: e.presence || '', result: '', source: e.source || 'Inbound', type: e.type || 'Mandataire', pack: '', freq: '', tier: '', fms: '', oneshot: 'N', commission: 0 }; rows.push(row); store[mk] = rows; }
+  if (champ === 'presence') { e.presence = valeur; if (row) row.presence = valeur; }
+  else if (champ === 'type') { e.type = valeur; if (row) row.type = valeur; }
+  else if (champ === 'result') {
+    e.result = valeur === 'En attente' ? 'À relancer' : valeur;
+    if (row) { row.result = valeur === 'R2 planifié' ? '' : valeur; if (valeur === 'Signé' && !row.dateSignature) row.dateSignature = new Date().toLocaleDateString('fr-FR'); if (valeur === 'Signé' && row.source !== 'R2') row.oneshot = 'O'; if (valeur !== 'Signé') row.oneshot = 'N'; }
+  }
+  else if (row && ['pack', 'freq', 'tier', 'fms'].indexOf(champ) >= 0) row[champ] = valeur;
+  saveStore(store);
+  try { refreshAll(); } catch (err) {}
+  renderProcessedSection();
+  if (typeof showCopyToast === 'function') showCopyToast('✓ ' + e.name + ' · ' + champ + ' mis à jour');
 }
 
 // Hooker dans dailyCalAddOne pour basculer en "Déjà traités"
