@@ -1947,6 +1947,14 @@ select.form-input { cursor: pointer; }
             <input type="file" id="backup-restore-input" accept=".json,application/json" style="display:none;" onchange="restoreBackup(event)">
           </div>
 
+          <!-- Compte Supabase (sécurité) -->
+          <div style="background:var(--surface2);border-radius:var(--radius);padding:12px;font-size:12px;color:var(--text2);line-height:1.6;margin-bottom:12px;">
+            <div style="font-weight:600;color:var(--text);margin-bottom:6px;">🔐 Compte Supabase</div>
+            <div id="supa-compte-etat" style="margin-bottom:8px;">—</div>
+            <button class="btn btn-sm btn-primary" id="supa-btn-login" onclick="openModal('supaLoginModal')">Se connecter</button>
+            <button class="btn btn-sm" id="supa-btn-logout" style="display:none;" onclick="supaLogout()">Se déconnecter</button>
+            <div style="margin-top:8px;font-size:11px;color:var(--text3);">Une fois connecté, la RLS peut être activée sur la table <code>salesdesk_store</code> : la sauvegarde ne sera plus lisible avec la clé publique.</div>
+          </div>
           <!-- Infos -->
           <div style="background:var(--surface2);border-radius:var(--radius);padding:12px;font-size:12px;color:var(--text2);line-height:1.6;">
             <div style="font-weight:600;color:var(--text);margin-bottom:6px;">📌 Bonnes pratiques</div>
@@ -2443,6 +2451,21 @@ select.form-input { cursor: pointer; }
   </div>
 </div>
 
+<!-- SUPABASE LOGIN MODAL -->
+<div class="modal-overlay" id="supaLoginModal">
+  <div class="modal">
+    <div class="modal-title">🔐 Connexion Supabase</div>
+    <div style="background:var(--accent-bg);border-radius:var(--radius);padding:12px 14px;margin-bottom:16px;font-size:12px;color:var(--accent);">Compte créé dans Supabase → Authentication → Users. Le mot de passe n'est jamais enregistré ici, seule la session l'est.</div>
+    <div class="form-group"><label class="form-label">Email</label><input type="email" class="form-input" id="supa-email" placeholder="nicolas.lapeyre@realadvisor.com" autocomplete="username"></div>
+    <div class="form-group"><label class="form-label">Mot de passe</label><input type="password" class="form-input" id="supa-password" autocomplete="current-password" onkeydown="if(event.key==='Enter')supaLoginDepuisModal()"></div>
+    <div id="supa-login-status" style="font-size:12px;color:var(--red);min-height:16px;"></div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('supaLoginModal')">Annuler</button>
+      <button class="btn btn-primary" onclick="supaLoginDepuisModal()">Se connecter</button>
+    </div>
+  </div>
+</div>
+
 <!-- CALENDLY CONNECT MODAL -->
 <div class="modal-overlay" id="calendlyConnectModal">
   <div class="modal">
@@ -2573,6 +2596,66 @@ const SUPA_ID = 'main';
 let _syncTimeout = null;
 let _isSyncing = false;
 
+// ── Compte Supabase (sécurité) ────────────────────────────────────────────────
+// Tant que la table est ouverte, la clé publique suffit. Dès que la RLS est activée,
+// il faut être connecté : le jeton d'accès reste en mémoire, le refresh en localStorage.
+const SUPA_REFRESH_KEY = 'salesdesk_supa_refresh';
+let _supaAccess = null, _supaEmail = '', _supaRefreshTimer = null;
+function supaAuthHeaders() { return { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + (_supaAccess || SUPA_KEY) }; }
+function supaPoserSession(j) {
+  if (!j || !j.access_token) return false;
+  _supaAccess = j.access_token; _supaEmail = (j.user && j.user.email) || _supaEmail;
+  try { if (j.refresh_token) localStorage.setItem(SUPA_REFRESH_KEY, j.refresh_token); } catch (e) {}
+  clearTimeout(_supaRefreshTimer);
+  _supaRefreshTimer = setTimeout(supaRefresh, Math.max(60, ((j.expires_in || 3600) - 120)) * 1000); // on renouvelle 2 min avant expiration
+  majEtatCompteSupa(); return true;
+}
+async function supaLogin(email, password) {
+  const res = await fetch(SUPA_URL + '/auth/v1/token?grant_type=password', { method: 'POST', headers: { 'apikey': SUPA_KEY, 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) });
+  const j = await res.json();
+  if (!res.ok || !j.access_token) throw new Error(j.error_description || j.msg || j.error || ('HTTP ' + res.status));
+  supaPoserSession(j); return true;
+}
+async function supaRefresh() {
+  let rt = ''; try { rt = localStorage.getItem(SUPA_REFRESH_KEY) || ''; } catch (e) {}
+  if (!rt) return false;
+  try {
+    const res = await fetch(SUPA_URL + '/auth/v1/token?grant_type=refresh_token', { method: 'POST', headers: { 'apikey': SUPA_KEY, 'Content-Type': 'application/json' }, body: JSON.stringify({ refresh_token: rt }) });
+    const j = await res.json();
+    if (!res.ok) { if (res.status === 400 || res.status === 401) supaLogout(false); return false; }
+    return supaPoserSession(j);
+  } catch (e) { return false; }
+}
+function supaLogout(effacerRefresh) {
+  _supaAccess = null; _supaEmail = ''; clearTimeout(_supaRefreshTimer);
+  if (effacerRefresh !== false) { try { localStorage.removeItem(SUPA_REFRESH_KEY); } catch (e) {} }
+  majEtatCompteSupa();
+}
+// 401/403 sur la table : session absente ou expirée → on tente un refresh, sinon on demande la connexion
+async function supaAuthRequise(status) {
+  if (status !== 401 && status !== 403) return false;
+  if (await supaRefresh()) return true;
+  majEtatCompteSupa('⚠️ Connexion Supabase requise');
+  if (document.getElementById('supaLoginModal')) openModal('supaLoginModal');
+  return false;
+}
+function majEtatCompteSupa(msg) {
+  const el = document.getElementById('supa-compte-etat'); if (!el) return;
+  el.textContent = msg || (_supaAccess ? '✅ Connecté : ' + (_supaEmail || 'compte Supabase') : 'Non connecté — la table est accessible avec la clé publique tant que la RLS n\'est pas activée.');
+  const bIn = document.getElementById('supa-btn-login'), bOut = document.getElementById('supa-btn-logout');
+  if (bIn) bIn.style.display = _supaAccess ? 'none' : ''; if (bOut) bOut.style.display = _supaAccess ? '' : 'none';
+}
+async function supaLoginDepuisModal() {
+  const email = (document.getElementById('supa-email').value || '').trim(), pwd = document.getElementById('supa-password').value || '';
+  const st = document.getElementById('supa-login-status');
+  if (!email || !pwd) { st.textContent = 'Email et mot de passe requis.'; return; }
+  st.textContent = 'Connexion…';
+  try { await supaLogin(email, pwd); document.getElementById('supa-password').value = ''; st.textContent = ''; closeModal('supaLoginModal'); initFromSupabase(); }
+  catch (e) { st.textContent = '⚠️ ' + e.message; }
+}
+// au démarrage : reprendre la session si un refresh existe
+supaRefresh().then(function(){ majEtatCompteSupa(); });
+
 // Indicateur de statut sync dans la nav
 // FIX SD-15 : l'indicateur existe en 3 exemplaires (un par en-tête). getElementById
 // n'en renvoyait qu'un, donc sur deux pages sur trois on ne voyait jamais l'état de synchro.
@@ -2586,18 +2669,14 @@ function setSyncStatus(status) {
   if (status === 'loading') poser('🔄 Chargement...', 'var(--accent)');
 }
 
-async function supabaseSave(data) {
+async function supabaseSave(data, _retry) {
   try {
     const res = await fetch(SUPA_URL + '/rest/v1/' + SUPA_TABLE + '?id=eq.' + SUPA_ID, {
       method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': SUPA_KEY,
-        'Authorization': 'Bearer ' + SUPA_KEY,
-        'Prefer': 'return=minimal'
-      },
+      headers: Object.assign({ 'Content-Type': 'application/json', 'Prefer': 'return=minimal' }, supaAuthHeaders()),
       body: JSON.stringify({ data: data, updated_at: new Date().toISOString() })
     });
+    if ((res.status === 401 || res.status === 403) && !_retry && await supaAuthRequise(res.status)) return supabaseSave(data, true);
     if (!res.ok) throw new Error('PATCH failed ' + res.status);
     setSyncStatus('saved');
     return true;
@@ -2608,15 +2687,11 @@ async function supabaseSave(data) {
   }
 }
 
-async function supabaseLoad() {
+async function supabaseLoad(_retry) {
   try {
     setSyncStatus('loading');
-    const res = await fetch(SUPA_URL + '/rest/v1/' + SUPA_TABLE + '?id=eq.' + SUPA_ID + '&select=data', {
-      headers: {
-        'apikey': SUPA_KEY,
-        'Authorization': 'Bearer ' + SUPA_KEY
-      }
-    });
+    const res = await fetch(SUPA_URL + '/rest/v1/' + SUPA_TABLE + '?id=eq.' + SUPA_ID + '&select=data', { headers: supaAuthHeaders() });
+    if ((res.status === 401 || res.status === 403) && !_retry && await supaAuthRequise(res.status)) return supabaseLoad(true);
     if (!res.ok) throw new Error('GET failed ' + res.status);
     const rows = await res.json();
     if (rows && rows[0] && rows[0].data && Object.keys(rows[0].data).length > 0) {
