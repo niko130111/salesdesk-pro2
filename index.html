@@ -93,6 +93,10 @@ main { max-width: 100%; margin: 0; padding: 6px 8px; }
 #page-daily main, #page-analytics main, #page-global main, #page-pipeline main, #page-preprdv main { padding: 24px 80px; max-width: 1600px; margin: 0 auto; }
 #page-rdvtable main, #page-settings main { padding: 14px 20px; }
 .page { display: none; }
+/* Post-RDV et fiche de préparation : remplacés par le copilot (11 sept 2026) */
+#page-postrdv, #page-preprdv { display: none !important; }
+/* points outbound et donut : retirés de l'affichage */
+#daily-pct-outbound { display: none !important; }
 .page.active { display: block; }
 /* Onglet Mes RDV : le copilot (serveur local 3015) dans la page */
 #page-mesrdv { margin: 0; padding: 0; }
@@ -802,8 +806,6 @@ select.form-input { cursor: pointer; }
     <div style="display:flex;gap:8px;align-items:center;">
       <div id="daily-cal-status" style="font-size:11px;font-weight:600;padding:3px 10px;border-radius:99px;background:var(--surface2);color:var(--text3);">En attente</div>
       <button class="btn btn-sm" onclick="dailyCalRefresh()">🔄 Rafraîchir</button>
-      <button class="btn btn-sm" onclick="copyEmailR1PromptVierge()" style="background:#fff8ed;color:var(--orange);border-color:var(--orange);" title="Copier le prompt mail pour ChatGPT/Claude">📧 Copier prompt mail</button>
-      <button class="btn btn-sm" onclick="copyAnalysePromptVierge()" style="background:var(--purple-bg);color:var(--purple);border-color:var(--purple);" title="Copier le prompt analyse pour ChatGPT/Claude">🎯 Copier prompt analyse</button>
       <button class="btn btn-sm btn-primary" onclick="openModal('manualRdvModal')">+ Ajouter un RDV</button>
     </div>
   </div>
@@ -1056,7 +1058,7 @@ select.form-input { cursor: pointer; }
     <div class="card">
       <div class="card-title">Mandataires vs Agences</div>
       <div style="display:flex;gap:20px;align-items:center;margin-bottom:16px;">
-        <div style="position:relative;width:100px;height:100px;">
+        <div style="display:none;position:relative;width:100px;height:100px;">
           <canvas id="donutChart"></canvas>
           <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;color:var(--text);" id="donut-total">6</div>
         </div>
@@ -3523,7 +3525,7 @@ function renderRdvTable() {
   if (r2CntEl) r2CntEl.textContent = r2Count;
   if (obCntEl) {
     // Si points différents du nombre (= il y a des Agences), afficher "X (Y pts)"
-    obCntEl.textContent = (outboundPoints > outboundCount) ? (outboundCount + ' (' + outboundPoints + ' pts)') : outboundCount;
+    obCntEl.textContent = outboundCount; // points outbound retirés de l'affichage
     obCntEl.title = outboundCount + ' RDV outbound cette semaine, soit ' + outboundPoints + ' points (Agences ×2)';
   }
   if (alCntEl) alCntEl.textContent = allCount;
@@ -5418,7 +5420,6 @@ function dailyCalRenderDay(d) {
           <option value="Agences" ${_typeStocke === 'Agences' ? 'selected' : ''}>🏢 Agences</option>
         </select>
         <div style="display:flex;gap:4px;flex-wrap:wrap;">
-          ${r.source==='R2' ? '' : `<button class="btn btn-sm" style="font-size:11px;padding:3px 8px;background:#fff8ed;color:var(--orange);border-color:var(--orange);" onclick="openEmailR1(this)" title="Préparer l'email de suivi R1">📧 Email R1</button>`}
           <button class="btn btn-sm" style="font-size:11px;padding:3px 8px;" onclick="dailyCalAddOne(this)">+ Dashboard</button>
         </div>
       </div>
