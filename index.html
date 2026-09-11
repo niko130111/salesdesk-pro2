@@ -2903,6 +2903,7 @@ function setRdvs(month, year, rows) {
 }
 
 function addRdvToStore(month, year, row) {
+  const st0 = loadStore(); if (row && row.client && estSupprime(st0, row.client, row.date)) { oublierSupprime(st0, row.client, row.date); saveStore(st0); }
   const rows = getRdvs(month, year);
   rows.push(row);
   setRdvs(month, year, rows);
@@ -3712,10 +3713,16 @@ function updateFieldMK(idx, field, value, type, monthKey) {
   renderRdvTable();
 }
 
+// RDV supprimés à la main : mémorisés (client|date) pour que la synchro Calendly ne les recrée pas
+function cleSupprime(client, date) { return String(client || '').toLowerCase().trim() + '|' + String(date || '').trim(); }
+function marquerSupprime(store, row) { if (!row || !row.client) return; if (!store._supprimes) store._supprimes = {}; store._supprimes[cleSupprime(row.client, row.date)] = Date.now(); }
+function estSupprime(store, client, date) { return !!(store._supprimes && store._supprimes[cleSupprime(client, date)]); }
+function oublierSupprime(store, client, date) { if (store._supprimes) delete store._supprimes[cleSupprime(client, date)]; }
 function deleteRowMK(idx, monthKey) {
   if (!confirm('Supprimer ce RDV ?')) return;
   const store = loadStore();
   const rows = store[monthKey] || [];
+  marquerSupprime(store, rows[idx]);
   rows.splice(idx, 1);
   store[monthKey] = rows;
   saveStore(store);
@@ -3790,7 +3797,7 @@ function sdAppliquerCopilot(m) {
   const mk = monthKey(mois, annee);
   const store = loadStore(); const rows = store[mk] || [];
   let row = rows.find(r => r && (r.client || '').toLowerCase().trim() === nom.toLowerCase() && r.date === dateFr);
-  if (!row) { row = { date: dateFr, datePrise: '', client: nom, presence: '', result: '', source: m.source || 'Inbound', type: 'Mandataire', pack: '', freq: '', tier: '', fms: '', oneshot: 'N', commission: 0 }; rows.push(row); }
+  if (!row) { row = { date: dateFr, datePrise: '', client: nom, presence: '', result: '', source: m.source || 'Inbound', type: 'Mandataire', pack: '', freq: '', tier: '', fms: '', oneshot: 'N', commission: 0 }; rows.push(row); oublierSupprime(store, nom, dateFr); }
   const c = m.champs || {};
   ['presence', 'type', 'pack', 'freq', 'tier', 'fms'].forEach(k => { if (c[k] !== undefined && c[k] !== null) row[k] = String(c[k]); });
   if (m.sc === 'rdv_terminer') {
@@ -3909,9 +3916,12 @@ function addRdv() {
 // ====== EDIT ROW INLINE ======
 function deleteRow(idx) {
   if (!confirm('Supprimer ce RDV ?')) return;
-  const rows = getRdvs(state.month, state.year);
+  const store = loadStore();
+  const rows = store[monthKey(state.month, state.year)] || [];
+  marquerSupprime(store, rows[idx]);
   rows.splice(idx, 1);
-  setRdvs(state.month, state.year, rows);
+  store[monthKey(state.month, state.year)] = rows;
+  saveStore(store);
   document.getElementById('edit-row-actions')?.remove();
   refreshAll();
 }
@@ -5279,6 +5289,7 @@ function persistCalendlyEventsToStore(weekEvents) {
         return r.client === ev.name && r.date === dateKey;
       });
       if (samePersonSameDay) return;
+      if (estSupprime(store, ev.name, dateKey)) return; // supprimé à la main : on ne le recrée pas
 
       // Créer une nouvelle entrée dans le store
       rows.push({
@@ -8180,7 +8191,7 @@ dailyCalRenderDay = function(d) {
     const newKey = rdvName + '|' + rdvDate;
     // Ne masquer QUE si le couple nom+date est dans processed (méthode robuste)
     // Fallback ancien : si rien par nom, vérifier ancienne clé (compat)
-    if (processedByNameDate.has(newKey)) {
+    if (processedByNameDate.has(newKey) || estSupprime(loadStore(), card.dataset.name, rdvDate)) {
       card.style.display = 'none';
     } else if (processed[oldKey] && processed[oldKey].name && rdvName && processed[oldKey].name.toLowerCase().trim() === rdvName) {
       // Ancienne clé valide UNIQUEMENT si le nom correspond aussi
