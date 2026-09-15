@@ -1490,7 +1490,7 @@ select.form-input { cursor: pointer; }
   <div class="section-header" style="margin-bottom:20px;">
     <div>
       <div class="section-title">Pipeline — <span id="pipeline-period-title">Avril 2026</span></div>
-      <div style="font-size:11px;color:var(--text3);margin-top:2px;">Mois sélectionné · Intéressés et « Relancer si promo » : mois en cours + reliquat depuis mars 2026</div>
+      <div style="font-size:11px;color:var(--text3);margin-top:2px;">Mois sélectionné · Intéressés et non signés classés (Pas intéressé, Pas de budget, Si promo, Ghost) : mois en cours + reliquat depuis mars 2026</div>
     </div>
     <div class="dark-toggle-wrap"><span>&#9790;</span><button class="dark-toggle dark-toggle-btn" onclick="toggleDarkMode()" title="Mode sombre"></button></div>
     <span class="sync-status" style="font-size:11px;font-weight:600;margin-left:8px;transition:color .3s;"></span>
@@ -7157,7 +7157,7 @@ function renderPipeline() {
     r._storeKey = i;
     r._monthKey = currentKey;
     var cat = classifyRow(r);
-    if (cat !== 'interested' && !(cat === 'nosigned' && raisonNS(r) === 'promo')) {
+    if (cat !== 'interested' && !(cat === 'nosigned' && raisonNS(r))) { // non signés classés : gérés dans la boucle multi-mois
       cols[cat].push(r);
     }
   });
@@ -7179,7 +7179,7 @@ function renderPipeline() {
       r._monthKey = key;
       var c2 = classifyRow(r);
       if (c2 === 'interested') cols.interested.push(r);
-      else if (c2 === 'nosigned' && raisonNS(r) === 'promo') cols.nosigned.push(r); // « si promo » : reliquat gardé comme les Intéressés, jusqu'au rappel
+      else if (c2 === 'nosigned' && raisonNS(r)) cols.nosigned.push(r); // Pas intéressé / Pas de budget / Si promo / Ghost : gardés d'un mois sur l'autre, comme les Intéressés
 
     });
   });
