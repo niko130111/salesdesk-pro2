@@ -1490,7 +1490,7 @@ select.form-input { cursor: pointer; }
   <div class="section-header" style="margin-bottom:20px;">
     <div>
       <div class="section-title">Pipeline — <span id="pipeline-period-title">Avril 2026</span></div>
-      <div style="font-size:11px;color:var(--text3);margin-top:2px;">Mois sélectionné · Intéressés et Non · si promo : mois en cours + reliquat depuis mars 2026</div>
+      <div style="font-size:11px;color:var(--text3);margin-top:2px;">Mois sélectionné · Intéressés et « Relancer si promo » : mois en cours + reliquat depuis mars 2026</div>
     </div>
     <div class="dark-toggle-wrap"><span>&#9790;</span><button class="dark-toggle dark-toggle-btn" onclick="toggleDarkMode()" title="Mode sombre"></button></div>
     <span class="sync-status" style="font-size:11px;font-weight:600;margin-left:8px;transition:color .3s;"></span>
@@ -1510,8 +1510,8 @@ select.form-input { cursor: pointer; }
     <div id="relances-liste"></div>
   </div>
 
-  <!-- Board 6 colonnes -->
-  <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:20px;align-items:start;">
+  <!-- Board 5 colonnes -->
+  <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:20px;align-items:start;">
 
     <!-- Col Non traités -->
     <div class="pipeline-col" style="background:var(--surface2);">
@@ -1549,18 +1549,8 @@ select.form-input { cursor: pointer; }
         <div class="pipeline-col-title red">✗ Non signés</div>
         <span class="pipeline-badge" id="pipe-badge-nosigned">0</span>
       </div>
-      <div style="font-size:11px;color:var(--red);margin-bottom:10px;">Shows non convertis</div>
-      <div class="pipeline-cards" id="pipe-col-nosigned" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="pipelineDrop(event,this,'pipe-col-nosigned')"></div>
-    </div>
-
-    <!-- Col Non · à rappeler si promo (ont dit non mais intéressés, glisser ici) -->
-    <div class="pipeline-col" style="background:#f3efff;">
-      <div class="pipeline-col-header">
-        <div class="pipeline-col-title" style="color:#6d4fc2;">💡 Non · si promo</div>
-        <span class="pipeline-badge" id="pipe-badge-promo">0</span>
-      </div>
-      <div style="font-size:11px;color:#6d4fc2;margin-bottom:10px;" id="pipe-sub-promo">À rappeler en cas de promo</div>
-      <div class="pipeline-cards" id="pipe-col-promo" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="pipelineDrop(event,this,'pipe-col-promo')"></div>
+      <div style="font-size:11px;color:var(--red);margin-bottom:10px;">Shows non convertis · glisser dans la bonne case</div>
+      <div id="pipe-col-nosigned" style="display:flex;flex-direction:column;gap:10px;"></div>
     </div>
 
     <!-- Col No Shows -->
@@ -6973,8 +6963,7 @@ function classifyRow(r) {
   if (isNoShow(pres) || isNoShow(presR2)) return 'noshow';
 
   if (result === 'Signé') return 'signed';
-  if (result === 'Promo') return 'promo'; // a dit non mais intéressé : à rappeler en cas de promo
-  if (result === 'Non signé') return 'nosigned';
+  if (result === 'Non signé' || result === 'Promo') return 'nosigned'; // Promo = non signé, raison « si promo »
 
   var isInterested = result === 'R2 planifié' || result === 'En attente'
                   || result === 'Intéressé' || result === 'Intéressée';
@@ -7120,7 +7109,8 @@ function goToRdvTableRow(monthKey, storeKey, tab) {
 
 function renderPipeline() {
   var store = loadStore();
-  var cols  = { untreated:[], interested:[], signed:[], nosigned:[], promo:[], noshow:[] };
+  var cols  = { untreated:[], interested:[], signed:[], nosigned:[], noshow:[] };
+  var raisonNS = function(r) { return r.result === 'Promo' ? 'promo' : (r.nosignRaison || ''); }; // '' | 'pasinteresse' | 'pasbudget' | 'promo'
 
   // ── Clé du mois sélectionné ──────────────────────────────
   var MONTHS_IDX = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
@@ -7137,7 +7127,7 @@ function renderPipeline() {
     r._storeKey = i;
     r._monthKey = currentKey;
     var cat = classifyRow(r);
-    if (cat !== 'interested' && cat !== 'promo') {
+    if (cat !== 'interested' && !(cat === 'nosigned' && raisonNS(r) === 'promo')) {
       cols[cat].push(r);
     }
   });
@@ -7159,7 +7149,7 @@ function renderPipeline() {
       r._monthKey = key;
       var c2 = classifyRow(r);
       if (c2 === 'interested') cols.interested.push(r);
-      else if (c2 === 'promo') cols.promo.push(r); // reliquat comme les Intéressés : on les garde sous les yeux jusqu'au rappel
+      else if (c2 === 'nosigned' && raisonNS(r) === 'promo') cols.nosigned.push(r); // « si promo » : reliquat gardé comme les Intéressés, jusqu'au rappel
 
     });
   });
@@ -7181,8 +7171,6 @@ function renderPipeline() {
   set('pipe-badge-interested', cols.interested.length);
   set('pipe-badge-signed',     cols.signed.length);
   set('pipe-badge-nosigned',   cols.nosigned.length);
-  set('pipe-badge-promo',      cols.promo.length);
-  set('pipe-sub-promo',        cols.promo.length > 0 ? cols.promo.length + ' à rappeler en cas de promo' : 'À rappeler en cas de promo');
   set('pipe-badge-noshow',     cols.noshow.length);
 
   var commSignes = cols.signed.reduce(function(s,r){ return s+getComm(r); }, 0);
@@ -7193,8 +7181,22 @@ function renderPipeline() {
   setHTML('pipe-col-untreated',  cols.untreated.length  ? cols.untreated.map(function(r){  return buildPipelineCard(r,'untreated');  }).join('') : empty);
   setHTML('pipe-col-interested', cols.interested.length ? cols.interested.map(function(r){ return buildPipelineCard(r,'interested'); }).join('') : empty);
   setHTML('pipe-col-signed',     cols.signed.length     ? cols.signed.map(function(r){     return buildPipelineCard(r,'signed');     }).join('') : empty);
-  setHTML('pipe-col-nosigned',   cols.nosigned.length   ? cols.nosigned.map(function(r){   return buildPipelineCard(r,'nosigned');   }).join('') : empty);
-  setHTML('pipe-col-promo',      cols.promo.length      ? cols.promo.map(function(r){      return buildPipelineCard(r,'promo');      }).join('') : empty);
+  // Non signés : 3 cases (Pas intéressé / Pas de budget / Relancer si promo), chacune zone de dépôt ; « À classer » en tête s'il en reste sans raison
+  var nsCases = [ // les 3 cases en haut (zones de dépôt), « À classer » en dessous
+    { k:'pasinteresse', titre:'✗ Pas intéressé',    color:'var(--red)',   vide:'Glisser ici' },
+    { k:'pasbudget',    titre:'💸 Pas de budget',   color:'var(--orange)',vide:'Glisser ici' },
+    { k:'promo',        titre:'💡 Relancer si promo', color:'#6d4fc2',    vide:'Glisser ici' },
+    { k:'',             titre:'À classer',          color:'var(--text3)', vide:'' }
+  ];
+  setHTML('pipe-col-nosigned', nsCases.map(function(c) {
+    var lst = cols.nosigned.filter(function(r){ return raisonNS(r) === c.k; });
+    if (c.k === '' && !lst.length) return '';
+    return '<div style="border:1px dashed ' + c.color + '55;border-radius:var(--radius);padding:6px;' + (c.k === 'promo' ? 'background:#f3efff;' : '') + '">'
+      + '<div style="font-size:10px;font-weight:700;color:' + c.color + ';text-transform:uppercase;letter-spacing:.08em;padding:2px 2px 6px;">' + c.titre + ' — ' + lst.length + '</div>'
+      + '<div class="pipeline-cards" style="min-height:28px;" ondragover="event.preventDefault();this.classList.add(\'drag-over\')" ondragleave="this.classList.remove(\'drag-over\')" ondrop="pipelineDrop(event,this,\'pipe-col-nosigned\',\'' + c.k + '\')">'
+      + (lst.length ? lst.map(function(r){ return buildPipelineCard(r, c.k === 'promo' ? 'promo' : 'nosigned'); }).join('') : '<div style="padding:6px;text-align:center;color:var(--text3);font-size:11px;">' + c.vide + '</div>')
+      + '</div></div>';
+  }).join(''));
   // No Show : séparer en 2 sous-sections (R1 puis R2)
   if (cols.noshow.length === 0) {
     setHTML('pipe-col-noshow', empty);
@@ -7219,7 +7221,7 @@ function renderPipeline() {
     { label:'Intéressés',  val: cols.interested.length,                             color:'var(--orange)' },
     { label:'Signés',      val: cols.signed.length,                                  color:'var(--green)' },
     { label:'Non signés',  val: cols.nosigned.length,                               color:'var(--red)' },
-    { label:'Non · si promo', val: cols.promo.length,                                color:'#6d4fc2' },
+    { label:'Relancer si promo', val: cols.nosigned.filter(function(r){ return raisonNS(r) === 'promo'; }).length, color:'#6d4fc2' },
     { label:'No Shows',    val: cols.noshow.length,                                  color:'var(--text3)' },
     { label:'Commissions', val: commSignes.toLocaleString('fr-FR') + ' €',           color:'var(--orange)' },
   ];
@@ -7325,7 +7327,7 @@ function pipelineDragEnd(e, el) {
   setTimeout(function() { window._pipelineJustDragged = false; }, 50);
 }
 
-function pipelineDrop(e, dropZone, colId) {
+function pipelineDrop(e, dropZone, colId, raison) {
   e.preventDefault();
   dropZone.classList.remove('drag-over');
   if (!_dragCard) return;
@@ -7344,7 +7346,6 @@ function pipelineDrop(e, dropZone, colId) {
     'pipe-col-interested': { result: 'Intéressé',  presence: 'Show' },
     'pipe-col-signed':     { result: 'Signé',       presence: 'Show' },
     'pipe-col-nosigned':   { result: 'Non signé',   presence: 'Show' },
-    'pipe-col-promo':      { result: 'Promo',       presence: 'Show' },
     'pipe-col-noshow':     { result: '',            presence: 'No Show' },
     'pipe-col-untreated':  { result: '',            presence: 'Show' }
   };
@@ -7354,6 +7355,8 @@ function pipelineDrop(e, dropZone, colId) {
 
   r.result   = mapping.result;
   r.presence = mapping.presence;
+  if (colId === 'pipe-col-nosigned') r.nosignRaison = raison || ''; // sous-case : pasinteresse / pasbudget / promo
+  else delete r.nosignRaison;
 
   store[monthKey] = rows;
   saveStore(store);
