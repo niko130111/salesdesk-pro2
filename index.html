@@ -1490,7 +1490,7 @@ select.form-input { cursor: pointer; }
   <div class="section-header" style="margin-bottom:20px;">
     <div>
       <div class="section-title">Pipeline — <span id="pipeline-period-title">Avril 2026</span></div>
-      <div style="font-size:11px;color:var(--text3);margin-top:2px;">Mois sélectionné · Intéressés et non signés classés (Pas intéressé, Pas de budget, Si promo, Ghost) : mois en cours + reliquat depuis mars 2026</div>
+      <div style="font-size:11px;color:var(--text3);margin-top:2px;">Mois sélectionné · Intéressés et non signés classés (Ancien RDV à relancer, Pas intéressé, Pas de budget, Si promo, Ghost) : mois en cours + reliquat depuis mars 2026</div>
     </div>
     <div class="dark-toggle-wrap"><span>&#9790;</span><button class="dark-toggle dark-toggle-btn" onclick="toggleDarkMode()" title="Mode sombre"></button></div>
     <span class="sync-status" style="font-size:11px;font-weight:600;margin-left:8px;transition:color .3s;"></span>
@@ -1510,8 +1510,8 @@ select.form-input { cursor: pointer; }
     <div id="relances-liste"></div>
   </div>
 
-  <!-- Board 8 colonnes -->
-  <div style="display:grid;grid-template-columns:repeat(8,1fr);gap:10px;margin-bottom:20px;align-items:start;">
+  <!-- Board 9 colonnes -->
+  <div style="display:grid;grid-template-columns:repeat(9,1fr);gap:10px;margin-bottom:20px;align-items:start;">
 
     <!-- Col Non traités -->
     <div class="pipeline-col" style="background:var(--surface2);">
@@ -1541,6 +1541,16 @@ select.form-input { cursor: pointer; }
       </div>
       <div style="font-size:11px;color:var(--green);font-weight:600;margin-bottom:10px;" id="pipe-sub-signed">0 € commissions</div>
       <div class="pipeline-cards" id="pipe-col-signed" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="pipelineDrop(event,this,'pipe-col-signed')"></div>
+    </div>
+
+    <!-- Col Ancien RDV à relancer (RDV passé, à rappeler plus tard) -->
+    <div class="pipeline-col" style="background:#e8f4fb;">
+      <div class="pipeline-col-header">
+        <div class="pipeline-col-title" style="color:#0e7490;">🔁 Ancien RDV à relancer</div>
+        <span class="pipeline-badge" id="pipe-badge-relancer">0</span>
+      </div>
+      <div style="font-size:11px;color:#0e7490;margin-bottom:10px;">À rappeler plus tard</div>
+      <div class="pipeline-cards" id="pipe-col-relancer" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="pipelineDrop(event,this,'pipe-col-nosigned','relancer')"></div>
     </div>
 
     <!-- Col Pas intéressé (non signés sans raison = « à classer », affichés ici en dessous) -->
@@ -7041,7 +7051,7 @@ function buildPipelineCard(r, col) {
   // s'affichaient donc « — » dans le Kanban.
   var comm  = (typeof getComm === 'function') ? (getComm(r) || 0) : (parseFloat(r.commission) || 0);
   var sub   = [src, type, pack, freq].filter(Boolean).join(' · ');
-  var bgMap = { signed:'var(--green-bg)', nosigned:'var(--red-bg)', promo:'#f3efff', ghost:'#eef3f8', noshow:'var(--surface)', interested:'#fff8ed', untreated:'var(--surface)' };
+  var bgMap = { signed:'var(--green-bg)', nosigned:'var(--red-bg)', promo:'#f3efff', ghost:'#eef3f8', relancer:'#e8f4fb', noshow:'var(--surface)', interested:'#fff8ed', untreated:'var(--surface)' };
   var bg    = bgMap[col] || 'var(--surface)';
   var urgColor = days !== null && days > 30 ? 'var(--red)' : days > 14 ? 'var(--orange)' : 'var(--text3)';
   var cardIdx = r._storeKey !== undefined ? r._storeKey : '';
@@ -7216,6 +7226,9 @@ function renderPipeline() {
   var nsPB = cols.nosigned.filter(function(r){ return raisonNS(r) === 'pasbudget'; });
   var nsPR = cols.nosigned.filter(function(r){ return raisonNS(r) === 'promo'; });
   var nsGH = cols.nosigned.filter(function(r){ return raisonNS(r) === 'ghost'; });
+  var nsRL = cols.nosigned.filter(function(r){ return raisonNS(r) === 'relancer'; });
+  set('pipe-badge-relancer', nsRL.length);
+  setHTML('pipe-col-relancer', nsRL.length ? nsRL.map(function(r){ return buildPipelineCard(r,'relancer'); }).join('') : empty);
   set('pipe-badge-ghost', nsGH.length);
   setHTML('pipe-col-ghost', nsGH.length ? nsGH.map(function(r){ return buildPipelineCard(r,'ghost'); }).join('') : empty);
   set('pipe-badge-pasinteresse', nsPI.length + (nsAC.length ? ' +' + nsAC.length : ''));
@@ -7249,6 +7262,7 @@ function renderPipeline() {
     { label: state.month + ' ' + state.year, val: monthRows.length + ' RDV', color:'var(--text)' },
     { label:'Intéressés',  val: cols.interested.length,                             color:'var(--orange)' },
     { label:'Signés',      val: cols.signed.length,                                  color:'var(--green)' },
+    { label:'Ancien RDV à relancer', val: nsRL.length,                                color:'#0e7490' },
     { label:'Pas intéressé', val: nsPI.length + nsAC.length,                          color:'var(--red)' },
     { label:'Pas de budget', val: nsPB.length,                                        color:'var(--orange)' },
     { label:'Relancer si promo', val: nsPR.length,                                    color:'#6d4fc2' },
@@ -7386,7 +7400,7 @@ function pipelineDrop(e, dropZone, colId, raison) {
 
   r.result   = mapping.result;
   r.presence = mapping.presence;
-  if (colId === 'pipe-col-nosigned') r.nosignRaison = raison || ''; // colonne : pasinteresse / pasbudget / promo / ghost
+  if (colId === 'pipe-col-nosigned') r.nosignRaison = raison || ''; // colonne : relancer / pasinteresse / pasbudget / promo / ghost
   else delete r.nosignRaison;
 
   store[monthKey] = rows;
