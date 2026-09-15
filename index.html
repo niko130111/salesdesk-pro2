@@ -1490,7 +1490,7 @@ select.form-input { cursor: pointer; }
   <div class="section-header" style="margin-bottom:20px;">
     <div>
       <div class="section-title">Pipeline — <span id="pipeline-period-title">Avril 2026</span></div>
-      <div style="font-size:11px;color:var(--text3);margin-top:2px;">Mois sélectionné · Intéressés : mois en cours + reliquat depuis mars 2026</div>
+      <div style="font-size:11px;color:var(--text3);margin-top:2px;">Mois sélectionné · Intéressés et Non · si promo : mois en cours + reliquat depuis mars 2026</div>
     </div>
     <div class="dark-toggle-wrap"><span>&#9790;</span><button class="dark-toggle dark-toggle-btn" onclick="toggleDarkMode()" title="Mode sombre"></button></div>
     <span class="sync-status" style="font-size:11px;font-weight:600;margin-left:8px;transition:color .3s;"></span>
@@ -1510,8 +1510,8 @@ select.form-input { cursor: pointer; }
     <div id="relances-liste"></div>
   </div>
 
-  <!-- Board 5 colonnes -->
-  <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:20px;align-items:start;">
+  <!-- Board 6 colonnes -->
+  <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:20px;align-items:start;">
 
     <!-- Col Non traités -->
     <div class="pipeline-col" style="background:var(--surface2);">
@@ -1551,6 +1551,16 @@ select.form-input { cursor: pointer; }
       </div>
       <div style="font-size:11px;color:var(--red);margin-bottom:10px;">Shows non convertis</div>
       <div class="pipeline-cards" id="pipe-col-nosigned" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="pipelineDrop(event,this,'pipe-col-nosigned')"></div>
+    </div>
+
+    <!-- Col Non · à rappeler si promo (ont dit non mais intéressés, glisser ici) -->
+    <div class="pipeline-col" style="background:#f3efff;">
+      <div class="pipeline-col-header">
+        <div class="pipeline-col-title" style="color:#6d4fc2;">💡 Non · si promo</div>
+        <span class="pipeline-badge" id="pipe-badge-promo">0</span>
+      </div>
+      <div style="font-size:11px;color:#6d4fc2;margin-bottom:10px;" id="pipe-sub-promo">À rappeler en cas de promo</div>
+      <div class="pipeline-cards" id="pipe-col-promo" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="pipelineDrop(event,this,'pipe-col-promo')"></div>
     </div>
 
     <!-- Col No Shows -->
@@ -3734,7 +3744,7 @@ function renderRdvTable() {
       <!-- BLOC R1 : Date R1 | Présence R1 | Résultat -->
       <td style="padding:4px 6px;background:rgba(34,197,94,.04);border-left:2px solid rgba(34,197,94,.3);">${mkDateMK(r.date||'', i, 'date', monthKey)}</td>
       <td style="padding:4px 6px;background:rgba(34,197,94,.04);">${mkSelMK(['','Show','No Show','Annulé','Reprogrammé'], r.presence || '', i, 'presence', monthKey)}</td>
-      <td style="padding:4px 6px;background:rgba(34,197,94,.04);border-right:2px solid rgba(34,197,94,.3);">${mkSelMK(['','Signé','Intéressé','Non signé'], displayResult, i, 'result', monthKey)}</td>
+      <td style="padding:4px 6px;background:rgba(34,197,94,.04);border-right:2px solid rgba(34,197,94,.3);">${mkSelMK(['','Signé','Intéressé','Non signé','Promo'], displayResult, i, 'result', monthKey)}</td>
       <!-- BLOC R2 : Date R2 | Présence R2 -->
       <td style="padding:4px 6px;background:rgba(108,43,217,.04);border-left:2px solid rgba(108,43,217,.3);">${mkDateMK(r.dateR2||'', i, 'dateR2', monthKey)}</td>
       <td style="padding:4px 6px;background:rgba(108,43,217,.04);border-right:2px solid rgba(108,43,217,.3);">${mkSelMK(['','Programmé','Show','No Show','Annulé','Reprogrammé'], r.presenceR2 || '', i, 'presenceR2', monthKey)}</td>
@@ -6963,6 +6973,7 @@ function classifyRow(r) {
   if (isNoShow(pres) || isNoShow(presR2)) return 'noshow';
 
   if (result === 'Signé') return 'signed';
+  if (result === 'Promo') return 'promo'; // a dit non mais intéressé : à rappeler en cas de promo
   if (result === 'Non signé') return 'nosigned';
 
   var isInterested = result === 'R2 planifié' || result === 'En attente'
@@ -7011,7 +7022,7 @@ function buildPipelineCard(r, col) {
   // s'affichaient donc « — » dans le Kanban.
   var comm  = (typeof getComm === 'function') ? (getComm(r) || 0) : (parseFloat(r.commission) || 0);
   var sub   = [src, type, pack, freq].filter(Boolean).join(' · ');
-  var bgMap = { signed:'var(--green-bg)', nosigned:'var(--red-bg)', noshow:'var(--surface)', interested:'#fff8ed', untreated:'var(--surface)' };
+  var bgMap = { signed:'var(--green-bg)', nosigned:'var(--red-bg)', promo:'#f3efff', noshow:'var(--surface)', interested:'#fff8ed', untreated:'var(--surface)' };
   var bg    = bgMap[col] || 'var(--surface)';
   var urgColor = days !== null && days > 30 ? 'var(--red)' : days > 14 ? 'var(--orange)' : 'var(--text3)';
   var cardIdx = r._storeKey !== undefined ? r._storeKey : '';
@@ -7109,7 +7120,7 @@ function goToRdvTableRow(monthKey, storeKey, tab) {
 
 function renderPipeline() {
   var store = loadStore();
-  var cols  = { untreated:[], interested:[], signed:[], nosigned:[], noshow:[] };
+  var cols  = { untreated:[], interested:[], signed:[], nosigned:[], promo:[], noshow:[] };
 
   // ── Clé du mois sélectionné ──────────────────────────────
   var MONTHS_IDX = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
@@ -7126,7 +7137,7 @@ function renderPipeline() {
     r._storeKey = i;
     r._monthKey = currentKey;
     var cat = classifyRow(r);
-    if (cat !== 'interested') {
+    if (cat !== 'interested' && cat !== 'promo') {
       cols[cat].push(r);
     }
   });
@@ -7146,9 +7157,10 @@ function renderPipeline() {
     (store[key] || []).forEach(function(r, i) {
       r._storeKey = i;
       r._monthKey = key;
-      if (classifyRow(r) === 'interested') {
-        cols.interested.push(r);
-      }
+      var c2 = classifyRow(r);
+      if (c2 === 'interested') cols.interested.push(r);
+      else if (c2 === 'promo') cols.promo.push(r); // reliquat comme les Intéressés : on les garde sous les yeux jusqu'au rappel
+
     });
   });
 
@@ -7169,6 +7181,8 @@ function renderPipeline() {
   set('pipe-badge-interested', cols.interested.length);
   set('pipe-badge-signed',     cols.signed.length);
   set('pipe-badge-nosigned',   cols.nosigned.length);
+  set('pipe-badge-promo',      cols.promo.length);
+  set('pipe-sub-promo',        cols.promo.length > 0 ? cols.promo.length + ' à rappeler en cas de promo' : 'À rappeler en cas de promo');
   set('pipe-badge-noshow',     cols.noshow.length);
 
   var commSignes = cols.signed.reduce(function(s,r){ return s+getComm(r); }, 0);
@@ -7180,6 +7194,7 @@ function renderPipeline() {
   setHTML('pipe-col-interested', cols.interested.length ? cols.interested.map(function(r){ return buildPipelineCard(r,'interested'); }).join('') : empty);
   setHTML('pipe-col-signed',     cols.signed.length     ? cols.signed.map(function(r){     return buildPipelineCard(r,'signed');     }).join('') : empty);
   setHTML('pipe-col-nosigned',   cols.nosigned.length   ? cols.nosigned.map(function(r){   return buildPipelineCard(r,'nosigned');   }).join('') : empty);
+  setHTML('pipe-col-promo',      cols.promo.length      ? cols.promo.map(function(r){      return buildPipelineCard(r,'promo');      }).join('') : empty);
   // No Show : séparer en 2 sous-sections (R1 puis R2)
   if (cols.noshow.length === 0) {
     setHTML('pipe-col-noshow', empty);
@@ -7204,6 +7219,7 @@ function renderPipeline() {
     { label:'Intéressés',  val: cols.interested.length,                             color:'var(--orange)' },
     { label:'Signés',      val: cols.signed.length,                                  color:'var(--green)' },
     { label:'Non signés',  val: cols.nosigned.length,                               color:'var(--red)' },
+    { label:'Non · si promo', val: cols.promo.length,                                color:'#6d4fc2' },
     { label:'No Shows',    val: cols.noshow.length,                                  color:'var(--text3)' },
     { label:'Commissions', val: commSignes.toLocaleString('fr-FR') + ' €',           color:'var(--orange)' },
   ];
@@ -7328,6 +7344,7 @@ function pipelineDrop(e, dropZone, colId) {
     'pipe-col-interested': { result: 'Intéressé',  presence: 'Show' },
     'pipe-col-signed':     { result: 'Signé',       presence: 'Show' },
     'pipe-col-nosigned':   { result: 'Non signé',   presence: 'Show' },
+    'pipe-col-promo':      { result: 'Promo',       presence: 'Show' },
     'pipe-col-noshow':     { result: '',            presence: 'No Show' },
     'pipe-col-untreated':  { result: '',            presence: 'Show' }
   };
@@ -8165,7 +8182,7 @@ function renderProcessedSection() {
       </div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
         ${sel(id, 'presence', [['Show','● Show'],['No Show','✗ No Show'],['Annulé','🚫 Annulé'],['Reprogrammé','🔄 Reprogrammé']], r.presence || row.presence, 'Présence —')}
-        ${sel(id, 'result', [['Signé','💰 Signé'],['Non signé','❌ Non signé'],['R2 planifié','📅 R2 planifié'],['En attente','📞 À relancer']], resultVal, 'Résultat —')}
+        ${sel(id, 'result', [['Signé','💰 Signé'],['Non signé','❌ Non signé'],['Promo','💡 Non · si promo'],['R2 planifié','📅 R2 planifié'],['En attente','📞 À relancer']], resultVal, 'Résultat —')}
         ${sel(id, 'type', [['Mandataire','🏠 Mandataire'],['Agences','🏢 Agences']], row.type || r.type || 'Mandataire')}
         ${sel(id, 'pack', [['Start+','Start+'],['Pro+','Pro+'],['Expert+','Expert+']], row.pack, 'Pack —')}
         ${sel(id, 'freq', [['Annuelle','Annuelle'],['Mensuelle','Mensuelle']], row.freq, 'Fréq —')}
