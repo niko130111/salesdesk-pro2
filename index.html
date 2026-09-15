@@ -1510,8 +1510,8 @@ select.form-input { cursor: pointer; }
     <div id="relances-liste"></div>
   </div>
 
-  <!-- Board 5 colonnes -->
-  <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:20px;align-items:start;">
+  <!-- Board 7 colonnes -->
+  <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:10px;margin-bottom:20px;align-items:start;">
 
     <!-- Col Non traités -->
     <div class="pipeline-col" style="background:var(--surface2);">
@@ -1543,14 +1543,34 @@ select.form-input { cursor: pointer; }
       <div class="pipeline-cards" id="pipe-col-signed" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="pipelineDrop(event,this,'pipe-col-signed')"></div>
     </div>
 
-    <!-- Col Non signés -->
+    <!-- Col Pas intéressé (non signés sans raison = « à classer », affichés ici en dessous) -->
     <div class="pipeline-col" style="background:var(--red-bg);">
       <div class="pipeline-col-header">
-        <div class="pipeline-col-title red">✗ Non signés</div>
-        <span class="pipeline-badge" id="pipe-badge-nosigned">0</span>
+        <div class="pipeline-col-title red">✗ Pas intéressé</div>
+        <span class="pipeline-badge" id="pipe-badge-pasinteresse">0</span>
       </div>
-      <div style="font-size:11px;color:var(--red);margin-bottom:10px;">Shows non convertis · glisser dans la bonne case</div>
-      <div id="pipe-col-nosigned" style="display:flex;flex-direction:column;gap:10px;"></div>
+      <div style="font-size:11px;color:var(--red);margin-bottom:10px;">Non signés · pas intéressés</div>
+      <div class="pipeline-cards" id="pipe-col-pasinteresse" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="pipelineDrop(event,this,'pipe-col-nosigned','pasinteresse')"></div>
+    </div>
+
+    <!-- Col Pas de budget -->
+    <div class="pipeline-col" style="background:#fff4e6;">
+      <div class="pipeline-col-header">
+        <div class="pipeline-col-title orange">💸 Pas de budget</div>
+        <span class="pipeline-badge" id="pipe-badge-pasbudget">0</span>
+      </div>
+      <div style="font-size:11px;color:var(--orange);margin-bottom:10px;">Non signés · budget</div>
+      <div class="pipeline-cards" id="pipe-col-pasbudget" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="pipelineDrop(event,this,'pipe-col-nosigned','pasbudget')"></div>
+    </div>
+
+    <!-- Col Relancer si promo -->
+    <div class="pipeline-col" style="background:#f3efff;">
+      <div class="pipeline-col-header">
+        <div class="pipeline-col-title" style="color:#6d4fc2;">💡 Relancer si promo</div>
+        <span class="pipeline-badge" id="pipe-badge-promo">0</span>
+      </div>
+      <div style="font-size:11px;color:#6d4fc2;margin-bottom:10px;">Non mais intéressés · reliquat gardé</div>
+      <div class="pipeline-cards" id="pipe-col-promo" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="pipelineDrop(event,this,'pipe-col-nosigned','promo')"></div>
     </div>
 
     <!-- Col No Shows -->
@@ -7170,7 +7190,6 @@ function renderPipeline() {
   set('pipe-badge-untreated',  cols.untreated.length);
   set('pipe-badge-interested', cols.interested.length);
   set('pipe-badge-signed',     cols.signed.length);
-  set('pipe-badge-nosigned',   cols.nosigned.length);
   set('pipe-badge-noshow',     cols.noshow.length);
 
   var commSignes = cols.signed.reduce(function(s,r){ return s+getComm(r); }, 0);
@@ -7181,22 +7200,19 @@ function renderPipeline() {
   setHTML('pipe-col-untreated',  cols.untreated.length  ? cols.untreated.map(function(r){  return buildPipelineCard(r,'untreated');  }).join('') : empty);
   setHTML('pipe-col-interested', cols.interested.length ? cols.interested.map(function(r){ return buildPipelineCard(r,'interested'); }).join('') : empty);
   setHTML('pipe-col-signed',     cols.signed.length     ? cols.signed.map(function(r){     return buildPipelineCard(r,'signed');     }).join('') : empty);
-  // Non signés : 3 cases (Pas intéressé / Pas de budget / Relancer si promo), chacune zone de dépôt ; « À classer » en tête s'il en reste sans raison
-  var nsCases = [ // les 3 cases en haut (zones de dépôt), « À classer » en dessous
-    { k:'pasinteresse', titre:'✗ Pas intéressé',    color:'var(--red)',   vide:'Glisser ici' },
-    { k:'pasbudget',    titre:'💸 Pas de budget',   color:'var(--orange)',vide:'Glisser ici' },
-    { k:'promo',        titre:'💡 Relancer si promo', color:'#6d4fc2',    vide:'Glisser ici' },
-    { k:'',             titre:'À classer',          color:'var(--text3)', vide:'' }
-  ];
-  setHTML('pipe-col-nosigned', nsCases.map(function(c) {
-    var lst = cols.nosigned.filter(function(r){ return raisonNS(r) === c.k; });
-    if (c.k === '' && !lst.length) return '';
-    return '<div style="border:1px dashed ' + c.color + '55;border-radius:var(--radius);padding:6px;' + (c.k === 'promo' ? 'background:#f3efff;' : '') + '">'
-      + '<div style="font-size:10px;font-weight:700;color:' + c.color + ';text-transform:uppercase;letter-spacing:.08em;padding:2px 2px 6px;">' + c.titre + ' — ' + lst.length + '</div>'
-      + '<div class="pipeline-cards" style="min-height:28px;" ondragover="event.preventDefault();this.classList.add(\'drag-over\')" ondragleave="this.classList.remove(\'drag-over\')" ondrop="pipelineDrop(event,this,\'pipe-col-nosigned\',\'' + c.k + '\')">'
-      + (lst.length ? lst.map(function(r){ return buildPipelineCard(r, c.k === 'promo' ? 'promo' : 'nosigned'); }).join('') : '<div style="padding:6px;text-align:center;color:var(--text3);font-size:11px;">' + c.vide + '</div>')
-      + '</div></div>';
-  }).join(''));
+  // Non signés : 3 colonnes (Pas intéressé / Pas de budget / Relancer si promo) ; sans raison = « à classer », listés sous Pas intéressé
+  var nsPI = cols.nosigned.filter(function(r){ return raisonNS(r) === 'pasinteresse'; });
+  var nsAC = cols.nosigned.filter(function(r){ return raisonNS(r) === ''; });
+  var nsPB = cols.nosigned.filter(function(r){ return raisonNS(r) === 'pasbudget'; });
+  var nsPR = cols.nosigned.filter(function(r){ return raisonNS(r) === 'promo'; });
+  set('pipe-badge-pasinteresse', nsPI.length + (nsAC.length ? ' +' + nsAC.length : ''));
+  set('pipe-badge-pasbudget', nsPB.length);
+  set('pipe-badge-promo', nsPR.length);
+  var piHtml = nsPI.map(function(r){ return buildPipelineCard(r,'nosigned'); }).join('');
+  if (nsAC.length) piHtml += '<div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;padding:8px 2px 6px;border-top:1px dashed var(--border2);margin-top:6px;">À classer — ' + nsAC.length + ' · glisser dans la bonne colonne</div>' + nsAC.map(function(r){ return buildPipelineCard(r,'untreated'); }).join('');
+  setHTML('pipe-col-pasinteresse', piHtml || empty);
+  setHTML('pipe-col-pasbudget', nsPB.length ? nsPB.map(function(r){ return buildPipelineCard(r,'nosigned'); }).join('') : empty);
+  setHTML('pipe-col-promo', nsPR.length ? nsPR.map(function(r){ return buildPipelineCard(r,'promo'); }).join('') : empty);
   // No Show : séparer en 2 sous-sections (R1 puis R2)
   if (cols.noshow.length === 0) {
     setHTML('pipe-col-noshow', empty);
@@ -7220,8 +7236,9 @@ function renderPipeline() {
     { label: state.month + ' ' + state.year, val: monthRows.length + ' RDV', color:'var(--text)' },
     { label:'Intéressés',  val: cols.interested.length,                             color:'var(--orange)' },
     { label:'Signés',      val: cols.signed.length,                                  color:'var(--green)' },
-    { label:'Non signés',  val: cols.nosigned.length,                               color:'var(--red)' },
-    { label:'Relancer si promo', val: cols.nosigned.filter(function(r){ return raisonNS(r) === 'promo'; }).length, color:'#6d4fc2' },
+    { label:'Pas intéressé', val: nsPI.length + nsAC.length,                          color:'var(--red)' },
+    { label:'Pas de budget', val: nsPB.length,                                        color:'var(--orange)' },
+    { label:'Relancer si promo', val: nsPR.length,                                    color:'#6d4fc2' },
     { label:'No Shows',    val: cols.noshow.length,                                  color:'var(--text3)' },
     { label:'Commissions', val: commSignes.toLocaleString('fr-FR') + ' €',           color:'var(--orange)' },
   ];
