@@ -1510,8 +1510,8 @@ select.form-input { cursor: pointer; }
     <div id="relances-liste"></div>
   </div>
 
-  <!-- Board 7 colonnes -->
-  <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:10px;margin-bottom:20px;align-items:start;">
+  <!-- Board 8 colonnes -->
+  <div style="display:grid;grid-template-columns:repeat(8,1fr);gap:10px;margin-bottom:20px;align-items:start;">
 
     <!-- Col Non traités -->
     <div class="pipeline-col" style="background:var(--surface2);">
@@ -1571,6 +1571,16 @@ select.form-input { cursor: pointer; }
       </div>
       <div style="font-size:11px;color:#6d4fc2;margin-bottom:10px;">Non mais intéressés · reliquat gardé</div>
       <div class="pipeline-cards" id="pipe-col-promo" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="pipelineDrop(event,this,'pipe-col-nosigned','promo')"></div>
+    </div>
+
+    <!-- Col Ghost après RDV (RDV fait, puis plus de réponse) -->
+    <div class="pipeline-col" style="background:#eef3f8;">
+      <div class="pipeline-col-header">
+        <div class="pipeline-col-title" style="color:#4a6785;">🫥 Ghost après RDV</div>
+        <span class="pipeline-badge" id="pipe-badge-ghost">0</span>
+      </div>
+      <div style="font-size:11px;color:#4a6785;margin-bottom:10px;">RDV fait · ne répond plus</div>
+      <div class="pipeline-cards" id="pipe-col-ghost" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="pipelineDrop(event,this,'pipe-col-nosigned','ghost')"></div>
     </div>
 
     <!-- Col No Shows -->
@@ -7031,7 +7041,7 @@ function buildPipelineCard(r, col) {
   // s'affichaient donc « — » dans le Kanban.
   var comm  = (typeof getComm === 'function') ? (getComm(r) || 0) : (parseFloat(r.commission) || 0);
   var sub   = [src, type, pack, freq].filter(Boolean).join(' · ');
-  var bgMap = { signed:'var(--green-bg)', nosigned:'var(--red-bg)', promo:'#f3efff', noshow:'var(--surface)', interested:'#fff8ed', untreated:'var(--surface)' };
+  var bgMap = { signed:'var(--green-bg)', nosigned:'var(--red-bg)', promo:'#f3efff', ghost:'#eef3f8', noshow:'var(--surface)', interested:'#fff8ed', untreated:'var(--surface)' };
   var bg    = bgMap[col] || 'var(--surface)';
   var urgColor = days !== null && days > 30 ? 'var(--red)' : days > 14 ? 'var(--orange)' : 'var(--text3)';
   var cardIdx = r._storeKey !== undefined ? r._storeKey : '';
@@ -7205,6 +7215,9 @@ function renderPipeline() {
   var nsAC = cols.nosigned.filter(function(r){ return raisonNS(r) === ''; });
   var nsPB = cols.nosigned.filter(function(r){ return raisonNS(r) === 'pasbudget'; });
   var nsPR = cols.nosigned.filter(function(r){ return raisonNS(r) === 'promo'; });
+  var nsGH = cols.nosigned.filter(function(r){ return raisonNS(r) === 'ghost'; });
+  set('pipe-badge-ghost', nsGH.length);
+  setHTML('pipe-col-ghost', nsGH.length ? nsGH.map(function(r){ return buildPipelineCard(r,'ghost'); }).join('') : empty);
   set('pipe-badge-pasinteresse', nsPI.length + (nsAC.length ? ' +' + nsAC.length : ''));
   set('pipe-badge-pasbudget', nsPB.length);
   set('pipe-badge-promo', nsPR.length);
@@ -7239,6 +7252,7 @@ function renderPipeline() {
     { label:'Pas intéressé', val: nsPI.length + nsAC.length,                          color:'var(--red)' },
     { label:'Pas de budget', val: nsPB.length,                                        color:'var(--orange)' },
     { label:'Relancer si promo', val: nsPR.length,                                    color:'#6d4fc2' },
+    { label:'Ghost après RDV', val: nsGH.length,                                      color:'#4a6785' },
     { label:'No Shows',    val: cols.noshow.length,                                  color:'var(--text3)' },
     { label:'Commissions', val: commSignes.toLocaleString('fr-FR') + ' €',           color:'var(--orange)' },
   ];
@@ -7372,7 +7386,7 @@ function pipelineDrop(e, dropZone, colId, raison) {
 
   r.result   = mapping.result;
   r.presence = mapping.presence;
-  if (colId === 'pipe-col-nosigned') r.nosignRaison = raison || ''; // sous-case : pasinteresse / pasbudget / promo
+  if (colId === 'pipe-col-nosigned') r.nosignRaison = raison || ''; // colonne : pasinteresse / pasbudget / promo / ghost
   else delete r.nosignRaison;
 
   store[monthKey] = rows;
