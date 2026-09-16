@@ -5536,10 +5536,37 @@ function dailyCalRenderDay(d) {
         </select>
         <div style="display:flex;gap:4px;flex-wrap:wrap;">
           <button class="btn btn-sm" style="font-size:11px;padding:3px 8px;" onclick="dailyCalAddOne(this)">+ Dashboard</button>
+          <button class="btn btn-sm" style="font-size:11px;padding:3px 8px;color:var(--text3);" title="RDV donné à un collègue : il sort de mes données et ne revient pas" onclick="dailyCalDonner(this)">🎁 Donné</button>
         </div>
       </div>
     </div>`;
   }).join('');
+}
+
+// RDV donné à un collègue : il sort du Quotidien, du store (toutes lignes nom+date) et des traités, et la synchro Calendly ne le recrée pas (_supprimes)
+function dailyCalDonner(btn) {
+  const card = btn.closest('.rdv-card'); if (!card) return;
+  const name = card.dataset.name, rdvDate = card.dataset.date;
+  if (!confirm('RDV « ' + name + ' » donné à un collègue ?\nIl sort de tes données et ne reviendra pas.')) return;
+  const store = loadStore();
+  localStorage.setItem('salesdesk_rdvs_backup_' + Date.now(), JSON.stringify(store));
+  marquerSupprime(store, { client: name, date: rdvDate });
+  const cle = cleSupprime(name, rdvDate);
+  Object.keys(store).forEach(function(k) {
+    if (!/^\d{4}-\d{2}$/.test(k) || !Array.isArray(store[k])) return;
+    for (let i = store[k].length - 1; i >= 0; i--) { const r = store[k][i]; if (r && cleSupprime(r.client, r.date) === cle) store[k].splice(i, 1); }
+  });
+  if (store._processedRdvs) Object.keys(store._processedRdvs).forEach(function(k) { if (k.toLowerCase().indexOf(cle) >= 0) delete store._processedRdvs[k]; });
+  saveStore(store);
+  const ev = _dailyCalWeekEvents[rdvDate] || [];
+  _dailyCalWeekEvents[rdvDate] = ev.filter(function(e) { return cleSupprime(e.name, rdvDate) !== cle; });
+  if (typeof dailyCalRenderNav === 'function') dailyCalRenderNav();
+  if (_dailyCalSelectedDay) dailyCalRenderDay(_dailyCalSelectedDay);
+  const toast = document.createElement('div');
+  toast.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--text);color:white;padding:10px 20px;border-radius:99px;font-size:13px;font-weight:600;z-index:9999;';
+  toast.textContent = '🎁 ' + name + ' donné — retiré de tes données';
+  document.body.appendChild(toast); setTimeout(function(){ toast.remove(); }, 2500);
+  refreshAll();
 }
 
 function dailyCalAddOne(btn) {
