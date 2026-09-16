@@ -74,6 +74,15 @@ nav { background: var(--surface); border-bottom: 1px solid var(--border); paddin
 .nav-logo { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 15px; color: var(--text); margin-right: 32px; text-decoration: none; }
 .nav-logo-icon { width: 28px; height: 28px; background: var(--accent); border-radius: 7px; display: flex; align-items: center; justify-content: center; color: white; font-size: 12px; font-weight: 700; }
 .nav-tabs { display: flex; gap: 2px; flex: 1; }
+/* Recherche client (barre du haut) */
+.fc-search { position: relative; margin-right: 10px; }
+.fc-search input { width: 170px; font-family: var(--font); font-size: 12.5px; border: 1px solid var(--border); border-radius: 99px; padding: 6px 12px; background: var(--surface2); color: var(--text); outline: none; transition: width .15s; }
+.fc-search input:focus { width: 260px; border-color: var(--accent); background: var(--surface); }
+.fc-search-liste { position: absolute; top: 36px; right: 0; width: 340px; max-height: 380px; overflow: auto; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: 0 12px 32px rgba(0,0,0,0.14); z-index: 1100; padding: 6px; }
+.fc-search-item { display: block; width: 100%; text-align: left; border: 0; background: transparent; border-radius: 8px; padding: 8px 10px; cursor: pointer; font-family: var(--font); font-size: 13px; color: var(--text); }
+.fc-search-item:hover, .fc-search-item.sel { background: var(--accent-bg); }
+.fc-search-item small { display: block; font-size: 11px; color: var(--text3); margin-top: 1px; }
+.fc-search-vide { padding: 10px; font-size: 12px; color: var(--text3); font-style: italic; }
 .nav-tab { padding: 6px 14px; border-radius: 7px; cursor: pointer; font-size: 13px; font-weight: 500; color: var(--text2); border: none; background: none; transition: all 0.15s; white-space: nowrap; }
 .nav-tab:hover { background: var(--surface2); color: var(--text); }
 .nav-tab.active { background: var(--accent-bg); color: var(--accent); }
@@ -595,6 +604,10 @@ select.form-input { cursor: pointer; }
     <button class="nav-tab" onclick="showPage('settings',this);togglePeriodSelector(false)">⚙️ Objectifs & Config<span id="nav-settings-dot" style="display:none;width:7px;height:7px;border-radius:50%;background:var(--red);margin-left:6px;vertical-align:middle;"></span></button>
   </div>
   <div class="nav-right">
+    <div class="fc-search" id="fc-search">
+      <input id="fc-search-input" type="search" placeholder="🔍 Client…" autocomplete="off" oninput="fcRechercher(this.value)" onfocus="fcRechercher(this.value)" onkeydown="fcRechercheClavier(event)">
+      <div id="fc-search-liste" class="fc-search-liste" style="display:none"></div>
+    </div>
     <div class="period-select" id="period-select-wrap">
       <select id="monthSelect" onchange="updatePeriod()" style="font-weight:500;">
         <option>Janvier</option><option>Février</option><option>Mars</option>
@@ -3265,7 +3278,46 @@ function fcNotesInput(v) {
     var et2 = document.getElementById('fc-notes-etat'); if (et2) et2.textContent = '✓ enregistré';
   }, 700);
 }
-document.addEventListener('keydown', function(ev) { if (ev.key === 'Escape') { fermerFicheClient(); fermerModalDoublon(); } });
+document.addEventListener('keydown', function(ev) { if (ev.key === 'Escape') { fermerFicheClient(); fermerModalDoublon(); fcFermerRecherche(); } });
+// Recherche client dans la barre du haut : tape un nom → liste (tous les mois, regroupés par personne) → clic = fiche client
+var _fcSearchSel = -1, _fcSearchRes = [];
+function fcRechercher(q) {
+  q = fcNormNom(q); var box = document.getElementById('fc-search-liste');
+  if (!q) { box.style.display = 'none'; return; }
+  var store = loadStore(), par = {};
+  Object.keys(store).forEach(function(k) {
+    if (!/^\d{4}-\d{2}$/.test(k) || !Array.isArray(store[k])) return;
+    store[k].forEach(function(r) {
+      if (!r || !r.client) return;
+      var n = fcNormNom(r.client), e = String(r.email || '').toLowerCase().trim();
+      if (n.indexOf(q) < 0 && e.indexOf(q) < 0) return;
+      var cle = fcCle(r.client, e);
+      var g = par[cle] || (par[cle] = { nom: r.client, email: e, dates: [], dernier: null, type: r.type || '' });
+      g.dates.push(r.date); var d = parseDateFR(r.date); if (d && (!g.dernier || d > g.dernier)) { g.dernier = d; g.type = r.type || g.type; g.result = r.result || r.presence || ''; }
+    });
+  });
+  _fcSearchRes = Object.keys(par).map(function(k) { return par[k]; }).sort(function(a, b) { return (b.dernier || 0) - (a.dernier || 0); }).slice(0, 12);
+  _fcSearchSel = -1;
+  box.innerHTML = _fcSearchRes.length ? _fcSearchRes.map(function(g, i) {
+    return '<button class="fc-search-item" onmousedown="event.preventDefault()" onclick="fcRechercheOuvrir(' + i + ')"><b>' + escapeHtml(g.nom) + '</b><small>' + escapeHtml([g.email, g.type, g.dates.length + ' RDV', g.result].filter(Boolean).join(' · ')) + '</small></button>';
+  }).join('') : '<div class="fc-search-vide">Aucun client « ' + escapeHtml(q) + ' »</div>';
+  box.style.display = '';
+}
+function fcRechercheOuvrir(i) {
+  var g = _fcSearchRes[i]; if (!g) return;
+  fcFermerRecherche(); document.getElementById('fc-search-input').value = '';
+  ouvrirFicheClient(g.nom, g.email);
+}
+function fcFermerRecherche() { var b = document.getElementById('fc-search-liste'); if (b) b.style.display = 'none'; }
+function fcRechercheClavier(ev) {
+  var items = document.querySelectorAll('.fc-search-item'); if (!items.length) return;
+  if (ev.key === 'ArrowDown') { _fcSearchSel = Math.min(items.length - 1, _fcSearchSel + 1); }
+  else if (ev.key === 'ArrowUp') { _fcSearchSel = Math.max(0, _fcSearchSel - 1); }
+  else if (ev.key === 'Enter') { ev.preventDefault(); fcRechercheOuvrir(_fcSearchSel >= 0 ? _fcSearchSel : 0); return; }
+  else return;
+  ev.preventDefault(); items.forEach(function(el, i) { el.classList.toggle('sel', i === _fcSearchSel); });
+}
+document.addEventListener('click', function(ev) { if (!ev.target.closest('#fc-search')) fcFermerRecherche(); });
 // Deux cartes R1 pour la même personne dans le Pipeline (il est revenu) : popup → supprimer l'ancienne ou garder les deux (choix mémorisé)
 var _fcDoublonsPopupFait = false;
 function fcDetecterDoublonsPipeline(cols) {
