@@ -376,9 +376,21 @@ main { max-width: 100%; margin: 0; padding: 6px 8px; }
 /* ---------- Fiche client (panneau à droite) ---------- */
 .fc-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.25); z-index: 1200; }
 .fc-overlay.open { display: block; }
-.fc-panel { position: absolute; top: 0; right: 0; bottom: 0; width: 520px; max-width: 96vw; background: var(--surface); box-shadow: -12px 0 40px rgba(0,0,0,0.18); display: flex; flex-direction: column; }
-.fc-head { padding: 18px 20px 12px; border-bottom: 1px solid var(--border); }
-.fc-nom { font-size: 20px; font-weight: 700; display: flex; align-items: center; gap: 10px; }
+.fc-panel { position: absolute; top: 0; right: 0; bottom: 0; width: 760px; max-width: 96vw; background: var(--bg); box-shadow: -12px 0 40px rgba(0,0,0,0.18); display: flex; flex-direction: column; }
+.fc-head { padding: 22px 26px 14px; background: var(--surface); border-bottom: 1px solid var(--border); }
+.fc-nom { font-size: 26px; font-weight: 700; display: flex; align-items: center; gap: 12px; letter-spacing: -.01em; }
+.fc-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.fc-chip { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; padding: 7px 12px; border-radius: 10px; background: var(--surface2); color: var(--text); text-decoration: none; border: 1px solid var(--border); }
+.fc-chip:hover { border-color: var(--accent); color: var(--accent); }
+.fc-chip.accent { background: var(--accent-bg); color: var(--accent); border-color: transparent; }
+.fc-chip .k { font-size: 11px; font-weight: 500; color: var(--text3); }
+.fc-suivi { margin-top: 12px; display: flex; flex-wrap: wrap; gap: 8px; }
+.fc-suivi span { font-size: 12.5px; font-weight: 600; padding: 6px 10px; border-radius: 8px; }
+.fc-suivi .r2 { background: var(--purple-bg); color: var(--purple); }
+.fc-suivi .rel { background: var(--orange-bg); color: var(--orange); }
+.fc-suivi .rel.due { background: var(--red-bg); color: var(--red); }
+.fc-suivi .manque { background: var(--red-bg); color: var(--red); cursor: pointer; }
+.fc-muted { font-size: 12px; color: var(--text3); }
 .fc-nom .fc-close { margin-left: auto; border: 0; background: transparent; font-size: 20px; cursor: pointer; color: var(--text3); }
 .fc-badges { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 .fc-badge { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 99px; background: var(--surface2); color: var(--text2); }
@@ -386,15 +398,17 @@ main { max-width: 100%; margin: 0; padding: 6px 8px; }
 .fc-contact { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 13px; }
 .fc-contact a { color: var(--accent); text-decoration: none; font-weight: 600; }
 .fc-contact .muted { color: var(--text3); font-size: 12px; }
-.fc-tabs { display: flex; gap: 4px; padding: 10px 20px 0; border-bottom: 1px solid var(--border); }
-.fc-tab { border: 0; background: transparent; padding: 8px 12px; font-family: var(--font); font-size: 13px; font-weight: 600; color: var(--text3); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.fc-tabs { display: flex; gap: 4px; padding: 10px 26px 0; background: var(--surface); border-bottom: 1px solid var(--border); }
+.fc-tab { border: 0; background: transparent; padding: 10px 14px; font-family: var(--font); font-size: 13.5px; font-weight: 600; color: var(--text3); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; }
 .fc-tab.on { color: var(--accent); border-bottom-color: var(--accent); }
-.fc-body { flex: 1; overflow: auto; padding: 16px 20px 24px; font-size: 13px; line-height: 1.5; }
-.fc-rdv { border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 12px; margin-bottom: 10px; background: var(--surface2); }
-.fc-rdv-t { display: flex; align-items: center; gap: 8px; font-weight: 600; flex-wrap: wrap; }
+.fc-body { flex: 1; overflow: auto; padding: 20px 26px 28px; font-size: 13.5px; line-height: 1.55; }
+.fc-rdv { display: grid; grid-template-columns: 96px 1fr; gap: 14px; border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px; margin-bottom: 12px; background: var(--surface); }
+.fc-rdv-date { font-family: var(--mono); font-size: 13px; font-weight: 600; color: var(--text); }
+.fc-rdv-date small { display: block; font-family: var(--font); font-size: 11px; font-weight: 500; color: var(--text3); margin-top: 2px; }
+.fc-rdv-t { display: flex; align-items: center; gap: 8px; font-weight: 600; flex-wrap: wrap; font-size: 14px; }
 .fc-rdv-t .d { font-family: var(--mono); font-size: 12px; color: var(--text2); }
-.fc-rdv-s { font-size: 12px; color: var(--text3); margin-top: 2px; }
-.fc-claap { display: flex; gap: 6px; align-items: center; margin-top: 8px; }
+.fc-rdv-s { font-size: 12.5px; color: var(--text3); margin-top: 3px; }
+.fc-claap { display: flex; gap: 6px; align-items: center; margin-top: 10px; }
 .fc-claap input { flex: 1; font-family: var(--font); font-size: 12px; border: 1px solid var(--border); border-radius: 6px; padding: 4px 8px; background: var(--surface); color: var(--text); }
 .fc-claap a { font-size: 12px; font-weight: 600; color: var(--accent); text-decoration: none; white-space: nowrap; }
 .fc-sec { margin-bottom: 14px; }
@@ -3183,24 +3197,41 @@ function fcRendre() {
   else body.innerHTML = fcHtmlNotes();
 }
 function fcRendreContact() {
-  var el = document.getElementById('fc-contact'), parts = [];
-  if (_fc.email) parts.push('<a href="mailto:' + escapeHtml(_fc.email) + '">✉ ' + escapeHtml(_fc.email) + '</a>');
-  var c = _fc.close;
-  if (c === null) parts.push('<span class="muted">Close : recherche…</span>');
-  else if (c && c.configure === false) parts.push('<span class="muted">Close : clé absente (CLOSE_API_KEY dans le .env du copilot)</span>');
-  else if (c && c.error) parts.push('<span class="muted">Close : ' + escapeHtml(c.error) + '</span>');
-  else if (c && c.leads && c.leads.length) {
-    var l = c.leads[0];
-    (l.contacts || []).forEach(function(ct) {
-      (ct.tels || []).forEach(function(t) { parts.push('<a href="tel:' + escapeHtml(String(t).replace(/\s/g, '')) + '">📞 ' + escapeHtml(t) + '</a>'); });
-      (ct.emails || []).forEach(function(e) { if (String(e).toLowerCase() !== _fc.email) parts.push('<a href="mailto:' + escapeHtml(e) + '">✉ ' + escapeHtml(e) + '</a>'); });
-    });
-    parts.push('<a href="' + escapeHtml(l.url) + '" target="_blank" rel="noopener">↗ Ouvrir dans Close</a>');
-    if (l.statut) parts.push('<span class="fc-badge">' + escapeHtml(l.statut) + '</span>');
-    if (c.leads.length > 1) parts.push('<span class="muted">' + c.leads.length + ' fiches Close trouvées (' + (c.par === 'nom' ? 'par nom' : 'par email') + '), la première est affichée</span>');
-  } else if (c) parts.push('<span class="muted">Close : aucune fiche trouvée' + (c.par === 'nom' ? ' par nom' : '') + '</span>');
-  else parts.push('<span class="muted">Close : copilot éteint</span>');
-  el.innerHTML = parts.join(' <span class="muted">·</span> ');
+  var el = document.getElementById('fc-contact'), chips = [], note = '';
+  var propre = function(arr) { return (arr || []).map(function(x) { return String(x || '').trim(); }).filter(function(x) { return x && x !== 'null' && x !== 'undefined'; }); };
+  var c = _fc.close, tel = '', mailClose = '', statut = '', url = '';
+  if (c && c.leads && c.leads.length) {
+    var l = c.leads[0]; url = l.url || ''; statut = propre([l.statut])[0] || '';
+    // le contact qui porte le mail Calendly d'abord, sinon le premier
+    var cts = l.contacts || [];
+    var ct = cts.filter(function(x) { return propre(x.emails).some(function(e) { return e.toLowerCase() === _fc.email; }); })[0] || cts[0] || {};
+    tel = propre(ct.tels)[0] || ''; mailClose = propre(ct.emails)[0] || '';
+    if (!tel) cts.some(function(x) { tel = propre(x.tels)[0] || ''; return !!tel; });
+  }
+  var mail = _fc.email || mailClose;
+  if (tel) chips.push('<a class="fc-chip accent" href="tel:' + escapeHtml(tel.replace(/\s/g, '')) + '">📞 ' + escapeHtml(tel) + '</a>');
+  if (mail) chips.push('<a class="fc-chip" href="mailto:' + escapeHtml(mail) + '">✉ ' + escapeHtml(mail) + '</a>');
+  if (url) chips.push('<a class="fc-chip" href="' + escapeHtml(url) + '" target="_blank" rel="noopener">↗ Close' + (statut ? ' <span class="k">' + escapeHtml(statut) + '</span>' : '') + '</a>');
+  if (c === null) note = 'Close : recherche…';
+  else if (c && c.configure === false) note = 'Close : clé absente';
+  else if (c && c.error) note = 'Close : ' + c.error;
+  else if (c && c.leads && !c.leads.length) note = 'Close : aucune fiche trouvée';
+  else if (c === undefined) note = 'Close : copilot éteint';
+  else if (c && c.leads && c.leads.length > 1) note = c.leads.length + ' fiches Close (' + (c.par === 'nom' ? 'par nom' : 'par email') + '), la première est affichée';
+  el.innerHTML = '<div class="fc-chips">' + chips.join('') + '</div>' + (note ? '<div class="fc-muted" style="margin-top:6px;">' + escapeHtml(note) + '</div>' : '') + '<div class="fc-suivi" id="fc-suivi">' + fcHtmlSuivi() + '</div>';
+}
+// Suivi : R2 planifié / relance (locale ou copilot) / rien → à décider
+function fcIsoDepuisFr(d) { var m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(d || ''); return m ? m[3] + '-' + m[2] + '-' + m[1] : ''; }
+function fcFrDepuisIso(d) { return d ? String(d).split('-').reverse().join('/') : ''; }
+function fcHtmlSuivi() {
+  var last = _fc.rows[0]; if (!last) return '';
+  var today = new Date().toISOString().slice(0, 10), out = [];
+  if (last.dateR2 && String(last.dateR2).trim()) out.push('<span class="r2">📅 R2 le ' + escapeHtml(last.dateR2) + '</span>');
+  if (last.relanceDate && !last.relanceFait) out.push('<span class="rel' + (last.relanceDate <= today ? ' due' : '') + '">📞 Relance le ' + escapeHtml(fcFrDepuisIso(last.relanceDate)) + (last.relanceCond ? ' · ' + escapeHtml(last.relanceCond) : '') + '</span>');
+  var n = fcNormNom(_fc.nom);
+  (_relances || []).forEach(function(r) { if (r.local || fcNormNom(r.nom) !== n || !(r.relance && r.relance.quand)) return; out.push('<span class="rel' + (r.relance.quand <= today ? ' due' : '') + '">📞 Relance copilot le ' + escapeHtml(fcFrDepuisIso(r.relance.quand)) + (r.relance.condition ? ' · ' + escapeHtml(r.relance.condition) : '') + '</span>'); });
+  if (!out.length && classifyRow(last) === 'interested') out.push('<span class="manque" onclick="fcPopupSuivi(' + JSON.stringify(last._monthKey).replace(/"/g, '&quot;') + ',' + last._storeKey + ')">⚠ Intéressé sans suite : R2 ou relance ?</span>');
+  return out.join('');
 }
 function fcChargerClose() {
   var cle = _fc.cle;
@@ -3223,13 +3254,15 @@ function fcHtmlRdv() {
     var pres = r.presence || '—', res = r.result === 'Promo' ? 'Non signé · si promo' : (r.result || '—');
     var url = claap[r.date] || '';
     var tab = (r.source === 'R2' || (r.dateR2 && String(r.dateR2).trim())) ? 'r2' : 'r1';
+    var suite = r.dateR2 && String(r.dateR2).trim() ? '📅 R2 le ' + r.dateR2 : (r.relanceDate ? '📞 Relance le ' + fcFrDepuisIso(r.relanceDate) + (r.relanceCond ? ' · ' + r.relanceCond : '') + (r.relanceFait ? ' ✓ faite' : '') : '');
     return '<div class="fc-rdv">'
-      + '<div class="fc-rdv-t"><span class="d">' + escapeHtml(r.date || '') + (r.heure ? ' ' + escapeHtml(r.heure) : '') + '</span><span>' + escapeHtml(r.source || '') + (r.source === 'R2' ? '' : ' · R1') + '</span>'
-      + '<span class="fc-badge" style="margin-left:auto">' + escapeHtml(pres) + '</span><span class="fc-badge">' + escapeHtml(res) + '</span></div>'
-      + '<div class="fc-rdv-s">' + escapeHtml([r.type, r.pack, r.freq, r.tier, r.fms && ('FMS ' + r.fms), r.dateR2 && ('R2 le ' + r.dateR2)].filter(Boolean).join(' · ') || '—') + '</div>'
+      + '<div class="fc-rdv-date">' + escapeHtml(r.date || '') + '<small>' + escapeHtml((r.heure ? r.heure + ' · ' : '') + (r.source || '') + (r.source === 'R2' ? '' : ' · R1')) + '</small></div><div>'
+      + '<div class="fc-rdv-t"><span class="fc-badge' + (pres === 'Show' ? ' won' : (pres === 'No Show' ? ' lost' : '')) + '">' + escapeHtml(pres) + '</span><span class="fc-badge' + (res === 'Signé' ? ' won' : (res.indexOf('Non') === 0 ? ' lost' : (res === 'Intéressé' ? ' hot' : ''))) + '">' + escapeHtml(res) + '</span>' + (suite ? '<span class="fc-muted">' + escapeHtml(suite) + '</span>' : '') + '</div>'
+      + '<div class="fc-rdv-s">' + escapeHtml([r.type, r.pack, r.freq, r.tier, r.fms && ('FMS ' + r.fms)].filter(Boolean).join(' · ') || '—') + '</div>'
       + '<div class="fc-claap"><span style="font-size:12px;color:var(--text3);">🎥 Claap</span><input placeholder="Coller le lien de l\'enregistrement" value="' + escapeHtml(url) + '" onchange="fcSetClaap(' + JSON.stringify(r.date || '').replace(/"/g, '&quot;') + ', this.value)">' + (url ? '<a href="' + escapeHtml(url) + '" target="_blank" rel="noopener">▶ Ouvrir</a>' : '') + '</div>'
-      + '<div style="margin-top:6px;"><button class="btn btn-sm" style="font-size:11px;padding:2px 8px;" onclick="fermerFicheClient();goToRdvTableRow(' + JSON.stringify(r._monthKey).replace(/"/g, '&quot;') + ',' + r._storeKey + ',' + JSON.stringify(tab).replace(/"/g, '&quot;') + ')">Modifier dans RDV Table</button></div>'
-      + '</div>';
+      + '<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;"><button class="btn btn-sm" style="font-size:11px;padding:3px 9px;" onclick="fermerFicheClient();goToRdvTableRow(' + JSON.stringify(r._monthKey).replace(/"/g, '&quot;') + ',' + r._storeKey + ',' + JSON.stringify(tab).replace(/"/g, '&quot;') + ')">✎ Modifier dans RDV Table</button>'
+      + (r.source !== 'R2' ? '<button class="btn btn-sm" style="font-size:11px;padding:3px 9px;" onclick="fcPopupSuivi(' + JSON.stringify(r._monthKey).replace(/"/g, '&quot;') + ',' + r._storeKey + ')">📅 R2 / 📞 Relance</button>' : '') + '</div>'
+      + '</div></div>';
   }).join('');
 }
 function fcSetClaap(date, url) {
@@ -3245,7 +3278,7 @@ function fcHtmlPrepa() {
   if (!_fc.dossiers.length) return '<div class="fc-empty">Aucune prépa copilot à ce nom.</div>';
   var li = function(arr) { return (arr && arr.length) ? '<ul>' + arr.map(function(x) { return '<li>' + escapeHtml(x) + '</li>'; }).join('') + '</ul>' : ''; };
   return _fc.dossiers.map(function(d) {
-    var b = d.briefing, h = '<div class="fc-rdv"><div class="fc-rdv-t"><span class="d">' + escapeHtml((d.date || '').split('-').reverse().join('/')) + (d.heure ? ' ' + escapeHtml(d.heure) : '') + '</span><span>' + escapeHtml([d.reseau, d.secteur].filter(Boolean).join(' · ')) + '</span><span class="fc-badge" style="margin-left:auto">' + escapeHtml(d.statut || '') + '</span></div>';
+    var b = d.briefing, h = '<div class="fc-rdv"><div class="fc-rdv-date">' + escapeHtml((d.date || '').split('-').reverse().join('/')) + '<small>' + escapeHtml((d.heure ? d.heure + ' · ' : '') + (d.statut || '')) + '</small></div><div><div class="fc-rdv-t"><span>' + escapeHtml([d.reseau, d.secteur].filter(Boolean).join(' · ')) + '</span></div>';
     var p = d.prep || {}, faits = [p.tier && ('Tier ' + p.tier), p.nb_biens && (p.nb_biens + ' biens'), p.ventes_recentes && (p.ventes_recentes + ' ventes'), p.site].filter(Boolean);
     if (faits.length) h += '<div class="fc-rdv-s">' + escapeHtml(faits.join(' · ')) + '</div>';
     if (d.notes) h += '<div class="fc-sec" style="margin-top:8px;"><div class="fc-sec-t">✍️ Mes notes</div><div class="fc-pre">' + escapeHtml(d.notes) + '</div></div>';
@@ -3258,8 +3291,8 @@ function fcHtmlPrepa() {
     }
     if (d.contexte) h += '<details style="margin-top:6px;"><summary style="cursor:pointer;font-size:12px;color:var(--text2);">Analyse GPT collée</summary><div class="fc-pre" style="margin-top:6px;">' + escapeHtml(d.contexte) + '</div></details>';
     if (d.debrief) h += '<div class="fc-sec" style="margin-top:8px;"><div class="fc-sec-t">Débrief</div><div class="fc-pre">' + escapeHtml(d.debrief) + '</div></div>';
-    if (d.issue) h += '<div class="fc-sec"><div class="fc-sec-t">Issue</div>' + escapeHtml([d.issue.type, d.issue.raison, d.issue.relance && d.issue.relance.quand && ('relance le ' + d.issue.relance.quand), d.issue.relance && d.issue.relance.condition].filter(Boolean).join(' · ')) + '</div>';
-    return h + '</div>';
+    if (d.issue) h += '<div class="fc-sec"><div class="fc-sec-t">Issue</div>' + escapeHtml([d.issue.type, d.issue.raison, d.issue.relance && d.issue.relance.quand && ('relance le ' + fcFrDepuisIso(d.issue.relance.quand)), d.issue.relance && d.issue.relance.condition].filter(Boolean).join(' · ')) + '</div>';
+    return h + '</div></div>';
   }).join('');
 }
 function fcHtmlNotes() {
@@ -3318,6 +3351,50 @@ function fcRechercheClavier(ev) {
   ev.preventDefault(); items.forEach(function(el, i) { el.classList.toggle('sel', i === _fcSearchSel); });
 }
 document.addEventListener('click', function(ev) { if (!ev.target.closest('#fc-search')) fcFermerRecherche(); });
+// Intéressé = obligatoirement une suite : R2 planifié (date) ou relance (date + condition). Popup depuis le Pipeline, la fiche, ou le dépôt dans Intéressés.
+function fcPopupSuivi(monthKey, idx, retourSiAnnule) {
+  var store = loadStore(), r = (store[monthKey] || [])[idx]; if (!r) return;
+  var html = '<div class="fc-dup"><div style="font-size:16px;font-weight:700;margin-bottom:2px;">' + escapeHtml(r.client) + ' — quelle suite ?</div>'
+    + '<div style="font-size:12px;color:var(--text3);margin-bottom:12px;">Un intéressé a toujours une suite : un R2 calé ou une relance datée.</div>'
+    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">'
+    + '<label style="display:block;border:1px solid var(--border);border-radius:var(--radius);padding:12px;background:var(--purple-bg);cursor:pointer;"><div style="font-weight:700;color:var(--purple);margin-bottom:6px;">📅 R2 planifié</div><input type="date" id="fc-suivi-r2" value="' + escapeHtml(fcIsoDepuisFr(r.dateR2 || '')) + '" style="width:100%;font-family:var(--mono);font-size:12px;padding:5px 6px;border:1px solid var(--border);border-radius:6px;"></label>'
+    + '<label style="display:block;border:1px solid var(--border);border-radius:var(--radius);padding:12px;background:var(--orange-bg);cursor:pointer;"><div style="font-weight:700;color:var(--orange);margin-bottom:6px;">📞 Relance</div><input type="date" id="fc-suivi-rel" value="' + escapeHtml(r.relanceDate || '') + '" style="width:100%;font-family:var(--mono);font-size:12px;padding:5px 6px;border:1px solid var(--border);border-radius:6px;margin-bottom:6px;"><input type="text" id="fc-suivi-cond" placeholder="Condition (si promo, après l\'été…)" value="' + escapeHtml(r.relanceCond || '') + '" style="width:100%;font-family:var(--font);font-size:12px;padding:5px 6px;border:1px solid var(--border);border-radius:6px;box-sizing:border-box;"></label>'
+    + '</div>'
+    + '<div style="display:flex;justify-content:flex-end;gap:6px;margin-top:12px;"><button class="btn btn-sm" onclick="fcSuiviAnnuler()">Annuler</button><button class="btn btn-sm btn-primary" onclick="fcSuiviEnregistrer()">Enregistrer</button></div></div>';
+  window._fcSuivi = { monthKey: monthKey, idx: idx, retour: retourSiAnnule || null };
+  var ov = document.getElementById('fc-dup-overlay');
+  if (!ov) { ov = document.createElement('div'); ov.id = 'fc-dup-overlay'; ov.className = 'modal-overlay'; ov.style.zIndex = '1300'; ov.innerHTML = '<div class="modal" id="fc-dup-modal"></div>'; document.body.appendChild(ov); ov.onclick = function(ev) { if (ev.target === ov) fermerModalDoublon(); }; }
+  ov.onclick = function(ev) { if (ev.target === ov) fcSuiviAnnuler(); };
+  document.getElementById('fc-dup-modal').innerHTML = html; ov.classList.add('open');
+  setTimeout(function() { var e = document.getElementById('fc-suivi-rel'); if (e && !r.dateR2) e.focus(); }, 50);
+}
+function fcSuiviAnnuler() {
+  var sv = window._fcSuivi; fermerModalDoublon();
+  if (sv && sv.retour) { var store = loadStore(), r = (store[sv.monthKey] || [])[sv.idx]; if (r) { r.result = sv.retour.result; r.presence = sv.retour.presence; saveStore(store); refreshAll(); } }
+  window._fcSuivi = null;
+}
+function fcSuiviEnregistrer() {
+  var sv = window._fcSuivi; if (!sv) return;
+  var r2 = (document.getElementById('fc-suivi-r2') || {}).value || '', rel = (document.getElementById('fc-suivi-rel') || {}).value || '', cond = ((document.getElementById('fc-suivi-cond') || {}).value || '').trim();
+  if (!r2 && !rel) { alert('Choisis une date de R2 ou une date de relance.'); return; }
+  var store = loadStore(), r = (store[sv.monthKey] || [])[sv.idx]; if (!r) return;
+  if (r2) { r.dateR2 = fcFrDepuisIso(r2); }
+  if (rel) { r.relanceDate = rel; r.relanceCond = cond; r.relanceFait = false; } else if (!r2) { delete r.relanceDate; }
+  if (classifyRow(r) !== 'interested' && !r2) { r.result = 'Intéressé'; if (!r.presence) r.presence = 'Show'; }
+  saveStore(store); fermerModalDoublon(); window._fcSuivi = null;
+  refreshAll();
+  if (document.getElementById('fc-overlay').classList.contains('open')) { _fc.rows = fcLignesDuNom(_fc.nom).filter(function(x) { var e = String(x.email || '').toLowerCase().trim(); return !_fc.email || !e || e === _fc.email; }); fcRendre(); }
+}
+// Relances locales (lignes Intéressé avec relanceDate) fusionnées avec celles du copilot
+function relancesLocales() {
+  var store = loadStore(), out = [];
+  Object.keys(store).forEach(function(k) {
+    if (!/^\d{4}-\d{2}$/.test(k) || !Array.isArray(store[k])) return;
+    store[k].forEach(function(r, i) { if (r && r.relanceDate && !r.relanceFait) out.push({ id: 'sd|' + k + '|' + i, local: true, nom: r.client, reseau: r.type || '', secteur: '', date: fcIsoDepuisFr(r.date), outcome: 'rappel', raison: r.result === 'Intéressé' ? 'Intéressé' : (r.result || ''), relance: { quand: r.relanceDate, condition: r.relanceCond || '', note: '' } }); });
+  });
+  return out;
+}
+function fusionRelances(copilot) { return (copilot || []).concat(relancesLocales()); }
 // Deux cartes R1 pour la même personne dans le Pipeline (il est revenu) : popup → supprimer l'ancienne ou garder les deux (choix mémorisé)
 var _fcDoublonsPopupFait = false;
 function fcDetecterDoublonsPipeline(cols) {
@@ -7407,12 +7484,20 @@ function buildPipelineCard(r, col) {
     + '<div class="pipeline-card-sub">' + (r.date || '') + (sub ? ' · ' + sub : '') + '</div>'
     + '<div class="pipeline-card-footer">'
     + (comm > 0 ? '<span class="pipeline-card-amount">' + comm.toLocaleString('fr-FR') + ' €</span>' : '<span style="color:var(--text3);font-size:12px;">—</span>')
+    + (col === 'interested' ? fcSuiteCarte(r) : '')
     + '<span style="display:flex;gap:4px;align-items:center;">'
     + (tier ? '<span class="tag">' + tier + '</span>' : '')
     + (days !== null && col !== 'signed' ? '<span style="font-size:10px;color:' + urgColor + ';">' + days + 'j ⏱</span>' : '')
     + '</span></div></div>';
 }
 
+// Carte Intéressé : la suite (R2 / relance) ou l'alerte « à décider »
+function fcSuiteCarte(r) {
+  var today = new Date().toISOString().slice(0, 10);
+  if (r.dateR2 && String(r.dateR2).trim()) return '<span style="font-size:10px;font-weight:600;color:var(--purple);">📅 R2 ' + escapeHtml(r.dateR2) + '</span>';
+  if (r.relanceDate && !r.relanceFait) return '<span style="font-size:10px;font-weight:600;color:' + (r.relanceDate <= today ? 'var(--red)' : 'var(--orange)') + ';">📞 ' + escapeHtml(fcFrDepuisIso(r.relanceDate)) + '</span>';
+  return '<span style="font-size:10px;font-weight:700;color:var(--red);cursor:pointer;" title="Un intéressé doit avoir un R2 ou une relance" onclick="event.stopPropagation();fcPopupSuivi(' + JSON.stringify(r._monthKey || '').replace(/"/g, '&quot;') + ',' + (r._storeKey || 0) + ')">⚠ R2 ou relance ?</span>';
+}
 // Navigation depuis Pipeline vers RDV Table avec mise en évidence de la ligne
 function goToRdvTableRow(monthKey, storeKey, tab) {
   // Si la card vient d'être draggée, ignorer le clic résiduel
@@ -7627,8 +7712,8 @@ function renderRelances() {
   var ctrl = new AbortController(); var t = setTimeout(function(){ ctrl.abort(); }, 4000);
   fetch(COPILOT_URL + '/relances', { mode:'cors', cache:'no-store', signal: ctrl.signal })
     .then(function(r){ return r.json(); })
-    .then(function(d){ _relances = (d && d.relances) || []; wrap.style.display = ''; dessinerRelances(); majAlerteRelances(); })
-    .catch(function(){ if (_relances) return; wrap.style.display = 'none'; })
+    .then(function(d){ _relances = fusionRelances((d && d.relances) || []); wrap.style.display = ''; dessinerRelances(); majAlerteRelances(); })
+    .catch(function(){ _relances = fusionRelances([]); wrap.style.display = _relances.length ? '' : 'none'; dessinerRelances(); majAlerteRelances(); })
     .finally(function(){ clearTimeout(t); });
 }
 // Alerte Quotidien : « x clients à relancer aujourd'hui » (date de relance atteinte ou dépassée)
@@ -7647,13 +7732,19 @@ function chargerRelancesPourQuotidien() {
   var ctrl = new AbortController(); var t = setTimeout(function(){ ctrl.abort(); }, 4000);
   fetch(COPILOT_URL + '/relances', { mode:'cors', cache:'no-store', signal: ctrl.signal })
     .then(function(r){ return r.json(); })
-    .then(function(d){ _relances = (d && d.relances) || []; majAlerteRelances(); })
-    .catch(function(){})
+    .then(function(d){ _relances = fusionRelances((d && d.relances) || []); majAlerteRelances(); })
+    .catch(function(){ _relances = fusionRelances([]); majAlerteRelances(); })
     .finally(function(){ clearTimeout(t); });
 }
 // Relance faite : elle sort de la liste (et de l'alerte Quotidien) ; sinon elle reste
 function relanceFaite(id, btn) {
   if (btn) { btn.disabled = true; btn.textContent = '…'; }
+  if (String(id).indexOf('sd|') === 0) { // relance locale (ligne du store)
+    var p = String(id).split('|'), store = loadStore(), r = (store[p[1]] || [])[parseInt(p[2])];
+    if (r) { r.relanceFait = true; saveStore(store); }
+    _relances = (_relances || []).filter(function(x){ return x.id !== id; }); dessinerRelances(); majAlerteRelances(); if (typeof showCopyToast === 'function') showCopyToast('✓ Relance faite');
+    return;
+  }
   fetch(COPILOT_URL + '/rdvs/' + encodeURIComponent(id) + '/relance-faite', { method: 'POST', mode: 'cors' })
     .then(function(r){ if (!r.ok) throw new Error(r.status); _relances = (_relances || []).filter(function(x){ return x.id !== id; }); dessinerRelances(); majAlerteRelances(); if (typeof showCopyToast === 'function') showCopyToast('✓ Relance faite'); })
     .catch(function(){ if (btn) { btn.disabled = false; btn.textContent = '✓ Fait'; } alert('Le copilot ne répond pas : relance non marquée.'); });
@@ -7669,7 +7760,7 @@ function dessinerRelances() {
   var rows = liste.filter(function(r){ return !_relancesFiltre || ((r.relance && r.relance.condition) === _relancesFiltre); });
   rows.sort(function(a,b){ return ((a.relance&&a.relance.quand)||'9999').localeCompare((b.relance&&b.relance.quand)||'9999'); });
   document.getElementById('relances-count').textContent = rows.length ? '· ' + rows.length + ' à rappeler' : '';
-  document.getElementById('relances-info').textContent = liste.length ? '' : 'Aucune relance enregistrée dans le copilot.';
+  document.getElementById('relances-info').textContent = liste.length ? '' : 'Aucune relance enregistrée.';
   var today = new Date().toISOString().slice(0,10);
   document.getElementById('relances-liste').innerHTML = rows.length ? '<table style="width:100%;font-size:12.5px;border-collapse:collapse;"><thead><tr>' + ['Quand','Prospect','RDV','Issue','Raison','Condition','Note',''].map(function(h){ return '<th style="text-align:left;padding:6px 8px;font-size:11px;color:var(--text3);border-bottom:1px solid var(--border);">' + h + '</th>'; }).join('') + '</tr></thead><tbody>'
     + rows.map(function(r){
@@ -7734,6 +7825,7 @@ function pipelineDrop(e, dropZone, colId, raison) {
   var mapping = colMap[colId];
   if (!mapping) return;
 
+  var avant = { result: r.result, presence: r.presence };
   r.result   = mapping.result;
   r.presence = mapping.presence;
   if (colId === 'pipe-col-nosigned') r.nosignRaison = raison || ''; // colonne : relancer / pasinteresse / pasbudget / promo / ghost
@@ -7742,6 +7834,8 @@ function pipelineDrop(e, dropZone, colId, raison) {
   store[monthKey] = rows;
   saveStore(store);
   refreshAll();
+  // Intéressé sans suite : on demande tout de suite R2 ou relance (Annuler remet la carte où elle était)
+  if (colId === 'pipe-col-interested' && !(r.dateR2 && String(r.dateR2).trim()) && !(r.relanceDate && !r.relanceFait)) fcPopupSuivi(monthKey, storeKey, avant);
 }
 
 // HELPER — Toggle sélecteur de mois (grisé sur Global)
