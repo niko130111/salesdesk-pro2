@@ -3266,6 +3266,58 @@ function fcNotesInput(v) {
   }, 700);
 }
 document.addEventListener('keydown', function(ev) { if (ev.key === 'Escape') { fermerFicheClient(); fermerModalDoublon(); } });
+// Deux cartes R1 pour la même personne dans le Pipeline (il est revenu) : popup → supprimer l'ancienne ou garder les deux (choix mémorisé)
+var _fcDoublonsPopupFait = false;
+function fcDetecterDoublonsPipeline(cols) {
+  if (_fcDoublonsPopupFait) return;
+  var store = loadStore(), vus = store._doublonsVus || {};
+  var par = {};
+  Object.keys(cols).forEach(function(c) { cols[c].forEach(function(r) {
+    if (!r || !r.client || r.source === 'R2') return;
+    var k = fcCle(r.client, String(r.email || '').toLowerCase().trim());
+    (par[k] = par[k] || []).push(r);
+  }); });
+  var groupes = [];
+  Object.keys(par).forEach(function(k) {
+    var l = par[k]; if (l.length < 2) return;
+    l.sort(function(a, b) { return (parseDateFR(b.date) || 0) - (parseDateFR(a.date) || 0); });
+    var cleVu = k + '|' + l.map(function(r) { return r.date; }).join(',');
+    if (vus[cleVu]) return;
+    groupes.push({ k: k, cleVu: cleVu, recent: l[0], anciens: l.slice(1) });
+  });
+  if (!groupes.length) return;
+  _fcDoublonsPopupFait = true;
+  var html = '<div class="fc-dup"><div style="font-size:15px;font-weight:700;margin-bottom:4px;">⚠️ ' + groupes.length + ' client(s) avec deux RDV dans le Pipeline</div>'
+    + '<div style="font-size:12px;color:var(--text3);margin-bottom:6px;">Il est revenu : le RDV récent remplace l\'ancien. Supprimer l\'ancien le retire aussi des stats de son mois. La fiche client garde tout l\'historique.</div>';
+  groupes.forEach(function(g, i) {
+    html += '<div style="border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;margin-top:8px;background:var(--surface2);" id="fc-dbl-' + i + '">'
+      + '<b class="fc-nomlien" onclick="ouvrirFicheClient(' + JSON.stringify(g.recent.client).replace(/"/g, '&quot;') + ',' + JSON.stringify(g.recent.email || '').replace(/"/g, '&quot;') + ')">' + escapeHtml(g.recent.client) + '</b>'
+      + '<div style="font-size:12px;color:var(--text3);margin:2px 0 6px;">Récent : ' + escapeHtml(g.recent.date) + ' · ' + escapeHtml(g.recent.result || g.recent.presence || '—') + ' &nbsp;|&nbsp; Ancien : ' + g.anciens.map(function(a) { return escapeHtml(a.date) + ' · ' + escapeHtml(a.result || a.presence || '—'); }).join(', ') + '</div>'
+      + '<div style="display:flex;gap:6px;"><button class="btn btn-sm btn-primary" style="font-size:11px;" onclick="fcSupprimerAnciens(' + i + ')">🗑 Supprimer l\'ancien</button><button class="btn btn-sm" style="font-size:11px;" onclick="fcGarderDoublon(' + i + ')">Garder les deux</button></div></div>';
+  });
+  html += '<div style="text-align:right;margin-top:12px;"><button class="btn btn-sm" onclick="fermerModalDoublon()">Plus tard</button></div></div>';
+  window._fcGroupes = groupes;
+  var ov = document.getElementById('fc-dup-overlay');
+  if (!ov) { ov = document.createElement('div'); ov.id = 'fc-dup-overlay'; ov.className = 'modal-overlay'; ov.style.zIndex = '1300'; ov.innerHTML = '<div class="modal" id="fc-dup-modal"></div>'; document.body.appendChild(ov); ov.onclick = function(ev) { if (ev.target === ov) fermerModalDoublon(); }; }
+  document.getElementById('fc-dup-modal').innerHTML = html; ov.classList.add('open');
+}
+function fcSupprimerAnciens(i) {
+  var g = (window._fcGroupes || [])[i]; if (!g) return;
+  var store = loadStore();
+  localStorage.setItem('salesdesk_rdvs_backup_' + Date.now(), JSON.stringify(store));
+  g.anciens.forEach(function(a) {
+    var rows = store[a._monthKey]; if (!rows) return;
+    for (var j = rows.length - 1; j >= 0; j--) { var r = rows[j]; if (r && r.client === a.client && r.date === a.date && r.source === a.source) { marquerSupprime(store, r); rows.splice(j, 1); } }
+  });
+  saveStore(store);
+  var el = document.getElementById('fc-dbl-' + i); if (el) el.innerHTML = '<span style="color:var(--green);font-weight:600;">✓ Ancien RDV supprimé — ' + escapeHtml(g.recent.client) + '</span>';
+  refreshAll();
+}
+function fcGarderDoublon(i) {
+  var g = (window._fcGroupes || [])[i]; if (!g) return;
+  var store = loadStore(); if (!store._doublonsVus) store._doublonsVus = {}; store._doublonsVus[g.cleVu] = Date.now(); saveStore(store);
+  var el = document.getElementById('fc-dbl-' + i); if (el) el.innerHTML = '<span style="color:var(--text3);">Les deux sont gardés — ' + escapeHtml(g.recent.client) + '</span>';
+}
 
 function refreshAll() {
   const kpis = computeKpis(state.month, state.year);
@@ -7502,6 +7554,7 @@ function renderPipeline() {
     { label:'Commissions', val: commSignes.toLocaleString('fr-FR') + ' €',           color:'var(--orange)' },
   ];
   renderRelances();
+  fcDetecterDoublonsPipeline(cols);
   setHTML('pipeline-summary', summary.map(function(d){
     return '<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:8px 14px;font-size:12px;">'
       + '<span style="color:var(--text3);">' + d.label + '</span> '
