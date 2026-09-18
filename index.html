@@ -611,7 +611,7 @@ select.form-input { cursor: pointer; }
     <button class="nav-tab" onclick="showPage('mesrdv',this);togglePeriodSelector(false);ouvrirCopilot()">🎯 Mes RDV</button>
     <button class="nav-tab active" onclick="showPage('daily',this);renderDaily();dailyCalInit();
   initFromSupabase();togglePeriodSelector(false)">⚡ Quotidien</button>
-    <button class="nav-tab" onclick="showPage('analytics',this);togglePeriodSelector(true)">📊 Analytics</button>
+    <button class="nav-tab" onclick="showPage('analytics',this);togglePeriodSelector(true);chargerAppelsClose()">📊 Analytics</button>
     <button class="nav-tab" onclick="showPage('global',this);renderGlobal();togglePeriodSelector(false)">🌐 Global</button>
     <button class="nav-tab" onclick="showPage('pipeline',this);togglePeriodSelector(false);renderPipeline()">📋 Pipeline</button>
     <button class="nav-tab" onclick="showPage('rdvtable',this);togglePeriodSelector(true)">📅 RDV Table</button>
@@ -653,6 +653,8 @@ select.form-input { cursor: pointer; }
 <div id="page-daily" class="page active">
 <main>
 
+<!-- Appels Close : aujourd'hui + cette semaine (via le copilot local, clé Close) -->
+<div id="close-appels-daily" style="display:none;margin-bottom:14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 18px;align-items:center;gap:28px;flex-wrap:wrap;"></div>
 <!-- RDV sans action (non signé sans raison, intéressé sans R2 ni relance) : visible seulement s'il y en a -->
 <div id="sans-action-daily" class="alert-banner" style="display:none;background:var(--red-bg);border:1px solid var(--red);flex-direction:column;align-items:flex-start;gap:6px;"></div>
 <!-- Relances du jour (copilot) : visible seulement s'il y en a -->
@@ -953,6 +955,9 @@ select.form-input { cursor: pointer; }
       <span style="font-size:11px;color:var(--text3);">Comparaison : moyenne de tes 3 derniers mois finis</span>
     </div>
   </div>
+
+  <!-- Appels Close du mois sélectionné + historique par mois -->
+  <div id="close-appels-analytics" style="display:none;margin-bottom:16px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px 20px;"></div>
 
   <!-- KPI CARDS -->
   <div class="kpi-grid">
@@ -4445,6 +4450,7 @@ function updatePeriod() {
   document.getElementById('period-label').textContent = label;
   const _pp = document.getElementById('pipeline-period'); if (_pp) _pp.textContent = label;
   const _ppt = document.getElementById('pipeline-period-title'); if (_ppt) _ppt.textContent = label;
+  try { dessinerAppelsClose(); } catch (e) {}
   document.getElementById('rdvtable-period').textContent = label;
   refreshAll();
 }
@@ -6823,6 +6829,7 @@ function adjustAbsence(delta) {
 
 function renderDaily() {
   try { chargerRelancesPourQuotidien(); } catch (e) {}
+  try { chargerAppelsClose(); } catch (e) {}
   var now = new Date();
   var jFR  = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
   var mFR  = ['janvier','f\u00e9vrier','mars','avril','mai','juin','juillet','ao\u00fbt','septembre','octobre','novembre','d\u00e9cembre'];
@@ -7813,6 +7820,46 @@ function majAlerteRelances() {
   el.style.display = 'flex';
   document.getElementById('relances-jour-txt').textContent = '📞 ' + dues.length + (dues.length > 1 ? ' clients à relancer aujourd\'hui' : ' client à relancer aujourd\'hui');
   document.getElementById('relances-jour-noms').textContent = dues.slice(0, 4).map(function(r){ return r.nom + (r.relance.condition ? ' (' + r.relance.condition + ')' : ''); }).join(' · ') + (dues.length > 4 ? ' · …' : '');
+}
+// ── APPELS CLOSE (copilot local → /close/appels) : jour, semaine, par mois ─────────────
+var _closeAppels = null, _closeAppelsAt = 0;
+function chargerAppelsClose(force) {
+  if (typeof COPILOT_URL === 'undefined') return;
+  if (_closeAppels && Date.now() - _closeAppelsAt < 120000 && !force) { dessinerAppelsClose(); return; }
+  var ctrl = new AbortController(); var t = setTimeout(function(){ ctrl.abort(); }, 30000);
+  fetch(COPILOT_URL + '/close/appels', { mode:'cors', cache:'no-store', signal: ctrl.signal })
+    .then(function(r){ return r.json(); })
+    .then(function(d){ if (d && d.configure && !d.error) { _closeAppels = d; _closeAppelsAt = Date.now(); } dessinerAppelsClose(); })
+    .catch(function(){ dessinerAppelsClose(); })
+    .finally(function(){ clearTimeout(t); });
+}
+function fmtDureeAppels(sec) { sec = sec || 0; var h = Math.floor(sec / 3600), m = Math.round((sec % 3600) / 60); return h ? h + ' h ' + String(m).padStart(2, '0') : m + ' min'; }
+function dessinerAppelsClose() {
+  var d = _closeAppels, elD = document.getElementById('close-appels-daily'), elA = document.getElementById('close-appels-analytics');
+  if (!d) { if (elD) elD.style.display = 'none'; if (elA) elA.style.display = 'none'; return; }
+  if (elD) {
+    var bloc = function(titre, o) { return '<div><div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;">' + titre + '</div><div style="font-size:28px;font-weight:700;line-height:1.15;">' + (o.sortants || 0) + ' <span style="font-size:13px;font-weight:500;color:var(--text3);">appels · ' + fmtDureeAppels(o.duree) + ' en ligne</span></div></div>'; };
+    elD.style.display = 'flex';
+    elD.innerHTML = '<div style="font-size:22px;">📞</div>' + bloc("Aujourd'hui", d.jour || {}) + bloc('Cette semaine', d.semaine || {})
+      + '<div style="margin-left:auto;font-size:11px;color:var(--text3);">Close · ' + new Date(d.maj).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) + ' <button class="btn btn-sm" style="font-size:11px;padding:2px 8px;margin-left:6px;" onclick="chargerAppelsClose(true)">↻</button></div>';
+  }
+  if (elA) {
+    var MOIS = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+    var k = state.year + '-' + String(MOIS.indexOf(state.month) + 1).padStart(2, '0');
+    var m = (d.mois || {})[k] || { sortants: 0, duree: 0 };
+    var rdvPris = ((loadStore()[k]) || []).filter(function(r) { return r && r.source !== 'R2'; }).length;
+    var cles = Object.keys(d.mois || {}).sort(), max = Math.max.apply(null, cles.map(function(c) { return d.mois[c].sortants || 0; }).concat([1]));
+    var barres = cles.map(function(c) {
+      var v = d.mois[c].sortants || 0, h = Math.max(3, Math.round(v / max * 54)), sel = c === k;
+      return '<div style="display:flex;flex-direction:column;align-items:center;gap:3px;min-width:34px;" title="' + c + ' : ' + v + ' appels"><div style="font-size:10px;font-weight:600;color:' + (sel ? 'var(--accent)' : 'var(--text3)') + ';">' + v + '</div><div style="width:22px;height:' + h + 'px;border-radius:4px;background:' + (sel ? 'var(--accent)' : 'var(--border2)') + ';"></div><div style="font-size:9.5px;color:var(--text3);">' + ['Janv','Févr','Mars','Avr','Mai','Juin','Juil','Août','Sept','Oct','Nov','Déc'][parseInt(c.slice(5)) - 1] + ' ' + c.slice(2, 4) + '</div></div>';
+    }).join('');
+    elA.style.display = '';
+    elA.innerHTML = '<div style="display:flex;align-items:flex-end;gap:32px;flex-wrap:wrap;">'
+      + '<div><div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;">📞 Appels passés · ' + escapeHtml(state.month + ' ' + state.year) + '</div>'
+      + '<div style="font-size:34px;font-weight:700;line-height:1.15;">' + (m.sortants || 0) + '</div>'
+      + '<div style="font-size:12px;color:var(--text3);">' + fmtDureeAppels(m.duree) + ' en ligne' + (rdvPris ? ' · ' + Math.round((m.sortants || 0) / rdvPris) + ' appels par RDV (' + rdvPris + ' R1)' : '') + '</div></div>'
+      + '<div style="display:flex;align-items:flex-end;gap:6px;overflow-x:auto;padding-bottom:2px;">' + barres + '</div></div>';
+  }
 }
 // Au chargement du Quotidien on va chercher les relances même sans passer par le Pipeline
 function chargerRelancesPourQuotidien() {
