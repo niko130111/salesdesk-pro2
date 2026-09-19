@@ -5708,7 +5708,16 @@ async function calendlyListerEvents(key, params, maxPages) {
 // plusieurs mois ça fait des centaines de requêtes simultanées, que Calendly throttle.
 // D'où : cache par event (un event passé ne change plus) + concurrence bornée.
 const _cacheInvites = new Map();
-const CALENDLY_CONCURRENCE = 6;
+// Cache des invités gardé dans le navigateur : un RDV déjà lu ne redemande plus rien à Calendly (évite la limite de débit → lignes « — »)
+try { const _ci = JSON.parse(localStorage.getItem('salesdesk_cache_invites') || '{}'); Object.keys(_ci).forEach(function(u) { if (_ci[u] && _ci[u].email) _cacheInvites.set(u, _ci[u]); }); } catch (e) {}
+let _cacheInvitesTimer = null;
+function _sauverCacheInvites() {
+  clearTimeout(_cacheInvitesTimer);
+  _cacheInvitesTimer = setTimeout(function() {
+    try { const o = {}; let n = 0; Array.from(_cacheInvites.entries()).slice(-1500).forEach(function(e) { o[e[0]] = e[1]; n++; }); localStorage.setItem('salesdesk_cache_invites', JSON.stringify(o)); } catch (e) {}
+  }, 1500);
+}
+const CALENDLY_CONCURRENCE = 4;
 
 async function calendlyEnrichirInvites(key, events) {
   const resultats = new Array(events.length);
@@ -5724,17 +5733,24 @@ async function calendlyEnrichirInvites(key, events) {
         continue;
       }
       let name = '—', email = '';
-      try {
-        const r = await fetch('https://api.calendly.com/scheduled_events/' + ev.uri.split('/').pop() + '/invitees?count=1',
-                              { headers: { Authorization: 'Bearer ' + key } });
-        if (r.ok) {
-          const d = await r.json();
-          const inv = d.collection && d.collection[0];
-          if (inv) { name = inv.name || '—'; email = inv.email || ''; }
-          _cacheInvites.set(ev.uri, { name: name, email: email });
-        }
-      } catch (e) {}
-      resultats[i] = { ev: ev, name: name, email: email };
+      // Calendly limite le débit : sur un 429 on attend et on réessaie (3 fois) au lieu de laisser une ligne vide
+      for (let essai = 0; essai < 4; essai++) {
+        try {
+          const r = await fetch('https://api.calendly.com/scheduled_events/' + ev.uri.split('/').pop() + '/invitees?count=1',
+                                { headers: { Authorization: 'Bearer ' + key } });
+          if (r.ok) {
+            const d = await r.json();
+            const inv = d.collection && d.collection[0];
+            if (inv) { name = inv.name || '—'; email = inv.email || ''; }
+            if (email) { _cacheInvites.set(ev.uri, { name: name, email: email }); _sauverCacheInvites(); }
+            break;
+          }
+          if (r.status !== 429 && r.status < 500) break;
+          const attente = (Number(r.headers.get('retry-after')) || (2 + essai * 3)) * 1000;
+          await new Promise(function(ok) { setTimeout(ok, Math.min(attente, 20000)); });
+        } catch (e) { await new Promise(function(ok) { setTimeout(ok, 1500); }); }
+      }
+      resultats[i] = { ev: ev, name: name, email: email, incomplet: !email };
     }
   }
 
@@ -5778,7 +5794,9 @@ async function fetchOutbound2Mois(forcer) {
     // (Un report = ancien event annulé + nouveau : la déduplication par email n'en compte qu'un.)
     const bruts = await calendlyListerEvents(key, params, 8);
     const enrichis = await calendlyEnrichirInvites(key, bruts);
-    _outbound2Mois = enrichis.map(item => ({
+    const _incomplets = enrichis.filter(item => item.incomplet).length;
+    if (_incomplets) console.warn('[Outbound 2 mois] ' + _incomplets + ' RDV sans invité (limite Calendly) : ignorés cette fois, relus au prochain chargement.');
+    _outbound2Mois = enrichis.filter(item => !item.incomplet).map(item => ({
       annule: item.ev.status === 'canceled',
       start: new Date(item.ev.start_time),
       end: new Date(item.ev.end_time),
@@ -5789,7 +5807,9 @@ async function fetchOutbound2Mois(forcer) {
       uri: item.ev.uri,
       createdAt: item.ev.created_at ? new Date(item.ev.created_at) : null
     }));
-    _outbound2MoisDernierFetch = Date.now();
+    // s'il manque des invités, on autorise une relecture dans 1 min (le cache fait que seuls les manquants sont redemandés)
+    _outbound2MoisDernierFetch = _incomplets ? (Date.now() - OUTBOUND_INTERVALLE_MIN_MS + 60000) : Date.now();
+    if (_incomplets) setTimeout(function() { fetchOutbound2Mois().then(function() { try { renderDaily(); renderRdvTable(); } catch (e) {} }).catch(function(){}); }, 65000);
     console.log('[Outbound 2 mois] ' + _outbound2Mois.length + ' events, dont '
               + _outbound2Mois.filter(e => e.source === 'Outbound').length + ' outbound.');
   } catch (e) {
