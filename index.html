@@ -3803,6 +3803,11 @@ function _updateSortArrows() {
 
 function switchRdvTab(tab) {
   _rdvTableTab = tab;
+  // Outbound pris : la liste 2 mois (annulés compris) doit être chargée, sinon on n'a que la semaine affichée
+  if (tab === 'outbound' && typeof fetchOutbound2Mois === 'function') {
+    var _aJour = _outbound2Mois && _outbound2Mois.length;
+    fetchOutbound2Mois(!_aJour).then(function() { if (_rdvTableTab === 'outbound') renderRdvTable(); }).catch(function(){});
+  }
   // Mise à jour visuelle des onglets
   const utBtn = document.getElementById('rdv-tab-untreated');
   const r1Btn = document.getElementById('rdv-tab-r1');
@@ -6281,7 +6286,7 @@ window.addEventListener('load', async () => {
       renderDaily();
     }).catch(function(){});
     // FIX SD-07 : fenêtre outbound de 2 mois, indépendante de la semaine affichée
-    fetchOutbound2Mois().then(function() { renderDaily(); }).catch(function(){});
+    fetchOutbound2Mois().then(function() { renderDaily(); try { renderRdvTable(); } catch (e) {} }).catch(function(){});
     // Re-render de sécurité 3s après le démarrage
     setTimeout(function() {
       if (document.getElementById('page-daily').classList.contains('active')) renderDaily();
@@ -7496,7 +7501,7 @@ function renderDaily() {
       const k = state.calendly?.apiKey || localStorage.getItem('calendly_key');
       if (k) {
         fetchWeekEvents().then(function(){ renderDaily(); }).catch(function(){});
-        fetchOutbound2Mois().then(function(){ renderDaily(); }).catch(function(){});
+        fetchOutbound2Mois().then(function(){ renderDaily(); try { renderRdvTable(); } catch (e) {} }).catch(function(){});
       } else {
         renderDaily();
       }
