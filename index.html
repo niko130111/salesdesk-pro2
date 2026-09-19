@@ -4011,7 +4011,7 @@ function renderOutboundTab(events, currentMonthKey) {
     const dupeBadge = isDuplicate ? '<span title="Email présent plusieurs fois (probable reschedule)" style="margin-left:6px;background:rgba(239,68,68,.1);color:#dc2626;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:700;">⚠️ DOUBLON</span>' : '';
     return `<tr style="${effectiveSource !== 'Outbound' ? 'opacity:.55;' : ''}">
       <td style="padding:8px;font-size:12px;font-weight:600;">${dateStr}<div style="font-size:10px;color:var(--text3);font-weight:400;">${heureStr}</div></td>
-      <td style="padding:8px;font-size:13px;font-weight:600;" colspan="2">${escapeHtml(ev.name) || '—'}${dupeBadge}</td>
+      <td style="padding:8px;font-size:13px;font-weight:600;" colspan="2">${escapeHtml(ev.name) || '—'}${dupeBadge}${ev.annule ? ' <span style="font-size:10px;font-weight:600;padding:1px 6px;border-radius:99px;background:#fef3c7;color:#92400e;">RDV annulé · compté</span>' : ''}</td>
       <td style="padding:8px;font-size:11px;color:var(--text3);" colspan="2">${escapeHtml(ev.email) || '—'}</td>
       <td style="padding:8px;" colspan="2">${badge}${ptBadge}</td>
       <td style="padding:8px;font-size:11px;color:var(--text3);" colspan="2">Créé le ${createdStr}</td>
@@ -4063,8 +4063,10 @@ function renderRdvTable() {
   let outboundCount = 0;
   let outboundPoints = 0;
   let outboundEvents = [];
-  if (typeof weekEvents !== 'undefined' && weekEvents) {
-    const allCalEv = Object.values(weekEvents).reduce((acc, arr) => acc.concat(arr), []);
+  if ((typeof _outbound2Mois !== 'undefined' && _outbound2Mois && _outbound2Mois.length) || (typeof weekEvents !== 'undefined' && weekEvents)) {
+    const allCalEv = (typeof _outbound2Mois !== 'undefined' && _outbound2Mois && _outbound2Mois.length)
+      ? _outbound2Mois
+      : Object.values(weekEvents).reduce((acc, arr) => acc.concat(arr), []);
     outboundEvents = allCalEv.filter(e => e.source === 'Outbound');
     // Compteur badge : ne compter que ceux PRIS cette semaine (Lun-Ven)
     const _now = new Date();
@@ -4075,8 +4077,13 @@ function renderRdvTable() {
     const _weekFri = new Date(_weekMon); _weekFri.setDate(_weekMon.getDate() + 4); _weekFri.setHours(23, 59, 59, 999);
     // Filtrer aussi par overrides : un event "Reschedule" ou "Inbound" ne compte pas comme Outbound
     const obOverrides = loadOutboundOverrides();
-    const obThisWeek = outboundEvents.filter(e => {
-      if (!e.createdAt) return false;
+    // Un seul outbound par email (le plus ancien) : un report = ancien event annulé + nouveau, ça reste 1 pris
+    const _vus = {};
+    const _uniques = outboundEvents.slice().filter(e => e.createdAt).sort((a, b) => a.createdAt - b.createdAt).filter(e => {
+      const k = (e.email || '').toLowerCase().trim(); if (!k) return true;
+      if (_vus[k]) return false; _vus[k] = true; return true;
+    });
+    const obThisWeek = _uniques.filter(e => {
       if (e.createdAt < _weekMon || e.createdAt > _weekFri) return false;
       const key = getOutboundOverrideKey(e);
       const eff = obOverrides[key] || 'Outbound';
@@ -5762,9 +5769,12 @@ async function fetchOutbound2Mois(forcer) {
       max_start_time: fin.toISOString(),
       count: '100'
     });
-    const bruts = (await calendlyListerEvents(key, params, 5)).filter(ev => ev.status !== 'canceled');
+    // On GARDE les annulés : un outbound pris reste pris, même si le RDV est ensuite supprimé de l'agenda.
+    // (Un report = ancien event annulé + nouveau : la déduplication par email n'en compte qu'un.)
+    const bruts = await calendlyListerEvents(key, params, 8);
     const enrichis = await calendlyEnrichirInvites(key, bruts);
     _outbound2Mois = enrichis.map(item => ({
+      annule: item.ev.status === 'canceled',
       start: new Date(item.ev.start_time),
       end: new Date(item.ev.end_time),
       name: item.name,
