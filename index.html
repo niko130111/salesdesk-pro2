@@ -3413,12 +3413,34 @@ function sdManque(r) {
   }
   return '';
 }
+// Dernier RDV passé de chaque client (par nom et par email) → sert à savoir si une ligne a été remplacée par un RDV plus récent
+function sdDerniersRdv() {
+  var store = loadStore(), today = new Date(), dernier = {}; today.setHours(23, 59, 59, 0);
+  Object.keys(store).forEach(function(k) {
+    if (!/^\d{4}-\d{2}$/.test(k) || !Array.isArray(store[k])) return;
+    store[k].forEach(function(r) {
+      if (!r || !r.client) return; var d = parseDateFR(r.date); if (!d || d > today) return;
+      var cles = [fcCle(r.client, '')]; var e = String(r.email || '').toLowerCase().trim(); if (e) cles.push('e:' + e);
+      cles.forEach(function(c) { if (!dernier[c] || d > dernier[c]) dernier[c] = d; });
+    });
+  });
+  return function(r) { // vrai si cette ligne est le RDV le plus récent du client
+    var d = parseDateFR(r && r.date); if (!d) return true;
+    var e = String(r.email || '').toLowerCase().trim();
+    var max = Math.max(+(dernier[fcCle(r.client, '')] || 0), +(e ? (dernier['e:' + e] || 0) : 0));
+    return +d >= max;
+  };
+}
 function sdRdvsSansAction() {
   var store = loadStore(), out = [], today = new Date(); today.setHours(23, 59, 59, 0);
+  // Seul le DERNIER RDV de chaque client porte l'obligation : s'il est revenu depuis (et a signé, par exemple), l'ancien non signé n'a plus besoin de raison
+  var _estDernier = sdDerniersRdv();
+  var estDernier = function(r) { return _estDernier(r); };
   Object.keys(store).forEach(function(k) {
     if (!/^\d{4}-\d{2}$/.test(k) || !Array.isArray(store[k]) || k < '2026-03') return;
     store[k].forEach(function(r, i) {
       var d = parseDateFR(r && r.date); if (!d || d > today) return;
+      if (!estDernier(r)) return;
       var m = sdManque(r); if (m) out.push({ monthKey: k, idx: i, row: r, manque: m });
     });
   });
@@ -7721,6 +7743,7 @@ function renderPipeline() {
     }
   });
 
+  var _estDernierRdv = sdDerniersRdv();
   // ── Colonne Intéressés : mois courant + antérieurs depuis mars 2026 ──
   // On parcourt uniquement les mois JUSQU'AU mois courant (pas les futurs)
   Object.keys(store).forEach(function(key) {
@@ -7736,6 +7759,7 @@ function renderPipeline() {
     (store[key] || []).forEach(function(r, i) {
       r._storeKey = i;
       r._monthKey = key;
+      if (key !== currentKey && !_estDernierRdv(r)) return; // revenu depuis (nouveau RDV, signature…) : l'ancienne carte ne traîne plus dans le reliquat
       var c2 = classifyRow(r);
       if (c2 === 'interested') cols.interested.push(r);
       else if (c2 === 'nosigned' && raisonNS(r)) cols.nosigned.push(r); // Pas intéressé / Pas de budget / Si promo / Ghost : gardés d'un mois sur l'autre, comme les Intéressés
