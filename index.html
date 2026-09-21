@@ -3524,12 +3524,12 @@ function fcDetecterDoublonsPipeline(cols) {
   if (!groupes.length) return;
   _fcDoublonsPopupFait = true;
   var html = '<div class="fc-dup"><div style="font-size:15px;font-weight:700;margin-bottom:4px;">⚠️ ' + groupes.length + ' client(s) avec deux RDV dans le Pipeline</div>'
-    + '<div style="font-size:12px;color:var(--text3);margin-bottom:6px;">Il est revenu : le RDV récent remplace l\'ancien. Supprimer l\'ancien le retire aussi des stats de son mois. La fiche client garde tout l\'historique.</div>';
+    + '<div style="font-size:12px;color:var(--text3);margin-bottom:6px;">Il est revenu : le RDV récent remplace l\'ancien dans le Pipeline. L\'ancien RDV n\'est PAS supprimé : il reste dans RDV Table, dans les stats de son mois et dans la fiche client. Seule sa carte sort du Pipeline.</div>';
   groupes.forEach(function(g, i) {
     html += '<div style="border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;margin-top:8px;background:var(--surface2);" id="fc-dbl-' + i + '">'
       + '<b class="fc-nomlien" onclick="ouvrirFicheClient(' + JSON.stringify(g.recent.client).replace(/"/g, '&quot;') + ',' + JSON.stringify(g.recent.email || '').replace(/"/g, '&quot;') + ')">' + escapeHtml(g.recent.client) + '</b>'
       + '<div style="font-size:12px;color:var(--text3);margin:2px 0 6px;">Récent : ' + escapeHtml(g.recent.date) + ' · ' + escapeHtml(g.recent.result || g.recent.presence || '—') + ' &nbsp;|&nbsp; Ancien : ' + g.anciens.map(function(a) { return escapeHtml(a.date) + ' · ' + escapeHtml(a.result || a.presence || '—'); }).join(', ') + '</div>'
-      + '<div style="display:flex;gap:6px;"><button class="btn btn-sm btn-primary" style="font-size:11px;" onclick="fcSupprimerAnciens(' + i + ')">🗑 Supprimer l\'ancien</button><button class="btn btn-sm" style="font-size:11px;" onclick="fcGarderDoublon(' + i + ')">Garder les deux</button></div></div>';
+      + '<div style="display:flex;gap:6px;"><button class="btn btn-sm btn-primary" style="font-size:11px;" onclick="fcSupprimerAnciens(' + i + ')">Retirer l\'ancienne carte</button><button class="btn btn-sm" style="font-size:11px;" onclick="fcGarderDoublon(' + i + ')">Garder les deux</button></div></div>';
   });
   html += '<div style="text-align:right;margin-top:12px;"><button class="btn btn-sm" onclick="fermerModalDoublon()">Plus tard</button></div></div>';
   window._fcGroupes = groupes;
@@ -3537,16 +3537,25 @@ function fcDetecterDoublonsPipeline(cols) {
   if (!ov) { ov = document.createElement('div'); ov.id = 'fc-dup-overlay'; ov.className = 'modal-overlay'; ov.style.zIndex = '1300'; ov.innerHTML = '<div class="modal" id="fc-dup-modal"></div>'; document.body.appendChild(ov); ov.onclick = function(ev) { if (ev.target === ov) fermerModalDoublon(); }; }
   document.getElementById('fc-dup-modal').innerHTML = html; ov.classList.add('open');
 }
+// Sauvegarde du store avant une modif destructive : garde les 2 plus récentes (sinon le stockage du navigateur sature et setItem plante), jamais bloquante
+function sdBackupStore(store) {
+  try {
+    var cles = []; for (var i = 0; i < localStorage.length; i++) { var k = localStorage.key(i); if (k && k.indexOf('salesdesk_rdvs_backup_') === 0) cles.push(k); }
+    cles.sort(); while (cles.length > 1) localStorage.removeItem(cles.shift());
+    localStorage.setItem('salesdesk_rdvs_backup_' + Date.now(), JSON.stringify(store));
+  } catch (e) { console.warn('[backup] impossible (stockage plein ?) :', e && e.message); }
+}
+// Au chargement : on purge les vieilles sauvegardes qui saturent le stockage du navigateur (on garde les 2 dernières)
+try { (function() { var cles = []; for (var i = 0; i < localStorage.length; i++) { var k = localStorage.key(i); if (k && k.indexOf('salesdesk_rdvs_backup_') === 0) cles.push(k); } cles.sort(); while (cles.length > 2) localStorage.removeItem(cles.shift()); })(); } catch (e) {}
 function fcSupprimerAnciens(i) {
   var g = (window._fcGroupes || [])[i]; if (!g) return;
-  var store = loadStore();
-  localStorage.setItem('salesdesk_rdvs_backup_' + Date.now(), JSON.stringify(store));
+  var store = loadStore(), n = 0;
   g.anciens.forEach(function(a) {
     var rows = store[a._monthKey]; if (!rows) return;
-    for (var j = rows.length - 1; j >= 0; j--) { var r = rows[j]; if (r && r.client === a.client && r.date === a.date && r.source === a.source) { marquerSupprime(store, r); rows.splice(j, 1); } }
+    rows.forEach(function(r) { if (r && r.client === a.client && r.date === a.date && r.source === a.source) { r.pipelineMasque = true; n++; } });
   });
   saveStore(store);
-  var el = document.getElementById('fc-dbl-' + i); if (el) el.innerHTML = '<span style="color:var(--green);font-weight:600;">✓ Ancien RDV supprimé — ' + escapeHtml(g.recent.client) + '</span>';
+  var el = document.getElementById('fc-dbl-' + i); if (el) el.innerHTML = '<span style="color:var(--green);font-weight:600;">✓ Ancienne carte retirée du Pipeline — ' + escapeHtml(g.recent.client) + ' (le RDV reste dans les stats de son mois)</span>';
   refreshAll();
 }
 function fcGarderDoublon(i) {
@@ -6081,7 +6090,7 @@ function dailyCalDonner(btn) {
   const name = card.dataset.name, rdvDate = card.dataset.date;
   if (!confirm('Supprimer le RDV « ' + name + ' » ?\nIl sort de tes données et ne reviendra pas.')) return;
   const store = loadStore();
-  localStorage.setItem('salesdesk_rdvs_backup_' + Date.now(), JSON.stringify(store));
+  sdBackupStore(store);
   marquerSupprime(store, { client: name, date: rdvDate });
   const cle = cleSupprime(name, rdvDate);
   Object.keys(store).forEach(function(k) {
@@ -7737,6 +7746,7 @@ function renderPipeline() {
   monthRows.forEach(function(r, i) {
     r._storeKey = i;
     r._monthKey = currentKey;
+    if (r.pipelineMasque) return; // ancienne carte d'un client revenu : hors Pipeline, toujours dans les stats
     var cat = classifyRow(r);
     if (cat !== 'interested' && !(cat === 'nosigned' && raisonNS(r))) { // non signés classés : gérés dans la boucle multi-mois
       cols[cat].push(r);
@@ -7759,6 +7769,7 @@ function renderPipeline() {
     (store[key] || []).forEach(function(r, i) {
       r._storeKey = i;
       r._monthKey = key;
+      if (r.pipelineMasque) return;
       if (key !== currentKey && !_estDernierRdv(r)) return; // revenu depuis (nouveau RDV, signature…) : l'ancienne carte ne traîne plus dans le reliquat
       var c2 = classifyRow(r);
       if (c2 === 'interested') cols.interested.push(r);
