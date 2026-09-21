@@ -2635,6 +2635,7 @@ select.form-input { cursor: pointer; }
       <div style="background:var(--purple-bg);border-radius:var(--radius);padding:10px 14px;margin-bottom:14px;font-size:12px;color:var(--text2);line-height:1.5;">
         La nouvelle date sera enregistree dans SalesDesk. Si tu as configure le webhook Make, l'evenement Google Calendar sera modifie et le prospect recevra l'invitation mise a jour.
       </div>
+      <div id="reschedule-detecte" style="display:none;background:var(--green-bg);border:1px solid var(--green);border-radius:var(--radius);padding:10px 14px;margin-bottom:14px;font-size:13px;font-weight:600;color:var(--green);"></div>
       <div class="form-row">
         <div class="form-group">
           <label class="form-label">Nouvelle date</label>
@@ -10145,7 +10146,37 @@ function openRescheduleModal(card) {
   var dEl = document.getElementById('reschedule-date'); if (dEl) dEl.value = '';
   var tEl = document.getElementById('reschedule-time'); if (tEl) tEl.value = '';
   var rEl = document.getElementById('reschedule-reason'); if (rEl) rEl.value = '';
+  // Déjà reprogrammé dans Calendly ? On retrouve le prochain RDV actif du même prospect et on pré-remplit.
+  var note = document.getElementById('reschedule-detecte'); if (note) note.style.display = 'none';
+  var poser = function(ev) {
+    if (!ev || !_currentRescheduleCard || _currentRescheduleCard !== card) return;
+    var d = ev.start, iso = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    var hm = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+    if (dEl && !dEl.value) dEl.value = iso; if (tEl && !tEl.value) tEl.value = hm;
+    if (rEl && !rEl.value) rEl.value = 'Reprogrammé dans Calendly';
+    if (note) { note.style.display = ''; note.textContent = '✓ Nouveau RDV détecté dans Calendly : ' + d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }) + ' à ' + hm + ' — vérifie et clique Reprogrammer.'; }
+  };
+  var trouve = sdTrouverReport(card.dataset.email, name, oldDate, oldHeure);
+  if (trouve) poser(trouve);
+  else if (typeof fetchOutbound2Mois === 'function') fetchOutbound2Mois(true).then(function() { poser(sdTrouverReport(card.dataset.email, name, oldDate, oldHeure)); }).catch(function(){});
   if (typeof openModal === 'function') openModal('rescheduleModal');
+}
+// Prochain RDV Calendly actif du même prospect (email, sinon nom), postérieur à l'ancien créneau
+function sdTrouverReport(email, name, oldDate, oldHeure) {
+  var p = String(oldDate || '').split('/'); if (p.length !== 3) return null;
+  var hm = /^(\d{1,2}):(\d{2})/.exec(oldHeure || '') || [0, 0, 0];
+  var ancien = new Date(+p[2], +p[1] - 1, +p[0], +hm[1], +hm[2]);
+  var e0 = String(email || '').toLowerCase().trim(), n0 = (typeof fcNormNom === 'function') ? fcNormNom(name) : String(name || '').toLowerCase().trim();
+  var tous = (typeof _outbound2Mois !== 'undefined' && _outbound2Mois ? _outbound2Mois.slice() : []);
+  if (typeof _dailyCalWeekEvents !== 'undefined') Object.keys(_dailyCalWeekEvents).forEach(function(k) { tous = tous.concat(_dailyCalWeekEvents[k] || []); });
+  var cands = tous.filter(function(ev) {
+    if (!ev || !ev.start || ev.annule) return false;
+    if (ev.start.getTime() <= ancien.getTime() + 60000) return false;
+    var e = String(ev.email || '').toLowerCase().trim();
+    if (e0 && e) return e === e0;
+    return ((typeof fcNormNom === 'function') ? fcNormNom(ev.name) : String(ev.name || '').toLowerCase().trim()) === n0;
+  }).sort(function(a, b) { return a.start - b.start; });
+  return cands[0] || null;
 }
 
 function confirmReschedule() {
