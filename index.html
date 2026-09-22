@@ -4481,10 +4481,11 @@ function sdAppliquerCopilot(m) {
   if (!row) { row = { date: dateFr, datePrise: '', client: nom, presence: '', result: '', source: m.source || 'Inbound', type: 'Mandataire', pack: '', freq: '', tier: '', fms: '', oneshot: 'N', commission: 0 }; rows.push(row); oublierSupprime(store, nom, dateFr); }
   const c = m.champs || {};
   ['presence', 'type', 'pack', 'freq', 'tier', 'fms'].forEach(k => { if (c[k] !== undefined && c[k] !== null) row[k] = String(c[k]); });
+  if (c.nosignRaison && row.result === 'Non signé') row.nosignRaison = String(c.nosignRaison);
   if (m.sc === 'rdv_terminer') {
     const isR2 = row.source === 'R2';
     if (m.result === 'oneshot') { row.result = 'Signé'; row.oneshot = isR2 ? 'N' : 'O'; if (!row.dateSignature) row.dateSignature = new Date().toLocaleDateString('fr-FR'); }
-    else if (m.result === 'nosign') { row.result = 'Non signé'; row.oneshot = 'N'; }
+    else if (m.result === 'nosign') { row.result = 'Non signé'; row.oneshot = 'N'; if (c.nosignRaison) row.nosignRaison = String(c.nosignRaison); }
     else if (m.result === 'r2') { row.result = ''; row.oneshot = 'N'; }
     else if (m.result === 'relance') { row.result = 'En attente'; row.oneshot = 'N'; } // pas de décision, pas de R2 → Intéressés + relance
     if (!row.presence) row.presence = 'Show';
