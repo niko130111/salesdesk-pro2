@@ -3432,7 +3432,7 @@ function sdManque(r) {
   if (res === 'Signé') {
     if (!String(r.pack || '').trim()) return 'pack';
     if (['Annuelle', 'Mensuelle'].indexOf(String(r.freq || '').trim()) < 0) return 'freq';
-    if (!String(r.tier || '').trim()) return 'tier';
+    // tier : vide = T1 partout (RDV Table, barème) → on ne le réclame pas ; le copilot pousse celui de la prépa
     if (!String(r.type || '').trim()) return 'type';
     return '';
   }
