@@ -3420,11 +3420,22 @@ function fcSuiviEnregistrer() {
 // ============================================================
 var SD_INTERESSE = ['Intéressé', 'Intéressée', 'R2 planifié', 'En attente', 'À relancer'];
 function sdRelanceCopilotPour(nom) { var n = fcNormNom(nom); return (_relances || []).some(function(r) { return !r.local && fcNormNom(r.nom) === n && r.relance && r.relance.quand; }); }
-// Ce qui manque à une ligne : 'raison' | 'suite' | ''
+// Ce qui manque à une ligne : 'raison' | 'suite' | 'presence' | 'resultat' | 'pack' | 'freq' | 'tier' | 'type' | ''
+// (un RDV passé doit être complet : présence, puis résultat si show, puis pack/fréquence/tier si signé)
 function sdManque(r) {
   if (!r || !r.client) return '';
-  var res = String(r.result || '').trim();
+  var res = String(r.result || '').trim(), pres = String(r.presence || '').trim();
+  if (!pres) return 'presence';
+  if (pres !== 'Show') return '';
+  if (!res) return 'resultat';
   if (res === 'Non signé' && !r.nosignRaison) return 'raison';
+  if (res === 'Signé') {
+    if (!String(r.pack || '').trim()) return 'pack';
+    if (['Annuelle', 'Mensuelle'].indexOf(String(r.freq || '').trim()) < 0) return 'freq';
+    if (!String(r.tier || '').trim()) return 'tier';
+    if (!String(r.type || '').trim()) return 'type';
+    return '';
+  }
   if (SD_INTERESSE.indexOf(res) >= 0) {
     if (r.dateR2 && String(r.dateR2).trim()) return '';
     if (r.relanceDate && !r.relanceFait) return '';
@@ -3433,6 +3444,7 @@ function sdManque(r) {
   }
   return '';
 }
+var SD_MANQUE_LIB = { presence: 'présence', resultat: 'résultat', raison: 'raison du non', suite: 'R2 ou relance', pack: 'pack', freq: 'fréquence', tier: 'tier', type: 'type' };
 // Dernier RDV passé de chaque client (par nom et par email) → sert à savoir si une ligne a été remplacée par un RDV plus récent
 function sdDerniersRdv() {
   var store = loadStore(), today = new Date(), dernier = {}; today.setHours(23, 59, 59, 0);
@@ -3456,12 +3468,17 @@ function sdRdvsSansAction() {
   // Seul le DERNIER RDV de chaque client porte l'obligation : s'il est revenu depuis (et a signé, par exemple), l'ancien non signé n'a plus besoin de raison
   var _estDernier = sdDerniersRdv();
   var estDernier = function(r) { return _estDernier(r); };
+  var now = new Date(), todayStr = now.toLocaleDateString('fr-FR');
   Object.keys(store).forEach(function(k) {
     if (!/^\d{4}-\d{2}$/.test(k) || !Array.isArray(store[k]) || k < '2026-03') return;
     store[k].forEach(function(r, i) {
       var d = parseDateFR(r && r.date); if (!d || d > today) return;
-      if (!estDernier(r)) return;
+      if (r.date === todayStr) { // RDV du jour : seulement s'il est passé (heure + 45 min), sinon il n'a pas encore eu lieu
+        var hm = /^(\d{1,2}):(\d{2})/.exec(r.heure || ''); if (!hm) return;
+        var fin = new Date(d); fin.setHours(+hm[1], +hm[2] + 45, 0, 0); if (fin > now) return;
+      }
       var m = sdManque(r); if (m) out.push({ monthKey: k, idx: i, row: r, manque: m });
+      if (m && m !== 'presence' && m !== 'resultat' && !estDernier(r)) out.pop(); // raison/suite/pack… : seul le dernier RDV du client compte
     });
   });
   out.sort(function(a, b) { return (parseDateFR(b.row.date) || 0) - (parseDateFR(a.row.date) || 0); });
@@ -3473,23 +3490,33 @@ function sdVerifierSuite(monthKey, idx) {
   if (m === 'raison') fcPopupRaison(monthKey, idx);
   else if (m === 'suite') fcPopupSuivi(monthKey, idx);
 }
+// Clic sur un RDV incomplet : popup si raison/suite, sinon la ligne dans RDV Table pour compléter
+function sdCompleter(monthKey, idx) {
+  var store = loadStore(), r = (store[monthKey] || [])[idx]; if (!r) return;
+  var m = sdManque(r);
+  if (m === 'raison') return fcPopupRaison(monthKey, idx);
+  if (m === 'suite') return fcPopupSuivi(monthKey, idx);
+  fermerModalDoublon(); goToRdvTableRow(monthKey, idx, (r.source === 'R2' || (r.dateR2 && String(r.dateR2).trim())) ? 'r2' : 'r1');
+}
 function renderSansAction() {
   var liste = sdRdvsSansAction();
   ['sans-action-daily', 'sans-action-pipeline'].forEach(function(id) {
     var el = document.getElementById(id); if (!el) return;
     if (!liste.length) { el.style.display = 'none'; el.innerHTML = ''; return; }
     el.style.display = 'flex';
-    el.innerHTML = '<div style="font-size:15px;font-weight:700;color:var(--red);">⚠️ ' + liste.length + ' RDV sans action — ' + liste.filter(function(x) { return x.manque === 'raison'; }).length + ' non signé(s) sans raison, ' + liste.filter(function(x) { return x.manque === 'suite'; }).length + ' intéressé(s) sans R2 ni relance</div>'
-      + '<div style="display:flex;flex-wrap:wrap;gap:6px;"><button class="btn btn-sm btn-primary" style="font-size:11px;padding:3px 10px;" onclick="sdClasserEnChaine()">▶ Classer à la suite</button>' + liste.slice(0, 12).map(function(x) {
-        var fn = x.manque === 'raison' ? 'fcPopupRaison' : 'fcPopupSuivi';
-        return '<button class="btn btn-sm" style="font-size:11px;padding:3px 9px;border-color:var(--red);" onclick="' + fn + '(' + JSON.stringify(x.monthKey).replace(/"/g, '&quot;') + ',' + x.idx + ')">' + (x.manque === 'raison' ? '✗ ' : '🔥 ') + escapeHtml(x.row.client) + ' <span style="color:var(--text3);">' + escapeHtml(x.row.date) + '</span></button>';
+    var parType = {}; liste.forEach(function(x) { parType[x.manque] = (parType[x.manque] || 0) + 1; });
+    var resume = Object.keys(parType).map(function(k) { return parType[k] + ' sans ' + (SD_MANQUE_LIB[k] || k); }).join(', ');
+    el.innerHTML = '<div style="font-size:15px;font-weight:700;color:var(--red);">⚠️ ' + liste.length + ' RDV à compléter — ' + resume + '</div>'
+      + '<div style="display:flex;flex-wrap:wrap;gap:6px;"><button class="btn btn-sm btn-primary" style="font-size:11px;padding:3px 10px;" onclick="sdClasserEnChaine()">▶ Compléter à la suite</button>' + liste.slice(0, 12).map(function(x) {
+        return '<button class="btn btn-sm" style="font-size:11px;padding:3px 9px;border-color:var(--red);" onclick="sdCompleter(' + JSON.stringify(x.monthKey).replace(/"/g, '&quot;') + ',' + x.idx + ')" title="Il manque : ' + escapeHtml(SD_MANQUE_LIB[x.manque] || x.manque) + '">' + escapeHtml(x.row.client) + ' <span style="color:var(--text3);">' + escapeHtml(x.row.date) + ' · ' + escapeHtml(SD_MANQUE_LIB[x.manque] || x.manque) + '</span></button>';
       }).join('') + (liste.length > 12 ? '<span style="font-size:11px;color:var(--text3);align-self:center;">… et ' + (liste.length - 12) + ' autres</span>' : '') + '</div>';
   });
 }
 // Enchaîner : une popup après l'autre, du plus récent au plus ancien, jusqu'à « Plus tard »
 function sdClasserEnChaine() {
   var liste = sdRdvsSansAction(); if (!liste.length) { window._sdChaine = false; return; }
-  window._sdChaine = true; var x = liste[0];
+  window._sdChaine = true; var x = liste.filter(function(y) { return y.manque === 'raison' || y.manque === 'suite'; })[0];
+  if (!x) { window._sdChaine = false; sdCompleter(liste[0].monthKey, liste[0].idx); return; } // il ne reste que des champs à saisir : on ouvre la ligne
   if (x.manque === 'raison') fcPopupRaison(x.monthKey, x.idx); else fcPopupSuivi(x.monthKey, x.idx);
   var m = document.getElementById('fc-dup-modal'); if (m) m.insertAdjacentHTML('afterbegin', '<div style="font-size:11px;color:var(--text3);margin-bottom:6px;">Reste ' + liste.length + ' · « Plus tard » arrête</div>');
 }
