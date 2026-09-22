@@ -2451,8 +2451,11 @@ select.form-input { cursor: pointer; }
         <select class="form-input" id="new-rdv-freq">
           <option>Annuelle</option>
           <option>Mensuelle</option>
-          <option>One Shot</option>
         </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">One shot</label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;padding:8px 0;cursor:pointer;"><input type="checkbox" id="new-rdv-oneshot"> Signé le jour même</label>
       </div>
     </div>
     <div class="form-group">
@@ -2537,8 +2540,12 @@ select.form-input { cursor: pointer; }
       <div class="form-group">
         <label class="form-label">Fréquence</label>
         <select class="form-input" id="new-deal-freq">
-          <option>Annuelle</option><option>Mensuelle</option><option>One Shot</option>
+          <option>Annuelle</option><option>Mensuelle</option>
         </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">One shot</label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;padding:8px 0;cursor:pointer;"><input type="checkbox" id="new-deal-oneshot"> Signé le jour même</label>
       </div>
     </div>
     <div class="form-row">
@@ -2893,8 +2900,8 @@ function getComm(r) {
     const mrrNet = Math.max(0, b.MRR_MENS[pack][tier] - remise);
     commPack = Math.round(mrrNet * 1.5);
   } else {
-    // One Shot : pas de barème automatique — la commission se saisit à la main.
-    // On retourne la valeur saisie ; si elle est vide, l'appelant peut le signaler.
+    // Fréquence non renseignée (anciens « One Shot » sans abonnement précisé) : commission saisie à la main.
+    // Le one shot est un flag à part (signé le jour même) : il ne change rien au barème.
     return parseFloat(r.commission) || 0;
   }
 
@@ -2993,12 +3000,24 @@ async function createOnlineBin(key) {
 // Mémoire en cours de session
 _sessionStore = null;
 
+// Migration (sept 2026) : « One Shot » n'est plus une fréquence mais un flag « signé le jour même ». Les anciennes lignes gardent le flag, la fréquence est à compléter.
+function sdMigrerOneShot(store) {
+  if (!store || store._migOneShot) return store;
+  var n = 0;
+  Object.keys(store).forEach(function(k) {
+    if (!/^\d{4}-\d{2}$/.test(k) || !Array.isArray(store[k])) return;
+    store[k].forEach(function(r) { if (r && String(r.freq || '').trim() === 'One Shot') { r.oneshot = 'O'; r.freq = ''; n++; } });
+  });
+  store._migOneShot = new Date().toISOString();
+  if (n) console.log('[migration] ' + n + ' ligne(s) « One Shot » → flag one shot, fréquence à compléter');
+  return store;
+}
 function loadStore() {
   if (_sessionStore) return _sessionStore;
   try {
     const saved = localStorage.getItem('salesdesk_rdvs');
     const fromStorage = saved ? JSON.parse(saved) : {};
-    _sessionStore = Object.assign({}, BUILTIN_DATA, fromStorage);
+    _sessionStore = sdMigrerOneShot(Object.assign({}, BUILTIN_DATA, fromStorage));
     return _sessionStore;
   } catch {
     _sessionStore = Object.assign({}, BUILTIN_DATA);
@@ -3031,14 +3050,14 @@ async function initFromSupabase() {
   if (cloudGagne) {
     // Le cloud est plus récent : il gagne, MAIS on réinjecte les clés que lui seul ignore
     // (mois créés hors-ligne qui n'ont jamais été poussés).
-    _sessionStore = Object.assign({}, BUILTIN_DATA, cloudData);
+    _sessionStore = sdMigrerOneShot(Object.assign({}, BUILTIN_DATA, cloudData));
     for (const k in local) {
       if (!local.hasOwnProperty(k) || k === '_lastWrite') continue;
       if (!(k in cloudData)) _sessionStore[k] = local[k];
     }
   } else {
     // Local au moins aussi récent : il gagne, complété par les clés présentes seulement en cloud.
-    _sessionStore = Object.assign({}, BUILTIN_DATA, cloudData, local);
+    _sessionStore = sdMigrerOneShot(Object.assign({}, BUILTIN_DATA, cloudData, local));
     // Le cloud est en retard → on le remet à niveau tout de suite.
     if (tLocal && tLocal !== tCloud) { try { supabaseSave(_sessionStore); } catch(e) {} }
   }
@@ -3762,10 +3781,10 @@ function renderBenchmarks(kpis) {
 
 // FIX SD-16 : un One Shot signé reste à 0 € tant que la commission n'est pas saisie
 // à la main (getComm ne sait pas la calculer). Autant le dire.
-function compterOneShotSansCommission(rows) {
+function compterOneShotSansCommission(rows) { // signés sans fréquence (ni annuelle ni mensuelle) → le barème ne peut pas calculer
   return (rows || []).filter(r =>
     r.result === 'Signé'
-    && (r.freq === 'One Shot' || r.oneshot === 'O')
+    && r.freq !== 'Annuelle' && r.freq !== 'Mensuelle'
     && !(parseFloat(r.commission) > 0)
   ).length;
 }
@@ -4296,7 +4315,7 @@ function renderRdvTable() {
       <!-- COMMERCIAL : Tier | Pack | Fréq | 1Shot | FMS | Remise | Signature | Retour | Comm -->
       <td style="padding:4px 6px;">${mkSelMK(['T1','T2','T3','T4'], r.tier||'T1', i, 'tier', monthKey)}</td>
       <td style="padding:4px 6px;">${mkSelMK(['','Start+','Pro+','Expert+'], r.pack||'', i, 'pack', monthKey)}</td>
-      <td style="padding:4px 6px;">${mkSelMK(['','Mensuelle','Annuelle','One Shot'], r.freq||'', i, 'freq', monthKey)}</td>
+      <td style="padding:4px 6px;">${mkSelMK(['','Mensuelle','Annuelle'], r.freq||'', i, 'freq', monthKey)}</td>
       <td style="padding:4px 6px;">${mkSelMK(['Oui','Non'], r.oneshot==='O'?'Oui':'Non', i, 'oneshot', monthKey)}</td>
       <td style="padding:4px 6px;">${mkSelMK(['','100%','50%','Offert'], r.fms||'', i, 'fms', monthKey)}</td>
       <td style="padding:4px 6px;">${mkTextMK(r.remise||'', i, 'remise', '€', '60px', monthKey)}</td>
@@ -4534,7 +4553,7 @@ function addRdv() {
   const resNorm = result.includes('Signé') && !result.includes('Non') ? 'Signé' :
                   result.includes('Non') ? 'Non signé' :
                   result.includes('R2') ? 'R2 planifié' : '';
-  const oneshotVal = freq === 'One Shot' ? 'O' : 'N';
+  const oneshotVal = (document.getElementById('new-rdv-oneshot') || {}).checked ? 'O' : 'N';
 
   addRdvToStore(state.month, state.year, {
     date: fmtDate, datePrise: new Date().toLocaleDateString('fr-FR'),
@@ -4576,7 +4595,7 @@ function addDeal() {
       date: today, datePrise: today,
       client: name, presence: 'Show', result: 'Signé',
       source: 'Outbound', type: 'Mandataire', pack, freq,
-      oneshot: freq === 'One Shot' ? 'O' : 'N', commission: amount
+      oneshot: (document.getElementById('new-deal-oneshot') || {}).checked ? 'O' : 'N', commission: amount
     });
     refreshAll();
   }
@@ -4994,7 +5013,7 @@ async function syncFromOnline() {
   const onlineData = await loadFromOnline();
   if (!onlineData) { alert('Impossible de charger les données en ligne'); return; }
   // Fusionner les données online avec BUILTIN_DATA
-  _sessionStore = Object.assign({}, BUILTIN_DATA, onlineData);
+  _sessionStore = sdMigrerOneShot(Object.assign({}, BUILTIN_DATA, onlineData));
   try { localStorage.setItem('salesdesk_rdvs', JSON.stringify(_sessionStore)); } catch {}
   refreshAll();
   alert('✅ Données synchronisées depuis le cloud !');
@@ -6206,7 +6225,7 @@ let _calendlyKey = null;
 // On récupère la valeur dans son bon champ quand il est vide, puis on vide `type`
 // pour que la ligne soit signalée plutôt que devinée.
 var _PACKS_CONNUS = ['Start+', 'Pro+', 'Expert+', 'Start', 'Pro', 'Expert'];
-var _FREQS_CONNUES = ['Annuelle', 'Mensuelle', 'One Shot'];
+var _FREQS_CONNUES = ['Annuelle', 'Mensuelle'];
 var _TIERS_CONNUS  = ['T1', 'T2', 'T3', 'T4'];
 var _FMS_CONNUS    = ['100%', '50%', 'offert'];
 
@@ -6304,7 +6323,7 @@ window.addEventListener('load', async () => {
       (document.getElementById('online-connected-card').style.display = 'block');
     const onlineData = await loadFromOnline();
     if (onlineData && Object.keys(onlineData).length > 0) {
-      _sessionStore = Object.assign({}, BUILTIN_DATA, onlineData);
+      _sessionStore = sdMigrerOneShot(Object.assign({}, BUILTIN_DATA, onlineData));
       try { localStorage.setItem('salesdesk_rdvs', JSON.stringify(_sessionStore)); } catch {}
     }
   }
