@@ -7728,15 +7728,12 @@ function goToRdvTableRow(monthKey, storeKey, tab) {
     var yr = parseInt(parts[0]);
     var moIdx = parseInt(parts[1]) - 1;
     var MONTHS = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
-    if (MONTHS[moIdx] && state.month !== MONTHS[moIdx]) {
-      state.month = MONTHS[moIdx];
-      var monthSel = document.getElementById('global-month-selector');
-      if (monthSel) monthSel.value = state.month;
-    }
-    if (state.year !== yr) {
-      state.year = yr;
-      var yearSel = document.getElementById('global-year-selector');
-      if (yearSel) yearSel.value = yr;
+    // On passe par les vrais sélecteurs (monthSelect / yearSelect) + updatePeriod : sinon les KPIs changeaient de mois alors que l'étiquette restait sur l'ancien
+    if ((MONTHS[moIdx] && state.month !== MONTHS[moIdx]) || String(state.year) !== String(yr)) {
+      var monthSel = document.getElementById('monthSelect'), yearSel = document.getElementById('yearSelect');
+      if (monthSel && MONTHS[moIdx]) monthSel.value = MONTHS[moIdx];
+      if (yearSel) yearSel.value = String(yr);
+      if (typeof updatePeriod === 'function') updatePeriod(); else { state.month = MONTHS[moIdx] || state.month; state.year = yr; }
     }
   }
 
