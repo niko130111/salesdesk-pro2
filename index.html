@@ -1558,7 +1558,7 @@ select.form-input { cursor: pointer; }
   <div class="section-header" style="margin-bottom:20px;">
     <div>
       <div class="section-title">Pipeline — <span id="pipeline-period-title">Avril 2026</span></div>
-      <div style="font-size:11px;color:var(--text3);margin-top:2px;">Mois sélectionné · Intéressés et non signés classés (Ancien RDV à relancer, Pas intéressé, Pas de budget, Si promo, Ghost) : mois en cours + reliquat depuis mars 2026</div>
+      <div style="font-size:11px;color:var(--text3);margin-top:2px;">Mois sélectionné · Intéressés, À relancer, Pas de budget, Si promo, Ghost : mois en cours + reliquat depuis mars 2026 · Pas intéressé et No Shows : mois en cours seulement</div>
     </div>
     <div class="dark-toggle-wrap"><span>&#9790;</span><button class="dark-toggle dark-toggle-btn" onclick="toggleDarkMode()" title="Mode sombre"></button></div>
     <span class="sync-status" style="font-size:11px;font-weight:600;margin-left:8px;transition:color .3s;"></span>
@@ -7793,7 +7793,7 @@ function renderPipeline() {
     r._monthKey = currentKey;
     if (r.pipelineMasque) return; // ancienne carte d'un client revenu : hors Pipeline, toujours dans les stats
     var cat = classifyRow(r);
-    if (cat !== 'interested' && !(cat === 'nosigned' && raisonNS(r))) { // non signés classés : gérés dans la boucle multi-mois
+    if (cat !== 'interested' && !(cat === 'nosigned' && raisonNS(r) && raisonNS(r) !== 'pasinteresse')) { // non signés classés (sauf Pas intéressé) : gérés dans la boucle multi-mois
       cols[cat].push(r);
     }
   });
@@ -7818,7 +7818,7 @@ function renderPipeline() {
       if (key !== currentKey && !_estDernierRdv(r)) return; // revenu depuis (nouveau RDV, signature…) : l'ancienne carte ne traîne plus dans le reliquat
       var c2 = classifyRow(r);
       if (c2 === 'interested') cols.interested.push(r);
-      else if (c2 === 'nosigned' && raisonNS(r)) cols.nosigned.push(r); // Pas intéressé / Pas de budget / Si promo / Ghost : gardés d'un mois sur l'autre, comme les Intéressés
+      else if (c2 === 'nosigned' && raisonNS(r) && raisonNS(r) !== 'pasinteresse') cols.nosigned.push(r); // Pas de budget / Si promo / Ghost / À relancer : gardés d'un mois sur l'autre. Pas intéressé : seulement dans son mois
 
     });
   });
