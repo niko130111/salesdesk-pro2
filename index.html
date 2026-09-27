@@ -4521,8 +4521,25 @@ window.addEventListener('message', (ev) => {
   const w = copilotFenetre(); if (!w || ev.source !== w) return;
   const m = ev.data || {};
   if (m.sc === 'ready') { _copilotPret = true; sdEnvoyerEtatCopilot(); return; }
-  if (m.sc === 'rdv_set' || m.sc === 'rdv_terminer') sdAppliquerCopilot(m);
+  if (m.sc === 'rdv_set' || m.sc === 'rdv_terminer') { const v = sdValiderMessageCopilot(m); if (v) sdAppliquerCopilot(v); else console.warn('[pont copilot] message refusé', m); }
 });
+// Le copilot est une page locale de confiance, mais on ne prend que des valeurs connues : un message mal formé ne touche pas aux données.
+function sdValiderMessageCopilot(m) {
+  const txt = (v, n) => (typeof v === 'string' ? v.trim().slice(0, n) : '');
+  const nom = txt(m.nom, 120), date = txt(m.date, 10);
+  if (!nom || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
+  const OK = {
+    presence: ['Show', 'No Show', 'Annulé', 'Reprogrammé', ''], type: ['Mandataire', 'Agences'], pack: ['Start+', 'Pro+', 'Expert+', ''],
+    freq: ['Annuelle', 'Mensuelle', ''], tier: ['T1', 'T2', 'T3', 'T4', ''], fms: ['100%', '50%', 'offert', 'Offert', ''],
+    nosignRaison: ['pasinteresse', 'pasbudget', 'promo', 'ghost', 'relancer']
+  };
+  const champs = {};
+  Object.keys(OK).forEach(function(k) { const c = m.champs && m.champs[k]; if (c === undefined || c === null) return; const v = txt(String(c), 20); if (OK[k].indexOf(v) >= 0) champs[k] = v; });
+  const source = ['Inbound', 'Outbound', 'R2'].indexOf(m.source) >= 0 ? m.source : '';
+  const result = ['oneshot', 'nosign', 'r2', 'relance'].indexOf(m.result) >= 0 ? m.result : '';
+  if (m.sc === 'rdv_terminer' && !result) return null;
+  return { sc: m.sc, nom: nom, date: date, source: source, email: txt(m.email, 200), heure: txt(m.heure, 5), result: result, champs: champs, annuler: m.annuler === true };
+}
 // Toute écriture du SalesDesk est reflétée dans le copilot (édition depuis « RDV traités » comprise)
 const _saveStoreAvantPont = saveStore;
 saveStore = function (store) { _saveStoreAvantPont(store); sdEnvoyerEtatCopilot(); };
