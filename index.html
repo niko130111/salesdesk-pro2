@@ -3272,8 +3272,9 @@ function fcChargerClose() {
 function fcChargerDossiers() {
   var cle = _fc.cle;
   var ctrl = new AbortController(); setTimeout(function() { ctrl.abort(); }, 8000);
-  fetch(COPILOT_URL + '/clients/dossiers?nom=' + encodeURIComponent(_fc.nom), { mode: 'cors', cache: 'no-store', signal: ctrl.signal })
-    .then(function(r) { return r.json(); }).then(function(j) { if (_fc.cle === cle) { _fc.dossiers = j.dossiers || []; if (_fc.tab === 'prepa') fcRendre(); } })
+  var cidRow = (_fc.rows.find(function(r) { return r.contactId; }) || {}).contactId || '';
+  fetch(COPILOT_URL + '/clients/dossiers?' + new URLSearchParams({ nom: _fc.nom, email: _fc.email || '', contactId: cidRow }), { mode: 'cors', cache: 'no-store', signal: ctrl.signal })
+    .then(function(r) { return r.json(); }).then(function(j) { if (_fc.cle === cle) { _fc.dossiers = j.dossiers || []; _fc.contact = j.contact || null; if (_fc.tab === 'prepa') fcRendre(); } })
     .catch(function() { if (_fc.cle === cle) { _fc.dossiers = false; if (_fc.tab === 'prepa') fcRendre(); } });
 }
 function fcHtmlRdv() {
@@ -3304,9 +3305,10 @@ function fcSetClaap(date, url) {
 function fcHtmlPrepa() {
   if (_fc.dossiers === null) return '<div class="fc-empty">Chargement depuis le copilot…</div>';
   if (_fc.dossiers === false) return '<div class="fc-empty">Copilot éteint : lance-le pour voir la prépa.</div>';
-  if (!_fc.dossiers.length) return '<div class="fc-empty">Aucune prépa copilot à ce nom.</div>';
+  if (!_fc.dossiers.length) return '<div class="fc-empty">Aucune prépa copilot pour cette personne.</div>';
+  var ct = _fc.contact ? '<div class="fc-muted" style="margin-bottom:10px;">Identité copilot : ' + escapeHtml(_fc.contact.identite === 'nom' ? 'rapprochée par le nom seul' : 'confirmée par ' + _fc.contact.identite) + (_fc.contact.emails && _fc.contact.emails.length ? ' · ' + escapeHtml(_fc.contact.emails.join(', ')) : '') + '</div>' : '';
   var li = function(arr) { return (arr && arr.length) ? '<ul>' + arr.map(function(x) { return '<li>' + escapeHtml(x) + '</li>'; }).join('') + '</ul>' : ''; };
-  return _fc.dossiers.map(function(d) {
+  return ct + _fc.dossiers.map(function(d) {
     var b = d.briefing, h = '<div class="fc-rdv"><div class="fc-rdv-date">' + escapeHtml((d.date || '').split('-').reverse().join('/')) + '<small>' + escapeHtml((d.heure ? d.heure + ' · ' : '') + (d.statut || '')) + '</small></div><div><div class="fc-rdv-t"><span>' + escapeHtml([d.reseau, d.secteur].filter(Boolean).join(' · ')) + '</span></div>';
     var p = d.prep || {}, faits = [p.tier && ('Tier ' + p.tier), p.nb_biens && (p.nb_biens + ' biens'), p.ventes_recentes && (p.ventes_recentes + ' ventes'), p.site].filter(Boolean);
     if (faits.length) h += '<div class="fc-rdv-s">' + escapeHtml(faits.join(' · ')) + '</div>';
@@ -4480,7 +4482,7 @@ function sdAppliquerCopilot(m) {
   let row = rows.find(r => r && (r.client || '').toLowerCase().trim() === nom.toLowerCase() && r.date === dateFr);
   if (!row) { row = { date: dateFr, datePrise: '', client: nom, presence: '', result: '', source: m.source || 'Inbound', type: 'Mandataire', pack: '', freq: '', tier: '', fms: '', oneshot: 'N', commission: 0 }; rows.push(row); oublierSupprime(store, nom, dateFr); }
   const c = m.champs || {};
-  ['presence', 'type', 'pack', 'freq', 'tier', 'fms'].forEach(k => { if (c[k] !== undefined && c[k] !== null) row[k] = String(c[k]); });
+  ['presence', 'type', 'pack', 'freq', 'tier', 'fms', 'contactId'].forEach(k => { if (c[k] !== undefined && c[k] !== null) row[k] = String(c[k]); });
   if (c.nosignRaison && row.result === 'Non signé') row.nosignRaison = String(c.nosignRaison);
   if (m.sc === 'rdv_terminer') {
     const isR2 = row.source === 'R2';
@@ -4535,6 +4537,7 @@ function sdValiderMessageCopilot(m) {
   };
   const champs = {};
   Object.keys(OK).forEach(function(k) { const c = m.champs && m.champs[k]; if (c === undefined || c === null) return; const v = txt(String(c), 20); if (OK[k].indexOf(v) >= 0) champs[k] = v; });
+  const cid = txt(m.champs && m.champs.contactId, 40); if (/^ct-[a-z0-9-]+$/.test(cid)) champs.contactId = cid; // identité stable du copilot
   const source = ['Inbound', 'Outbound', 'R2'].indexOf(m.source) >= 0 ? m.source : '';
   const result = ['oneshot', 'nosign', 'r2', 'relance'].indexOf(m.result) >= 0 ? m.result : '';
   if (m.sc === 'rdv_terminer' && !result) return null;
