@@ -8069,6 +8069,7 @@ function renderEtatSysteme(force) {
     html += ligne(!!e.supports.roi.present, 'Support ROI', e.supports.roi.chemin, 'server/.env : ROI_DIR=… (dossier contenant roiRA.html).');
     html += ligne(!!e.supports.closing.present, 'Fiche de closing', e.supports.closing.chemin, 'server/.env : CLOSING_HTML=… .');
     html += ligne(e.detecteur, 'Détecteur (analyse pendant le RDV)', e.detecteur ? 'actif' : 'désactivé', 'server/.env : DETECTOR_ENABLED=true.');
+    html += ligne(_mj.rappels ? true : (_mj.rappels === false ? false : null), 'Rappels R1 (SMS veille, relance 13h, mail du jour) — module indépendant', _mj.rappels ? 'mode ' + _mj.rappels.mode + ' · ' + Object.entries(_mj.rappels.readiness || {}).map(function(kv) { return (kv[1] ? '✓ ' : '✗ ') + kv[0]; }).join(' ') + ' · <a href="http://127.0.0.1:3016" target="_blank" rel="noopener">ouvrir</a>' : 'module éteint (port 3016)', 'Double-clique « Ouvrir les rappels.command » dans sales-copilot-v2/automatisations-r1. Tant que Make est actif, laisse le module en démo.');
     html += '<div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin:14px 0 4px;">Automatisations</div>';
     (e.automations || []).forEach(function(a) {
       var d = a.dernier, etatTxt = !d ? 'jamais exécutée' : (d.ok ? '✓ ' + quand(d.at) : (d.ignore ? '— ' + quand(d.at) + ' (' + (d.raison || 'ignorée') + ')' : '✗ ' + quand(d.at) + ' : ' + d.erreur));
@@ -8093,8 +8094,9 @@ function chargerMaJournee(force) {
   Promise.all([
     fetch(COPILOT_URL + '/rdvs', { mode: 'cors', cache: 'no-store', signal: ctrl.signal }).then(function(r) { return r.json(); }).catch(function() { return null; }),
     fetch(COPILOT_URL + '/salesdesk/rdvs?jours=2', { mode: 'cors', cache: 'no-store', signal: ctrl.signal }).then(function(r) { return r.json(); }).catch(function() { return null; }),
-    fetch(COPILOT_URL + '/etat', { mode: 'cors', cache: 'no-store', signal: ctrl.signal }).then(function(r) { return r.json(); }).catch(function() { return null; })
-  ]).then(function(r) { _mj.copilot = r[0] && r[0].rdvs ? r[0].rdvs : null; _mj.sdRdvs = r[1] && r[1].rdvs ? r[1].rdvs : null; _mj.etat = r[2]; fin(); }).catch(fin);
+    fetch(COPILOT_URL + '/etat', { mode: 'cors', cache: 'no-store', signal: ctrl.signal }).then(function(r) { return r.json(); }).catch(function() { return null; }),
+    fetch('http://127.0.0.1:3016/api/status', { mode: 'cors', cache: 'no-store', signal: ctrl.signal }).then(function(r) { return r.json(); }).catch(function() { return false; })
+  ]).then(function(r) { _mj.copilot = r[0] && r[0].rdvs ? r[0].rdvs : null; _mj.sdRdvs = r[1] && r[1].rdvs ? r[1].rdvs : null; _mj.etat = r[2]; _mj.rappels = r[3]; fin(); }).catch(fin);
 }
 function mjAller(page) { var b = [...document.querySelectorAll('.nav-tab')].find(function(x) { return x.textContent.indexOf(page) >= 0; }); if (b) b.click(); }
 function renderMaJournee() {
