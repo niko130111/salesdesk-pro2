@@ -4515,6 +4515,14 @@ function sdEnvoyerEtatCopilot() {
   _copilotEnvoiTimer = setTimeout(() => { try { w.postMessage({ sd: 'etat', rdvs: sdEtatRdvsPourCopilot() }, COPILOT_ORIGINE); } catch (e) { console.warn('pont copilot', e); } }, 150);
 }
 // Applique une modification venue du copilot sur la ligne « client + date » du bon mois
+// No-show confirmé → le copilot prépare le message de reprogrammation et cale un rappel (automatisation « no_show », aucun envoi)
+function sdSignalerNoShow(row) {
+  if (typeof COPILOT_URL === 'undefined' || !row || !row.client) return;
+  var iso = frVersIsoSd(row.date); if (!iso) return;
+  fetch(COPILOT_URL + '/evenement', { method: 'POST', mode: 'cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'no_show', nom: row.client, date: iso, email: row.email || '' }) })
+    .then(function(r) { return r.json(); }).then(function(j) { if (j && j.ok && typeof showCopyToast === 'function') showCopyToast('🎯 No show : brouillon de reprogrammation prêt (copilot, fiche client)'); }).catch(function() {});
+}
+function frVersIsoSd(d) { var m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(d || ''); return m ? m[3] + '-' + m[2] + '-' + m[1] : ''; }
 function sdAppliquerCopilot(m) {
   const nom = String(m.nom || '').trim(), dateFr = frDepuisIso(m.date);
   if (!nom || !dateFr) return;
@@ -4525,6 +4533,7 @@ function sdAppliquerCopilot(m) {
   if (!row) { row = { date: dateFr, datePrise: '', client: nom, presence: '', result: '', source: m.source || 'Inbound', type: 'Mandataire', pack: '', freq: '', tier: '', fms: '', oneshot: 'N', commission: 0 }; rows.push(row); oublierSupprime(store, nom, dateFr); }
   const c = m.champs || {};
   ['presence', 'type', 'pack', 'freq', 'tier', 'fms', 'contactId'].forEach(k => { if (c[k] !== undefined && c[k] !== null) row[k] = String(c[k]); });
+  if (c.presence === 'No Show') sdSignalerNoShow(row);
   if (c.nosignRaison && row.result === 'Non signé') row.nosignRaison = String(c.nosignRaison);
   if (m.sc === 'rdv_terminer') {
     const isR2 = row.source === 'R2';
@@ -6250,6 +6259,7 @@ function dailyCalAddOne(btn) {
     const p = rdvDate.split('/');
     if (p.length === 3) { targetMonth = MONTHS_FR[parseInt(p[1])-1]; targetYear = p[2]; }
   }
+  if (presNorm === 'No Show') sdSignalerNoShow({ client: name, date: rdvDate, email: card.dataset.email || '' });
   addRdvToStore(targetMonth, targetYear, {
     date: rdvDate || new Date().toLocaleDateString('fr-FR'),
     datePrise: card.dataset.created || '',
@@ -8059,10 +8069,17 @@ function renderEtatSysteme(force) {
     html += ligne(!!e.supports.roi.present, 'Support ROI', e.supports.roi.chemin, 'server/.env : ROI_DIR=… (dossier contenant roiRA.html).');
     html += ligne(!!e.supports.closing.present, 'Fiche de closing', e.supports.closing.chemin, 'server/.env : CLOSING_HTML=… .');
     html += ligne(e.detecteur, 'Détecteur (analyse pendant le RDV)', e.detecteur ? 'actif' : 'désactivé', 'server/.env : DETECTOR_ENABLED=true.');
+    html += '<div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin:14px 0 4px;">Automatisations</div>';
+    (e.automations || []).forEach(function(a) {
+      var d = a.dernier, etatTxt = !d ? 'jamais exécutée' : (d.ok ? '✓ ' + quand(d.at) : (d.ignore ? '— ' + quand(d.at) + ' (' + (d.raison || 'ignorée') + ')' : '✗ ' + quand(d.at) + ' : ' + d.erreur));
+      html += '<div style="display:flex;gap:10px;align-items:flex-start;padding:7px 0;border-top:1px solid var(--border);"><label style="cursor:pointer;"><input type="checkbox" ' + (a.actif ? 'checked' : '') + ' onchange="etatAutoToggle(' + JSON.stringify(a.id).replace(/"/g, '&quot;') + ', this.checked)"></label><div style="flex:1;"><b>' + escapeHtml(a.nom) + '</b> <span style="font-size:11px;color:var(--text3);">' + escapeHtml(a.declencheur) + '</span><div style="font-size:12px;color:var(--text2);">' + escapeHtml(a.description) + '</div><div style="font-size:11px;color:' + (d && !d.ok && !d.ignore ? 'var(--red)' : 'var(--text3)') + ';">' + escapeHtml(etatTxt) + '</div></div><button class="btn btn-sm" style="font-size:11px;padding:3px 8px;" onclick="etatAutoRun(' + JSON.stringify(a.id).replace(/"/g, '&quot;') + ', this)">▶ Lancer</button></div>';
+    });
   }
   el.innerHTML = html;
   if (force) chargerMaJournee(true), setTimeout(function() { renderEtatSysteme(false); }, 1500);
 }
+function etatAutoToggle(id, actif) { fetch(COPILOT_URL + '/automations/' + encodeURIComponent(id), { method: 'PUT', mode: 'cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ actif: actif }) }).then(function() { _mj.at = 0; renderEtatSysteme(true); }).catch(function() { alert('Copilot injoignable.'); }); }
+function etatAutoRun(id, btn) { if (btn) { btn.disabled = true; btn.textContent = '…'; } fetch(COPILOT_URL + '/automations/' + encodeURIComponent(id) + '/run', { method: 'POST', mode: 'cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ctx: {} }) }).then(function(r) { return r.json(); }).then(function(j) { alert(j.ok ? 'Fait : ' + JSON.stringify(j.resultat).slice(0, 300) : (j.ignore ? 'Rien à faire : ' + (j.raison || '') : 'Échec : ' + (j.erreur || '?'))); _mj.at = 0; renderEtatSysteme(true); }).catch(function() { alert('Copilot injoignable.'); if (btn) { btn.disabled = false; btn.textContent = '▶ Lancer'; } }); }
 function etatSauvegarderMaintenant() {
   fetch(COPILOT_URL + '/sauvegardes/maintenant', { method: 'POST', mode: 'cors' }).then(function(r) { return r.json(); }).then(function(j) { alert(j.ok ? 'Sauvegarde faite : copilot (' + j.copilot.nb + ' dossiers) + SalesDesk.' : 'Sauvegarde INCOMPLÈTE : ' + [j.copilot && j.copilot.ok === false ? 'copilot : ' + j.copilot.erreur : '', j.salesdesk && j.salesdesk.ok === false ? 'SalesDesk : ' + j.salesdesk.erreur : ''].filter(Boolean).join(' · ')); _mj.at = 0; renderEtatSysteme(true); }).catch(function() { alert('Copilot injoignable : rien n\'a été sauvegardé.'); });
 }
@@ -9145,7 +9162,7 @@ function majTraite(rdvId, champ, valeur) {
   const rows = mk ? (store[mk] || []) : [];
   let row = rows.find(x => x && (x.client || '').toLowerCase().trim() === String(e.name || '').toLowerCase().trim() && x.date === e.rdvDate);
   if (!row && mk) { row = { date: e.rdvDate, datePrise: '', client: e.name, presence: e.presence || '', result: '', source: e.source || 'Inbound', type: e.type || 'Mandataire', pack: '', freq: '', tier: '', fms: '', oneshot: 'N', commission: 0 }; rows.push(row); store[mk] = rows; }
-  if (champ === 'presence') { e.presence = valeur; if (row) row.presence = valeur; }
+  if (champ === 'presence') { e.presence = valeur; if (row) row.presence = valeur; if (valeur === 'No Show' && row) sdSignalerNoShow(row); }
   else if (champ === 'type') { e.type = valeur; if (row) row.type = valeur; }
   else if (champ === 'result') {
     e.result = valeur === 'En attente' ? 'À relancer' : valeur;
