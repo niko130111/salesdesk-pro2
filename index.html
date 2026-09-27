@@ -653,6 +653,8 @@ select.form-input { cursor: pointer; }
 <div id="page-daily" class="page active">
 <main>
 
+<!-- Ma journée : RDV du jour, prépas manquantes, à finaliser, relances dues, sans prochaine action, incidents — chaque ligne = une action -->
+<div id="ma-journee" style="margin-bottom:14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 18px;"></div>
 <!-- Appels Close : aujourd'hui + cette semaine (via le copilot local, clé Close) -->
 <div id="close-appels-daily" style="display:none;margin-bottom:14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 18px;align-items:center;gap:28px;flex-wrap:wrap;"></div>
 <!-- RDV sans action (non signé sans raison, intéressé sans R2 ni relance) : visible seulement s'il y en a -->
@@ -996,6 +998,12 @@ select.form-input { cursor: pointer; }
       <div class="kpi-value green" id="kpi-closing">50%</div>
       <div class="kpi-sub" title="Signés du mois / Shows du mois. Avec un cycle de 2 à 4 semaines, les deux ne portent pas sur les mêmes prospects — voir la carte « Closing cohorte ».">Signés / Shows du mois</div>
       <div class="kpi-vs"><span id="bench-closing">—</span></div>
+    </div>
+    <div class="kpi-card" id="kpi-suivi-card" title="Relances : part des relances du mois faites au plus tard le jour prévu (journal des relances). Sans suite : RDV passés sans action, aujourd'hui.">
+      <div class="kpi-label">Suivi</div>
+      <div class="kpi-value blue" id="kpi-suivi">—</div>
+      <div class="kpi-sub" id="kpi-suivi-sub">relances à temps</div>
+      <div class="kpi-sub" id="kpi-suivi-sans" style="color:var(--orange);"></div>
     </div>
     <div class="kpi-card" id="kpi-oneshot-card">
       <div class="kpi-label">One Shot</div>
@@ -1566,6 +1574,7 @@ select.form-input { cursor: pointer; }
   </div>
 
   <!-- Résumé rapide -->
+  <div id="pipeline-etapes" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;"></div>
   <div id="sans-action-pipeline" class="alert-banner" style="display:none;background:var(--red-bg);border:1px solid var(--red);flex-direction:column;align-items:flex-start;gap:6px;margin-bottom:16px;"></div>
   <div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;" id="pipeline-summary"></div>
 
@@ -1958,6 +1967,7 @@ select.form-input { cursor: pointer; }
       <div class="settings-nav-item active" onclick="showSettingsSection('objectifs',this)">🎯 Objectifs</div>
       <div class="settings-nav-item" onclick="showSettingsSection('backup',this)">💾 Backup local <span id="settings-nav-backup-dot" style="display:none;width:8px;height:8px;border-radius:50%;background:var(--red);margin-left:4px;vertical-align:middle;"></span></div>
       <div class="settings-nav-item" onclick="showSettingsSection('online',this)">🌐 Sauvegarde en ligne</div>
+      <div class="settings-nav-item" data-sec="etat" onclick="showSettingsSection('etat',this)">🩺 État</div>
       <div class="settings-nav-item" onclick="showSettingsSection('profil',this)">👤 Profil</div>
       <div class="settings-nav-item" onclick="showSettingsSection('commission',this)">💰 Barème commissions</div>
       <div class="settings-nav-item" onclick="showSettingsSection('equipe',this)">👥 Moyennes équipe</div>
@@ -2075,6 +2085,14 @@ select.form-input { cursor: pointer; }
         </div>
       </div>
 
+      <div class="settings-section" id="settings-etat">
+        <div class="settings-card">
+          <h3>🩺 État de fonctionnement</h3>
+          <p style="font-size:13px;color:var(--text2);margin-bottom:12px;">Connexions, clés, sauvegardes, supports. Chaque problème dit quoi faire.</p>
+          <div id="etat-liste" style="font-size:13px;line-height:1.6;">Chargement…</div>
+          <div style="margin-top:12px;display:flex;gap:8px;"><button class="btn btn-sm" onclick="renderEtatSysteme(true)">↻ Actualiser</button><button class="btn btn-sm" onclick="etatSauvegarderMaintenant()">💾 Sauvegarder maintenant (copilot + SalesDesk)</button></div>
+        </div>
+      </div>
       <div class="settings-section" id="settings-online">
         <div class="settings-card">
           <h3>💾 Sauvegarde en ligne</h3>
@@ -2781,7 +2799,7 @@ function setSyncStatus(status) {
   if (!els.length) return;
   const poser = (txt, couleur) => els.forEach(el => { el.textContent = txt; el.style.color = couleur; });
   if (status === 'saving')  poser('⏳ Sauvegarde...', 'var(--orange)');
-  if (status === 'saved')   { poser('✅ Sauvegardé', 'var(--green)'); setTimeout(() => poser('', ''), 2000); }
+  if (status === 'saved')   { poser('✅ Sauvegardé', 'var(--green)'); _syncErreur = false; setTimeout(() => poser('', ''), 2000); }
   if (status === 'error')   poser('⚠️ Hors ligne', 'var(--red)');
   if (status === 'loading') poser('🔄 Chargement...', 'var(--accent)');
 }
@@ -2799,7 +2817,7 @@ async function supabaseSave(data, _retry) {
     return true;
   } catch(e) {
     console.warn('Supabase save error:', e);
-    setSyncStatus('error');
+    setSyncStatus('error'); _syncErreur = true;
     return false;   // FIX SD-02 : l'appelant doit pouvoir savoir que la sauvegarde a echoue
   }
 }
@@ -2819,7 +2837,7 @@ async function supabaseLoad(_retry) {
     return null;
   } catch(e) {
     console.warn('Supabase load error:', e);
-    setSyncStatus('error');
+    setSyncStatus('error'); _syncErreur = true;
     return null;
   }
 }
@@ -3259,6 +3277,8 @@ function fcHtmlSuivi() {
   if (last.relanceDate && !last.relanceFait) out.push('<span class="rel' + (last.relanceDate <= today ? ' due' : '') + '">📞 Relance le ' + escapeHtml(fcFrDepuisIso(last.relanceDate)) + (last.relanceCond ? ' · ' + escapeHtml(last.relanceCond) : '') + '</span>');
   var n = fcNormNom(_fc.nom);
   (_relances || []).forEach(function(r) { if (r.local || fcNormNom(r.nom) !== n || !(r.relance && r.relance.quand)) return; out.push('<span class="rel' + (r.relance.quand <= today ? ' due' : '') + '">📞 Relance copilot le ' + escapeHtml(fcFrDepuisIso(r.relance.quand)) + (r.relance.condition ? ' · ' + escapeHtml(r.relance.condition) : '') + '</span>'); });
+  var dern = (_fc.dossiers || []).find(function(d) { return d.apresRdv && d.apresRdv.prochaine_action && d.apresRdv.prochaine_action.quoi; });
+  if (dern) out.push('<span class="r2" style="background:var(--surface2);color:var(--text)">➡ ' + escapeHtml(dern.apresRdv.prochaine_action.quoi) + (dern.apresRdv.prochaine_action.echeance ? ' · ' + escapeHtml(fcFrDepuisIso(dern.apresRdv.prochaine_action.echeance)) : '') + '</span>');
   if (!out.length && classifyRow(last) === 'interested') out.push('<span class="manque" onclick="fcPopupSuivi(' + JSON.stringify(last._monthKey).replace(/"/g, '&quot;') + ',' + last._storeKey + ')">⚠ Intéressé sans suite : R2 ou relance ?</span>');
   return out.join('');
 }
@@ -3274,7 +3294,7 @@ function fcChargerDossiers() {
   var ctrl = new AbortController(); setTimeout(function() { ctrl.abort(); }, 8000);
   var cidRow = (_fc.rows.find(function(r) { return r.contactId; }) || {}).contactId || '';
   fetch(COPILOT_URL + '/clients/dossiers?' + new URLSearchParams({ nom: _fc.nom, email: _fc.email || '', contactId: cidRow }), { mode: 'cors', cache: 'no-store', signal: ctrl.signal })
-    .then(function(r) { return r.json(); }).then(function(j) { if (_fc.cle === cle) { _fc.dossiers = j.dossiers || []; _fc.contact = j.contact || null; if (_fc.tab === 'prepa') fcRendre(); } })
+    .then(function(r) { return r.json(); }).then(function(j) { if (_fc.cle === cle) { _fc.dossiers = j.dossiers || []; _fc.contact = j.contact || null; fcRendre(); } })
     .catch(function() { if (_fc.cle === cle) { _fc.dossiers = false; if (_fc.tab === 'prepa') fcRendre(); } });
 }
 function fcHtmlRdv() {
@@ -3321,11 +3341,20 @@ function fcHtmlPrepa() {
       if (b.pieges && b.pieges.length) h += '<div class="fc-sec"><div class="fc-sec-t">⚠ Pièges</div>' + li(b.pieges) + '</div>';
     }
     if (d.contexte) h += '<details style="margin-top:6px;"><summary style="cursor:pointer;font-size:12px;color:var(--text2);">Analyse GPT collée</summary><div class="fc-pre" style="margin-top:6px;">' + escapeHtml(d.contexte) + '</div></details>';
-    if (d.debrief) h += '<div class="fc-sec" style="margin-top:8px;"><div class="fc-sec-t">Débrief</div><div class="fc-pre">' + escapeHtml(d.debrief) + '</div></div>';
+    var a = d.apresRdv;
+    if (a) {
+      h += '<div class="fc-sec" style="margin-top:8px;"><div class="fc-sec-t">Après-RDV ' + (a.valide ? '✓ validé' : '(non validé)') + '</div>' + (a.resume ? '<div>' + escapeHtml(a.resume) + '</div>' : '') + '</div>';
+      if (a.engagements && a.engagements.length) h += '<div class="fc-sec"><div class="fc-sec-t">Engagements</div>' + li(a.engagements.map(function(e) { return e.qui + ' : ' + e.quoi + (e.quand ? ' (' + e.quand.split('-').reverse().join('/') + ')' : ''); })) + '</div>';
+      if (a.objections_restantes && a.objections_restantes.length) h += '<div class="fc-sec"><div class="fc-sec-t">Objections restantes</div>' + li(a.objections_restantes) + '</div>';
+      if (a.prochaine_action && a.prochaine_action.quoi) h += '<div class="fc-sec"><div class="fc-sec-t">Prochaine étape</div>' + escapeHtml(a.prochaine_action.quoi) + ' <span class="fc-muted">· ' + escapeHtml(a.prochaine_action.responsable || 'Nicolas') + (a.prochaine_action.echeance ? ' · ' + escapeHtml(a.prochaine_action.echeance.split('-').reverse().join('/')) : '') + '</span></div>';
+      if (a.mail && (a.mail.objet || a.mail.corps)) { var mid = 'fcmail-' + d.id; h += '<div class="fc-sec"><div class="fc-sec-t">Brouillon de mail <span class="fc-muted">aucun envoi automatique</span></div><div class="fc-pre" id="' + mid + '"><b>' + escapeHtml(a.mail.objet || '') + '</b>\n\n' + escapeHtml(a.mail.corps || '') + '</div><div style="display:flex;gap:6px;margin-top:6px;"><button class="btn btn-sm" style="font-size:11px;padding:3px 9px;" onclick="fcCopierMail(' + JSON.stringify(a.mail.objet || '').replace(/"/g, '&quot;') + ',' + JSON.stringify(a.mail.corps || '').replace(/"/g, '&quot;') + ')">📋 Copier</button><a class="btn btn-sm" style="font-size:11px;padding:3px 9px;text-decoration:none;" href="mailto:' + escapeHtml(_fc.email || '') + '?subject=' + encodeURIComponent(a.mail.objet || '') + '&body=' + encodeURIComponent(a.mail.corps || '') + '">✉ Ouvrir dans ma messagerie</a></div></div>'; }
+    }
+    if (d.debrief) h += '<details style="margin-top:6px;"><summary style="cursor:pointer;font-size:12px;color:var(--text2);">Analyse coach</summary><div class="fc-pre" style="margin-top:6px;">' + escapeHtml(d.debrief) + '</div></details>';
     if (d.issue) h += '<div class="fc-sec"><div class="fc-sec-t">Issue</div>' + escapeHtml([d.issue.type, d.issue.raison, d.issue.relance && d.issue.relance.quand && ('relance le ' + fcFrDepuisIso(d.issue.relance.quand)), d.issue.relance && d.issue.relance.condition].filter(Boolean).join(' · ')) + '</div>';
     return h + '</div></div>';
   }).join('');
 }
+function fcCopierMail(objet, corps) { var txt = 'Objet : ' + objet + '\n\n' + corps; if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(function() { if (typeof showCopyToast === 'function') showCopyToast('✓ Brouillon copié'); }); }
 function fcHtmlNotes() {
   var cl = fcClients(loadStore())[_fc.cle] || {};
   return '<div style="font-size:12px;color:var(--text3);margin-bottom:6px;">Notes libres sur ce client, gardées d\'un mois sur l\'autre. Enregistrées toutes seules.</div>'
@@ -3550,7 +3579,20 @@ function relancesLocales() {
   });
   return out;
 }
-function fusionRelances(copilot) { return (copilot || []).concat(relancesLocales()); }
+function fusionRelances(copilot) {
+  // Une relance devient inutile si, depuis, le client a signé, a un R2 daté, ou a un RDV plus récent que la relance : on ne la montre plus (elle reste dans le dossier)
+  var store = loadStore(), today = new Date(); today.setHours(0, 0, 0, 0);
+  var parNom = {};
+  Object.keys(store).forEach(function(k) { if (!/^\d{4}-\d{2}$/.test(k) || !Array.isArray(store[k])) return; store[k].forEach(function(r) { if (!r || !r.client) return; var n = fcNormNom(r.client); (parNom[n] = parNom[n] || []).push(r); }); });
+  var inutile = function(nom, dateRdvIso) {
+    return (parNom[fcNormNom(nom)] || []).some(function(r) { var d = parseDateFR(r.date); var dr2 = parseDateFR(r.dateR2); return r.result === 'Signé' || (dr2 && dr2 >= today) || (d && dateRdvIso && d > new Date(dateRdvIso + 'T23:59:59')); });
+  };
+  var cop = (copilot || []).filter(function(r) { return !inutile(r.nom, r.date); });
+  var loc = relancesLocales().filter(function(r) { return !inutile(r.nom, r.date); });
+  // doublon : même personne relancée par le copilot et par une ligne → on garde celle du copilot (plus de contexte)
+  var vus = {}; cop.forEach(function(r) { vus[fcNormNom(r.nom)] = true; });
+  return cop.concat(loc.filter(function(r) { return !vus[fcNormNom(r.nom)]; }));
+}
 // Deux cartes R1 pour la même personne dans le Pipeline (il est revenu) : popup → supprimer l'ancienne ou garder les deux (choix mémorisé)
 var _fcDoublonsPopupFait = false;
 function fcDetecterDoublonsPipeline(cols) {
@@ -4840,6 +4882,7 @@ function showSettingsSection(id, el) {
   el.classList.add('active');
   // Refresh backup status quand on ouvre la section
   if (id === 'backup') refreshBackupStatus();
+  if (id === 'etat') renderEtatSysteme(true);
 }
 
 // ═══════════════════════════════════════════════
@@ -6698,7 +6741,20 @@ function updatePrimeExc() {
 // ============================================================
 // RENDER KPIS — version finale corrigée
 // ============================================================
+function renderKpiSuivi() {
+  var st = loadStore(), log = st._relancesLog || [];
+  var MONTHS_IDX = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+  var k = state.year + '-' + String(MONTHS_IDX.indexOf(state.month) + 1).padStart(2, '0');
+  var duMois = log.filter(function(x) { return (x.fait || '').slice(0, 7) === k; });
+  var aTemps = duMois.filter(function(x) { return x.aTemps; }).length;
+  var el = document.getElementById('kpi-suivi'); if (!el) return;
+  el.textContent = duMois.length ? Math.round(aTemps / duMois.length * 100) + '%' : '—';
+  document.getElementById('kpi-suivi-sub').textContent = duMois.length ? aTemps + '/' + duMois.length + ' relances faites à temps' : 'aucune relance faite ce mois';
+  var sans = (typeof sdRdvsSansAction === 'function') ? sdRdvsSansAction().length : 0;
+  document.getElementById('kpi-suivi-sans').textContent = sans ? sans + ' RDV sans prochaine action' : '';
+}
 function renderKpis(kpis) {
+  try { renderKpiSuivi(); } catch (e) {}
   const set = (id, val) => { const el = document.getElementById(id); if(el) el.textContent = val; };
   const MONTHS_IDX = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
   const yr = parseInt(state.year);
@@ -6964,6 +7020,7 @@ function adjustAbsence(delta) {
 function renderDaily() {
   try { chargerRelancesPourQuotidien(); } catch (e) {}
   try { chargerAppelsClose(); } catch (e) {}
+  try { chargerMaJournee(); } catch (e) {}
   var now = new Date();
   var jFR  = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
   var mFR  = ['janvier','f\u00e9vrier','mars','avril','mai','juin','juillet','ao\u00fbt','septembre','octobre','novembre','d\u00e9cembre'];
@@ -7921,6 +7978,7 @@ function renderPipeline() {
   ];
   renderRelances();
   fcDetecterDoublonsPipeline(cols);
+  renderEtapesPipeline(cols);
   setHTML('pipeline-summary', summary.map(function(d){
     return '<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:8px 14px;font-size:12px;">'
       + '<span style="color:var(--text3);">' + d.label + '</span> '
@@ -7930,6 +7988,28 @@ function renderPipeline() {
 }
 
 
+
+// ── ÉTAPES COMMERCIALES : une lecture par étape, calculée depuis les statuts actuels (aucune migration) ──
+// Correspondance : à contacter = relance due · R1 prévu = RDV à venir · suivi après R1 = intéressé sans R2 / à relancer / si promo / pas de budget
+// · R2 prévu = date R2 à venir · décision attendue = R2 tenu, pas de résultat · signé · perdu = pas intéressé / ghost / non signé sans suite.
+function renderEtapesPipeline(cols) {
+  var el = document.getElementById('pipeline-etapes'); if (!el) return;
+  var today = new Date().toISOString().slice(0, 10), todayFr = new Date().toLocaleDateString('fr-FR');
+  var futur = function(r) { var d = parseDateFR(r.date); return d && d > new Date(); };
+  var r2Futur = function(r) { var d = parseDateFR(r.dateR2); return d && d >= new Date(new Date().setHours(0, 0, 0, 0)); };
+  var ns = cols.nosigned || [], raisonNS = function(r) { return r.result === 'Promo' ? 'promo' : (r.nosignRaison || ''); };
+  var dues = (_relances || []).filter(function(r) { var q = r.relance && r.relance.quand; return q && q <= today; }).length;
+  var etapes = [
+    ['À contacter', dues, 'relances dues aujourd\'hui ou en retard'],
+    ['R1 prévu', (cols.untreated || []).filter(futur).length, 'RDV à venir sans résultat'],
+    ['Suivi après R1', (cols.interested || []).filter(function(r) { return !r2Futur(r); }).length + ns.filter(function(r) { return ['promo', 'pasbudget', 'relancer'].indexOf(raisonNS(r)) >= 0; }).length, 'intéressés sans R2 calé + à relancer / si promo / pas de budget'],
+    ['R2 prévu', (cols.interested || []).filter(r2Futur).length, 'un R2 daté à venir'],
+    ['Décision attendue', (cols.interested || []).filter(function(r) { return r.dateR2 && !r2Futur(r) && r.result !== 'Signé'; }).length, 'R2 passé, pas encore de réponse'],
+    ['Signé', (cols.signed || []).length, 'signés du mois'],
+    ['Perdu', ns.filter(function(r) { return ['pasinteresse', 'ghost'].indexOf(raisonNS(r)) >= 0; }).length + (cols.noshow || []).length, 'pas intéressé, ghost, no show']
+  ];
+  el.innerHTML = etapes.map(function(e, i) { return '<div title="' + escapeHtml(e[2]) + '" style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:6px 12px;font-size:12px;display:flex;gap:8px;align-items:center;"><span style="color:var(--text3);">' + (i + 1) + ' · ' + e[0] + '</span><b>' + e[1] + '</b></div>'; }).join('');
+}
 
 // ── RELANCES (copilot local) ───────────────────────────────
 // Le copilot enregistre au débrief : issue (perdu / rappel calé), raison, relance {quand, condition, note}.
@@ -7948,6 +8028,7 @@ function renderRelances() {
 // Alerte Quotidien : « x clients à relancer aujourd'hui » (date de relance atteinte ou dépassée)
 function majAlerteRelances() {
   try { renderSansAction(); } catch (e) {}
+  try { renderMaJournee(); } catch (e) {}
   var el = document.getElementById('relances-jour'); if (!el) return;
   var today = new Date().toISOString().slice(0, 10);
   var dues = (_relances || []).filter(function(r){ var q = r.relance && r.relance.quand; return q && q <= today; });
@@ -7955,6 +8036,89 @@ function majAlerteRelances() {
   el.style.display = 'flex';
   document.getElementById('relances-jour-txt').textContent = '📞 ' + dues.length + (dues.length > 1 ? ' clients à relancer aujourd\'hui' : ' client à relancer aujourd\'hui');
   document.getElementById('relances-jour-noms').textContent = dues.slice(0, 4).map(function(r){ return r.nom + (r.relance.condition ? ' (' + r.relance.condition + ')' : ''); }).join(' · ') + (dues.length > 4 ? ' · …' : '');
+}
+// ── ÉTAT DU SYSTÈME (Objectifs & Config → État) ─────────────
+function renderEtatSysteme(force) {
+  var el = document.getElementById('etat-liste'); if (!el) return;
+  var ligne = function(ok, titre, detail, action) { return '<div style="display:flex;gap:10px;align-items:flex-start;padding:7px 0;border-top:1px solid var(--border);"><span>' + (ok === true ? '🟢' : ok === false ? '🔴' : '🟡') + '</span><div style="flex:1;"><b>' + titre + '</b>' + (detail ? ' — ' + escapeHtml(detail) : '') + (action && ok !== true ? '<div style="font-size:12px;color:var(--text2);">→ ' + escapeHtml(action) + '</div>' : '') + '</div></div>'; };
+  var quand = function(t) { return t ? new Date(t).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : 'jamais'; };
+  var html = '';
+  html += ligne(!_syncErreur, 'Supabase (sauvegarde en ligne)', _supaEmail ? 'connecté : ' + _supaEmail : 'clé publique seule' + (_syncErreur ? ' · dernière synchro en échec' : ''), 'Objectifs & Config → Sauvegarde en ligne : connexion, puis recharge.');
+  html += ligne(!!((state.calendly && state.calendly.apiKey) || localStorage.getItem('calendly_key')), 'Calendly', '', 'Objectifs & Config → Profil : colle ta clé Calendly.');
+  var e = _mj.etat;
+  if (!e) { html += ligne(false, 'Copilot local', 'injoignable sur ' + (typeof COPILOT_URL !== 'undefined' ? COPILOT_URL : '?'), 'Double-clique « Demarrer Copilot.command », puis ↻.'); }
+  else {
+    html += ligne(true, 'Copilot local', e.nb_dossiers + ' dossiers · ' + e.nb_contacts + ' contacts · démarré ' + quand(e.demarre_at));
+    html += ligne(!!e.cles.modele, 'Clé modèle IA', e.cles.modele ? 'présente' : 'absente', 'server/.env : OPENAI_API_KEY ou ANTHROPIC_API_KEY, puis relance le copilot.');
+    html += ligne(!!e.cles.deepgram, 'Clé Deepgram (transcription)', e.cles.deepgram ? 'présente' : 'absente', 'server/.env : DEEPGRAM_API_KEY.');
+    html += ligne(!!e.cles.close, 'Close (coordonnées, appels)', e.cles.close ? 'clé présente' : 'absente', 'server/.env : CLOSE_API_KEY=api_… (Close → Settings → Developer → API Keys).');
+    html += ligne(!!e.cles.slack, 'Slack (estimations du secteur)', e.cles.slack ? 'configuré' : 'absent', 'server/.env : SLACK_TOKEN + SLACK_CHANNEL.');
+    var sc = e.sauvegardes.copilot, ss = e.sauvegardes.salesdesk;
+    html += ligne(sc.ok === true ? true : (sc.ok === false ? false : null), 'Sauvegarde copilot', sc.ok === true ? quand(sc.at) + ' (' + sc.nb + ' dossiers)' : (sc.ok === false ? 'ÉCHEC : ' + sc.erreur : 'pas encore faite'), 'Clique « Sauvegarder maintenant » ; si ça échoue, regarde le Terminal du copilot.');
+    html += ligne(ss.ok === true ? true : (ss.ok === false ? false : null), 'Sauvegarde SalesDesk (copie locale)', ss.ok === true ? quand(ss.at) : (ss.ok === false ? 'ÉCHEC : ' + ss.erreur : 'pas encore faite'), 'Supabase injoignable depuis le copilot : vérifie ta connexion internet / la ligne Supabase.');
+    html += ligne(!!e.supports.roi.present, 'Support ROI', e.supports.roi.chemin, 'server/.env : ROI_DIR=… (dossier contenant roiRA.html).');
+    html += ligne(!!e.supports.closing.present, 'Fiche de closing', e.supports.closing.chemin, 'server/.env : CLOSING_HTML=… .');
+    html += ligne(e.detecteur, 'Détecteur (analyse pendant le RDV)', e.detecteur ? 'actif' : 'désactivé', 'server/.env : DETECTOR_ENABLED=true.');
+  }
+  el.innerHTML = html;
+  if (force) chargerMaJournee(true), setTimeout(function() { renderEtatSysteme(false); }, 1500);
+}
+function etatSauvegarderMaintenant() {
+  fetch(COPILOT_URL + '/sauvegardes/maintenant', { method: 'POST', mode: 'cors' }).then(function(r) { return r.json(); }).then(function(j) { alert(j.ok ? 'Sauvegarde faite : copilot (' + j.copilot.nb + ' dossiers) + SalesDesk.' : 'Sauvegarde INCOMPLÈTE : ' + [j.copilot && j.copilot.ok === false ? 'copilot : ' + j.copilot.erreur : '', j.salesdesk && j.salesdesk.ok === false ? 'SalesDesk : ' + j.salesdesk.erreur : ''].filter(Boolean).join(' · ')); _mj.at = 0; renderEtatSysteme(true); }).catch(function() { alert('Copilot injoignable : rien n\'a été sauvegardé.'); });
+}
+// ── MA JOURNÉE : ce qui compte aujourd'hui, avec une action directe par ligne ─────────────
+var _mj = { copilot: null, sdRdvs: null, etat: null, at: 0 }, _syncErreur = false, _mjTimer = null;
+function chargerMaJournee(force) {
+  if (typeof COPILOT_URL === 'undefined') { renderMaJournee(); return; }
+  if (_mj.at && Date.now() - _mj.at < 60000 && !force) { renderMaJournee(); return; }
+  var fin = function() { _mj.at = Date.now(); renderMaJournee(); };
+  var ctrl = new AbortController(); setTimeout(function() { ctrl.abort(); }, 6000);
+  Promise.all([
+    fetch(COPILOT_URL + '/rdvs', { mode: 'cors', cache: 'no-store', signal: ctrl.signal }).then(function(r) { return r.json(); }).catch(function() { return null; }),
+    fetch(COPILOT_URL + '/salesdesk/rdvs?jours=2', { mode: 'cors', cache: 'no-store', signal: ctrl.signal }).then(function(r) { return r.json(); }).catch(function() { return null; }),
+    fetch(COPILOT_URL + '/etat', { mode: 'cors', cache: 'no-store', signal: ctrl.signal }).then(function(r) { return r.json(); }).catch(function() { return null; })
+  ]).then(function(r) { _mj.copilot = r[0] && r[0].rdvs ? r[0].rdvs : null; _mj.sdRdvs = r[1] && r[1].rdvs ? r[1].rdvs : null; _mj.etat = r[2]; fin(); }).catch(fin);
+}
+function mjAller(page) { var b = [...document.querySelectorAll('.nav-tab')].find(function(x) { return x.textContent.indexOf(page) >= 0; }); if (b) b.click(); }
+function renderMaJournee() {
+  var el = document.getElementById('ma-journee'); if (!el) return;
+  var now = new Date(), todayKey = now.toLocaleDateString('fr-FR'), todayIso = now.toISOString().slice(0, 10);
+  var demain = new Date(now); demain.setDate(demain.getDate() + 1); var demainIso = demain.toISOString().slice(0, 10);
+  var hhmm = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+  // 1. RDV du jour (Calendly de la semaine si chargé, sinon lignes du store)
+  var evs = (typeof _dailyCalWeekEvents !== 'undefined' && _dailyCalWeekEvents[todayKey]) || [];
+  var rdvJour = evs.length ? evs.map(function(e) { return { nom: e.name, heure: e.start.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }), src: e.source }; }) : ((loadStore()[todayIso.slice(0, 7)] || []).filter(function(r) { return r && r.date === todayKey; }).map(function(r) { return { nom: r.client, heure: r.heure || '', src: r.source }; }));
+  rdvJour.sort(function(a, b) { return (a.heure || '').localeCompare(b.heure || ''); });
+  var prochainRdv = rdvJour.find(function(r) { return !r.heure || r.heure >= hhmm; });
+  // 2. prépas manquantes (aujourd'hui / demain) : pas de dossier copilot, ou dossier incomplet
+  var prepas = [];
+  if (_mj.sdRdvs) _mj.sdRdvs.forEach(function(r) { if (r.date !== todayIso && r.date !== demainIso) return; var d = _mj.copilot && _mj.copilot.find(function(x) { return x.id === r.dossierId; }); if (!r.dossierId) prepas.push({ nom: r.client, quand: r.date === todayIso ? 'aujourd\'hui' : 'demain', manque: 'rien de préparé' }); else if (d && d.manque && d.manque.length) prepas.push({ nom: r.client, quand: r.date === todayIso ? 'aujourd\'hui' : 'demain', manque: d.manque.join(', ') }); });
+  // 3. à finaliser (copilot : passé sans débrief ni traitement) + 5. sans prochaine action (règle SalesDesk)
+  // à finaliser = passé sans débrief copilot ET sans traitement SalesDesk (présence ou résultat renseigné)
+  var storeMj = loadStore();
+  var traiteSd = function(d) { var mk = (d.date || '').slice(0, 7); var fr = d.date ? d.date.split('-').reverse().join('/') : ''; return (storeMj[mk] || []).some(function(r) { return r && r.date === fr && fcNormNom(r.client) === fcNormNom(d.nom) && (r.presence || r.result); }); };
+  var aFinaliser = (_mj.copilot || []).filter(function(d) { return d.etatAffiche === 'a_finaliser' && !traiteSd(d); });
+  var sansAction = (typeof sdRdvsSansAction === 'function') ? sdRdvsSansAction() : [];
+  // 4. relances dues
+  var dues = (_relances || []).filter(function(r) { var q = r.relance && r.relance.quand; return q && q <= todayIso; });
+  var retard = dues.filter(function(r) { return r.relance.quand < todayIso; }).length;
+  // 6. incidents de synchronisation
+  var incidents = [];
+  if (typeof COPILOT_URL !== 'undefined' && _mj.at && !_mj.etat) incidents.push({ t: 'Copilot éteint ou injoignable', a: 'Lance « Demarrer Copilot.command » (double-clic), puis recharge cette page.' });
+  if (_mj.etat && _mj.etat.sauvegardes && _mj.etat.sauvegardes.copilot && _mj.etat.sauvegardes.copilot.ok === false) incidents.push({ t: 'Sauvegarde copilot en échec : ' + _mj.etat.sauvegardes.copilot.erreur, a: 'Objectifs & Config → État.' });
+  if (_mj.etat && _mj.etat.sauvegardes && _mj.etat.sauvegardes.salesdesk && _mj.etat.sauvegardes.salesdesk.ok === false) incidents.push({ t: 'Sauvegarde SalesDesk (cloud) en échec : ' + _mj.etat.sauvegardes.salesdesk.erreur, a: 'Vérifie la connexion Supabase (Objectifs & Config → Sauvegarde en ligne).' });
+  if (_syncErreur) incidents.push({ t: 'Synchronisation Supabase hors ligne', a: 'Tes données restent dans ce navigateur. Reconnecte-toi dans Objectifs & Config → Sauvegarde en ligne.' });
+  if (!(state.calendly && state.calendly.apiKey) && !localStorage.getItem('calendly_key')) incidents.push({ t: 'Clé Calendly absente', a: 'Objectifs & Config → Profil : colle ta clé Calendly.' });
+  var ligne = function(ico, txt, bouton, action, couleur) { return '<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-top:1px solid var(--border);font-size:13px;"><span style="width:22px;text-align:center;">' + ico + '</span><span style="flex:1;color:' + (couleur || 'var(--text)') + ';">' + txt + '</span>' + (bouton ? '<button class="btn btn-sm" style="font-size:11px;padding:3px 10px;" onclick="' + action + '">' + bouton + '</button>' : '') + '</div>'; };
+  var html = '<div style="display:flex;align-items:baseline;gap:10px;margin-bottom:6px;"><div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;">Ma journée</div><div style="font-size:11px;color:var(--text3);">' + (_mj.at ? 'copilot ' + (_mj.etat ? 'connecté' : 'absent') + ' · ' + new Date(_mj.at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '') + ' <a href="#" onclick="chargerMaJournee(true);return false;" style="color:var(--text3);">↻</a></div></div>';
+  html += ligne('📅', rdvJour.length ? '<b>' + rdvJour.length + ' RDV aujourd\'hui</b>' + (prochainRdv ? ' · prochain : ' + escapeHtml(prochainRdv.heure + ' ' + prochainRdv.nom) : ' · tous passés') : 'Aucun RDV aujourd\'hui', rdvJour.length ? 'Mes RDV' : '', "mjAller('Mes RDV')");
+  html += ligne('📋', prepas.length ? '<b>' + prepas.length + ' prépa(s) à faire</b> · ' + escapeHtml(prepas.slice(0, 3).map(function(p) { return p.nom + ' (' + p.quand + ' : ' + p.manque + ')'; }).join(' · ')) : (_mj.sdRdvs ? 'Prépas à jour pour aujourd\'hui et demain' : 'Prépas : copilot injoignable'), prepas.length ? 'Préparer' : '', "mjAller('Mes RDV')", prepas.length ? 'var(--orange)' : '');
+  html += ligne('✅', aFinaliser.length ? '<b>' + aFinaliser.length + ' RDV à finaliser</b> (passés sans débrief) · ' + escapeHtml(aFinaliser.slice(0, 3).map(function(d) { return d.nom; }).join(' · ')) : 'Rien à finaliser', aFinaliser.length ? 'Finaliser' : '', "mjAller('Mes RDV')", aFinaliser.length ? 'var(--orange)' : '');
+  html += ligne('📞', dues.length ? '<b>' + dues.length + ' relance(s) due(s)</b>' + (retard ? ' dont ' + retard + ' en retard' : '') + ' · ' + escapeHtml(dues.slice(0, 3).map(function(r) { return r.nom; }).join(' · ')) : 'Aucune relance due', dues.length ? 'Relancer' : '', "mjAller('Pipeline')", retard ? 'var(--red)' : (dues.length ? 'var(--orange)' : ''));
+  html += ligne('⚠️', sansAction.length ? '<b>' + sansAction.length + ' RDV sans prochaine action</b>' : 'Tous les RDV ont une suite', sansAction.length ? 'Compléter' : '', 'sdClasserEnChaine()', sansAction.length ? 'var(--red)' : '');
+  if (incidents.length) incidents.forEach(function(i) { html += ligne('🔌', '<b>' + escapeHtml(i.t) + '</b> — ' + escapeHtml(i.a), 'État', "mjAller('Objectifs'); showSettingsSection('etat', document.querySelector('.settings-nav-item[data-sec=etat]'))", 'var(--red)'); });
+  else html += ligne('🔌', 'Synchronisations OK (copilot, Supabase, Calendly)', '', '', 'var(--green)');
+  el.innerHTML = html;
 }
 // ── APPELS CLOSE (copilot local → /close/appels) : jour, semaine, par mois ─────────────
 var _closeAppels = null, _closeAppelsAt = 0;
@@ -8006,6 +8170,38 @@ function chargerRelancesPourQuotidien() {
     .catch(function(){ _relances = fusionRelances([]); majAlerteRelances(); })
     .finally(function(){ clearTimeout(t); });
 }
+// Résultat d'une relance : joint / pas de réponse / RDV pris / perdu / repoussée. Journalisé (_relancesLog) pour l'indicateur « relances à temps ».
+function relanceResultat(id, btn) {
+  var r = (_relances || []).find(function(x) { return x.id === id; }); if (!r) return;
+  var html = '<div class="fc-dup"><div style="font-size:15px;font-weight:700;margin-bottom:6px;">' + escapeHtml(r.nom) + ' — résultat de la relance</div>'
+    + [['joint', '📞 Joint, on avance'], ['rdv_pris', '📅 RDV pris'], ['pas_de_reponse', '📭 Pas de réponse (je réessaie)'], ['plus_tard', '⏩ Repousser'], ['perdu', '❌ Perdu']].map(function(c) { return '<button class="fc-dup-item" onclick="relanceResultatChoisir(' + JSON.stringify(id).replace(/"/g, '&quot;') + ',\'' + c[0] + '\')">' + c[1] + '</button>'; }).join('')
+    + '<div id="rl-plustard" style="display:none;margin-top:8px;"><input type="date" id="rl-quand" style="font-family:var(--mono);font-size:12px;padding:5px;border:1px solid var(--border);border-radius:6px;"> <button class="btn btn-sm btn-primary" onclick="relanceResultatChoisir(' + JSON.stringify(id).replace(/"/g, '&quot;') + ',\'plus_tard\',true)">Repousser à cette date</button></div>'
+    + '<div style="text-align:right;margin-top:12px;"><button class="btn btn-sm" onclick="fermerModalDoublon()">Annuler</button></div></div>';
+  var ov = document.getElementById('fc-dup-overlay');
+  if (!ov) { ov = document.createElement('div'); ov.id = 'fc-dup-overlay'; ov.className = 'modal-overlay'; ov.style.zIndex = '1300'; ov.innerHTML = '<div class="modal" id="fc-dup-modal"></div>'; document.body.appendChild(ov); }
+  ov.onclick = function(ev) { if (ev.target === ov) fermerModalDoublon(); };
+  document.getElementById('fc-dup-modal').innerHTML = html; ov.classList.add('open');
+}
+function relanceResultatChoisir(id, resultat, confirmeDate) {
+  if (resultat === 'plus_tard' && !confirmeDate) { document.getElementById('rl-plustard').style.display = ''; return; }
+  var quand = resultat === 'plus_tard' ? (document.getElementById('rl-quand') || {}).value : '';
+  if (resultat === 'plus_tard' && !quand) { alert('Choisis la nouvelle date.'); return; }
+  var r = (_relances || []).find(function(x) { return x.id === id; }); var today = new Date().toISOString().slice(0, 10);
+  var store = loadStore(); if (!store._relancesLog) store._relancesLog = [];
+  if (resultat !== 'plus_tard') store._relancesLog.push({ id: id, nom: r ? r.nom : '', quand: r && r.relance ? r.relance.quand : '', fait: today, resultat: resultat, aTemps: !!(r && r.relance && r.relance.quand && today <= r.relance.quand) });
+  if (String(id).indexOf('sd|') === 0) { // relance locale : sur la ligne
+    var p = String(id).split('|'), row = (store[p[1]] || [])[parseInt(p[2])];
+    if (row) { if (resultat === 'plus_tard') { row.relanceDate = quand; } else { row.relanceFait = true; row.relanceResultat = resultat; row.relanceFaitAt = today; if (resultat === 'perdu') { row.result = 'Non signé'; row.nosignRaison = row.nosignRaison || 'pasinteresse'; } if (resultat === 'rdv_pris') { row.result = 'R2 planifié'; } } }
+    saveStore(store); fermerModalDoublon();
+    _relances = fusionRelances((_relances || []).filter(function(x) { return !x.local; })); dessinerRelances(); majAlerteRelances(); refreshAll();
+    if (typeof showCopyToast === 'function') showCopyToast('✓ Relance : ' + resultat.replace('_', ' '));
+    return;
+  }
+  saveStore(store);
+  fetch(COPILOT_URL + '/rdvs/' + encodeURIComponent(id) + '/relance-resultat', { method: 'POST', mode: 'cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ resultat: resultat, quand: quand }) })
+    .then(function(x) { if (!x.ok) throw new Error(x.status); fermerModalDoublon(); if (resultat === 'plus_tard') { if (r) r.relance.quand = quand; } else { _relances = (_relances || []).filter(function(x) { return x.id !== id; }); } dessinerRelances(); majAlerteRelances(); if (typeof showCopyToast === 'function') showCopyToast('✓ Relance : ' + resultat.replace('_', ' ')); })
+    .catch(function() { alert('Le copilot ne répond pas : résultat non enregistré.'); });
+}
 // Relance faite : elle sort de la liste (et de l'alerte Quotidien) ; sinon elle reste
 function relanceFaite(id, btn) {
   if (btn) { btn.disabled = true; btn.textContent = '…'; }
@@ -8032,7 +8228,7 @@ function dessinerRelances() {
   document.getElementById('relances-count').textContent = rows.length ? '· ' + rows.length + ' à rappeler' : '';
   document.getElementById('relances-info').textContent = liste.length ? '' : 'Aucune relance enregistrée.';
   var today = new Date().toISOString().slice(0,10);
-  document.getElementById('relances-liste').innerHTML = rows.length ? '<table style="width:100%;font-size:12.5px;border-collapse:collapse;"><thead><tr>' + ['Quand','Prospect','RDV','Issue','Raison','Condition','Note',''].map(function(h){ return '<th style="text-align:left;padding:6px 8px;font-size:11px;color:var(--text3);border-bottom:1px solid var(--border);">' + h + '</th>'; }).join('') + '</tr></thead><tbody>'
+  document.getElementById('relances-liste').innerHTML = rows.length ? '<table style="width:100%;font-size:12.5px;border-collapse:collapse;"><thead><tr>' + ['Quand','Prospect','RDV','Pourquoi','Dernier échange','Message',''].map(function(h){ return '<th style="text-align:left;padding:6px 8px;font-size:11px;color:var(--text3);border-bottom:1px solid var(--border);">' + h + '</th>'; }).join('') + '</tr></thead><tbody>'
     + rows.map(function(r){
       var q = (r.relance && r.relance.quand) || '';
       var due = q && q <= today;
@@ -8041,11 +8237,10 @@ function dessinerRelances() {
         + '<td style="padding:8px;font-weight:600;color:' + (due ? 'var(--red)' : 'var(--text)') + ';white-space:nowrap;">' + qLabel + (due ? ' ⏰' : '') + '</td>'
         + '<td style="padding:8px;"><b class="fc-nomlien" onclick="ouvrirFicheClient(' + JSON.stringify(r.nom || '').replace(/"/g, '&quot;') + ')">' + escapeHtml(r.nom) + '</b><div style="font-size:11px;color:var(--text3);">' + escapeHtml([r.reseau, r.secteur].filter(Boolean).join(' · ')) + '</div></td>'
         + '<td style="padding:8px;white-space:nowrap;color:var(--text3);">' + (r.date ? r.date.split('-').reverse().join('/') : '') + '</td>'
-        + '<td style="padding:8px;">' + (r.outcome === 'perdu' ? '<span class="tag" style="color:var(--red);">Perdu</span>' : '<span class="tag">Rappel calé</span>') + '</td>'
-        + '<td style="padding:8px;">' + escapeHtml(r.raison || '—') + '</td>'
-        + '<td style="padding:8px;">' + escapeHtml((r.relance && r.relance.condition) || '—') + '</td>'
-        + '<td style="padding:8px;color:var(--text2);">' + escapeHtml((r.relance && r.relance.note) || '') + '</td>'
-        + '<td style="padding:8px;"><button class="btn btn-sm" onclick="relanceFaite(\'' + String(r.id).replace(/'/g, '') + '\', this)">✓ Fait</button></td>'
+        + '<td style="padding:8px;">' + escapeHtml([r.raison, (r.relance && r.relance.condition)].filter(Boolean).join(' · ') || (r.outcome === 'perdu' ? 'Perdu' : 'Rappel calé')) + '</td>'
+        + '<td style="padding:8px;color:var(--text2);max-width:260px;">' + escapeHtml(r.contexte || (r.relance && r.relance.note) || '—') + ((r.objections || []).length ? '<div style="font-size:11px;color:var(--red);">Reste : ' + escapeHtml(r.objections.join(' · ')) + '</div>' : '') + (r.action && r.action.quoi ? '<div style="font-size:11px;color:var(--text3);">Prévu : ' + escapeHtml(r.action.quoi) + '</div>' : '') + '</td>'
+        + '<td style="padding:8px;">' + (r.message ? '<button class="btn btn-sm" style="font-size:11px;padding:3px 8px;" onclick="fcCopierMail(' + JSON.stringify(r.message.objet).replace(/"/g, '&quot;') + ',' + JSON.stringify(r.message.corps).replace(/"/g, '&quot;') + ')" title="' + escapeHtml(r.message.objet) + '">📋 Brouillon</button>' : '<span style="color:var(--text3);">—</span>') + '</td>'
+        + '<td style="padding:8px;white-space:nowrap;"><button class="btn btn-sm" onclick="relanceResultat(\'' + String(r.id).replace(/'/g, '') + '\', this)">✓ Fait</button></td>'
         + '</tr>';
     }).join('') + '</tbody></table>' : '<div style="font-size:12px;color:var(--text3);">Rien pour ce filtre.</div>';
 }
@@ -11142,7 +11337,7 @@ window.addEventListener('load', function() {
     </div>
     <div class="fc-tabs">
       <button class="fc-tab on" data-tab="rdv" onclick="fcOnglet('rdv')">📅 RDV</button>
-      <button class="fc-tab" data-tab="prepa" onclick="fcOnglet('prepa')">📋 Prépa copilot</button>
+      <button class="fc-tab" data-tab="prepa" onclick="fcOnglet('prepa')">🧠 Copilot (prépa, après-RDV, mail)</button>
       <button class="fc-tab" data-tab="notes" onclick="fcOnglet('notes')">✍️ Notes client</button>
     </div>
     <div class="fc-body" id="fc-body"></div>
