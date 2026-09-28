@@ -3286,8 +3286,33 @@ function fcChargerClose() {
   var cle = _fc.cle;
   var ctrl = new AbortController(); setTimeout(function() { ctrl.abort(); }, 12000);
   fetch(COPILOT_URL + '/close/contact?' + new URLSearchParams({ email: _fc.email, nom: _fc.nom }), { mode: 'cors', cache: 'no-store', signal: ctrl.signal })
-    .then(function(r) { return r.json(); }).then(function(j) { if (_fc.cle === cle) { _fc.close = j; fcRendreContact(); } })
+    .then(function(r) { return r.json(); }).then(function(j) { fcMemoriserClose(cle, _fc.nom, _fc.email, j); if (_fc.cle === cle) { _fc.close = j; fcRendreContact(); } })
     .catch(function() { if (_fc.cle === cle) { _fc.close = undefined; fcRendreContact(); } });
+}
+// L'URL de la fiche Close est gardée sur le client (_clients) : les cartes Pipeline l'ouvrent d'un clic sans re-chercher
+function fcMemoriserClose(cle, nom, email, j) {
+  var url = j && j.leads && j.leads.length ? String(j.leads[0].url || '') : '';
+  var store = loadStore(), cls = fcClients(store), cl = cls[cle] || { nom: nom, email: email, notes: '', claap: {} };
+  if (url ? cl.closeUrl === url : !cl.closeUrl) return;
+  if (url) cl.closeUrl = url; else delete cl.closeUrl;
+  cls[cle] = cl; saveStore(store);
+}
+// Clic « Close » sur une carte : fiche connue → ouverture directe ; sinon on demande au copilot puis on ouvre (l'onglet est ouvert tout de suite pour éviter le blocage des popups)
+function fcOuvrirClose(nom, email, ev) {
+  if (ev) ev.stopPropagation();
+  nom = String(nom || '').trim(); email = String(email || '').toLowerCase().trim();
+  var cle = fcCle(nom, email), cl = fcClients(loadStore())[cle];
+  if (cl && cl.closeUrl) { window.open(cl.closeUrl, '_blank', 'noopener'); return; }
+  var w = window.open('about:blank', '_blank');
+  var ctrl = new AbortController(); setTimeout(function() { ctrl.abort(); }, 12000);
+  fetch(COPILOT_URL + '/close/contact?' + new URLSearchParams({ email: email, nom: nom }), { mode: 'cors', cache: 'no-store', signal: ctrl.signal })
+    .then(function(r) { return r.json(); }).then(function(j) {
+      fcMemoriserClose(cle, nom, email, j);
+      var url = j && j.leads && j.leads.length ? j.leads[0].url : '';
+      if (url) { if (w) w.location = url; else window.open(url, '_blank', 'noopener'); }
+      else { if (w) w.close(); if (typeof showCopyToast === 'function') showCopyToast(j && j.configure === false ? 'Close : clé absente' : 'Close : aucune fiche pour ' + nom); }
+    })
+    .catch(function() { if (w) w.close(); if (typeof showCopyToast === 'function') showCopyToast('Close : copilot éteint'); });
 }
 function fcChargerDossiers() {
   var cle = _fc.cle;
@@ -7783,6 +7808,7 @@ function buildPipelineCard(r, col) {
     + '<span style="display:flex;gap:4px;align-items:center;">'
     + (tier ? '<span class="tag">' + tier + '</span>' : '')
     + (days !== null && col !== 'signed' ? '<span style="font-size:10px;color:' + urgColor + ';">' + days + 'j ⏱</span>' : '')
+    + '<span class="tag" style="cursor:pointer;" title="Ouvrir la fiche Close" onclick="fcOuvrirClose(' + JSON.stringify(r.client || '').replace(/"/g, '&quot;') + ',' + JSON.stringify(r.email || '').replace(/"/g, '&quot;') + ', event)">↗ Close</span>'
     + '</span></div></div>';
 }
 
