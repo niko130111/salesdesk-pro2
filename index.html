@@ -1644,21 +1644,31 @@ select.form-input { cursor: pointer; }
     <!-- Col Pas de budget -->
     <div class="pipeline-col" style="background:#fff4e6;">
       <div class="pipeline-col-header">
-        <div class="pipeline-col-title orange">💸 Pas de budget</div>
-        <span class="pipeline-badge" id="pipe-badge-pasbudget">0</span>
+        <div class="pipeline-col-title orange">🗺️ À relancer carte de prospection</div>
+        <span class="pipeline-badge" id="pipe-badge-carte">0</span>
       </div>
-      <div style="font-size:11px;color:var(--orange);margin-bottom:10px;">Non signés · budget</div>
-      <div class="pipeline-cards" id="pipe-col-pasbudget" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="pipelineDrop(event,this,'pipe-col-nosigned','pasbudget')"></div>
+      <div style="font-size:11px;color:var(--orange);margin-bottom:10px;">Non signés · à relancer avec la carte</div>
+      <div class="pipeline-cards" id="pipe-col-carte" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="pipelineDrop(event,this,'pipe-col-nosigned','carte')"></div>
     </div>
 
     <!-- Col Relancer si promo -->
     <div class="pipeline-col" style="background:#f3efff;">
       <div class="pipeline-col-header">
-        <div class="pipeline-col-title" style="color:#6d4fc2;">💡 Relancer si promo</div>
+        <div class="pipeline-col-title" style="color:#6d4fc2;">💡 À relancer si promo</div>
         <span class="pipeline-badge" id="pipe-badge-promo">0</span>
       </div>
       <div style="font-size:11px;color:#6d4fc2;margin-bottom:10px;">Non mais intéressés · reliquat gardé</div>
       <div class="pipeline-cards" id="pipe-col-promo" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="pipelineDrop(event,this,'pipe-col-nosigned','promo')"></div>
+    </div>
+
+    <!-- Col À relancer au RENT (salon) -->
+    <div class="pipeline-col" style="background:#e8f5ef;">
+      <div class="pipeline-col-header">
+        <div class="pipeline-col-title" style="color:#1f7a4d;">🏢 À relancer au RENT</div>
+        <span class="pipeline-badge" id="pipe-badge-rent">0</span>
+      </div>
+      <div style="font-size:11px;color:#1f7a4d;margin-bottom:10px;">Non signés · à revoir au salon</div>
+      <div class="pipeline-cards" id="pipe-col-rent" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="pipelineDrop(event,this,'pipe-col-nosigned','rent')"></div>
     </div>
 
     <!-- Col Ghost après RDV (RDV fait, puis plus de réponse) -->
@@ -3028,6 +3038,20 @@ function sdMigrerOneShot(store) {
   });
   store._migOneShot = new Date().toISOString();
   if (n) console.log('[migration] ' + n + ' ligne(s) « One Shot » → flag one shot, fréquence à compléter');
+  return sdMigrerRelances3(store);
+}
+// 28/09/2026 : colonnes « Pas de budget » et « Relancer si promo » remplacées par si promo / carte de prospection / RENT.
+// Les cartes qui y étaient repassent en non traité (raison à redonner), après sauvegarde du store.
+function sdMigrerRelances3(store) {
+  if (!store || store._migRelances3) return store;
+  var n = 0, cibles = [];
+  Object.keys(store).forEach(function(k) {
+    if (!/^\d{4}-\d{2}$/.test(k) || !Array.isArray(store[k])) return;
+    store[k].forEach(function(r) { if (r && (r.result === 'Promo' || ['pasbudget', 'promo'].indexOf(r.nosignRaison || '') >= 0)) cibles.push(r); });
+  });
+  if (cibles.length) { try { sdBackupStore(store); } catch (e) {} cibles.forEach(function(r) { if (r.result === 'Promo') r.result = 'Non signé'; r.nosignRaisonAvant = r.nosignRaison || 'promo'; delete r.nosignRaison; n++; }); }
+  store._migRelances3 = new Date().toISOString();
+  if (n) console.log('[migration] ' + n + ' carte(s) pas de budget / si promo → non traitées, raison à redonner');
   return store;
 }
 function loadStore() {
@@ -3231,7 +3255,7 @@ function fcRendre() {
   if (last.pack) badges.push('<span class="fc-badge">' + escapeHtml(last.pack) + (last.freq ? ' · ' + escapeHtml(last.freq) : '') + '</span>');
   if (last.tier) badges.push('<span class="fc-badge">' + escapeHtml(last.tier) + '</span>');
   if (cat === 'signed') badges.push('<span class="fc-badge won">✅ Signé</span>');
-  else if (cat === 'nosigned') { var rn = last.result === 'Promo' ? 'promo' : (last.nosignRaison || ''); var lib = { relancer: '🔁 Ancien RDV à relancer', pasinteresse: '✗ Pas intéressé', pasbudget: '💸 Pas de budget', promo: '💡 Relancer si promo', ghost: '🫥 Ghost' }[rn] || '✗ Non signé'; badges.push('<span class="fc-badge lost">' + lib + '</span>'); }
+  else if (cat === 'nosigned') { var rn = last.result === 'Promo' ? 'promo' : (last.nosignRaison || ''); var lib = { relancer: '🔁 Ancien RDV à relancer', pasinteresse: '✗ Pas intéressé', pasbudget: '💸 Pas de budget', promo: '💡 À relancer si promo', carte: '🗺️ À relancer carte de prospection', rent: '🏢 À relancer au RENT', ghost: '🫥 Ghost' }[rn] || '✗ Non signé'; badges.push('<span class="fc-badge lost">' + lib + '</span>'); }
   else if (cat === 'interested') badges.push('<span class="fc-badge hot">🔥 Intéressé</span>');
   else if (cat === 'noshow') badges.push('<span class="fc-badge">👻 No Show</span>');
   badges.push('<span class="fc-badge">' + _fc.rows.length + ' RDV</span>');
@@ -3583,7 +3607,7 @@ function sdClasserEnChaine() {
 function sdChaineSuite() { if (window._sdChaine) setTimeout(sdClasserEnChaine, 150); }
 function fcPopupRaison(monthKey, idx) {
   var store = loadStore(), r = (store[monthKey] || [])[idx]; if (!r) return;
-  var choix = [['pasinteresse', '✗ Pas intéressé', 'var(--red)'], ['pasbudget', '💸 Pas de budget', 'var(--orange)'], ['promo', '💡 Relancer si promo', '#6d4fc2'], ['ghost', '🫥 Ghost après RDV', '#4a6785'], ['relancer', '🔁 Ancien RDV à relancer', '#0e7490']];
+  var choix = [['pasinteresse', '✗ Pas intéressé', 'var(--red)'], ['promo', '💡 À relancer si promo', '#6d4fc2'], ['carte', '🗺️ À relancer carte de prospection', 'var(--orange)'], ['rent', '🏢 À relancer au RENT', '#1f7a4d'], ['ghost', '🫥 Ghost après RDV', '#4a6785'], ['relancer', '🔁 Ancien RDV à relancer', '#0e7490']];
   var html = '<div class="fc-dup"><div style="font-size:16px;font-weight:700;margin-bottom:2px;">' + escapeHtml(r.client) + ' — pourquoi non signé ?</div>'
     + '<div style="font-size:12px;color:var(--text3);margin-bottom:10px;">' + escapeHtml(r.date || '') + ' · un non signé a toujours une raison, c\'est sa colonne dans le Pipeline.</div>'
     + choix.map(function(c) { return '<button class="fc-dup-item" style="font-weight:700;color:' + c[2] + ';" onclick="fcRaisonChoisir(' + JSON.stringify(monthKey).replace(/"/g, '&quot;') + ',' + idx + ',\'' + c[0] + '\')">' + c[1] + '</button>'; }).join('')
@@ -4613,7 +4637,7 @@ function sdValiderMessageCopilot(m) {
   const OK = {
     presence: ['Show', 'No Show', 'Annulé', 'Reprogrammé', ''], type: ['Mandataire', 'Agences'], pack: ['Start+', 'Pro+', 'Expert+', ''],
     freq: ['Annuelle', 'Mensuelle', ''], tier: ['T1', 'T2', 'T3', 'T4', ''], fms: ['100%', '50%', 'offert', 'Offert', ''],
-    nosignRaison: ['pasinteresse', 'pasbudget', 'promo', 'ghost', 'relancer']
+    nosignRaison: ['pasinteresse', 'pasbudget', 'promo', 'carte', 'rent', 'ghost', 'relancer']
   };
   const champs = {};
   Object.keys(OK).forEach(function(k) { const c = m.champs && m.champs[k]; if (c === undefined || c === null) return; const v = txt(String(c), 20); if (OK[k].indexOf(v) >= 0) champs[k] = v; });
@@ -7976,7 +8000,8 @@ function renderPipeline() {
   // Non signés : 3 colonnes (Pas intéressé / Pas de budget / Relancer si promo) ; sans raison = « à classer », listés sous Pas intéressé
   var nsPI = cols.nosigned.filter(function(r){ return raisonNS(r) === 'pasinteresse'; });
   var nsAC = cols.nosigned.filter(function(r){ return raisonNS(r) === ''; });
-  var nsPB = cols.nosigned.filter(function(r){ return raisonNS(r) === 'pasbudget'; });
+  var nsCA = cols.nosigned.filter(function(r){ return raisonNS(r) === 'carte'; });
+  var nsRE = cols.nosigned.filter(function(r){ return raisonNS(r) === 'rent'; });
   var nsPR = cols.nosigned.filter(function(r){ return raisonNS(r) === 'promo'; });
   var nsGH = cols.nosigned.filter(function(r){ return raisonNS(r) === 'ghost'; });
   var nsRL = cols.nosigned.filter(function(r){ return raisonNS(r) === 'relancer'; });
@@ -7985,12 +8010,14 @@ function renderPipeline() {
   set('pipe-badge-ghost', nsGH.length);
   setHTML('pipe-col-ghost', nsGH.length ? nsGH.map(function(r){ return buildPipelineCard(r,'ghost'); }).join('') : empty);
   set('pipe-badge-pasinteresse', nsPI.length + (nsAC.length ? ' +' + nsAC.length : ''));
-  set('pipe-badge-pasbudget', nsPB.length);
+  set('pipe-badge-carte', nsCA.length);
+  set('pipe-badge-rent', nsRE.length);
   set('pipe-badge-promo', nsPR.length);
   var piHtml = nsPI.map(function(r){ return buildPipelineCard(r,'nosigned'); }).join('');
   if (nsAC.length) piHtml += '<div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;padding:8px 2px 6px;border-top:1px dashed var(--border2);margin-top:6px;">À classer — ' + nsAC.length + ' · glisser dans la bonne colonne</div>' + nsAC.map(function(r){ return buildPipelineCard(r,'untreated'); }).join('');
   setHTML('pipe-col-pasinteresse', piHtml || empty);
-  setHTML('pipe-col-pasbudget', nsPB.length ? nsPB.map(function(r){ return buildPipelineCard(r,'nosigned'); }).join('') : empty);
+  setHTML('pipe-col-carte', nsCA.length ? nsCA.map(function(r){ return buildPipelineCard(r,'nosigned'); }).join('') : empty);
+  setHTML('pipe-col-rent', nsRE.length ? nsRE.map(function(r){ return buildPipelineCard(r,'nosigned'); }).join('') : empty);
   setHTML('pipe-col-promo', nsPR.length ? nsPR.map(function(r){ return buildPipelineCard(r,'promo'); }).join('') : empty);
   // No Show : séparer en 2 sous-sections (R1 puis R2)
   if (cols.noshow.length === 0) {
@@ -8049,7 +8076,7 @@ function renderEtapesPipeline(cols) {
   var etapes = [
     ['À contacter', dues, 'relances dues aujourd\'hui ou en retard'],
     ['R1 prévu', (cols.untreated || []).filter(futur).length, 'RDV à venir sans résultat'],
-    ['Suivi après R1', (cols.interested || []).filter(function(r) { return !r2Futur(r); }).length + ns.filter(function(r) { return ['promo', 'pasbudget', 'relancer'].indexOf(raisonNS(r)) >= 0; }).length, 'intéressés sans R2 calé + à relancer / si promo / pas de budget'],
+    ['Suivi après R1', (cols.interested || []).filter(function(r) { return !r2Futur(r); }).length + ns.filter(function(r) { return ['promo', 'carte', 'rent', 'relancer'].indexOf(raisonNS(r)) >= 0; }).length, 'intéressés sans R2 calé + à relancer / si promo / carte / RENT'],
     ['R2 prévu', (cols.interested || []).filter(r2Futur).length, 'un R2 daté à venir'],
     ['Décision attendue', (cols.interested || []).filter(function(r) { return r.dateR2 && !r2Futur(r) && r.result !== 'Signé'; }).length, 'R2 passé, pas encore de réponse'],
     ['Signé', (cols.signed || []).length, 'signés du mois'],
