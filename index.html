@@ -3280,6 +3280,10 @@ function fcHtmlSuivi() {
   var dern = (_fc.dossiers || []).find(function(d) { return d.apresRdv && d.apresRdv.prochaine_action && d.apresRdv.prochaine_action.quoi; });
   if (dern) out.push('<span class="r2" style="background:var(--surface2);color:var(--text)">➡ ' + escapeHtml(dern.apresRdv.prochaine_action.quoi) + (dern.apresRdv.prochaine_action.echeance ? ' · ' + escapeHtml(fcFrDepuisIso(dern.apresRdv.prochaine_action.echeance)) : '') + '</span>');
   if (!out.length && classifyRow(last) === 'interested') out.push('<span class="manque" onclick="fcPopupSuivi(' + JSON.stringify(last._monthKey).replace(/"/g, '&quot;') + ',' + last._storeKey + ')">⚠ Intéressé sans suite : R2 ou relance ?</span>');
+  // Toujours un bouton clair pour se mettre un rappel (sur le dernier RDV R1 du client), quel que soit son résultat
+  var cible = _fc.rows.find(function(r) { return r.source !== 'R2'; }) || last;
+  var aDeja = cible.relanceDate && !cible.relanceFait;
+  out.push('<button class="btn btn-sm' + (aDeja ? '' : ' btn-primary') + '" style="font-size:12px;padding:4px 10px;" onclick="fcPopupSuivi(' + JSON.stringify(cible._monthKey).replace(/"/g, '&quot;') + ',' + cible._storeKey + ')">' + (aDeja ? '✎ Modifier le rappel' : '📞 Me mettre un rappel') + '</button>');
   return out.join('');
 }
 function fcChargerClose() {
