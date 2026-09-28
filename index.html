@@ -3064,8 +3064,19 @@ function sdMigrerRelances3(store) {
   if (n) console.log('[migration] ' + n + ' carte(s) si promo → non traitées, raison à redonner');
   return store;
 }
+// « En attente » / « À relancer » (venus du copilot) = Intéressé : un seul libellé pour compter pareil partout
+function sdNormaliserInteresse(store) {
+  var n = 0;
+  Object.keys(store || {}).forEach(function(k) {
+    if (!/^\d{4}-\d{2}$/.test(k) || !Array.isArray(store[k])) return;
+    store[k].forEach(function(r) { if (r && ['En attente', 'À relancer', 'Intéressée'].indexOf(String(r.result || '').trim()) >= 0) { r.result = 'Intéressé'; n++; } });
+  });
+  if (n) console.log('[migration] ' + n + ' ligne(s) En attente / À relancer → Intéressé');
+  return store;
+}
 // Correction : « Pas de budget » reste une colonne ; les cartes migrées par erreur y reviennent
 function sdRestaurerPasBudget(store) {
+  sdNormaliserInteresse(store);
   if (!store || store._migPasBudgetOk) return store;
   var n = 0;
   Object.keys(store).forEach(function(k) {
@@ -4615,7 +4626,7 @@ function sdAppliquerCopilot(m) {
     if (m.result === 'oneshot') { row.result = 'Signé'; row.oneshot = isR2 ? 'N' : 'O'; if (!row.dateSignature) row.dateSignature = new Date().toLocaleDateString('fr-FR'); }
     else if (m.result === 'nosign') { row.result = 'Non signé'; row.oneshot = 'N'; if (c.nosignRaison) row.nosignRaison = String(c.nosignRaison); }
     else if (m.result === 'r2') { row.result = ''; row.oneshot = 'N'; }
-    else if (m.result === 'relance') { row.result = 'En attente'; row.oneshot = 'N'; } // pas de décision, pas de R2 → Intéressés + relance
+    else if (m.result === 'relance') { row.result = 'Intéressé'; row.oneshot = 'N'; } // à relancer = intéressé sans R2 : même résultat que « Intéressé » à la main, compté partout pareil
     if (!row.presence) row.presence = 'Show';
   }
   store[mk] = rows; saveStore(store);
