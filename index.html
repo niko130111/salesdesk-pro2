@@ -3440,7 +3440,7 @@ function fcSuiviEnregistrer() {
   var store = loadStore(), r = (store[sv.monthKey] || [])[sv.idx]; if (!r) return;
   if (r2) { r.dateR2 = fcFrDepuisIso(r2); }
   if (rel) { r.relanceDate = rel; r.relanceCond = cond; r.relanceFait = false; } else if (!r2) { delete r.relanceDate; }
-  if (classifyRow(r) !== 'interested' && !r2) { r.result = 'Intéressé'; if (!r.presence) r.presence = 'Show'; }
+  if (!String(r.result || '').trim() && !r2) { r.result = 'Intéressé'; if (!r.presence) r.presence = 'Show'; } // un RDV déjà qualifié (pas de budget, si promo…) garde son résultat : la relance s'ajoute par-dessus
   saveStore(store); fermerModalDoublon(); window._fcSuivi = null;
   refreshAll();
   if (document.getElementById('fc-overlay').classList.contains('open')) { _fc.rows = fcLignesDuNom(_fc.nom).filter(function(x) { var e = String(x.email || '').toLowerCase().trim(); return !_fc.email || !e || e === _fc.email; }); fcRendre(); }
@@ -7779,7 +7779,7 @@ function buildPipelineCard(r, col) {
     + '<div class="pipeline-card-sub">' + (r.date || '') + (sub ? ' · ' + sub : '') + '</div>'
     + '<div class="pipeline-card-footer">'
     + (comm > 0 ? '<span class="pipeline-card-amount">' + comm.toLocaleString('fr-FR') + ' €</span>' : '<span style="color:var(--text3);font-size:12px;">—</span>')
-    + (col === 'interested' ? fcSuiteCarte(r) : '')
+    + (col === 'interested' ? fcSuiteCarte(r) : fcRelanceCarte(r, col))
     + '<span style="display:flex;gap:4px;align-items:center;">'
     + (tier ? '<span class="tag">' + tier + '</span>' : '')
     + (days !== null && col !== 'signed' ? '<span style="font-size:10px;color:' + urgColor + ';">' + days + 'j ⏱</span>' : '')
@@ -7792,6 +7792,13 @@ function fcSuiteCarte(r) {
   if (r.dateR2 && String(r.dateR2).trim()) return '<span style="font-size:10px;font-weight:600;color:var(--purple);">📅 R2 ' + escapeHtml(r.dateR2) + '</span>';
   if (r.relanceDate && !r.relanceFait) return '<span style="font-size:10px;font-weight:600;color:' + (r.relanceDate <= today ? 'var(--red)' : 'var(--orange)') + ';">📞 ' + escapeHtml(fcFrDepuisIso(r.relanceDate)) + '</span>';
   return '<span style="font-size:10px;font-weight:700;color:var(--red);cursor:pointer;" title="Un intéressé doit avoir un R2 ou une relance" onclick="event.stopPropagation();fcPopupSuivi(' + JSON.stringify(r._monthKey || '').replace(/"/g, '&quot;') + ',' + (r._storeKey || 0) + ')">⚠ R2 ou relance ?</span>';
+}
+// Autres colonnes : la relance posée s'affiche ; sinon un petit bouton pour s'en mettre une (anciens RDV, pas de budget, si promo…)
+function fcRelanceCarte(r, col) {
+  if (col === 'signed' || r.source === 'R2') return '';
+  var today = new Date().toISOString().slice(0, 10);
+  if (r.relanceDate && !r.relanceFait) return '<span style="font-size:10px;font-weight:600;color:' + (r.relanceDate <= today ? 'var(--red)' : 'var(--orange)') + ';cursor:pointer;" title="Modifier la relance" onclick="event.stopPropagation();fcPopupSuivi(' + JSON.stringify(r._monthKey || '').replace(/"/g, '&quot;') + ',' + (r._storeKey || 0) + ')">📞 ' + escapeHtml(fcFrDepuisIso(r.relanceDate)) + '</span>';
+  return '<span style="font-size:10px;color:var(--text3);cursor:pointer;" title="Me mettre une relance sur ce RDV" onclick="event.stopPropagation();fcPopupSuivi(' + JSON.stringify(r._monthKey || '').replace(/"/g, '&quot;') + ',' + (r._storeKey || 0) + ')">📞 +</span>';
 }
 // Navigation depuis Pipeline vers RDV Table avec mise en évidence de la ligne
 function goToRdvTableRow(monthKey, storeKey, tab) {
