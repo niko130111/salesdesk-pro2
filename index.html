@@ -8190,16 +8190,24 @@ function chargerRelancesPourQuotidien() {
     .finally(function(){ clearTimeout(t); });
 }
 // Résultat d'une relance : joint / pas de réponse / RDV pris / perdu / repoussée. Journalisé (_relancesLog) pour l'indicateur « relances à temps ».
-function relanceResultat(id, btn) {
+function relanceResultat(id, btn, decaler) {
   var r = (_relances || []).find(function(x) { return x.id === id; }); if (!r) return;
   var html = '<div class="fc-dup"><div style="font-size:15px;font-weight:700;margin-bottom:6px;">' + escapeHtml(r.nom) + ' — résultat de la relance</div>'
     + [['joint', '📞 Joint, on avance'], ['rdv_pris', '📅 RDV pris'], ['pas_de_reponse', '📭 Pas de réponse (je réessaie)'], ['plus_tard', '⏩ Repousser'], ['perdu', '❌ Perdu']].map(function(c) { return '<button class="fc-dup-item" onclick="relanceResultatChoisir(' + JSON.stringify(id).replace(/"/g, '&quot;') + ',\'' + c[0] + '\')">' + c[1] + '</button>'; }).join('')
-    + '<div id="rl-plustard" style="display:none;margin-top:8px;"><input type="date" id="rl-quand" style="font-family:var(--mono);font-size:12px;padding:5px;border:1px solid var(--border);border-radius:6px;"> <button class="btn btn-sm btn-primary" onclick="relanceResultatChoisir(' + JSON.stringify(id).replace(/"/g, '&quot;') + ',\'plus_tard\',true)">Repousser à cette date</button></div>'
+    + '<div id="rl-plustard" style="display:' + (decaler ? '' : 'none') + ';margin-top:8px;"><input type="date" id="rl-quand" value="' + (decaler ? relanceDateSuggeree(r) : '') + '" style="font-family:var(--mono);font-size:12px;padding:5px;border:1px solid var(--border);border-radius:6px;"> <button class="btn btn-sm btn-primary" onclick="relanceResultatChoisir(' + JSON.stringify(id).replace(/"/g, '&quot;') + ',\'plus_tard\',true)">Repousser à cette date</button></div>'
     + '<div style="text-align:right;margin-top:12px;"><button class="btn btn-sm" onclick="fermerModalDoublon()">Annuler</button></div></div>';
   var ov = document.getElementById('fc-dup-overlay');
   if (!ov) { ov = document.createElement('div'); ov.id = 'fc-dup-overlay'; ov.className = 'modal-overlay'; ov.style.zIndex = '1300'; ov.innerHTML = '<div class="modal" id="fc-dup-modal"></div>'; document.body.appendChild(ov); }
   ov.onclick = function(ev) { if (ev.target === ov) fermerModalDoublon(); };
   document.getElementById('fc-dup-modal').innerHTML = html; ov.classList.add('open');
+}
+// Date proposée quand on décale : la relance + 7 jours, jamais avant demain
+function relanceDateSuggeree(r) {
+  var base = (r && r.relance && r.relance.quand) || new Date().toISOString().slice(0, 10);
+  var d = new Date(base + 'T12:00:00'); d.setDate(d.getDate() + 7);
+  var demain = new Date(); demain.setDate(demain.getDate() + 1);
+  if (d < demain) d = demain;
+  return d.toISOString().slice(0, 10);
 }
 function relanceResultatChoisir(id, resultat, confirmeDate) {
   if (resultat === 'plus_tard' && !confirmeDate) { document.getElementById('rl-plustard').style.display = ''; return; }
@@ -8259,7 +8267,7 @@ function dessinerRelances() {
         + '<td style="padding:8px;">' + escapeHtml([r.raison, (r.relance && r.relance.condition)].filter(Boolean).join(' · ') || (r.outcome === 'perdu' ? 'Perdu' : 'Rappel calé')) + '</td>'
         + '<td style="padding:8px;color:var(--text2);max-width:260px;">' + escapeHtml(r.contexte || (r.relance && r.relance.note) || '—') + ((r.objections || []).length ? '<div style="font-size:11px;color:var(--red);">Reste : ' + escapeHtml(r.objections.join(' · ')) + '</div>' : '') + (r.action && r.action.quoi ? '<div style="font-size:11px;color:var(--text3);">Prévu : ' + escapeHtml(r.action.quoi) + '</div>' : '') + '</td>'
         + '<td style="padding:8px;">' + (r.message ? '<button class="btn btn-sm" style="font-size:11px;padding:3px 8px;" onclick="fcCopierMail(' + JSON.stringify(r.message.objet).replace(/"/g, '&quot;') + ',' + JSON.stringify(r.message.corps).replace(/"/g, '&quot;') + ')" title="' + escapeHtml(r.message.objet) + '">📋 Brouillon</button>' : '<span style="color:var(--text3);">—</span>') + '</td>'
-        + '<td style="padding:8px;white-space:nowrap;"><button class="btn btn-sm" onclick="relanceResultat(\'' + String(r.id).replace(/'/g, '') + '\', this)">✓ Fait</button></td>'
+        + '<td style="padding:8px;white-space:nowrap;"><button class="btn btn-sm" style="margin-right:4px;" title="Changer la date sans rien clôturer" onclick="relanceResultat(\'' + String(r.id).replace(/'/g, '') + '\', this, true)">📅 Décaler</button><button class="btn btn-sm" onclick="relanceResultat(\'' + String(r.id).replace(/'/g, '') + '\', this)">✓ Fait</button></td>'
         + '</tr>';
     }).join('') + '</tbody></table>' : '<div style="font-size:12px;color:var(--text3);">Rien pour ce filtre.</div>';
 }
