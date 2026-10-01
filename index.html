@@ -2273,8 +2273,8 @@ select.form-input { cursor: pointer; }
 
         <!-- PALIERS BONUS -->
         <div class="settings-card">
-          <h3>🏆 Paliers bonus (6 ventes et +)</h3>
-          <p style="font-size:13px;color:var(--text2);margin-bottom:16px;">Définissez le montant de commission par deal signé selon le palier.</p>
+          <h3>🏆 Paliers bonus (5 ventes et +)</h3>
+          <p style="font-size:13px;color:var(--text2);margin-bottom:16px;">Depuis octobre 2026 : 1 000 € à la 5e vente, puis +250 € par vente supplémentaire. Les mois passés gardent leur ancien barème.</p>
           <div id="commission-scale">
             <div style="display:grid;grid-template-columns:80px 80px 80px 80px 1fr;gap:10px;font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;margin-bottom:8px;">
               <span>Ventes</span><span>Commission</span><span>Bonus</span><span>Total</span><span></span>
@@ -5398,10 +5398,10 @@ function saveProfile() { alert('Profil sauvegardé !'); }
 function saveScale() { alert('Barème sauvegardé !'); }
 
 const defaultScale = [
-  {n:'6',amt:'1 000',bonus:'0',total:'1 000'},{n:'7',amt:'1 000',bonus:'250',total:'1 250'},
-  {n:'8',amt:'1 000',bonus:'500',total:'1 500'},{n:'10',amt:'1 000',bonus:'1 050',total:'2 050'},
-  {n:'12',amt:'1 000',bonus:'1 700',total:'2 700'},{n:'15',amt:'1 000',bonus:'2 850',total:'3 850'},
-  {n:'20',amt:'1 000',bonus:'5 400',total:'6 400'},
+  {n:'5',amt:'1 000',bonus:'0',total:'1 000'},{n:'6',amt:'1 000',bonus:'250',total:'1 250'},
+  {n:'7',amt:'1 000',bonus:'500',total:'1 500'},{n:'8',amt:'1 000',bonus:'750',total:'1 750'},
+  {n:'10',amt:'1 000',bonus:'1 250',total:'2 250'},{n:'12',amt:'1 000',bonus:'1 750',total:'2 750'},
+  {n:'15',amt:'1 000',bonus:'2 500',total:'3 500'},{n:'20',amt:'1 000',bonus:'3 750',total:'4 750'},
 ];
 function renderScaleRows() {
   document.getElementById('scale-rows').innerHTML = defaultScale.map(s => `
@@ -6793,6 +6793,23 @@ function computeKpis(month, year) {
     reprogrammes, annules, vraisNoShow, closingCohorte, cohorteShows, cohorteSignes };
 }
 
+// Barème de prime palier selon le mois affiché :
+//  - avant mars 2026 : 5→300, 6→360 … 10+→600
+//  - mars à septembre 2026 : 6→1000, 7→1250, 8→1500, 9→1750, 10→2050 … 19→5750
+//  - depuis octobre 2026 : 1 000 € à la 5e vente, +250 € par vente supplémentaire (sans plafond)
+function regimePrime(yr, mIdx) { if (yr < 2026 || (yr === 2026 && mIdx < 2)) return 'ancien'; if (yr === 2026 && mIdx < 9) return 'ete2026'; return 'oct2026'; }
+function paliersPrime(yr, mIdx) {
+  const reg = regimePrime(yr, mIdx);
+  if (reg === 'ancien') return [{n:5,total:300},{n:6,total:360},{n:7,total:420},{n:8,total:480},{n:9,total:540},{n:10,total:600}];
+  if (reg === 'ete2026') return [{n:6,total:1000},{n:7,total:1250},{n:8,total:1500},{n:9,total:1750},{n:10,total:2050},{n:11,total:2350},{n:12,total:2700},{n:13,total:3050},{n:14,total:3450},{n:15,total:3850},{n:16,total:4300},{n:17,total:4750},{n:18,total:5250},{n:19,total:5750}];
+  const out = []; for (let n = 5; n <= 20; n++) out.push({ n, total: 1000 + (n - 5) * 250 }); return out;
+}
+function primePalier(nbSignes, yr, mIdx) {
+  const reg = regimePrime(yr, mIdx);
+  if (reg === 'oct2026') return nbSignes >= 5 ? 1000 + (nbSignes - 5) * 250 : 0;
+  const steps = paliersPrime(yr, mIdx), step = [...steps].reverse().find(s => nbSignes >= s.n);
+  return step ? step.total : 0;
+}
 function renderBonusSteps(current, hasBonus) {
   const container = document.getElementById('bonus-steps');
   if (!container) return;
@@ -6804,12 +6821,10 @@ function renderBonusSteps(current, hasBonus) {
   const parent = container.closest('.bonus-tracker');
   if (parent) parent.style.display = '';
   
-  const steps = [{n:6,total:1000},{n:7,total:1250},{n:8,total:1500},{n:9,total:1750},
-    {n:10,total:2050},{n:11,total:2350},{n:12,total:2700},{n:13,total:3050},
-    {n:14,total:3450},{n:15,total:3850},{n:16,total:4300},{n:17,total:4750},
-    {n:18,total:5250},{n:19,total:5750}];
+  const MONTHS_B = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+  const steps = paliersPrime(parseInt(state.year), MONTHS_B.indexOf(state.month));
   container.innerHTML = steps.map((s,i) => {
-    const diff = s.total - (i>0?steps[i-1].total:750);
+    const diff = s.total - (i>0?steps[i-1].total:0);
     const reached = current > s.n;
     const isCurrent = current === s.n;
     return `<div class="bonus-step ${reached?'reached':''} ${isCurrent?'current':''}">
@@ -7051,17 +7066,7 @@ function renderCommission(kpis) {
   set('comm-oneshot-val', commOneShot > 0 ? commOneShot + ' €' : '—');
 
   // Prime palier
-  let prime = 0;
-  if (isBefore) {
-    const old = {5:300, 6:360, 7:420, 8:480, 9:540};
-    prime = old[nbSignes] || (nbSignes >= 10 ? 600 : 0);
-  } else {
-    const steps = [{n:6,v:1000},{n:7,v:1250},{n:8,v:1500},{n:9,v:1750},{n:10,v:2050},
-      {n:11,v:2350},{n:12,v:2700},{n:13,v:3050},{n:14,v:3450},{n:15,v:3850},
-      {n:16,v:4300},{n:17,v:4750},{n:18,v:5250},{n:19,v:5750}];
-    const step = [...steps].reverse().find(s => nbSignes >= s.n);
-    prime = step ? step.v : 0;
-  }
+  const prime = primePalier(nbSignes, yr, mIdx);
   set('comm-prime-val', prime > 0 ? prime.toLocaleString('fr-FR') + ' €' : '—');
 
   // Prime exceptionnelle — charger depuis localStorage pour ce mois
@@ -7090,7 +7095,7 @@ function renderCommission(kpis) {
       bonusLine.style.color = 'var(--green)';
       bonusLine.innerHTML = '🎉 Prime palier atteinte : ' + prime.toLocaleString('fr-FR') + ' €';
     } else {
-      const needed = isBefore ? 5 : 6;
+      const needed = paliersPrime(yr, mIdx)[0].n;
       const toBonus = Math.max(0, needed - nbSignes);
       bonusLine.style.color = '';
       bonusLine.innerHTML = '⚡ <span id="bonus-remaining">' + toBonus + '</span> ventes avant bonus';
