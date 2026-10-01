@@ -3396,10 +3396,32 @@ function fcHtmlRdv() {
       + '<div class="fc-rdv-t"><span class="fc-badge' + (pres === 'Show' ? ' won' : (pres === 'No Show' ? ' lost' : '')) + '">' + escapeHtml(pres) + '</span><span class="fc-badge' + (res === 'Signé' ? ' won' : (res.indexOf('Non') === 0 ? ' lost' : (res === 'Intéressé' ? ' hot' : ''))) + '">' + escapeHtml(res) + '</span>' + (suite ? '<span class="fc-muted">' + escapeHtml(suite) + '</span>' : '') + '</div>'
       + '<div class="fc-rdv-s">' + escapeHtml([r.type, r.pack, r.freq, r.tier, r.fms && ('FMS ' + r.fms)].filter(Boolean).join(' · ') || '—') + '</div>'
       + '<div class="fc-claap"><span style="font-size:12px;color:var(--text3);">🎥 Claap</span><input placeholder="Coller le lien de l\'enregistrement" value="' + escapeHtml(url) + '" onchange="fcSetClaap(' + JSON.stringify(r.date || '').replace(/"/g, '&quot;') + ', this.value)">' + (url ? '<a href="' + escapeHtml(url) + '" target="_blank" rel="noopener">▶ Ouvrir</a>' : '') + '</div>'
+      + fcHtmlEdition(r)
       + '<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;"><button class="btn btn-sm" style="font-size:11px;padding:3px 9px;" onclick="fermerFicheClient();goToRdvTableRow(' + JSON.stringify(r._monthKey).replace(/"/g, '&quot;') + ',' + r._storeKey + ',' + JSON.stringify(tab).replace(/"/g, '&quot;') + ')">✎ Modifier dans RDV Table</button>'
       + (r.source !== 'R2' ? '<button class="btn btn-sm" style="font-size:11px;padding:3px 9px;" onclick="fcPopupSuivi(' + JSON.stringify(r._monthKey).replace(/"/g, '&quot;') + ',' + r._storeKey + ')">📅 R2 / 📞 Relance</button>' : '') + '</div>'
       + '</div></div>';
   }).join('');
+}
+// Édition directe depuis la fiche : présence, vendu ou pas, pack, fréquence (même logique que le tableau RDV, popups raison / suite comprises)
+function fcHtmlEdition(r) {
+  var sel = function(champ, options, val, libelle) {
+    return '<label style="display:flex;flex-direction:column;gap:2px;font-size:10px;color:var(--text3);">' + libelle + '<select style="font-size:12px;padding:4px 6px;border:1px solid var(--border);border-radius:6px;background:var(--surface);" onchange="fcSetChamp(' + JSON.stringify(r._monthKey).replace(/"/g, '&quot;') + ',' + r._storeKey + ',\'' + champ + '\', this.value)">'
+      + options.map(function(o) { return '<option value="' + escapeHtml(o[0]) + '"' + (o[0] === (val || '') ? ' selected' : '') + '>' + escapeHtml(o[1]) + '</option>'; }).join('') + '</select></label>';
+  };
+  var signe = r.result === 'Signé';
+  return '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;padding:8px;background:var(--surface2);border-radius:var(--radius);">'
+    + sel('presence', [['', '— présence'], ['Show', 'Show'], ['No Show', 'No Show'], ['Annulé', 'Annulé'], ['Reprogrammé', 'Reprogrammé']], r.presence, 'Présence')
+    + sel('result', [['', '— résultat'], ['Signé', '💰 Signé'], ['Intéressé', '🔥 Intéressé'], ['Non signé', '❌ Non signé']], r.result === 'Promo' ? 'Non signé' : r.result, 'Vendu ?')
+    + (signe ? sel('pack', [['', '— pack'], ['Start+', 'Start+'], ['Pro+', 'Pro+'], ['Expert+', 'Expert+']], r.pack, 'Pack') : '')
+    + (signe ? sel('freq', [['', '— fréquence'], ['Annuelle', 'Annuelle'], ['Mensuelle', 'Mensuelle']], r.freq, 'Fréquence') : '')
+    + (signe ? sel('oneshot', [['Non', 'Non'], ['Oui', 'Oui']], r.oneshot === 'O' ? 'Oui' : 'Non', 'One shot') : '')
+    + '</div>';
+}
+function fcSetChamp(monthKey, idx, champ, valeur) {
+  updateFieldMK(idx, champ, valeur, '', monthKey);
+  if (champ === 'result' && valeur === 'Signé') { var st = loadStore(), row = (st[monthKey] || [])[idx]; if (row && !row.dateSignature) { row.dateSignature = new Date().toLocaleDateString('fr-FR'); saveStore(st); } }
+  _fc.rows = fcLignesDuNom(_fc.nom).filter(function(x) { var e = String(x.email || '').toLowerCase().trim(); return !_fc.email || !e || e === _fc.email; });
+  fcRendre(); try { refreshAll(); } catch (e) {}
 }
 function fcSetClaap(date, url) {
   var store = loadStore(), cls = fcClients(store);
