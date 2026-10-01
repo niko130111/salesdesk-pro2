@@ -5294,7 +5294,10 @@ function recalculateAutoTargets() {
   var commAvg = stats.commAvg;
   var showRate = stats.showRate;
   var closing = stats.closingRate;
-  var ventesNec = Math.ceil(obj / commAvg);
+  // Ventes nécessaires : commissions + prime palier du mois en cours (la prime fait partie du CA visé)
+  var _now = new Date(), _yr = _now.getFullYear(), _mIdx = _now.getMonth();
+  var ventesNec = 1; while (ventesNec < 60 && ventesNec * commAvg + primePalier(ventesNec, _yr, _mIdx) < obj) ventesNec++;
+  var primeIncluse = primePalier(ventesNec, _yr, _mIdx);
   var showsNec = closing > 0 ? Math.ceil(ventesNec / (closing/100)) : 0;
   var rdvNec = showRate > 0 ? Math.ceil(showsNec / (showRate/100)) : 0;
   // Remplir les champs (sans écraser si l'utilisateur a manuellement modifié récemment)
@@ -5337,7 +5340,9 @@ function recalculateAutoTargets() {
     + stats.totalShows + ' Shows, ' + stats.totalSignes + ' Signés. '
     + '<b>Comm. moy. ' + commAvg.toLocaleString('fr-FR') + '€</b> · '
     + '<b>Show rate ' + Math.round(showRate) + '%</b> · '
-    + '<b>Closing ' + Math.round(closing) + '%</b>';
+    + '<b>Closing ' + Math.round(closing) + '%</b>'
+    + '<br>→ ' + ventesNec + ' ventes = ' + (ventesNec * commAvg).toLocaleString('fr-FR') + ' € de commissions' + (primeIncluse ? ' + ' + primeIncluse.toLocaleString('fr-FR') + ' € de prime palier' : '') + ' = ' + (ventesNec * commAvg + primeIncluse).toLocaleString('fr-FR') + ' € pour un objectif de ' + obj.toLocaleString('fr-FR') + ' €'
+    + ' · ' + showsNec + ' shows (closing ' + Math.round(closing) + '%) · ' + rdvNec + ' RDV (show rate ' + Math.round(showRate) + '%)';
 }
 
 // Marquer manuellement les champs modifiés par l'utilisateur
