@@ -3089,9 +3089,22 @@ function sdCorrigerTypesClose(store) { // rejouable : une ligne déjà corrigée
   if (n) console.log('[migration] ' + n + ' type(s) Mandataire/Agences corrigé(s) depuis Close');
   return store;
 }
+// 02/10/2026 — Audit Close des sources : qui a appelé le prospect juste avant la création du RDV (SDR → Inbound, Nicolas → Outbound,
+// formulaire du site sans appel → PUB). Seules les corrections validées par Nicolas. [mois, date, client, source avant, source Close]
+var SD_CORRECTIONS_SOURCE_CLOSE = [["2025-10","29/10/2025","Castinel Erwan","Outbound","Inbound"],["2026-03","17/03/2026","Arys Tsobanopoulos","Outbound","Inbound"],["2026-06","10/06/2026","Carole Grange","Outbound","Inbound"],["2026-09","17/09/2026","Sandrine Laissue","Inbound","PUB"],["2026-09","15/09/2026","Marjorie Noell","Inbound","PUB"],["2026-09","22/09/2026","Quendize CHAUDRY","Inbound","PUB"],["2026-09","24/09/2026","Julie COTTEREAU","Inbound","PUB"]];
+function sdCorrigerSourcesClose(store) { // rejouable : une ligne déjà corrigée n'a plus la « source avant »
+  if (!store) return store;
+  var cibles = [];
+  SD_CORRECTIONS_SOURCE_CLOSE.forEach(function(c) {
+    var rows = store[c[0]]; if (!Array.isArray(rows)) return;
+    rows.forEach(function(r) { if (r && r.date === c[1] && String(r.client || '').trim() === c[2] && String(r.source || '') === c[3]) cibles.push([r, c[4]]); });
+  });
+  if (cibles.length) { try { sdBackupStore(store); } catch (e) {} cibles.forEach(function(x) { x[0].sourceAvantClose = x[0].source || ''; x[0].source = x[1]; }); console.log('[migration] ' + cibles.length + ' source(s) corrigée(s) depuis Close'); }
+  return store;
+}
 // Correction : « Pas de budget » reste une colonne ; les cartes migrées par erreur y reviennent
 function sdRestaurerPasBudget(store) {
-  sdNormaliserInteresse(store); sdCorrigerTypesClose(store);
+  sdNormaliserInteresse(store); sdCorrigerTypesClose(store); sdCorrigerSourcesClose(store);
   if (!store || store._migPasBudgetOk) return store;
   var n = 0;
   Object.keys(store).forEach(function(k) {
