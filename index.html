@@ -3102,9 +3102,21 @@ function sdCorrigerSourcesClose(store) { // rejouable : une ligne déjà corrig�
   if (cibles.length) { try { sdBackupStore(store); } catch (e) {} cibles.forEach(function(x) { x[0].sourceAvantClose = x[0].source || ''; x[0].source = x[1]; }); console.log('[migration] ' + cibles.length + ' source(s) corrigée(s) depuis Close'); }
   return store;
 }
+// 02/10/2026 — Tier des signés repris du champ « 4 - Tier » de l'opportunité gagnée dans Close. [mois, date, client, tier avant, tier Close]
+var SD_CORRECTIONS_TIER_CLOSE = [["2025-10","22/10/2025","Lechner Dylan","T2","T1"],["2025-11","25/11/2025","Guylaine Renaut","T2","T1"],["2026-03","30/03/2026","guillaume sage","","T1"],["2026-04","07/04/2026","David Laloy","","T1"],["2026-05","28/05/2026","Aurore Leroy","","T1"],["2026-06","17/06/2026","Mélanie Airola Samain","","T2"],["2026-06","22/06/2026","Axel Bailly","","T1"],["2026-06","29/06/2026","Pascale Benatouil","","T2"],["2026-06","30/06/2026","Anthony Negrier","","T1"],["2026-06","01/07/2026","felix bonno","","T1"],["2026-06","01/07/2026","Thomas le franc","","T2"],["2026-08","28/08/2026","Marie Aoudia","","T1"],["2026-09","03/09/2026","Audrey Nebout","","T1"],["2026-09","22/09/2026","Michel Nguyen","","T1"],["2026-09","21/09/2026","Virginie Mallet","","T1"],["2026-09","28/09/2026","Alain Caron","","T1"],["2026-09","30/09/2026","Anne Agoguet","","T1"]];
+function sdCorrigerTiersClose(store) { // rejouable
+  if (!store) return store;
+  var cibles = [];
+  SD_CORRECTIONS_TIER_CLOSE.forEach(function(c) {
+    var rows = store[c[0]]; if (!Array.isArray(rows)) return;
+    rows.forEach(function(r) { if (r && r.date === c[1] && String(r.client || '').trim() === c[2] && r.result === 'Signé' && String(r.tier || '') === c[3]) cibles.push([r, c[4]]); });
+  });
+  if (cibles.length) { try { sdBackupStore(store); } catch (e) {} cibles.forEach(function(x) { x[0].tierAvantClose = x[0].tier || ''; x[0].tier = x[1]; }); console.log('[migration] ' + cibles.length + ' tier(s) de signés repris de Close'); }
+  return store;
+}
 // Correction : « Pas de budget » reste une colonne ; les cartes migrées par erreur y reviennent
 function sdRestaurerPasBudget(store) {
-  sdNormaliserInteresse(store); sdCorrigerTypesClose(store); sdCorrigerSourcesClose(store);
+  sdNormaliserInteresse(store); sdCorrigerTypesClose(store); sdCorrigerSourcesClose(store); sdCorrigerTiersClose(store);
   if (!store || store._migPasBudgetOk) return store;
   var n = 0;
   Object.keys(store).forEach(function(k) {
