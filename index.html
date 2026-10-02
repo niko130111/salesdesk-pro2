@@ -4163,6 +4163,39 @@ function changeOutboundType(key, newType) {
   if (typeof renderDaily === 'function') renderDaily();
 }
 // Calcule les points d'un set d'events Outbound (Mandataire=1, Agences=2)
+// Règle des 10 points : un outbound pris avec quelqu'un que j'ai déjà eu en RDV (n'importe quelle source) dans les 2 mois
+// qui précèdent la prise est un RESCHEDULE → il ne compte pas. Cherche dans le store et dans les events Calendly chargés.
+// Retourne { date, source } du RDV précédent, ou null. Un reclassement manuel (menu de l'onglet Outbound) reste prioritaire.
+function sdOutboundReprise(e) {
+  if (!e || !e.createdAt) return null;
+  var pris = +e.createdAt, limite = pris - 62 * 86400000, rdv = e.start ? +new Date(e.start) : pris;
+  var email = String(e.email || '').toLowerCase().trim(), nom = fcNormNom(e.name || '');
+  var jour = function(t) { var d = new Date(t); return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate(); };
+  var jourRdv = jour(rdv), trouve = null;
+  var store = loadStore();
+  Object.keys(store).forEach(function(k) {
+    if (trouve || !/^\d{4}-\d{2}$/.test(k) || !Array.isArray(store[k])) return;
+    store[k].forEach(function(r) {
+      if (trouve || !r || !r.client) return;
+      var re = String(r.email || '').toLowerCase().trim();
+      if (!((email && re && re === email) || (nom && fcNormNom(r.client) === nom))) return;
+      var p = String(r.date || '').split('/'); if (p.length !== 3) return;
+      var t = +new Date(+p[2], +p[1] - 1, +p[0], 12);
+      if (jour(t) === jourRdv) return;            // c'est la ligne de ce RDV-ci
+      if (t >= limite && t < rdv) trouve = { date: r.date, source: r.source || '' };
+    });
+  });
+  if (trouve) return trouve;
+  (typeof _outbound2Mois !== 'undefined' && _outbound2Mois ? _outbound2Mois : []).forEach(function(o) {
+    if (trouve || o === e || o.uri === e.uri || !o.createdAt || +o.createdAt >= pris) return;
+    var oe = String(o.email || '').toLowerCase().trim();
+    if (!((email && oe === email) || (nom && fcNormNom(o.name || '') === nom))) return;
+    var t = +new Date(o.start);
+    if (o.source === 'Outbound') return;           // deux outbound du même prospect : déjà géré par la déduplication par email
+    if (t >= limite && jour(t) !== jourRdv) trouve = { date: new Date(o.start).toLocaleDateString('fr-FR'), source: o.source || '' };
+  });
+  return trouve;
+}
 function calcOutboundPoints(events) {
   const types = loadOutboundTypes();
   let points = 0;
@@ -4255,7 +4288,8 @@ function renderOutboundTab(events, currentMonthKey) {
   tbody.innerHTML = sorted.map(ev => {
     const key = getOutboundOverrideKey(ev);
     const override = overrides[key];
-    const effectiveSource = override || 'Outbound';
+    const reprise = override ? null : sdOutboundReprise(ev);
+    const effectiveSource = override || (reprise ? 'Reschedule' : 'Outbound');
     const currentType = getOutboundType(key);
     const isAgence = currentType === 'Agences';
     const emailKey = (ev.email||'').toLowerCase().trim();
@@ -4267,7 +4301,7 @@ function renderOutboundTab(events, currentMonthKey) {
     let badge = '';
     if (effectiveSource === 'Outbound') badge = '<span style="background:var(--purple-bg);color:var(--purple);padding:2px 8px;border-radius:99px;font-size:10px;font-weight:700;">OUTBOUND</span>';
     else if (effectiveSource === 'Inbound') badge = '<span style="background:var(--accent-bg);color:var(--accent);padding:2px 8px;border-radius:99px;font-size:10px;font-weight:700;">INBOUND</span>';
-    else if (effectiveSource === 'Reschedule') badge = '<span style="background:rgba(245,158,11,.15);color:#d97706;padding:2px 8px;border-radius:99px;font-size:10px;font-weight:700;">RESCHEDULE</span>';
+    else if (effectiveSource === 'Reschedule') badge = '<span style="background:rgba(245,158,11,.15);color:#d97706;padding:2px 8px;border-radius:99px;font-size:10px;font-weight:700;"' + (reprise ? ' title="Déjà eu en RDV le ' + reprise.date + (reprise.source ? ' (' + reprise.source + ')' : '') + ', moins de 2 mois avant : ne compte pas dans les 10 points"' : '') + '>RESCHEDULE' + (reprise ? ' · RDV du ' + reprise.date : '') + '</span>';
     else if (effectiveSource === 'PUB') badge = '<span style="background:rgba(59,130,246,.15);color:#2563eb;padding:2px 8px;border-radius:99px;font-size:10px;font-weight:700;">PUB</span>';
     // Badge de pondération : Agences vaut 2x
     const ptBadge = (effectiveSource === 'Outbound' && isAgence) ? '<span style="margin-left:6px;background:rgba(34,197,94,.15);color:#16a34a;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:700;">🏢 AGENCE ×2</span>' : '';
@@ -4349,7 +4383,7 @@ function renderRdvTable() {
     const obThisWeek = _uniques.filter(e => {
       if (e.createdAt < _weekMon || e.createdAt > _weekFri) return false;
       const key = getOutboundOverrideKey(e);
-      const eff = obOverrides[key] || 'Outbound';
+      const eff = obOverrides[key] || (sdOutboundReprise(e) ? 'Reschedule' : 'Outbound');
       return eff === 'Outbound';
     });
     outboundCount = obThisWeek.length;
@@ -7424,6 +7458,7 @@ function renderDaily() {
     // Si l'utilisateur a reclassé en Inbound/Reschedule/PUB, on exclut du compteur
     var ovr = _outboundOverrides[_getOverrideKey(e)];
     if (ovr && ovr !== 'Outbound') return false;
+    if (!ovr && typeof sdOutboundReprise === 'function' && sdOutboundReprise(e)) return false; // déjà eu en RDV < 2 mois : reschedule, hors des 10 points
     return true;
   });
   // b) Déduplication par email : on garde uniquement la 1ère occurrence (la plus ancienne) pour chaque email
