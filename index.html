@@ -7305,7 +7305,11 @@ function renderDaily() {
   // Barres de progression — % accompli (réel / cible)
 
   S('daily-val-show',      valShowFmt);
-  var venteNec = gCommAvg > 0 ? Math.ceil(objAjuste / gCommAvg) : 0;
+  // Ventes nécessaires : commissions + prime palier du mois (la prime fait partie de l'objectif) — même calcul que Objectifs & Config
+  var _dj = new Date(), _djY = _dj.getFullYear(), _djM = _dj.getMonth();
+  var venteNec = 0;
+  if (gCommAvg > 0) { venteNec = 1; while (venteNec < 60 && venteNec * gCommAvg + primePalier(venteNec, _djY, _djM) < objAjuste) venteNec++; }
+  var primeNec = primePalier(venteNec, _djY, _djM);
   var showNec  = gClos    > 0 ? Math.ceil(venteNec  / (gClos  / 100)) : 0;
   var rdvNec   = gSRate   > 0 ? Math.ceil(showNec   / (gSRate / 100)) : 0;
 
@@ -7360,7 +7364,7 @@ function renderDaily() {
       +rdvNec+' RDV, '+showNec+' shows et '+venteNec+' ventes. '
       +'Actuellement\u00a0: '+rdvMois+' RDV pris, '+shows+' shows v\u00e9cus et '+signes+' vente'+(signes>1?'s':'')+'. '
       +'Show rate\u00a0: '+showratePct+'% — Closing\u00a0: '+closingPct+'%. '
-      +'(Comm. moy. globale '+gCommAvg.toLocaleString('fr-FR')+'\u20ac · closing global '+gClos+'% · show rate global '+gSRate+'%)';
+      +'(Comm. moy. '+gCommAvg.toLocaleString('fr-FR')+'\u20ac par vente'+(primeNec ? ' + prime palier '+primeNec.toLocaleString('fr-FR')+'\u20ac' : '')+' · closing '+gClos+'% · show rate '+gSRate+'% sur 3 mois)';
   }
 
   // BLOC 5 — Aujourd'hui
@@ -7629,7 +7633,7 @@ function renderDaily() {
     var showPrev   = gSRate  > 0 ? Math.round(rdvRest * gSRate  / 100) : 0;
     var ventePrev  = gClos   > 0 ? Math.round(showPrev * gClos  / 100) : 0;
     var caPrev     = gCommAvg > 0 ? ventePrev * gCommAvg : 0;
-    var caTotal    = comm + caPrev;
+    var caTotal    = comm + caPrev + primePalier(signes + ventePrev, _djY, _djM); // prime palier incluse dans le prévisionnel
     var manqueCA   = Math.max(0, objAjuste - caTotal);
     var rdvManqueCA = gSRate > 0 && gClos > 0 && gCommAvg > 0
       ? Math.ceil(manqueCA / gCommAvg / (gClos / 100) / (gSRate / 100))
