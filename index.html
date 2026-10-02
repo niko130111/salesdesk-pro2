@@ -3195,6 +3195,26 @@ function sdPrimesSuppInit(store) {
   if (!store._primesSuppInit) { Object.keys(SD_PRIMES_SUPP_INIT).forEach(function(k) { if (typeof store._primesSupp[k] !== 'number') store._primesSupp[k] = SD_PRIMES_SUPP_INIT[k]; }); store._primesSuppInit = new Date().toISOString(); }
   return store;
 }
+// Mises à jour de lignes déjà importées (l'import ne se rejoue pas) : [mois, date, client, champs à poser, champs à retirer]
+var SD_IMPORT_CLOSE_MAJ = [
+  ['2025-05','23/05/2025','Isabelle Courtet',{result:'Intéressé',dateR2:'03/07/2025',presenceR2:'Show'},['pack','freq','tier','dateSignature']],
+  ['2025-05','26/05/2025','Adeline Frisot',{result:'Intéressé',dateR2:'27/06/2025',presenceR2:'Show'},['pack','freq','tier','dateSignature']],
+  ['2025-06','02/06/2025','Sylvain Etievant',{result:'Intéressé',dateR2:'09/07/2025',presenceR2:'Show'},['pack','freq','tier','dateSignature']]
+];
+function sdMajImportsClose(store) {
+  if (!store) return store;
+  var n = 0;
+  SD_IMPORT_CLOSE_MAJ.forEach(function(c) {
+    (store[c[0]] || []).forEach(function(r) {
+      if (!r || !r.importClose || r.date !== c[1] || fcNormNom(r.client || '') !== fcNormNom(c[2])) return;
+      var change = Object.keys(c[3]).some(function(k) { return r[k] !== c[3][k]; }) || c[4].some(function(k) { return k in r; });
+      if (!change) return;
+      Object.keys(c[3]).forEach(function(k) { r[k] = c[3][k]; }); c[4].forEach(function(k) { delete r[k]; }); n++;
+    });
+  });
+  if (n) console.log('[import Close] ' + n + ' ligne(s) importée(s) mise(s) à jour');
+  return store;
+}
 function sdImporterDepuisClose(store) {
   if (!store) return store;
   if (!store._importClose) store._importClose = {};
@@ -3220,7 +3240,7 @@ function sdImporterDepuisClose(store) {
 }
 // Correction : « Pas de budget » reste une colonne ; les cartes migrées par erreur y reviennent
 function sdRestaurerPasBudget(store) {
-  sdNormaliserInteresse(store); sdCorrigerTypesClose(store); sdCorrigerSourcesClose(store); sdCorrigerTiersClose(store); sdPoserDatesSignatureClose(store); sdRenommerDepuisClose(store); sdImporterDepuisClose(store); sdPrimesSuppInit(store);
+  sdNormaliserInteresse(store); sdCorrigerTypesClose(store); sdCorrigerSourcesClose(store); sdCorrigerTiersClose(store); sdPoserDatesSignatureClose(store); sdRenommerDepuisClose(store); sdImporterDepuisClose(store); sdMajImportsClose(store); sdPrimesSuppInit(store);
   if (!store || store._migPasBudgetOk) return store;
   var n = 0;
   Object.keys(store).forEach(function(k) {
@@ -6869,7 +6889,7 @@ function computeKpis(month, year) {
   const oneshot = hasOneShot ? rows.filter(r => r.oneshot === 'O' || r.freq === 'One Shot').length : null;
   const showrate = total > 0 ? Math.round(shows / total * 100) : 0;
   const noshowrate = total > 0 ? Math.round(noshow / total * 100) : 0;
-  const commission = signesRows.reduce((s, r) => s + getComm(r), 0);
+  const commission = signesRows.reduce((s, r) => s + getComm(r), 0) + (typeof getPrimeSupp === 'function' ? getPrimeSupp(month, year) : 0); // + prime supplémentaire (écart réel) du mois
   const mrr = signesRows.filter(r => r.freq === 'Annuelle').reduce((s,r) => s+getComm(r), 0);
 
   const joursOuvres = getJoursOuvres(month, year);
@@ -8737,7 +8757,7 @@ function getMonthlyBreakdown() {
       // Les signés restent comptés sur toutes les lignes : une vente conclue au R2
       // porte le résultat sur la ligne R2, qui n'est pas un R1.
       const signes = rows.filter(r => r.result === 'Sign\u00e9').length;
-      const commission = rows.filter(r => r.result === 'Sign\u00e9').reduce((s,r) => s+getComm(r), 0);
+      const commission = rows.filter(r => r.result === 'Sign\u00e9').reduce((s,r) => s+getComm(r), 0) + ((store._primesSupp && typeof store._primesSupp[key] === 'number') ? store._primesSupp[key] : 0); // + prime supplémentaire du mois
       const nbRdv  = base.length;
       acc.push({
         key, label: MFR[mIdx] + ' ' + yr,
