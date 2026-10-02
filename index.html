@@ -6838,8 +6838,9 @@ function computeKpis(month, year) {
   const mrr = signesRows.filter(r => r.freq === 'Annuelle').reduce((s,r) => s+getComm(r), 0);
 
   const joursOuvres = getJoursOuvres(month, year);
-  const rdvParJour = total > 0 ? (total / joursOuvres).toFixed(1) : '0';
-  const showsParJour = shows > 0 ? (shows / joursOuvres).toFixed(1) : '0';
+  const joursTravaillesMois = getJoursTravailles(rowsR1Traites) || joursOuvres; // les jours sans aucun RDV ne comptent pas
+  const rdvParJour = total > 0 ? (total / joursTravaillesMois).toFixed(1) : '0';
+  const showsParJour = shows > 0 ? (shows / joursTravaillesMois).toFixed(1) : '0';
 
   // Écart en jours entre deux dates "DD/MM/YYYY"
   const _ecartJours = (d1, d2) => {
@@ -6960,6 +6961,12 @@ function primePalier(nbSignes, yr, mIdx) {
   if (reg === 'oct2026') return nbSignes >= 5 ? 1000 + (nbSignes - 5) * 250 : 0;
   const steps = paliersPrime(yr, mIdx), step = [...steps].reverse().find(s => nbSignes >= s.n);
   return step ? step.total : 0;
+}
+// Jours travaillés = jours où il y a eu au moins un RDV traité. Un jour sans aucun RDV (vacances, absence) n'est pas un jour travaillé.
+function getJoursTravailles(rows) {
+  const jours = {};
+  (rows || []).forEach(r => { const d = String((r && r.date) || '').trim(); if (/^\d{2}\/\d{2}\/\d{4}$/.test(d)) jours[d] = 1; });
+  return Object.keys(jours).length;
 }
 function renderBonusSteps(current, hasBonus) {
   const container = document.getElementById('bonus-steps');
@@ -8757,16 +8764,18 @@ function renderGlobal() {
   // FIX SD-19 : 21 jours/mois en dur ignorait getJoursOuvres() et les jours fériés (invariant 5),
   // et comptait le mois courant, forcément partiel, comme un mois plein.
   const MFR_JO = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
-  const joursTravailles = filteredMonths.reduce((acc, m) => {
+  const joursOuvresPeriode = filteredMonths.reduce((acc, m) => {
     const parts = String(m.key).split('-');
     if (parts.length !== 2) return acc + 21;
     const idx = parseInt(parts[1], 10) - 1;
     if (idx < 0 || idx > 11) return acc + 21;
     return acc + getJoursOuvres(MFR_JO[idx], parts[0]);
   }, 0);
+  // Jours travaillés = jours avec au moins un RDV traité (les jours sans RDV, vacances comprises, ne comptent pas)
+  const joursTravailles = getJoursTravailles(allR1T) || joursOuvresPeriode;
 
   // ── KPI affichage ──
-  set('g-data-info', totalRdv + ' RDV traités · ' + activeMois + ' mois · ' + joursTravailles + 'j ouvrés');
+  set('g-data-info', totalRdv + ' RDV traités · ' + activeMois + ' mois · ' + joursTravailles + ' j travaillés sur ' + joursOuvresPeriode + ' ouvrés');
   const subEl = document.getElementById('g-header-sub');
   if (subEl) subEl.textContent = fromKey ? 'Depuis ' + (filterEl?.options[filterEl?.selectedIndex]?.text||'') + ' → Aujourd\'hui' : 'Toute la période · ' + activeMois + ' mois';
   set('g-total-rdv',    totalRdv);
