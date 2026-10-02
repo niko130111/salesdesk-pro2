@@ -6889,7 +6889,8 @@ function computeKpis(month, year) {
   const oneshot = hasOneShot ? rows.filter(r => r.oneshot === 'O' || r.freq === 'One Shot').length : null;
   const showrate = total > 0 ? Math.round(shows / total * 100) : 0;
   const noshowrate = total > 0 ? Math.round(noshow / total * 100) : 0;
-  const commission = signesRows.reduce((s, r) => s + getComm(r), 0) + (typeof getPrimeSupp === 'function' ? getPrimeSupp(month, year) : 0); // + prime supplémentaire (écart réel) du mois
+  // Commission du mois = total réel : commissions des ventes + prime palier + prime exceptionnelle + prime supplémentaire
+  const commission = signesRows.reduce((s, r) => s + getComm(r), 0) + sdPrimesDuMois(month, year, signesRows.length);
   const mrr = signesRows.filter(r => r.freq === 'Annuelle').reduce((s,r) => s+getComm(r), 0);
 
   const joursOuvres = getJoursOuvres(month, year);
@@ -7081,6 +7082,14 @@ function loadPrimeExc(month, year) {
 }
 
 // Prime supplémentaire par mois (écart avec le réel) : dans le store (synchronisé), contrairement à la prime exceptionnelle (localStorage)
+// Primes d'un mois (palier + exceptionnelle + supplémentaire) : ce qui s'ajoute aux commissions pour donner le total réel
+function sdPrimesDuMois(month, year, nbSignes) {
+  const MI = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+  const yr = parseInt(year), mIdx = MI.indexOf(month);
+  const palier = (typeof primePalier === 'function' && mIdx >= 0) ? primePalier(nbSignes || 0, yr, mIdx) : 0;
+  const exc = (typeof loadPrimeExc === 'function') ? (loadPrimeExc(month, year) || 0) : 0;
+  return palier + exc + getPrimeSupp(month, year);
+}
 function getPrimeSupp(month, year) { const st = loadStore(); const k = monthKey(month, year); return (st._primesSupp && typeof st._primesSupp[k] === 'number') ? st._primesSupp[k] : 0; }
 function savePrimeSupp(month, year, val) { const st = loadStore(); if (!st._primesSupp) st._primesSupp = {}; const k = monthKey(month, year); if (val) st._primesSupp[k] = val; else delete st._primesSupp[k]; saveStore(st); }
 function updatePrimeSupp() {
@@ -7794,7 +7803,7 @@ function renderDaily() {
     var showPrev   = gSRate  > 0 ? Math.round(rdvRest * gSRate  / 100) : 0;
     var ventePrev  = gClos   > 0 ? Math.round(showPrev * gClos  / 100) : 0;
     var caPrev     = gCommAvg > 0 ? ventePrev * gCommAvg : 0;
-    var caTotal    = comm + caPrev + primePalier(signes + ventePrev, _djY, _djM); // prime palier incluse dans le prévisionnel
+    var caTotal    = comm + caPrev + Math.max(0, primePalier(signes + ventePrev, _djY, _djM) - primePalier(signes, _djY, _djM)); // comm contient déjà la prime acquise ; on ajoute seulement la prime que les ventes prévues débloqueraient
     var manqueCA   = Math.max(0, objAjuste - caTotal);
     var rdvManqueCA = gSRate > 0 && gClos > 0 && gCommAvg > 0
       ? Math.ceil(manqueCA / gCommAvg / (gClos / 100) / (gSRate / 100))
@@ -8757,7 +8766,8 @@ function getMonthlyBreakdown() {
       // Les signés restent comptés sur toutes les lignes : une vente conclue au R2
       // porte le résultat sur la ligne R2, qui n'est pas un R1.
       const signes = rows.filter(r => r.result === 'Sign\u00e9').length;
-      const commission = rows.filter(r => r.result === 'Sign\u00e9').reduce((s,r) => s+getComm(r), 0) + ((store._primesSupp && typeof store._primesSupp[key] === 'number') ? store._primesSupp[key] : 0); // + prime supplémentaire du mois
+      const nbSignes = rows.filter(r => r.result === 'Sign\u00e9').length;
+      const commission = rows.filter(r => r.result === 'Sign\u00e9').reduce((s,r) => s+getComm(r), 0) + sdPrimesDuMois(MFR[mIdx], yr, nbSignes); // total réel du mois, primes comprises
       const nbRdv  = base.length;
       acc.push({
         key, label: MFR[mIdx] + ' ' + yr,
@@ -8830,9 +8840,8 @@ function renderGlobal() {
   const noshowrate  = totalRdv   ? Math.round(totalNoshow / totalRdv   * 100) : 0;
   const closing     = totalShows ? Math.round(totalSignes / totalShows * 100) : 0;
   const transfo     = totalRdv   ? Math.round(totalSignes / totalRdv   * 100) : 0;
-  const _ps = (loadStore()._primesSupp || {});
   const commVentes  = all.filter(r => r.result === 'Sign\u00e9').reduce((s,r) => s+getComm(r), 0);
-  const commTotal   = commVentes + filteredMonths.reduce((s, m) => s + (typeof _ps[m.key] === 'number' ? _ps[m.key] : 0), 0); // + primes supplémentaires (écart réel) saisies par mois
+  const commTotal   = filteredMonths.reduce((s, m) => s + (m.commission || 0), 0); // total réel : commissions + primes de chaque mois
   const commAvg     = totalSignes ? Math.round(commVentes / totalSignes) : 0; // moyenne par vente : hors primes
 
   // FIX SD-19 : 21 jours/mois en dur ignorait getJoursOuvres() et les jours fériés (invariant 5),
