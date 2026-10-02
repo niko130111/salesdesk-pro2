@@ -1105,6 +1105,10 @@ select.form-input { cursor: pointer; }
           <span class="lbl">Prime exceptionnelle</span>
           <span class="val"><input type="number" id="comm-prime-exc" min="0" placeholder="0" style="width:70px;border:1px solid var(--border);border-radius:6px;padding:2px 6px;font-size:13px;text-align:right;background:var(--surface);color:var(--text);" onchange="updatePrimeExc()" oninput="updatePrimeExc()"> €</span>
         </div>
+        <div class="commission-row">
+          <span class="lbl" title="Écart entre la commission calculée et celle réellement perçue (ancien barème, régularisation…). Positif ou négatif. Enregistré dans tes données, synchronisé.">Prime supplémentaire (réel)</span>
+          <span class="val"><input type="number" id="comm-prime-supp" placeholder="0" step="1" style="width:70px;border:1px solid var(--border);border-radius:6px;padding:2px 6px;font-size:13px;text-align:right;background:var(--surface);color:var(--text);" onchange="updatePrimeSupp()" onkeyup="if(event.key==='Enter')this.blur()"> €</span>
+        </div>
       </div>
       <div style="margin-top:14px;">
         <div style="font-size:12px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px;">📈 MRR Généré</div>
@@ -7048,6 +7052,15 @@ function loadPrimeExc(month, year) {
   return getPrimesExc()[key] || 0;
 }
 
+// Prime supplémentaire par mois (écart avec le réel) : dans le store (synchronisé), contrairement à la prime exceptionnelle (localStorage)
+function getPrimeSupp(month, year) { const st = loadStore(); const k = monthKey(month, year); return (st._primesSupp && typeof st._primesSupp[k] === 'number') ? st._primesSupp[k] : 0; }
+function savePrimeSupp(month, year, val) { const st = loadStore(); if (!st._primesSupp) st._primesSupp = {}; const k = monthKey(month, year); if (val) st._primesSupp[k] = val; else delete st._primesSupp[k]; saveStore(st); }
+function updatePrimeSupp() {
+  const el = document.getElementById('comm-prime-supp');
+  savePrimeSupp(state.month, state.year, parseFloat(el?.value) || 0);
+  renderCommission(computeKpis(state.month, state.year));
+  try { refreshAll(); } catch (e) {}
+}
 function updatePrimeExc() {
   const el = document.getElementById('comm-prime-exc');
   const val = parseFloat(el?.value) || 0;
@@ -7264,9 +7277,13 @@ function renderCommission(kpis) {
     ? (parseFloat(primeExcEl?.value) || 0)
     : primeExcSaved;
 
+  // Prime supplémentaire (écart réel), par mois, dans le store
+  const primeSuppEl = document.getElementById('comm-prime-supp');
+  const primeSupp = getPrimeSupp(state.month, state.year);
+  if (primeSuppEl && document.activeElement !== primeSuppEl) primeSuppEl.value = primeSupp ? primeSupp : '';
   // Total
   const totalOneShot = isAfterFev ? 0 : commOneShot;
-  const total = commMensuelle + commAnnuelle + prime + totalOneShot + primeExc;
+  const total = commMensuelle + commAnnuelle + prime + totalOneShot + primeExc + primeSupp;
 
   const totalEl = document.getElementById('commission-total');
   if (totalEl && document.activeElement !== totalEl) {
@@ -8785,8 +8802,10 @@ function renderGlobal() {
   const noshowrate  = totalRdv   ? Math.round(totalNoshow / totalRdv   * 100) : 0;
   const closing     = totalShows ? Math.round(totalSignes / totalShows * 100) : 0;
   const transfo     = totalRdv   ? Math.round(totalSignes / totalRdv   * 100) : 0;
-  const commTotal   = all.filter(r => r.result === 'Sign\u00e9').reduce((s,r) => s+getComm(r), 0);
-  const commAvg     = totalSignes ? Math.round(commTotal / totalSignes) : 0;
+  const _ps = (loadStore()._primesSupp || {});
+  const commVentes  = all.filter(r => r.result === 'Sign\u00e9').reduce((s,r) => s+getComm(r), 0);
+  const commTotal   = commVentes + filteredMonths.reduce((s, m) => s + (typeof _ps[m.key] === 'number' ? _ps[m.key] : 0), 0); // + primes supplémentaires (écart réel) saisies par mois
+  const commAvg     = totalSignes ? Math.round(commVentes / totalSignes) : 0; // moyenne par vente : hors primes
 
   // FIX SD-19 : 21 jours/mois en dur ignorait getJoursOuvres() et les jours fériés (invariant 5),
   // et comptait le mois courant, forcément partiel, comme un mois plein.
