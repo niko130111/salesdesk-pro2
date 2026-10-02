@@ -3091,7 +3091,7 @@ function sdCorrigerTypesClose(store) { // rejouable : une ligne déjà corrigée
 }
 // 02/10/2026 — Audit Close des sources : qui a appelé le prospect juste avant la création du RDV (SDR → Inbound, Nicolas → Outbound,
 // formulaire du site sans appel → PUB). Seules les corrections validées par Nicolas. [mois, date, client, source avant, source Close]
-var SD_CORRECTIONS_SOURCE_CLOSE = [["2025-10","29/10/2025","Castinel Erwan","Outbound","Inbound"],["2026-03","17/03/2026","Arys Tsobanopoulos","Outbound","Inbound"],["2026-06","10/06/2026","Carole Grange","Outbound","Inbound"],["2026-09","17/09/2026","Sandrine Laissue","Inbound","PUB"],["2026-09","15/09/2026","Marjorie Noell","Inbound","PUB"],["2026-09","22/09/2026","Quendize CHAUDRY","Inbound","PUB"],["2026-09","24/09/2026","Julie COTTEREAU","Inbound","PUB"]];
+var SD_CORRECTIONS_SOURCE_CLOSE = [["2025-10","29/10/2025","Castinel Erwan","Outbound","Inbound"],["2026-03","17/03/2026","Arys Tsobanopoulos","Outbound","Inbound"],["2026-06","10/06/2026","Carole Grange","Outbound","Inbound"],["2026-09","17/09/2026","Sandrine Laissue","Inbound","PUB"],["2026-09","15/09/2026","Marjorie Noell","Inbound","PUB"],["2026-09","22/09/2026","Quendize CHAUDRY","Inbound","PUB"],["2026-09","24/09/2026","Julie COTTEREAU","Inbound","PUB"],["2025-11","26/11/2025","DONADELLI Léo","Inbound","PUB"],["2026-09","23/09/2026","Louna Colpin","Inbound","PUB"],["2026-09","25/09/2026","Tricia Barlier","Inbound","PUB"]];
 function sdCorrigerSourcesClose(store) { // rejouable : une ligne déjà corrigée n'a plus la « source avant »
   if (!store) return store;
   var cibles = [];
