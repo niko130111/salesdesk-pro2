@@ -8936,8 +8936,9 @@ function renderGlobal() {
       + '<td style="padding:12px 14px;text-align:center;font-weight:600;color:var(--orange);">' + (comm > 0 ? comm.toLocaleString('fr-FR') + ' \u20ac' : '\u2014') + '</td>'
       + '</tr>';
   }
-  const mand = all.filter(r => normalizeType(r.type) === 'mandataire');
-  const ag   = all.filter(r => normalizeType(r.type) === 'agence');
+  // Même base que les KPI du haut : R1 traités (invariant 3 : Mandataires + Agences = Total RDV, donc 100 % à eux deux)
+  const mand = allR1T.filter(r => normalizeType(r.type) === 'mandataire');
+  const ag   = allR1T.filter(r => normalizeType(r.type) === 'agence');
   const typeBody = document.getElementById('g-type-tbody');
   if (typeBody) typeBody.innerHTML = buildTypeRow('Mandataires', mand, 'var(--orange)') + buildTypeRow('Agences', ag, 'var(--accent)');
 
