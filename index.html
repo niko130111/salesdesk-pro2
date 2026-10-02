@@ -5395,6 +5395,8 @@ document.addEventListener('DOMContentLoaded', function() {
   });
   // Auto-calcul initial après un délai (laisser le store charger)
   setTimeout(function() { try { recalculateAutoTargets(); } catch(e) { console.warn(e); } }, 500);
+  // Second passage une fois les objectifs enregistrés restaurés et le store (cloud) chargé : l'ancien nombre de ventes mémorisé ne doit pas rester affiché
+  setTimeout(function() { try { recalculateAutoTargets(); if (typeof refreshAll === 'function') refreshAll(); } catch(e) { console.warn(e); } }, 3000);
 });
 
 function saveTargets() {
