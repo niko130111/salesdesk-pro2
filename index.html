@@ -3127,9 +3127,21 @@ function sdRenommerDepuisClose(store) { // rejouable ; l'ancien nom est gardé d
   if (cibles.length) { try { sdBackupStore(store); } catch (e) {} cibles.forEach(function(x) { x[0].clientAvant = x[0].client; x[0].client = x[1]; }); console.log('[migration] ' + cibles.length + ' nom(s) corrigé(s) d\'après Close'); }
   return store;
 }
+// 02/10/2026 — Dates de signature manquantes reprises de Close (date « gagnée » de l'opportunité). [mois, date R1, client, date de signature]
+var SD_DATES_SIGNATURE_CLOSE = [["2025-10","01/10/2025","Isabelle le bihan","13/10/2025"],["2025-10","03/10/2025","Anthony Berral","03/10/2025"],["2025-10","09/10/2025","Lakkdhar dris","31/10/2025"],["2025-10","09/10/2025","Patricia Sever","13/10/2025"],["2025-10","14/10/2025","Blandine Bousquet","29/10/2025"],["2025-10","21/10/2025","Pannier Vanessa","27/10/2025"],["2025-10","22/10/2025","Leclerc Vincent","30/10/2025"],["2025-10","22/10/2025","Lechner Dylan","24/10/2025"],["2025-10","24/10/2025","Julien Dessert","31/10/2025"],["2025-10","27/10/2025","Traina Gwenaelle","29/10/2025"],["2025-10","31/10/2025","Bruno Marchadier","31/10/2025"],["2025-11","04/11/2025","Catel Enzo","04/11/2025"],["2025-11","06/11/2025","Lalaurie Régis","07/11/2025"],["2025-11","20/11/2025","Ngola Jason","30/11/2025"],["2025-11","20/11/2025","Legris Sylviane","26/11/2025"],["2025-11","25/11/2025","Guylaine Renaut","28/11/2025"],["2025-11","26/11/2025","Popa Bettina","26/11/2025"],["2025-11","26/11/2025","Lionel Teisseyre","26/11/2025"],["2025-11","28/11/2025","JM GUIGOU","28/11/2025"],["2026-01","07/01/2026","Damien bourdin","13/01/2026"],["2026-01","08/01/2026","Lucas Biglione","23/01/2026"],["2026-01","14/01/2026","Thibaukt abdelamid","14/01/2026"],["2026-01","19/01/2026","Elisabeth Goncalves","28/01/2026"],["2026-01","21/01/2026","Stéphanie Antoine","21/01/2026"],["2026-01","21/01/2026","Laura Gea","21/01/2026"],["2026-01","29/01/2026","Barbara blanchard","29/01/2026"],["2026-02","03/02/2026","Tojohery Rajohanesa","04/02/2026"],["2026-02","06/02/2026","David Masson","12/02/2026"],["2026-02","12/02/2026","evan fernandes","12/02/2026"],["2026-02","13/02/2026","Nicolas KASMI","27/02/2026"],["2026-02","17/02/2026","Vanessa Boissier","27/02/2026"],["2026-02","17/02/2026","Marie Ange Le dorner","18/02/2026"],["2026-02","24/02/2026","Julie beteaux","27/02/2026"],["2026-02","25/02/2026","Desprat Pascal","25/02/2026"],["2026-04","07/04/2026","Franck Souhrada","30/04/2026"],["2026-04","07/04/2026","David Laloy","16/04/2026"],["2026-05","28/05/2026","Aurore Leroy","28/05/2026"],["2026-06","17/06/2026","Mélanie Airola Samain","30/06/2026"],["2026-06","23/06/2026","Aurelie Revel","30/06/2026"],["2026-06","29/06/2026","Pascale Benatouil","30/06/2026"],["2026-06","30/06/2026","Anthony Negrier","30/06/2026"],["2026-06","01/07/2026","Thomas le franc","30/06/2026"],["2026-08","28/08/2026","Marie Aoudia","28/08/2026"],["2026-09","03/09/2026","Audrey Nebout","30/09/2026"],["2026-09","22/09/2026","Michel Nguyen","25/09/2026"],["2026-09","21/09/2026","Alain Beauvallet","21/09/2026"],["2026-09","21/09/2026","Christine Evrard","21/09/2026"],["2026-09","28/09/2026","Alain Caron","30/09/2026"]];
+function sdPoserDatesSignatureClose(store) { // rejouable : ne remplit que les signés sans date de signature
+  if (!store) return store;
+  var n = 0;
+  SD_DATES_SIGNATURE_CLOSE.forEach(function(c) {
+    var rows = store[c[0]]; if (!Array.isArray(rows)) return;
+    rows.forEach(function(r) { if (r && r.date === c[1] && (String(r.client || '').trim() === c[2] || r.clientAvant === c[2]) && r.result === 'Signé' && !String(r.dateSignature || '').trim()) { r.dateSignature = c[3]; r.dateSignatureSource = 'close'; n++; } });
+  });
+  if (n) console.log('[migration] ' + n + ' date(s) de signature reprise(s) de Close');
+  return store;
+}
 // Correction : « Pas de budget » reste une colonne ; les cartes migrées par erreur y reviennent
 function sdRestaurerPasBudget(store) {
-  sdNormaliserInteresse(store); sdCorrigerTypesClose(store); sdCorrigerSourcesClose(store); sdCorrigerTiersClose(store); sdRenommerDepuisClose(store);
+  sdNormaliserInteresse(store); sdCorrigerTypesClose(store); sdCorrigerSourcesClose(store); sdCorrigerTiersClose(store); sdPoserDatesSignatureClose(store); sdRenommerDepuisClose(store);
   if (!store || store._migPasBudgetOk) return store;
   var n = 0;
   Object.keys(store).forEach(function(k) {
