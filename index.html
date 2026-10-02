@@ -107,6 +107,8 @@ main { max-width: 100%; margin: 0; padding: 6px 8px; }
 /* points outbound et donut : retirés de l'affichage */
 #daily-pct-outbound { display: none !important; }
 .page.active { display: block; }
+/* Audit 02/10/2026 : cartes de conversion redondantes retirées de l'écran (éléments gardés pour ne casser aucun calcul) */
+.kpi-masquee, #kpi-oneshot-card { display: none !important; }
 /* Onglet Mes RDV : le copilot (serveur local 3015) dans la page */
 #page-mesrdv { margin: 0; padding: 0; }
 #page-mesrdv.active { display: flex; flex-direction: column; height: calc(100vh - 56px); }
@@ -866,8 +868,13 @@ select.form-input { cursor: pointer; }
   </div>
 </div>
 
-<!-- ════ BLOC CALENDLY RDV DU JOUR ════ -->
-<div style="margin-bottom:16px;">
+<!-- ════ BLOC CALENDLY RDV DU JOUR ════ (déplacé dans l'onglet Mes RDV ; gardé replié : il continue de synchroniser Calendly) -->
+<div style="margin-bottom:10px;padding:10px 14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+  <span style="font-size:13px;color:var(--text2);">📅 Tes RDV, jour par jour et semaine par semaine, sont dans l'onglet <b>Mes RDV</b>.</span>
+  <button class="btn btn-sm btn-primary" onclick="var b=document.querySelector('.nav-tab[onclick*=mesrdv]'); if(b) b.click();">Ouvrir Mes RDV →</button>
+  <button class="btn btn-sm" onclick="var d=document.getElementById('daily-rdv-ancien'); var o=d.style.display==='none'; d.style.display=o?'':'none'; this.textContent=o?'Masquer la liste ici':'Afficher la liste ici';">Afficher la liste ici</button>
+</div>
+<div id="daily-rdv-ancien" style="margin-bottom:16px;display:none;">
   <div class="section-header" style="margin-bottom:12px;">
     <div class="section-title">📅 RDV du jour — Calendly</div>
     <div style="display:flex;gap:8px;align-items:center;">
@@ -1027,7 +1034,7 @@ select.form-input { cursor: pointer; }
       <div class="kpi-value" id="kpi-delai-prise">—</div>
       <div class="kpi-sub" id="kpi-delai-prise-sub">prise → RDV</div>
     </div>
-    <div class="kpi-card" title="Des shows de ce mois, combien ont fini par signer à ce jour. Contrairement au closing mensuel, numérateur et dénominateur portent sur les mêmes prospects.">
+    <div class="kpi-card kpi-masquee" title="Des shows de ce mois, combien ont fini par signer à ce jour. Contrairement au closing mensuel, numérateur et dénominateur portent sur les mêmes prospects.">
       <div class="kpi-label">Closing cohorte</div>
       <div class="kpi-value green" id="kpi-closing-cohorte">—</div>
       <div class="kpi-sub" id="kpi-closing-cohorte-sub">shows du mois ayant signé</div>
@@ -1304,7 +1311,7 @@ select.form-input { cursor: pointer; }
       <div class="kpi-sub" id="g-avg-ventes-sub">— ventes/mois</div>
     </div>
 
-    <div class="kpi-card">
+    <div class="kpi-card kpi-masquee">
       <div class="kpi-label">Transfo (RDV→Vente)</div>
       <div class="kpi-value" id="g-transfo">—</div>
       <div class="kpi-sub">ventes / rdv pris</div>
@@ -1336,19 +1343,34 @@ select.form-input { cursor: pointer; }
     <div class="kpi-card" style="background:var(--surface2);">
       <div class="kpi-label">RDV pour 1 Vente</div>
       <div class="kpi-value" id="g-rdv-per-vente">—</div>
-      <div class="kpi-sub">RDV / vente</div>
+      <div class="kpi-sub">RDV / vente, toutes sources</div>
     </div>
     <div class="kpi-card" style="background:var(--surface2);">
+      <div class="kpi-label">1 vente pour… · Inbound</div>
+      <div class="kpi-value" id="g-v1-inbound">—</div>
+      <div class="kpi-sub" id="g-v1-inbound-sub">—</div>
+    </div>
+    <div class="kpi-card" style="background:var(--surface2);">
+      <div class="kpi-label">1 vente pour… · Outbound</div>
+      <div class="kpi-value" id="g-v1-outbound">—</div>
+      <div class="kpi-sub" id="g-v1-outbound-sub">—</div>
+    </div>
+    <div class="kpi-card" style="background:var(--surface2);">
+      <div class="kpi-label">1 vente pour… · Pub</div>
+      <div class="kpi-value" id="g-v1-pub">—</div>
+      <div class="kpi-sub" id="g-v1-pub-sub">—</div>
+    </div>
+    <div class="kpi-card kpi-masquee" style="background:var(--surface2);">
       <div class="kpi-label">Shows pour 1 Vente</div>
       <div class="kpi-value" id="g-shows-per-vente">—</div>
       <div class="kpi-sub">shows / vente</div>
     </div>
-    <div class="kpi-card" style="background:var(--surface2);">
+    <div class="kpi-card kpi-masquee" style="background:var(--surface2);">
       <div class="kpi-label">Commission / RDV</div>
       <div class="kpi-value" id="g-comm-per-rdv">—</div>
       <div class="kpi-sub">€ généré par RDV pris</div>
     </div>
-    <div class="kpi-card" style="background:var(--surface2);">
+    <div class="kpi-card kpi-masquee" style="background:var(--surface2);">
       <div class="kpi-label">Commission / Show</div>
       <div class="kpi-value" id="g-comm-per-show">—</div>
       <div class="kpi-sub">€ généré par présence</div>
@@ -3982,7 +4004,7 @@ function renderSources(kpis) {
         <div class="source-stat"><div class="s-label">Closing</div><div class="s-value">${closing}%</div></div>
         <div class="source-stat"><div class="s-label">Show Rate</div><div class="s-value">${showrate}%</div></div>
         <div class="source-stat"><div class="s-label">No Show</div><div class="s-value ${nosho > 0 ? 'red' : ''}">${total > 0 ? Math.round(nosho/total*100) : 0}%</div></div>
-        <div class="source-stat"><div class="s-label">One Shot</div><div class="s-value">${oneshot}</div></div>
+        <div class="source-stat"><div class="s-label">1 vente pour</div><div class="s-value">${signes > 0 ? (total / signes).toFixed(1).replace('.', ',') + ' RDV' : '—'}</div></div>
       </div>
     </div>`;
   }
@@ -8783,6 +8805,12 @@ function renderGlobal() {
   const subEl = document.getElementById('g-header-sub');
   if (subEl) subEl.textContent = fromKey ? 'Depuis ' + (filterEl?.options[filterEl?.selectedIndex]?.text||'') + ' → Aujourd\'hui' : 'Toute la période · ' + activeMois + ' mois';
   set('g-total-rdv',    totalRdv);
+  // 1 vente pour X RDV, par source (R1 traités de la période)
+  [['Inbound', 'g-v1-inbound'], ['Outbound', 'g-v1-outbound'], ['PUB', 'g-v1-pub']].forEach(function(c) {
+    const rs = allR1T.filter(r => r.source === c[0]), nb = rs.length, sh = rs.filter(r => r.presence === 'Show').length, sg = rs.filter(r => r.result === 'Signé').length;
+    set(c[1], sg ? (nb / sg).toFixed(1).replace('.', ',') + ' RDV' : '—');
+    set(c[1] + '-sub', nb + ' RDV · show ' + (nb ? Math.round(sh / nb * 100) : 0) + '% · closing ' + (sh ? Math.round(sg / sh * 100) : 0) + '% · ' + sg + ' vente' + (sg > 1 ? 's' : ''));
+  });
   // RDV/jour et Show/jour globaux (sur toute la période)
   const rdvParJourGlobal  = (totalRdv  / Math.max(joursTravailles,1)).toFixed(1);
   const showParJourGlobal = (totalShows / Math.max(joursTravailles,1)).toFixed(1);
