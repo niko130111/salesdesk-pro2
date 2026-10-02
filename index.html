@@ -6962,10 +6962,14 @@ function primePalier(nbSignes, yr, mIdx) {
   const steps = paliersPrime(yr, mIdx), step = [...steps].reverse().find(s => nbSignes >= s.n);
   return step ? step.total : 0;
 }
-// Jours travaillés = jours où il y a eu au moins un RDV traité. Un jour sans aucun RDV (vacances, absence) n'est pas un jour travaillé.
+// Jours travaillés = jours où au moins un RDV a été tenu ou attendu (Show ou No Show). Un jour sans aucun RDV (vacances, absence)
+// ou dont tous les RDV ont été annulés / reprogrammés (jour férié, congé posé après coup) n'est pas un jour travaillé.
 function getJoursTravailles(rows) {
   const jours = {};
-  (rows || []).forEach(r => { const d = String((r && r.date) || '').trim(); if (/^\d{2}\/\d{2}\/\d{4}$/.test(d)) jours[d] = 1; });
+  (rows || []).forEach(r => {
+    const d = String((r && r.date) || '').trim(), p = String((r && r.presence) || '').trim();
+    if (/^\d{2}\/\d{2}\/\d{4}$/.test(d) && (p === 'Show' || p === 'No Show')) jours[d] = 1;
+  });
   return Object.keys(jours).length;
 }
 function renderBonusSteps(current, hasBonus) {
