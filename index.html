@@ -3050,11 +3050,21 @@ function sdMigrerOneShot(store) {
     store._migOneShot = new Date().toISOString();
     if (n) console.log('[migration] ' + n + ' ligne(s) « One Shot » → flag one shot, fréquence à compléter');
   }
+  var _avantMig = ''; try { _avantMig = JSON.stringify(store); } catch (e) {}
   // Corrections et imports Close : TOUJOURS exécutés (chacun est rejouable). Avant le 02/10/2026 ils étaient placés derrière
   // le « return » ci-dessus et ne tournaient donc jamais sur un store déjà migré. sdMigrerRelances3 n'est volontairement plus
   // appelée : elle viderait la colonne « si promo » que Nicolas a pu réutiliser depuis.
-  return sdRestaurerPasBudget(store);
+  var _res = sdRestaurerPasBudget(store);
+  try { if (_avantMig && JSON.stringify(_res) !== _avantMig) window._sdMigrationAEnregistrer = true; } catch (e) {}
+  return _res;
 }
+// Une migration a modifié le store en mémoire : on l'enregistre (localStorage + cloud) une fois la page prête, sinon les
+// corrections seraient recalculées à chaque chargement sans jamais être sauvegardées.
+setInterval(function() {
+  if (!window._sdMigrationAEnregistrer || typeof saveStore !== 'function' || typeof loadStore !== 'function') return;
+  window._sdMigrationAEnregistrer = false;
+  try { saveStore(loadStore()); if (typeof refreshAll === 'function') refreshAll(); console.log('[migration] corrections enregistrées'); } catch (e) { console.warn('[migration] enregistrement :', e); }
+}, 6000);
 // 28/09/2026 : colonnes « Pas de budget » et « Relancer si promo » remplacées par si promo / carte de prospection / RENT.
 // Les cartes qui y étaient repassent en non traité (raison à redonner), après sauvegarde du store.
 function sdMigrerRelances3(store) {
@@ -3090,7 +3100,7 @@ function sdCorrigerTypesClose(store) { // rejouable : une ligne déjà corrigée
     rows.forEach(function(r) { if (r && r.date === c[1] && (String(r.client || '').trim() === c[2] || r.clientAvant === c[2]) && String(r.type || '').trim() === c[3] && r.type !== c[4]) cibles.push([r, c[4]]); });
   });
   if (cibles.length) { try { sdBackupStore(store); } catch (e) {} cibles.forEach(function(x) { x[0].typeAvantClose = x[0].type || ''; x[0].type = x[1]; x[0].typeSource = 'close'; n++; }); }
-  store._migTypesClose = new Date().toISOString();
+  if (!store._migTypesClose) store._migTypesClose = new Date().toISOString();
   if (n) console.log('[migration] ' + n + ' type(s) Mandataire/Agences corrigé(s) depuis Close');
   return store;
 }
