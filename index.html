@@ -5456,7 +5456,10 @@ function getLast3FinishedMonthsStats() {
   });
   var shows = r1Traites.filter(function(r) { return r.presence === 'Show'; });
   var signes = allRdvs.filter(function(r) { return r.result === 'Signé'; });
-  var totalComm = signes.reduce(function(s, r) { return s + (getComm ? getComm(r) : (r.commission||0)); }, 0);
+  // Total réel des 3 mois : commissions des ventes + primes (palier, exceptionnelle, supplémentaire) de chaque mois
+  var MI3 = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+  var totalComm = signes.reduce(function(s, r) { return s + (getComm ? getComm(r) : (r.commission||0)); }, 0)
+    + months.reduce(function(s, mk) { var nb = (store[mk] || []).filter(function(r) { return r && r.result === 'Signé'; }).length; return s + (typeof sdPrimesDuMois === 'function' ? sdPrimesDuMois(MI3[parseInt(mk.split('-')[1], 10) - 1], mk.split('-')[0], nb) : 0); }, 0);
   // Cycle de vente moyen sur la période (R1 → signature)
   var _cycles = signes.filter(function(r) { return r.date && r.dateSignature; }).map(function(r) {
     var p1 = String(r.date).split('/'), p2 = String(r.dateSignature).split('/');
@@ -5494,10 +5497,9 @@ function recalculateAutoTargets() {
   var commAvg = stats.commAvg;
   var showRate = stats.showRate;
   var closing = stats.closingRate;
-  // Ventes nécessaires : commissions + prime palier du mois en cours (la prime fait partie du CA visé)
-  var _now = new Date(), _yr = _now.getFullYear(), _mIdx = _now.getMonth();
-  var ventesNec = 1; while (ventesNec < 60 && ventesNec * commAvg + primePalier(ventesNec, _yr, _mIdx) < obj) ventesNec++;
-  var primeIncluse = primePalier(ventesNec, _yr, _mIdx);
+  // Ventes nécessaires = objectif ÷ commission moyenne par vente (total réel ÷ ventes, primes comprises)
+  var ventesNec = Math.ceil(obj / commAvg);
+  var primeIncluse = 0;
   var showsNec = closing > 0 ? Math.ceil(ventesNec / (closing/100)) : 0;
   var rdvNec = showRate > 0 ? Math.ceil(showsNec / (showRate/100)) : 0;
   // Remplir les champs (sans écraser si l'utilisateur a manuellement modifié récemment)
@@ -5538,10 +5540,10 @@ function recalculateAutoTargets() {
   infoEl.innerHTML = '<b>🤖 Auto-calculé</b> à partir des 3 derniers mois finis ('
     + stats.months.join(', ') + ') : ' + stats.totalRdv + ' RDV traités, '
     + stats.totalShows + ' Shows, ' + stats.totalSignes + ' Signés. '
-    + '<b>Comm. moy. ' + commAvg.toLocaleString('fr-FR') + '€</b> · '
+    + '<b>Comm. moy. ' + commAvg.toLocaleString('fr-FR') + '€ par vente (total réel ÷ ventes)</b> · '
     + '<b>Show rate ' + Math.round(showRate) + '%</b> · '
     + '<b>Closing ' + Math.round(closing) + '%</b>'
-    + '<br>→ ' + ventesNec + ' ventes = ' + (ventesNec * commAvg).toLocaleString('fr-FR') + ' € de commissions' + (primeIncluse ? ' + ' + primeIncluse.toLocaleString('fr-FR') + ' € de prime palier' : '') + ' = ' + (ventesNec * commAvg + primeIncluse).toLocaleString('fr-FR') + ' € pour un objectif de ' + obj.toLocaleString('fr-FR') + ' €'
+    + '<br>→ ' + ventesNec + ' ventes × ' + commAvg.toLocaleString('fr-FR') + ' € (moyenne réelle par vente, primes comprises) = ' + (ventesNec * commAvg).toLocaleString('fr-FR') + ' € pour un objectif de ' + obj.toLocaleString('fr-FR') + ' €'
     + ' · ' + showsNec + ' shows (closing ' + Math.round(closing) + '%) · ' + rdvNec + ' RDV (show rate ' + Math.round(showRate) + '%)';
 }
 
@@ -7478,10 +7480,8 @@ function renderDaily() {
 
   S('daily-val-show',      valShowFmt);
   // Ventes nécessaires : commissions + prime palier du mois (la prime fait partie de l'objectif) — même calcul que Objectifs & Config
-  var _dj = new Date(), _djY = _dj.getFullYear(), _djM = _dj.getMonth();
-  var venteNec = 0;
-  if (gCommAvg > 0) { venteNec = 1; while (venteNec < 60 && venteNec * gCommAvg + primePalier(venteNec, _djY, _djM) < objAjuste) venteNec++; }
-  var primeNec = primePalier(venteNec, _djY, _djM);
+  var venteNec = gCommAvg > 0 ? Math.ceil(objAjuste / gCommAvg) : 0; // gCommAvg = total réel ÷ ventes sur 3 mois, primes comprises
+  var primeNec = 0;
   var showNec  = gClos    > 0 ? Math.ceil(venteNec  / (gClos  / 100)) : 0;
   var rdvNec   = gSRate   > 0 ? Math.ceil(showNec   / (gSRate / 100)) : 0;
 
@@ -7536,7 +7536,7 @@ function renderDaily() {
       +rdvNec+' RDV, '+showNec+' shows et '+venteNec+' ventes. '
       +'Actuellement\u00a0: '+rdvMois+' RDV pris, '+shows+' shows v\u00e9cus et '+signes+' vente'+(signes>1?'s':'')+'. '
       +'Show rate\u00a0: '+showratePct+'% — Closing\u00a0: '+closingPct+'%. '
-      +'(Comm. moy. '+gCommAvg.toLocaleString('fr-FR')+'\u20ac par vente'+(primeNec ? ' + prime palier '+primeNec.toLocaleString('fr-FR')+'\u20ac' : '')+' · closing '+gClos+'% · show rate '+gSRate+'% sur 3 mois)';
+      +'(Comm. moy. '+gCommAvg.toLocaleString('fr-FR')+'\u20ac par vente, primes comprises · closing '+gClos+'% · show rate '+gSRate+'% sur 3 mois)';
   }
 
   // BLOC 5 — Aujourd'hui
@@ -7805,7 +7805,7 @@ function renderDaily() {
     var showPrev   = gSRate  > 0 ? Math.round(rdvRest * gSRate  / 100) : 0;
     var ventePrev  = gClos   > 0 ? Math.round(showPrev * gClos  / 100) : 0;
     var caPrev     = gCommAvg > 0 ? ventePrev * gCommAvg : 0;
-    var caTotal    = comm + caPrev + Math.max(0, primePalier(signes + ventePrev, _djY, _djM) - primePalier(signes, _djY, _djM)); // comm contient déjà la prime acquise ; on ajoute seulement la prime que les ventes prévues débloqueraient
+    var caTotal    = comm + caPrev; // comm = total réel du mois ; caPrev = ventes prévues × moyenne réelle par vente
     var manqueCA   = Math.max(0, objAjuste - caTotal);
     var rdvManqueCA = gSRate > 0 && gClos > 0 && gCommAvg > 0
       ? Math.ceil(manqueCA / gCommAvg / (gClos / 100) / (gSRate / 100))
@@ -8844,7 +8844,7 @@ function renderGlobal() {
   const transfo     = totalRdv   ? Math.round(totalSignes / totalRdv   * 100) : 0;
   const commVentes  = all.filter(r => r.result === 'Sign\u00e9').reduce((s,r) => s+getComm(r), 0);
   const commTotal   = filteredMonths.reduce((s, m) => s + (m.commission || 0), 0); // total réel : commissions + primes de chaque mois
-  const commAvg     = totalSignes ? Math.round(commVentes / totalSignes) : 0; // moyenne par vente : hors primes
+  const commAvg     = totalSignes ? Math.round(commTotal / totalSignes) : 0; // moyenne par vente = total réel (primes comprises) ÷ ventes
 
   // FIX SD-19 : 21 jours/mois en dur ignorait getJoursOuvres() et les jours fériés (invariant 5),
   // et comptait le mois courant, forcément partiel, comme un mois plein.
