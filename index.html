@@ -8761,7 +8761,7 @@ function renderRelancesPage() {
     var txt = t && t.texte && !/^follow ?up(\s*\(\d+\))?$/i.test(t.texte.trim()) ? t.texte : '';
     var dernier = row.relanceDernier ? ({ joint: 'joint', pas_de_reponse: 'pas de réponse' }[row.relanceDernier] || row.relanceDernier) : '';
     return '<div class="pipeline-card" style="cursor:pointer;padding:8px 10px;' + (retard ? 'border-left:3px solid var(--red);' : auj ? 'border-left:3px solid var(--orange);' : '') + '" onclick="ouvrirFicheClient(' + nomJs + ',' + emailJs + ')">'
-      + '<div class="pipeline-card-name" style="display:flex;justify-content:space-between;gap:6px;align-items:baseline;"><span>' + escapeHtml(it.nom) + '</span><span style="font-size:10px;white-space:nowrap;color:' + c[2] + ';font-weight:700;">' + c[0] + ' ' + (compact ? '' : c[1]) + '</span></div>'
+      + '<div class="pipeline-card-name" style="display:flex;justify-content:space-between;gap:6px;align-items:baseline;"><span>' + escapeHtml(it.nom) + '</span>' + (compact ? '' : '<span style="font-size:10px;white-space:nowrap;color:' + c[2] + ';font-weight:700;">' + c[0] + ' ' + c[1] + '</span>') + '</div>'
       + '<div class="pipeline-card-sub">' + (t ? '📌 Close' + (t.heure ? ' ' + t.heure : '') : '') + (t && r ? ' · ' : '') + (r ? '📞 SalesDesk' + ((rel.r.relance && rel.r.relance.condition) ? ' · ' + escapeHtml(rel.r.relance.condition) : '') : '') + (row.source || row.type ? ' · ' + escapeHtml([row.type, row.source].filter(Boolean).join(' ')) : '') + '</div>'
       + (txt ? '<div class="pipeline-card-sub" style="color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="' + escapeHtml(txt) + '">' + escapeHtml(txt) + '</div>' : (r && (r.contexte || row.retour) ? '<div class="pipeline-card-sub" style="color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(r.contexte || row.retour) + '</div>' : ''))
       + (dernier ? '<div class="pipeline-card-sub">dernier : ' + escapeHtml(dernier) + '</div>' : '')
@@ -8780,8 +8780,18 @@ function renderRelancesPage() {
     var colonnes = [];
     if (retardItems.length) colonnes.push({ titre: '⏰ En retard', sous: retardItems.length + ' à rattraper', items: retardItems.sort(function(a, b) { return a.date.localeCompare(b.date); }), couleur: 'var(--red)', fond: '#fdeeee' });
     jours.forEach(function(iso) { var its = items.filter(function(it) { return it.date === iso && !(iso < today && retardItems.indexOf(it) >= 0); }); var faits = faitsDuJour(iso); colonnes.push({ titre: fmt(iso) + (iso === today ? ' · aujourd\'hui' : ''), sous: its.length + ' à faire' + (faits ? ' · ' + faits + ' faite(s) dans Close' : ''), items: its, couleur: iso === today ? 'var(--accent)' : 'var(--text)', fond: iso === today ? 'var(--accent-bg)' : 'var(--surface2)' }); });
+    // dans chaque jour : les cartes regroupées par motif (R2 sans réponse, prise de RDV, no-show inbound, no-show outbound)
+    var groupes = function(its) {
+      var ordre = ['r2', 'rdv', 'nsin', 'nsout'], out = '';
+      ordre.forEach(function(k) {
+        var g = its.filter(function(it) { return it.col === k; }); if (!g.length) return;
+        var c = COLS[k];
+        out += '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:' + c[2] + ';margin:8px 0 4px;display:flex;justify-content:space-between;"><span>' + c[0] + ' ' + c[1] + '</span><span>' + g.length + '</span></div>' + g.map(function(it) { return carte(it, true); }).join('');
+      });
+      return out || '<div style="font-size:12px;color:var(--text3);padding:6px 0;">—</div>';
+    };
     html += '<div style="display:grid;grid-template-columns:repeat(' + colonnes.length + ',minmax(200px,1fr));gap:10px;align-items:start;overflow-x:auto;">' + colonnes.map(function(c) {
-      return '<div class="pipeline-col" style="background:' + c.fond + ';padding:12px;"><div class="pipeline-col-header"><div class="pipeline-col-title" style="color:' + c.couleur + ';font-size:13px;">' + c.titre + '</div><span class="pipeline-badge">' + c.items.length + '</span></div><div style="font-size:11px;color:var(--text3);margin-bottom:8px;">' + c.sous + '</div><div class="pipeline-cards" style="max-height:62vh;overflow:auto;">' + (c.items.length ? c.items.map(function(it) { return carte(it, true); }).join('') : '<div style="font-size:12px;color:var(--text3);padding:6px 0;">—</div>') + '</div></div>';
+      return '<div class="pipeline-col" style="background:' + c.fond + ';padding:12px;"><div class="pipeline-col-header"><div class="pipeline-col-title" style="color:' + c.couleur + ';font-size:13px;">' + c.titre + '</div><span class="pipeline-badge">' + c.items.length + '</span></div><div style="font-size:11px;color:var(--text3);margin-bottom:4px;">' + c.sous + '</div><div class="pipeline-cards" style="max-height:62vh;overflow:auto;gap:6px;">' + groupes(c.items) + '</div></div>';
     }).join('') + '</div>';
     sem.innerHTML = html;
   } else {
