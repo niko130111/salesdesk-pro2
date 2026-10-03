@@ -1595,7 +1595,8 @@ select.form-input { cursor: pointer; }
     <div id="rl-filtres" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
   </div>
   <div id="rl-resume" style="font-size:12px;color:var(--text3);margin-bottom:12px;"></div>
-  <div class="pipeline-grid" style="display:grid;grid-template-columns:repeat(4,minmax(220px,1fr));gap:12px;align-items:start;">
+  <div id="rl-semaine"></div>
+  <div class="pipeline-grid" id="rl-colonnes" style="display:grid;grid-template-columns:repeat(4,minmax(220px,1fr));gap:12px;align-items:start;">
     <div class="pipeline-col" style="background:#f3efff;"><div class="pipeline-col-header"><div class="pipeline-col-title" style="color:#6d4fc2;">🔁 R2 sans réponse</div><span class="pipeline-badge" id="rl-badge-r2">0</span></div><div style="font-size:11px;color:#6d4fc2;margin-bottom:10px;">R1 fait, intéressé, pas de nouvelles sur le R2</div><div class="pipeline-cards" id="rl-col-r2"></div></div>
     <div class="pipeline-col" style="background:#e8f4fb;"><div class="pipeline-col-header"><div class="pipeline-col-title" style="color:#0e7490;">📅 Prise de RDV</div><span class="pipeline-badge" id="rl-badge-rdv">0</span></div><div style="font-size:11px;color:#0e7490;margin-bottom:10px;">à rappeler pour caler un R1 (promo, carte, RENT, budget, ancien contact…)</div><div class="pipeline-cards" id="rl-col-rdv"></div></div>
     <div class="pipeline-col" style="background:#fff4e6;"><div class="pipeline-col-header"><div class="pipeline-col-title orange">👻 No-show Inbound</div><span class="pipeline-badge" id="rl-badge-nsin">0</span></div><div style="font-size:11px;color:var(--orange);margin-bottom:10px;">pas venu au R1 pris par un SDR ou le site</div><div class="pipeline-cards" id="rl-col-nsin"></div></div>
@@ -8692,44 +8693,105 @@ function sdColonneRelance(r, row) {
   if (SD_INTERESSE.indexOf(res) >= 0 || r.outcome === 'rappel' || (row && row.r2Attendu)) return 'r2';
   return 'rdv';
 }
+// Tâches Close de Nicolas (copilot /close/taches) : affichées avec les relances, sur la semaine
+var _tachesClose = null, _tachesCloseAt = 0, _tachesCloseCle = '';
+function chargerTachesClose(depuis, jusqua, force) {
+  if (typeof COPILOT_URL === 'undefined') return;
+  var cle = depuis + '|' + jusqua;
+  if (_tachesClose && _tachesCloseCle === cle && Date.now() - _tachesCloseAt < 120000 && !force) return;
+  var ctrl = new AbortController(); setTimeout(function() { ctrl.abort(); }, 60000);
+  fetch(COPILOT_URL + '/close/taches?' + new URLSearchParams({ depuis: depuis, jusqua: jusqua, terminees: '1' }) + (force ? '&force=1' : ''), { mode: 'cors', cache: 'no-store', signal: ctrl.signal })
+    .then(function(r) { return r.json(); }).then(function(d) { _tachesClose = d; _tachesCloseAt = Date.now(); _tachesCloseCle = cle; renderRelancesPage(); })
+    .catch(function() { _tachesClose = { error: 'copilot', taches: [], terminees: [] }; renderRelancesPage(); });
+}
+var _rlVue = 'semaine', _rlLundi = null;
+function rlIso(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+function rlLundiDe(iso) { var d = new Date(iso + 'T12:00:00'); d.setDate(d.getDate() - ((d.getDay() || 7) - 1)); return rlIso(d); }
+function rlPlus(iso, n) { var d = new Date(iso + 'T12:00:00'); d.setDate(d.getDate() + n); return rlIso(d); }
+function rlNomFiche(fiche, contact) { // « Prénom Nom | Réseau » ou « Agence | Prénom Nom » → la personne
+  if (contact) return contact;
+  var segs = String(fiche || '').split(/\s*[|\/]\s*/).filter(Boolean);
+  if (segs.length < 2) return segs[0] || '';
+  var pers = segs.find(function(x) { return /^[A-Za-zÀ-ÿ'\-]+\s+[A-Za-zÀ-ÿ'\- ]+$/.test(x.trim()) && x.trim().split(/\s+/).length <= 4 && !/immo|agence|century|orpi|laforet|safti|iad|capifrance|efficity|bsk|exp\b/i.test(x); });
+  return pers || segs[0];
+}
+function rlCategorieTache(t, rel) {
+  if (rel) return rel.col;
+  var x = (t.texte || '').toLowerCase();
+  if (/no ?show|pas venu|absent/.test(x)) return 'nsin';
+  if (/\br2\b|valid|contrat|signer|décision|decision/.test(x)) return 'r2';
+  return 'rdv';
+}
 function renderRelancesPage() {
   var page = document.getElementById('page-relances'); if (!page) return;
   if (_relances === null) { try { chargerRelancesPourQuotidien(); } catch (e) {} setTimeout(function() { if (page.classList.contains('active')) renderRelancesPage(); }, 1500); }
-  var liste = (_relances || []).slice(), today = new Date().toISOString().slice(0, 10);
-  var lundi = new Date(); lundi.setDate(lundi.getDate() - ((lundi.getDay() || 7) - 1)); var dim = new Date(lundi); dim.setDate(lundi.getDate() + 6); var dimIso = dim.toISOString().slice(0, 10);
+  var today = rlIso(new Date());
+  if (!_rlLundi) _rlLundi = rlLundiDe(today);
+  var finSem = rlPlus(_rlLundi, 6);
+  chargerTachesClose(rlPlus(_rlLundi, -7), rlPlus(_rlLundi, 13), false);
+  var liste = (_relances || []).slice();
   var quand = function(r) { return (r.relance && r.relance.quand) || ''; };
-  var nbDues = liste.filter(function(r) { return quand(r) && quand(r) <= today; }).length, nbSem = liste.filter(function(r) { return quand(r) && quand(r) <= dimIso; }).length;
-  var filtres = [['dues', '⏰ Aujourd\'hui + retard (' + nbDues + ')'], ['semaine', 'Cette semaine (' + nbSem + ')'], ['toutes', 'Toutes (' + liste.length + ')']];
-  document.getElementById('rl-filtres').innerHTML = filtres.map(function(f) { return '<button class="btn btn-sm' + (_rlFiltre === f[0] ? ' btn-primary' : '') + '" onclick="_rlFiltre=\'' + f[0] + '\';renderRelancesPage()">' + f[1] + '</button>'; }).join('');
-  var vis = liste.filter(function(r) { var q = quand(r); if (_rlFiltre === 'dues') return q && q <= today; if (_rlFiltre === 'semaine') return q && q <= dimIso; return true; });
-  vis.sort(function(a, b) { return (quand(a) || '9999').localeCompare(quand(b) || '9999'); });
-  var cols = { r2: [], rdv: [], nsin: [], nsout: [] };
-  vis.forEach(function(r) { var row = sdRowPourRelance(r); cols[sdColonneRelance(r, row)].push({ r: r, row: row }); });
-  var carte = function(x) {
-    var r = x.r, row = x.row || {}, q = quand(r), retard = q && q < today, auj = q === today;
-    var tent = (loadStore()._relancesLog || []).filter(function(l) { return l.id === r.id; }).length + (row.relanceDernier ? 1 : 0);
-    var dernier = row.relanceDernier ? { joint: '📞 joint', pas_de_reponse: '📭 pas de réponse' }[row.relanceDernier] || row.relanceDernier : '';
-    var cond = (r.relance && r.relance.condition) || row.relanceCond || '';
-    var dateRdv = r.date ? r.date.split('-').reverse().join('/') : (row.date || '');
-    var idJs = JSON.stringify(String(r.id)).replace(/"/g, '&quot;');
-    var mail = r.message ? '<button class="btn btn-sm" style="font-size:11px;padding:3px 8px;" title="' + escapeHtml(r.message.objet || '') + '" onclick="event.stopPropagation();fcVoirBrouillon(' + JSON.stringify(r.message.objet || '').replace(/"/g, '&quot;') + ',' + JSON.stringify(r.message.corps || '').replace(/"/g, '&quot;') + ',' + JSON.stringify(r.email || row.email || '').replace(/"/g, '&quot;') + ',' + JSON.stringify(r.message.origine || '').replace(/"/g, '&quot;') + ',' + JSON.stringify(r.nom || '').replace(/"/g, '&quot;') + ')">✉ Brouillon</button>'
-      : ((r.email || row.email) ? '<a class="btn btn-sm" style="font-size:11px;padding:3px 8px;text-decoration:none;" href="mailto:' + escapeHtml(r.email || row.email) + '" onclick="event.stopPropagation()">✉ Mail</a>' : '');
-    return '<div class="pipeline-card" style="cursor:pointer;' + (retard ? 'border-left:3px solid var(--red);' : auj ? 'border-left:3px solid var(--orange);' : '') + '" onclick="ouvrirFicheClient(' + JSON.stringify(r.nom || '').replace(/"/g, '&quot;') + ',' + JSON.stringify(r.email || row.email || '').replace(/"/g, '&quot;') + ')" title="Ouvrir la fiche client">'
-      + '<div class="pipeline-card-name" style="display:flex;justify-content:space-between;gap:6px;"><span>' + escapeHtml(r.nom) + '</span><span style="font-size:11px;font-weight:700;color:' + (retard ? 'var(--red)' : auj ? 'var(--orange)' : 'var(--text3)') + ';white-space:nowrap;">' + (q ? (retard ? '⏰ ' : '') + q.split('-').reverse().slice(0, 2).join('/') : 'sans date') + '</span></div>'
-      + '<div class="pipeline-card-sub">' + escapeHtml([row.type || r.reseau, row.source || r.source, dateRdv ? 'RDV ' + dateRdv : ''].filter(Boolean).join(' · ')) + (cond ? ' · <b>' + escapeHtml(cond) + '</b>' : '') + '</div>'
-      + ((r.contexte || row.retour) ? '<div class="pipeline-card-sub" style="color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(r.contexte || row.retour) + '</div>' : '')
-      + '<div class="pipeline-card-sub">' + (tent ? tent + ' tentative' + (tent > 1 ? 's' : '') : 'pas encore relancé') + (dernier ? ' · dernier : ' + dernier : '') + '</div>'
-      + '<div class="pipeline-card-footer" style="gap:4px;flex-wrap:wrap;" onclick="event.stopPropagation()">'
-      + '<span style="display:flex;gap:4px;flex-wrap:wrap;">' + mail + '<span class="tag" style="cursor:pointer;" title="Ouvrir la fiche Close" onclick="fcOuvrirClose(' + JSON.stringify(r.nom || '').replace(/"/g, '&quot;') + ',' + JSON.stringify(r.email || row.email || '').replace(/"/g, '&quot;') + ', event)">↗ Close</span></span>'
-      + '<span style="display:flex;gap:4px;"><button class="btn btn-sm" style="font-size:11px;padding:3px 8px;" title="Changer la date" onclick="relanceResultat(' + idJs + ', this, true)">📅</button><button class="btn btn-sm btn-primary" style="font-size:11px;padding:3px 8px;" onclick="relanceResultat(' + idJs + ', this)">✅ Résultat</button></span>'
-      + '</div></div>';
+  // relances SalesDesk enrichies (ligne, colonne)
+  var rels = liste.map(function(r) { var row = sdRowPourRelance(r); return { r: r, row: row, col: sdColonneRelance(r, row), nom: r.nom, date: quand(r) }; });
+  // tâches Close : rapprochées d'une relance SalesDesk par la personne (même date ou non)
+  var taches = (_tachesClose && _tachesClose.taches) || [], terminees = (_tachesClose && _tachesClose.terminees) || [];
+  var items = []; var relsUtilisees = {};
+  taches.forEach(function(t) {
+    var nom = rlNomFiche(t.fiche, t.contact), n = fcNormNom(nom);
+    var rel = rels.find(function(x) { return !relsUtilisees[x.r.id] && (fcNormNom(x.nom) === n || (fcNormNom(x.nom).length > 5 && (n.indexOf(fcNormNom(x.nom)) >= 0 || fcNormNom(x.nom).indexOf(n) >= 0))); });
+    if (rel) relsUtilisees[rel.r.id] = true;
+    items.push({ type: 'close', t: t, rel: rel, nom: nom, date: t.date || (rel ? rel.date : ''), col: rlCategorieTache(t, rel) });
+  });
+  rels.forEach(function(x) { if (!relsUtilisees[x.r.id]) items.push({ type: 'sd', rel: x, nom: x.nom, date: x.date, col: x.col }); });
+  var nbDues = items.filter(function(i) { return i.date && i.date <= today; }).length;
+  // bascule + navigation
+  document.getElementById('rl-filtres').innerHTML = '<button class="btn btn-sm' + (_rlVue === 'semaine' ? ' btn-primary' : '') + '" onclick="_rlVue=\'semaine\';renderRelancesPage()">📆 Semaine</button><button class="btn btn-sm' + (_rlVue === 'colonnes' ? ' btn-primary' : '') + '" onclick="_rlVue=\'colonnes\';renderRelancesPage()">🗂 Par motif</button>'
+    + '<button class="btn btn-sm" style="margin-left:10px;" title="Relire les tâches Close" onclick="chargerTachesClose(rlPlus(_rlLundi,-7), rlPlus(_rlLundi,13), true)">↻</button>';
+  var etatClose = !_tachesClose ? 'tâches Close : chargement…' : (_tachesClose.error ? '⚠ tâches Close indisponibles (copilot éteint ?)' : (_tachesClose.configure === false ? 'clé Close absente' : taches.length + ' tâche(s) Close ouverte(s)'));
+  document.getElementById('rl-resume').innerHTML = '<b>' + nbDues + '</b> à faire aujourd\'hui ou en retard · ' + liste.length + ' relance(s) SalesDesk · ' + etatClose;
+  var badge = document.getElementById('nav-relances-badge'); if (badge) { badge.style.display = nbDues ? '' : 'none'; badge.textContent = nbDues; }
+  var COLS = { r2: ['🔁', 'R2 sans réponse', '#6d4fc2'], rdv: ['📅', 'Prise de RDV', '#0e7490'], nsin: ['👻', 'No-show Inbound', 'var(--orange)'], nsout: ['👻', 'No-show Outbound', 'var(--red)'] };
+  var carte = function(it, compact) {
+    var rel = it.rel, r = rel && rel.r, row = (rel && rel.row) || {}, t = it.t, q = it.date, retard = q && q < today, auj = q === today;
+    var email = (r && r.email) || row.email || '';
+    var idJs = r ? JSON.stringify(String(r.id)).replace(/"/g, '&quot;') : '';
+    var nomJs = JSON.stringify(it.nom || '').replace(/"/g, '&quot;'), emailJs = JSON.stringify(email).replace(/"/g, '&quot;');
+    var c = COLS[it.col] || COLS.rdv;
+    var mail = r && r.message ? '<button class="btn btn-sm" style="font-size:11px;padding:2px 7px;" onclick="event.stopPropagation();fcVoirBrouillon(' + JSON.stringify(r.message.objet || '').replace(/"/g, '&quot;') + ',' + JSON.stringify(r.message.corps || '').replace(/"/g, '&quot;') + ',' + emailJs + ',' + JSON.stringify(r.message.origine || '').replace(/"/g, '&quot;') + ',' + nomJs + ')">✉</button>' : (email ? '<a class="btn btn-sm" style="font-size:11px;padding:2px 7px;text-decoration:none;" href="mailto:' + escapeHtml(email) + '" onclick="event.stopPropagation()">✉</a>' : '');
+    var txt = t && t.texte && !/^follow ?up(\s*\(\d+\))?$/i.test(t.texte.trim()) ? t.texte : '';
+    var dernier = row.relanceDernier ? ({ joint: 'joint', pas_de_reponse: 'pas de réponse' }[row.relanceDernier] || row.relanceDernier) : '';
+    return '<div class="pipeline-card" style="cursor:pointer;padding:8px 10px;' + (retard ? 'border-left:3px solid var(--red);' : auj ? 'border-left:3px solid var(--orange);' : '') + '" onclick="ouvrirFicheClient(' + nomJs + ',' + emailJs + ')">'
+      + '<div class="pipeline-card-name" style="display:flex;justify-content:space-between;gap:6px;align-items:baseline;"><span>' + escapeHtml(it.nom) + '</span><span style="font-size:10px;white-space:nowrap;color:' + c[2] + ';font-weight:700;">' + c[0] + ' ' + (compact ? '' : c[1]) + '</span></div>'
+      + '<div class="pipeline-card-sub">' + (t ? '📌 Close' + (t.heure ? ' ' + t.heure : '') : '') + (t && r ? ' · ' : '') + (r ? '📞 SalesDesk' + ((rel.r.relance && rel.r.relance.condition) ? ' · ' + escapeHtml(rel.r.relance.condition) : '') : '') + (row.source || row.type ? ' · ' + escapeHtml([row.type, row.source].filter(Boolean).join(' ')) : '') + '</div>'
+      + (txt ? '<div class="pipeline-card-sub" style="color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="' + escapeHtml(txt) + '">' + escapeHtml(txt) + '</div>' : (r && (r.contexte || row.retour) ? '<div class="pipeline-card-sub" style="color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(r.contexte || row.retour) + '</div>' : ''))
+      + (dernier ? '<div class="pipeline-card-sub">dernier : ' + escapeHtml(dernier) + '</div>' : '')
+      + '<div class="pipeline-card-footer" style="gap:4px;flex-wrap:wrap;margin-top:6px;" onclick="event.stopPropagation()"><span style="display:flex;gap:4px;">' + mail + '<a class="tag" style="text-decoration:none;" href="' + escapeHtml((t && t.url) || '#') + '" target="_blank" rel="noopener" onclick="' + (t ? '' : 'event.preventDefault();fcOuvrirClose(' + nomJs + ',' + emailJs + ', event)') + '">↗ Close</a></span>'
+      + '<span style="display:flex;gap:4px;">' + (r ? '<button class="btn btn-sm" style="font-size:11px;padding:2px 7px;" title="Décaler" onclick="relanceResultat(' + idJs + ', this, true)">📅</button><button class="btn btn-sm btn-primary" style="font-size:11px;padding:2px 7px;" onclick="relanceResultat(' + idJs + ', this)">✅</button>' : '<span class="tag" title="Tâche Close seule : se termine dans Close pour l\'instant">dans Close</span>') + '</span></div></div>';
   };
-  var vide = '<div style="font-size:12px;color:var(--text3);padding:8px 0;">—</div>';
-  Object.keys(cols).forEach(function(c) { document.getElementById('rl-badge-' + c).textContent = cols[c].length; document.getElementById('rl-col-' + c).innerHTML = cols[c].length ? cols[c].map(carte).join('') : vide; });
-  document.getElementById('rl-resume').textContent = liste.length ? (nbDues ? nbDues + ' à faire aujourd\'hui ou en retard · ' : 'Rien en retard · ') + liste.length + ' relance(s) datée(s) au total' : (_relances === null ? 'Chargement…' : 'Aucune relance datée. Pose-les depuis le Pipeline, la fiche client ou le copilot.');
+  var sem = document.getElementById('rl-semaine'), colsEl = document.getElementById('rl-colonnes');
+  if (_rlVue === 'semaine') {
+    colsEl.style.display = 'none'; sem.style.display = '';
+    var jours = [0, 1, 2, 3, 4, 5, 6].map(function(i) { return rlPlus(_rlLundi, i); }).filter(function(iso, i) { return i < 5 || items.some(function(it) { return it.date === iso; }); });
+    // « En retard » : tout ce qui est daté avant aujourd'hui, affiché seulement sur la semaine en cours
+    var retardItems = (_rlLundi <= today && today <= finSem) ? items.filter(function(it) { return it.date && it.date < today; }) : [];
+    var fmt = function(iso) { var d = new Date(iso + 'T12:00:00'); return d.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' }).replace('.', ''); };
+    var faitsDuJour = function(iso) { return terminees.filter(function(t) { return t.date === iso; }).length; };
+    var html = '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;"><button class="btn btn-sm" onclick="_rlLundi=rlPlus(_rlLundi,-7);renderRelancesPage()">← Sem. préc.</button><div style="flex:1;text-align:center;font-weight:700;">Semaine du ' + fmt(_rlLundi) + ' au ' + fmt(rlPlus(_rlLundi, 4)) + (_rlLundi === rlLundiDe(today) ? ' · cette semaine' : '') + '</div>' + (_rlLundi !== rlLundiDe(today) ? '<button class="btn btn-sm" onclick="_rlLundi=null;renderRelancesPage()">Aujourd\'hui</button>' : '') + '<button class="btn btn-sm" onclick="_rlLundi=rlPlus(_rlLundi,7);renderRelancesPage()">Sem. suiv. →</button></div>';
+    var colonnes = [];
+    if (retardItems.length) colonnes.push({ titre: '⏰ En retard', sous: retardItems.length + ' à rattraper', items: retardItems.sort(function(a, b) { return a.date.localeCompare(b.date); }), couleur: 'var(--red)', fond: '#fdeeee' });
+    jours.forEach(function(iso) { var its = items.filter(function(it) { return it.date === iso && !(iso < today && retardItems.indexOf(it) >= 0); }); var faits = faitsDuJour(iso); colonnes.push({ titre: fmt(iso) + (iso === today ? ' · aujourd\'hui' : ''), sous: its.length + ' à faire' + (faits ? ' · ' + faits + ' faite(s) dans Close' : ''), items: its, couleur: iso === today ? 'var(--accent)' : 'var(--text)', fond: iso === today ? 'var(--accent-bg)' : 'var(--surface2)' }); });
+    html += '<div style="display:grid;grid-template-columns:repeat(' + colonnes.length + ',minmax(200px,1fr));gap:10px;align-items:start;overflow-x:auto;">' + colonnes.map(function(c) {
+      return '<div class="pipeline-col" style="background:' + c.fond + ';padding:12px;"><div class="pipeline-col-header"><div class="pipeline-col-title" style="color:' + c.couleur + ';font-size:13px;">' + c.titre + '</div><span class="pipeline-badge">' + c.items.length + '</span></div><div style="font-size:11px;color:var(--text3);margin-bottom:8px;">' + c.sous + '</div><div class="pipeline-cards" style="max-height:62vh;overflow:auto;">' + (c.items.length ? c.items.map(function(it) { return carte(it, true); }).join('') : '<div style="font-size:12px;color:var(--text3);padding:6px 0;">—</div>') + '</div></div>';
+    }).join('') + '</div>';
+    sem.innerHTML = html;
+  } else {
+    sem.style.display = 'none'; colsEl.style.display = '';
+    var cols = { r2: [], rdv: [], nsin: [], nsout: [] };
+    items.filter(function(it) { return it.date && it.date <= finSem || !it.date; }).sort(function(a, b) { return (a.date || '9999').localeCompare(b.date || '9999'); }).forEach(function(it) { cols[it.col].push(it); });
+    Object.keys(cols).forEach(function(c) { document.getElementById('rl-badge-' + c).textContent = cols[c].length; document.getElementById('rl-col-' + c).innerHTML = cols[c].length ? cols[c].map(function(it) { return carte(it, false); }).join('') : '<div style="font-size:12px;color:var(--text3);padding:8px 0;">—</div>'; });
+  }
   var sans = (typeof sdRdvsSansAction === 'function') ? sdRdvsSansAction() : [];
   document.getElementById('rl-sans-date').innerHTML = sans.length ? '⚠️ ' + sans.length + ' RDV sans prochaine action (ni R2, ni relance datée) — <a href="#" onclick="sdClasserEnChaine();return false;">les traiter</a>' : '';
-  var badge = document.getElementById('nav-relances-badge'); if (badge) { badge.style.display = nbDues ? '' : 'none'; badge.textContent = nbDues; }
 }
 // ── REVUE DES ANCIENS RDV À RELANCER ───────────────────────────────────────────────────────
 // Pour chaque carte « Ancien RDV à relancer » : réactiver (date de relance), mettre en veille (sort du Pipeline, reste dans les
