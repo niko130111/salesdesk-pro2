@@ -392,7 +392,13 @@ main { max-width: 100%; margin: 0; padding: 6px 8px; }
 .fc-dernier .t a { color: #8a6d00; font-weight: 600; text-transform: none; letter-spacing: 0; font-size: 11px; cursor: pointer; }
 .fc-dernier ul { margin: 0; padding-left: 18px; }
 .fc-dernier li { margin: 2px 0; }
-.fc-dernier .faits { font-size: 12px; color: var(--text2); margin-top: 6px; }
+.fc-dernier .faits { font-size: 12px; color: var(--text2); margin-top: 8px; }
+.fc-dernier .ech { padding: 8px 0; border-top: 1px dashed #e6d9a3; }
+.fc-dernier .ech:first-of-type { border-top: 0; padding-top: 2px; }
+.fc-dernier .ech-t { font-size: 12px; font-weight: 700; color: #7a5f00; margin-bottom: 3px; }
+.fc-dernier .ech-next { margin-top: 8px; font-weight: 700; font-size: 13px; }
+[data-theme="dark"] .fc-dernier .ech { border-top-color: #4a3e14; }
+[data-theme="dark"] .fc-dernier .ech-t { color: #e2c45a; }
 [data-theme="dark"] .fc-dernier { background: #2a2410; border-color: #4a3e14; }
 [data-theme="dark"] .fc-dernier .t, [data-theme="dark"] .fc-dernier .t a { color: #e2c45a; }
 .fc-suivi span { font-size: 12.5px; font-weight: 600; padding: 6px 10px; border-radius: 8px; }
@@ -3441,7 +3447,7 @@ function fcChargerClose() {
 // « La dernière fois » : 4-6 lignes condensées par le copilot depuis Close (appels, mails, compte rendu Claap) — jamais inventées
 function fcChargerDernierContact(force) {
   var cle = _fc.cle, el = document.getElementById('fc-dernier'); if (!el) return;
-  el.innerHTML = '<div class="t"><span>🗣 La dernière fois</span></div><div class="fc-muted">lecture de Close (et transcription des appels enregistrés la première fois : 10-20 s)…</div>';
+  el.innerHTML = '<div class="t"><span>🗣 Ce qu\'on s\'est dit</span></div><div class="fc-muted">lecture de Close (et transcription des appels enregistrés la première fois : 10-20 s)…</div>';
   var ctrl = new AbortController(); setTimeout(function() { ctrl.abort(); }, 60000);
   fetch(COPILOT_URL + '/close/dernier-contact?' + new URLSearchParams({ email: _fc.email || '', nom: _fc.nom, force: force ? '1' : '0' }), { mode: 'cors', cache: 'no-store', signal: ctrl.signal })
     .then(function(r) { return r.json(); }).then(function(j) { if (_fc.cle === cle) fcRendreDernierContact(j); })
@@ -3449,7 +3455,7 @@ function fcChargerDernierContact(force) {
 }
 function fcRendreDernierContact(j) {
   var el = document.getElementById('fc-dernier'); if (!el) return;
-  if (!j || j.configure === false || j.error || j.trouve === false) { el.innerHTML = j && j.error ? '<div class="t"><span>🗣 La dernière fois</span></div><div class="fc-muted">Close : ' + escapeHtml(j.error) + '</div>' : ''; return; }
+  if (!j || j.configure === false || j.error || j.trouve === false) { el.innerHTML = j && j.error ? '<div class="t"><span>🗣 Ce qu\'on s\'est dit</span></div><div class="fc-muted">Close : ' + escapeHtml(j.error) + '</div>' : ''; return; }
   var faits = [], last = _fc.rows[0] || {};
   var sec = function(n) { return n >= 60 ? Math.round(n / 60) + ' min' : n + ' s'; };
   if (j.derniereConversation) faits.push((j.derniereConversation.claap ? 'RDV du ' : 'Vrai échange le ') + j.derniereConversation.date + (j.derniereConversation.claap ? ' (compte rendu Claap)' : ' (' + sec(j.derniereConversation.duree) + (j.derniereConversation.enregistre ? ', enregistrement transcrit' : '') + ')'));
@@ -3460,9 +3466,14 @@ function fcRendreDernierContact(j) {
   if (j.dernierMail) faits.push((j.dernierMail.envoye ? 'mail envoyé ' : 'mail reçu ') + j.dernierMail.date + (j.dernierMail.objet ? ' « ' + j.dernierMail.objet + ' »' : ''));
   if (last.retour) faits.push('ton retour SalesDesk : ' + last.retour);
   if (last.relanceDernier) faits.push('dernière relance : ' + ({ joint: 'joint', pas_de_reponse: 'pas de réponse' }[last.relanceDernier] || last.relanceDernier) + (last.relanceDernierAt ? ' le ' + fcFrDepuisIso(last.relanceDernierAt) : ''));
-  var lignes = (j.lignes || []).slice(0, 10);
-  el.innerHTML = '<div class="t"><span>🗣 La dernière fois</span><a onclick="fcChargerDernierContact(true)" title="Relire Close">↻</a></div>'
-    + (lignes.length ? '<ul>' + lignes.map(function(l) { return '<li>' + escapeHtml(l) + '</li>'; }).join('') + '</ul>' : '<div class="fc-muted">Rien d\'exploitable dans Close (pas de note, pas de compte rendu).</div>')
+  var ICO = { appel: '📞', rdv: '🤝', mail: '✉', sms: '💬' };
+  var echanges = (j.echanges || []).slice(0, 5);
+  var blocs = echanges.map(function(e) {
+    return '<div class="ech"><div class="ech-t">' + (ICO[e.type] || '📞') + ' ' + escapeHtml(e.date || '') + ' · ' + escapeHtml(e.type === 'rdv' ? 'RDV' : e.type === 'mail' ? 'mail' : e.type === 'sms' ? 'SMS' : 'appel') + (e.par ? ' · <b>' + escapeHtml(e.par) + '</b>' : ' · toi') + '</div><ul>' + e.lignes.map(function(l) { return '<li>' + escapeHtml(l) + '</li>'; }).join('') + '</ul></div>';
+  });
+  el.innerHTML = '<div class="t"><span>🗣 Ce qu\'on s\'est dit</span><a onclick="fcChargerDernierContact(true)" title="Relire Close">↻</a></div>'
+    + (blocs.length ? blocs.join('') : (j.lignes && j.lignes.length ? '<ul>' + j.lignes.map(function(l) { return '<li>' + escapeHtml(l) + '</li>'; }).join('') + '</ul>' : '<div class="fc-muted">Rien d\'exploitable dans Close (pas de note, pas d\'enregistrement, pas de compte rendu).</div>'))
+    + (j.prochaine ? '<div class="ech-next">➡ ' + escapeHtml(j.prochaine) + '</div>' : '')
     + (faits.length ? '<div class="faits">' + faits.map(escapeHtml).join(' · ') + '</div>' : '');
 }
 // L'URL de la fiche Close est gardée sur le client (_clients) : les cartes Pipeline l'ouvrent d'un clic sans re-chercher
