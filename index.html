@@ -3941,9 +3941,9 @@ function renderSources(kpis) {
       <div class="source-stats">
         <div class="source-stat"><div class="s-label">Total RDV</div><div class="s-value">${total}</div></div>
         <div class="source-stat"><div class="s-label">Signés</div><div class="s-value green">${signes}</div></div>
-        <div class="source-stat"><div class="s-label">Closing</div><div class="s-value">${closing}%</div></div>
-        <div class="source-stat"><div class="s-label">Show Rate</div><div class="s-value">${showrate}%</div></div>
-        <div class="source-stat"><div class="s-label">No Show</div><div class="s-value ${nosho > 0 ? 'red' : ''}">${total > 0 ? Math.round(nosho/total*100) : 0}%</div></div>
+        <div class="source-stat"><div class="s-label">Closing</div><div class="s-value" title="ventes / shows">${sdPct(signes, shows)}</div></div>
+        <div class="source-stat"><div class="s-label">Show Rate</div><div class="s-value" title="shows / RDV">${sdPct(shows, total)}</div></div>
+        <div class="source-stat"><div class="s-label">No Show</div><div class="s-value ${nosho > 0 ? 'red' : ''}" title="absents / RDV">${sdPct(nosho, total)}</div></div>
         <div class="source-stat"><div class="s-label">1 vente pour</div><div class="s-value">${signes > 0 ? (total / signes).toFixed(1).replace('.', ',') + ' RDV' : '—'}</div></div>
       </div>
     </div>`;
@@ -6932,6 +6932,8 @@ function primePalier(nbSignes, yr, mIdx) {
 }
 // Jours travaillés = jours où au moins un RDV a été tenu ou attendu (Show ou No Show). Un jour sans aucun RDV (vacances, absence)
 // ou dont tous les RDV ont été annulés / reprogrammés (jour férié, congé posé après coup) n'est pas un jour travaillé.
+// Petits échantillons : sous 5 cas au dénominateur, un pourcentage ne veut rien dire → on affiche « 1/1 », « 2/4 »…
+function sdPct(num, den) { if (!den) return '—'; if (den < 5) return num + '/' + den; return Math.round(num / den * 100) + '%'; }
 function getJoursTravailles(rows) {
   const jours = {};
   (rows || []).forEach(r => {
@@ -9055,9 +9057,9 @@ function renderGlobal() {
       + '<td style="padding:12px 14px;text-align:center;color:var(--green);font-weight:600;">' + sh + '</td>'
       + '<td style="padding:12px 14px;text-align:center;color:var(--red);font-weight:600;">' + ns + '</td>'
       + '<td style="padding:12px 14px;text-align:center;font-weight:700;color:var(--accent);">' + si + '</td>'
-      + '<td style="padding:12px 14px;text-align:center;font-weight:700;color:' + C(sr,70,50) + ';">' + sr + '%</td>'
-      + '<td style="padding:12px 14px;text-align:center;font-weight:700;color:' + C(tf,30,15) + ';">' + tf + '%</td>'
-      + '<td style="padding:12px 14px;text-align:center;font-weight:700;color:' + C(cl,40,20) + ';">' + cl + '%</td>'
+      + '<td style="padding:12px 14px;text-align:center;font-weight:700;color:' + C(sr,70,50) + ';">' + sdPct(sh, rows.length) + '</td>'
+      + '<td style="padding:12px 14px;text-align:center;font-weight:700;color:' + C(tf,30,15) + ';">' + sdPct(si, rows.length) + '</td>'
+      + '<td style="padding:12px 14px;text-align:center;font-weight:700;color:' + C(cl,40,20) + ';">' + sdPct(si, sh) + '</td>'
       + '<td style="padding:12px 14px;text-align:center;font-weight:600;color:var(--orange);">' + (comm > 0 ? comm.toLocaleString('fr-FR') + ' \u20ac' : '\u2014') + '</td>'
       + '</tr>';
   }
@@ -9112,10 +9114,10 @@ function renderGlobal() {
         + '<td>' + m.rdv + '</td>'
         + '<td style="color:var(--green);font-weight:500;">' + m.shows + '</td>'
         + '<td style="color:var(--red);font-weight:500;">'   + m.noshow + '</td>'
-        + '<td style="color:' + C(m.showrate,70,50) + ';font-weight:600;">' + m.showrate + '%</td>'
+        + '<td style="color:' + C(m.showrate,70,50) + ';font-weight:600;">' + sdPct(m.shows, m.rdv) + '</td>'
         + '<td style="font-weight:700;color:var(--accent);">' + m.signes + '</td>'
-        + '<td style="color:' + C(m.transfo,30,15) + ';font-weight:600;">' + m.transfo + '%</td>'
-        + '<td style="color:' + C(m.closing,40,20) + ';font-weight:600;">'  + m.closing  + '%</td>'
+        + '<td style="color:' + C(m.transfo,30,15) + ';font-weight:600;">' + sdPct(m.signes, m.rdv) + '</td>'
+        + '<td style="color:' + C(m.closing,40,20) + ';font-weight:600;">'  + sdPct(m.signes, m.shows) + '</td>'
         + '<td style="font-weight:600;">' + (m.commission > 0 ? m.commission.toLocaleString('fr-FR') + ' \u20ac' : '\u2014') + '</td>'
         + '</tr>';
     }).join('');
