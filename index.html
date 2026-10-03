@@ -397,6 +397,17 @@ main { max-width: 100%; margin: 0; padding: 6px 8px; }
 .fc-dernier .ech:first-of-type { border-top: 0; padding-top: 2px; }
 .fc-dernier .ech-t { font-size: 12px; font-weight: 700; color: #7a5f00; margin-bottom: 3px; }
 .fc-dernier .ech-next { margin-top: 8px; font-weight: 700; font-size: 13px; }
+.fc-dernier .t .src { font-size: 11px; font-weight: 500; text-transform: none; letter-spacing: 0; color: var(--text3); }
+.fc-dernier .cle { font-size: 14px; margin: 3px 0; }
+.fc-dernier .cle.promesse { font-size: 16px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+.fc-dernier .cle.alerte { color: var(--red); }
+.fc-dernier .echs { margin-top: 10px; }
+.fc-dernier .ech.plus { display: none; }
+.fc-dernier .echs.ouvert .ech.plus { display: block; }
+.fc-dernier .voirplus { display: inline-block; margin-top: 6px; font-size: 12px; color: var(--accent); cursor: pointer; font-weight: 600; }
+.fc-dernier .ech-t { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.fc-dernier .preuves a { font-size: 11px; font-weight: 600; color: var(--accent); cursor: pointer; margin-left: 10px; text-decoration: none; }
+.fc-dernier pre.mots { white-space: pre-wrap; font: 12px/1.45 inherit; font-family: inherit; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; margin: 6px 0 0; max-height: 240px; overflow: auto; color: var(--text2); }
 [data-theme="dark"] .fc-dernier .ech { border-top-color: #4a3e14; }
 [data-theme="dark"] .fc-dernier .ech-t { color: #e2c45a; }
 [data-theme="dark"] .fc-dernier { background: #2a2410; border-color: #4a3e14; }
@@ -3445,36 +3456,85 @@ function fcChargerClose() {
     .catch(function() { if (_fc.cle === cle) { _fc.close = undefined; fcRendreContact(); } });
 }
 // « La dernière fois » : 4-6 lignes condensées par le copilot depuis Close (appels, mails, compte rendu Claap) — jamais inventées
-function fcChargerDernierContact(force) {
+function fcChargerDernierContact(force, leadId) {
   var cle = _fc.cle, el = document.getElementById('fc-dernier'); if (!el) return;
-  el.innerHTML = '<div class="t"><span>🗣 Ce qu\'on s\'est dit</span></div><div class="fc-muted">lecture de Close (et transcription des appels enregistrés la première fois : 10-20 s)…</div>';
-  var ctrl = new AbortController(); setTimeout(function() { ctrl.abort(); }, 60000);
-  fetch(COPILOT_URL + '/close/dernier-contact?' + new URLSearchParams({ email: _fc.email || '', nom: _fc.nom, force: force ? '1' : '0' }), { mode: 'cors', cache: 'no-store', signal: ctrl.signal })
-    .then(function(r) { return r.json(); }).then(function(j) { if (_fc.cle === cle) fcRendreDernierContact(j); })
-    .catch(function() { if (_fc.cle === cle) el.innerHTML = ''; });
+  el.innerHTML = '<div class="t"><span>🗣 Avant d\'appeler</span></div><div class="fc-muted">lecture de Close' + (force ? ' et transcription des appels enregistrés (10-20 s)' : '') + '…</div>';
+  var ctrl = new AbortController(); setTimeout(function() { ctrl.abort(); }, 90000);
+  var q = { email: _fc.email || '', nom: _fc.nom, force: force ? '1' : '0' }; if (leadId) { q.lead = leadId; _fc.leadChoisi = leadId; } else if (_fc.leadChoisi) q.lead = _fc.leadChoisi;
+  fetch(COPILOT_URL + '/close/dernier-contact?' + new URLSearchParams(q), { mode: 'cors', cache: 'no-store', signal: ctrl.signal })
+    .then(function(r) { return r.json(); }).then(function(j) { if (_fc.cle === cle) { _fc.dernier = j; fcRendreDernierContact(j); } })
+    .catch(function() { if (_fc.cle === cle) el.innerHTML = '<div class="t"><span>🗣 Avant d\'appeler</span><a onclick="fcChargerDernierContact(true)">↻ réessayer</a></div><div class="fc-muted">Le copilot n\'a pas répondu à temps (appels longs à transcrire ?) — réessaie dans quelques secondes.</div>'; });
+}
+// Les 3 lignes closer (promesse datée · accroche · état du deal) + alertes, puis le détail par échange avec la preuve (audio, mots exacts, Claap)
+function fcHtmlCles(j) {
+  var c = j.cles || {}, out = [];
+  if (c.promesse) out.push('<div class="cle promesse">🤝 ' + escapeHtml(c.promesse) + '</div>');
+  if (c.accroche) out.push('<div class="cle">💬 <b>Pour ouvrir :</b> ' + escapeHtml(c.accroche) + '</div>');
+  if (c.deal) out.push('<div class="cle">💶 <b>Le deal :</b> ' + escapeHtml(c.deal) + '</div>');
+  if (c.promesse_sdr) out.push('<div class="cle alerte">⚠ <b>Promis par un collègue :</b> ' + escapeHtml(c.promesse_sdr) + '</div>');
+  var badges = [];
+  if (c.demo_faite) badges.push('<span class="fc-badge">🎬 Démo déjà faite le ' + escapeHtml(c.demo_faite) + ' — ne pas re-pitcher</span>');
+  if (j.tentativesDepuis >= 2) badges.push('<span class="fc-badge" style="background:#fdeeee;color:var(--red);">📵 ' + j.tentativesDepuis + ' appels sans réponse' + (j.derniereConversation ? ' depuis le ' + escapeHtml(j.derniereConversation.date) : '') + ' → tenter SMS / mail</span>');
+  if (badges.length) out.push('<div class="fc-badges" style="margin-top:6px;">' + badges.join('') + '</div>');
+  return out.join('');
 }
 function fcRendreDernierContact(j) {
   var el = document.getElementById('fc-dernier'); if (!el) return;
-  if (!j || j.configure === false || j.error || j.trouve === false) { el.innerHTML = j && j.error ? '<div class="t"><span>🗣 Ce qu\'on s\'est dit</span></div><div class="fc-muted">Close : ' + escapeHtml(j.error) + '</div>' : ''; return; }
+  var titre = '<div class="t"><span>🗣 Avant d\'appeler</span><span style="display:flex;gap:10px;align-items:baseline;">' + (j && j.nom ? '<span class="src">d\'après la fiche Close « ' + escapeHtml(j.nom) + ' »' + (j.candidats && j.candidats.length > 1 ? ' <select onchange="fcChargerDernierContact(false,this.value)" style="font-size:11px;border-radius:6px;border:1px solid var(--border);background:var(--surface);">' + j.candidats.map(function(c) { return '<option value="' + escapeHtml(c.id) + '"' + (c.id === j.lead ? ' selected' : '') + '>' + escapeHtml(c.nom) + '</option>'; }).join('') + '</select>' : '') + '</span>' : '') + '<a onclick="fcChargerDernierContact(true)" title="Relire Close">↻</a><a onclick="fcOnglet(\'notes\')" title="Ma note">✎ ma note</a></span></div>';
+  if (!j || j.configure === false || j.error || j.trouve === false) { el.innerHTML = j && j.error ? titre + '<div class="fc-muted">Close : ' + escapeHtml(j.error) + '</div>' : (j && j.trouve === false ? titre + '<div class="fc-muted">Aucune fiche Close trouvée pour ce nom / cet email.</div>' : ''); return; }
   var faits = [], last = _fc.rows[0] || {};
   var sec = function(n) { return n >= 60 ? Math.round(n / 60) + ' min' : n + ' s'; };
-  if (j.derniereConversation) faits.push((j.derniereConversation.claap ? 'RDV du ' : 'Vrai échange le ') + j.derniereConversation.date + (j.derniereConversation.claap ? ' (compte rendu Claap)' : ' (' + sec(j.derniereConversation.duree) + (j.derniereConversation.enregistre ? ', enregistrement transcrit' : '') + ')'));
   var par = function(x) { return x && x.par && !/lapeyre/i.test(x.par) ? ' par ' + x.par : ''; };
-  if (j.derniereConversation && par(j.derniereConversation)) faits[faits.length - 1] += par(j.derniereConversation);
+  if (j.derniereConversation) faits.push((j.derniereConversation.claap ? 'RDV du ' : 'vrai échange le ') + j.derniereConversation.date + par(j.derniereConversation) + (j.derniereConversation.claap ? ' (compte rendu Claap)' : ' (' + sec(j.derniereConversation.duree) + ')'));
   if (j.dernierAppel && !(j.derniereConversation && j.dernierAppel.date === j.derniereConversation.date)) faits.push('dernier appel ' + j.dernierAppel.date + par(j.dernierAppel) + (j.dernierAppel.joint ? ' (' + sec(j.dernierAppel.duree) + ')' : ' sans réponse'));
-  if (j.tentativesDepuis > 1) faits.push(j.tentativesDepuis + ' appels sans réponse depuis');
   if (j.dernierMail) faits.push((j.dernierMail.envoye ? 'mail envoyé ' : 'mail reçu ') + j.dernierMail.date + (j.dernierMail.objet ? ' « ' + j.dernierMail.objet + ' »' : ''));
   if (last.retour) faits.push('ton retour SalesDesk : ' + last.retour);
   if (last.relanceDernier) faits.push('dernière relance : ' + ({ joint: 'joint', pas_de_reponse: 'pas de réponse' }[last.relanceDernier] || last.relanceDernier) + (last.relanceDernierAt ? ' le ' + fcFrDepuisIso(last.relanceDernierAt) : ''));
-  var ICO = { appel: '📞', rdv: '🤝', mail: '✉', sms: '💬' };
+  var ICO = { appel: '📞', rdv: '🤝', mail: '✉', sms: '💬', note: '📝' }, LIB = { appel: 'appel', rdv: 'RDV', mail: 'mail', sms: 'SMS', note: 'note' };
   var echanges = (j.echanges || []).slice(0, 5);
-  var blocs = echanges.map(function(e) {
-    return '<div class="ech"><div class="ech-t">' + (ICO[e.type] || '📞') + ' ' + escapeHtml(e.date || '') + ' · ' + escapeHtml(e.type === 'rdv' ? 'RDV' : e.type === 'mail' ? 'mail' : e.type === 'sms' ? 'SMS' : 'appel') + (e.par ? ' · <b>' + escapeHtml(e.par) + '</b>' : ' · toi') + '</div><ul>' + e.lignes.map(function(l) { return '<li>' + escapeHtml(l) + '</li>'; }).join('') + '</ul></div>';
+  var blocs = echanges.map(function(e, i) {
+    var sidx = JSON.stringify(String(i)).replace(/"/g, '&quot;'), src = e.source || {};
+    var preuves = [];
+    if (src.audio && src.id) preuves.push('<a onclick="fcEcouter(' + sidx + ', this)">▶ écouter' + (src.duree ? ' (' + sec(src.duree) + ')' : '') + '</a>');
+    if (src.extrait) preuves.push('<a onclick="fcMotsExacts(' + sidx + ', this)">“ mots exacts</a>');
+    if (src.claap) preuves.push('<a href="' + escapeHtml(src.claap) + '" target="_blank" rel="noopener">Claap ↗</a>');
+    return '<div class="ech' + (i >= 2 ? ' plus' : '') + '" id="fc-ech-' + i + '"><div class="ech-t"><span>' + (ICO[e.type] || '📞') + ' ' + escapeHtml(e.date || '') + ' · ' + (LIB[e.type] || 'appel') + (e.par ? ' · <b>' + escapeHtml(e.par) + '</b>' : ' · toi') + '</span><span class="preuves">' + preuves.join('') + '</span></div><ul>' + e.lignes.map(function(l) { return '<li>' + escapeHtml(l) + '</li>'; }).join('') + '</ul><div class="ech-plus"></div></div>';
   });
-  el.innerHTML = '<div class="t"><span>🗣 Ce qu\'on s\'est dit</span><a onclick="fcChargerDernierContact(true)" title="Relire Close">↻</a></div>'
-    + (blocs.length ? blocs.join('') : (j.lignes && j.lignes.length ? '<ul>' + j.lignes.map(function(l) { return '<li>' + escapeHtml(l) + '</li>'; }).join('') + '</ul>' : '<div class="fc-muted">Rien d\'exploitable dans Close (pas de note, pas d\'enregistrement, pas de compte rendu).</div>'))
+  el.innerHTML = titre + fcHtmlCles(j)
+    + (blocs.length ? '<div class="echs">' + blocs.join('') + (blocs.length > 2 ? '<a class="voirplus" onclick="this.parentNode.classList.add(\'ouvert\');this.remove()">voir les ' + (blocs.length - 2) + ' échanges plus anciens</a>' : '') + '</div>' : '<div class="fc-muted" style="margin-top:6px;">Rien d\'exploitable dans Close (pas de note, pas d\'enregistrement, pas de compte rendu).</div>')
     + (j.prochaine ? '<div class="ech-next">➡ ' + escapeHtml(j.prochaine) + '</div>' : '')
     + (faits.length ? '<div class="faits">' + faits.map(escapeHtml).join(' · ') + '</div>' : '');
+}
+// Depuis une carte Relances : les 3 lignes closer sans ouvrir la fiche
+function rlAvantAppel(nom, email) {
+  var ov = document.getElementById('fc-dup-overlay');
+  if (!ov) { ov = document.createElement('div'); ov.id = 'fc-dup-overlay'; ov.className = 'modal-overlay'; ov.style.zIndex = '1300'; ov.innerHTML = '<div class="modal" id="fc-dup-modal"></div>'; document.body.appendChild(ov); }
+  ov.onclick = function(ev) { if (ev.target === ov) fermerModalDoublon(); };
+  var m = document.getElementById('fc-dup-modal'); ov.classList.add('open');
+  var nomJs = JSON.stringify(nom).replace(/"/g, '&quot;'), emailJs = JSON.stringify(email || '').replace(/"/g, '&quot;');
+  var entete = '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:8px;"><div style="font-size:16px;font-weight:700;">' + escapeHtml(nom) + '</div><button class="btn btn-sm" onclick="fermerModalDoublon();ouvrirFicheClient(' + nomJs + ',' + emailJs + ')">Ouvrir la fiche</button></div>';
+  m.innerHTML = '<div class="fc-dup">' + entete + '<div class="fc-dernier"><div class="fc-muted">lecture de Close…</div></div></div>';
+  var ctrl = new AbortController(); setTimeout(function() { ctrl.abort(); }, 90000);
+  fetch(COPILOT_URL + '/close/dernier-contact?' + new URLSearchParams({ email: email || '', nom: nom }), { mode: 'cors', cache: 'no-store', signal: ctrl.signal })
+    .then(function(r) { return r.json(); }).then(function(j) {
+      if (!ov.classList.contains('open')) return;
+      var zone = m.querySelector('.fc-dernier'); if (!zone) return;
+      if (!j || j.error || j.trouve === false || j.configure === false) { zone.innerHTML = '<div class="fc-muted">' + (j && j.error ? 'Close : ' + escapeHtml(j.error) : 'Aucune fiche Close trouvée.') + '</div>'; return; }
+      var ech = (j.echanges || []).slice(0, 2).map(function(e) { return '<div class="ech"><div class="ech-t"><span>' + escapeHtml(e.date || '') + ' · ' + escapeHtml(e.type || 'appel') + (e.par ? ' · <b>' + escapeHtml(e.par) + '</b>' : ' · toi') + '</span></div><ul>' + e.lignes.slice(0, 3).map(function(l) { return '<li>' + escapeHtml(l) + '</li>'; }).join('') + '</ul></div>'; }).join('');
+      zone.innerHTML = fcHtmlCles(j) + (ech ? '<div class="echs">' + ech + '</div>' : '<div class="fc-muted">Rien d\'exploitable dans Close.</div>') + (j.prochaine ? '<div class="ech-next">➡ ' + escapeHtml(j.prochaine) + '</div>' : '');
+    }).catch(function() { var zone = m.querySelector('.fc-dernier'); if (zone) zone.innerHTML = '<div class="fc-muted">Le copilot n\'a pas répondu.</div>'; });
+}
+function fcEcouter(i, a) {
+  var e = ((_fc.dernier || {}).echanges || [])[Number(i)]; if (!e || !e.source) return;
+  var zone = document.querySelector('#fc-ech-' + i + ' .ech-plus'); if (!zone) return;
+  if (zone.querySelector('audio')) { zone.innerHTML = ''; return; }
+  zone.innerHTML = '<audio controls autoplay preload="none" style="width:100%;margin-top:6px;" src="' + escapeHtml(COPILOT_URL + '/close/enregistrement/' + e.source.id) + '"></audio>';
+}
+function fcMotsExacts(i, a) {
+  var e = ((_fc.dernier || {}).echanges || [])[Number(i)]; if (!e || !e.source) return;
+  var zone = document.querySelector('#fc-ech-' + i + ' .ech-plus'); if (!zone) return;
+  if (zone.querySelector('pre')) { zone.innerHTML = ''; return; }
+  zone.innerHTML = '<pre class="mots">' + escapeHtml(e.source.extrait || '') + '</pre>';
 }
 // L'URL de la fiche Close est gardée sur le client (_clients) : les cartes Pipeline l'ouvrent d'un clic sans re-chercher
 function fcMemoriserClose(cle, nom, email, j) {
@@ -8850,7 +8910,7 @@ function renderRelancesPage() {
       + '<div class="pipeline-card-sub">' + (t ? '📌 Close' + (t.heure ? ' ' + t.heure : '') : '') + (t && r ? ' · ' : '') + (r ? '📞 SalesDesk' + ((rel.r.relance && rel.r.relance.condition) ? ' · ' + escapeHtml(rel.r.relance.condition) : '') : '') + (row.source || row.type ? ' · ' + escapeHtml([row.type, row.source].filter(Boolean).join(' ')) : '') + '</div>'
       + (txt ? '<div class="pipeline-card-sub" style="color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="' + escapeHtml(txt) + '">' + escapeHtml(txt) + '</div>' : (r && (r.contexte || row.retour) ? '<div class="pipeline-card-sub" style="color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(r.contexte || row.retour) + '</div>' : ''))
       + (dernier ? '<div class="pipeline-card-sub">dernier : ' + escapeHtml(dernier) + '</div>' : '')
-      + '<div class="pipeline-card-footer" style="gap:4px;flex-wrap:wrap;margin-top:6px;" onclick="event.stopPropagation()"><span style="display:flex;gap:4px;">' + mail + '<a class="tag" style="text-decoration:none;" href="' + escapeHtml((t && t.url) || '#') + '" target="_blank" rel="noopener" onclick="' + (t ? '' : 'event.preventDefault();fcOuvrirClose(' + nomJs + ',' + emailJs + ', event)') + '">↗ Close</a></span>'
+      + '<div class="pipeline-card-footer" style="gap:4px;flex-wrap:wrap;margin-top:6px;" onclick="event.stopPropagation()"><span style="display:flex;gap:4px;"><button class="btn btn-sm" style="font-size:11px;padding:2px 7px;" title="Avant d\'appeler : promesse, accroche, état du deal" onclick="rlAvantAppel(' + nomJs + ',' + emailJs + ')">👁</button>' + mail + '<a class="tag" style="text-decoration:none;" href="' + escapeHtml((t && t.url) || '#') + '" target="_blank" rel="noopener" onclick="' + (t ? '' : 'event.preventDefault();fcOuvrirClose(' + nomJs + ',' + emailJs + ', event)') + '">↗ Close</a></span>'
       + '<span style="display:flex;gap:4px;align-items:center;">' + choix + (r ? '<button class="btn btn-sm" style="font-size:11px;padding:2px 7px;" title="Décaler" onclick="relanceResultat(' + idJs + ', this, true)">📅</button><button class="btn btn-sm btn-primary" style="font-size:11px;padding:2px 7px;" onclick="relanceResultat(' + idJs + ', this)">✅</button>' : '<span class="tag" title="Tâche Close seule : se termine dans Close pour l\'instant">dans Close</span>') + '</span></div></div>';
   };
   // onglets jours (+ « En retard » sur la semaine en cours)
