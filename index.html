@@ -3520,6 +3520,19 @@ function fcHtmlPrepa() {
     return h + '</div></div>';
   }).join('');
 }
+// Brouillon lisible avant d'agir : copier, ou ouvrir dans la messagerie (aucun envoi automatique)
+function fcVoirBrouillon(objet, corps, email, origine, nom) {
+  var html = '<div class="fc-dup"><div style="font-size:15px;font-weight:700;margin-bottom:2px;">' + (origine === 'no-show' ? '✉ Message de reprogrammation' : '📋 Brouillon de mail') + (nom ? ' — ' + escapeHtml(nom) : '') + '</div>'
+    + '<div style="font-size:12px;color:var(--text3);margin-bottom:10px;">' + (origine === 'no-show' ? 'Préparé par le copilot après le no-show. ' : '') + 'Rien n\'est envoyé tant que tu ne le fais pas toi-même.</div>'
+    + '<div style="font-size:12px;color:var(--text3);">Objet</div><div style="font-weight:600;margin-bottom:8px;">' + escapeHtml(objet || '') + '</div>'
+    + '<div class="fc-pre" style="white-space:pre-wrap;font-size:13px;line-height:1.45;max-height:50vh;overflow:auto;">' + escapeHtml(corps || '') + '</div>'
+    + '<div style="display:flex;gap:6px;justify-content:flex-end;margin-top:12px;flex-wrap:wrap;"><button class="btn btn-sm" onclick="fermerModalDoublon()">Fermer</button><button class="btn btn-sm" onclick="fcCopierMail(' + JSON.stringify(objet || '').replace(/"/g, '&quot;') + ',' + JSON.stringify(corps || '').replace(/"/g, '&quot;') + ')">📋 Copier</button>'
+    + (email ? '<a class="btn btn-sm btn-primary" style="text-decoration:none;" href="mailto:' + escapeHtml(email) + '?subject=' + encodeURIComponent(objet || '') + '&body=' + encodeURIComponent(corps || '') + '">✉ Ouvrir dans ma messagerie</a>' : '<span style="font-size:11px;color:var(--text3);align-self:center;">pas d\'email connu : copie le texte</span>') + '</div></div>';
+  var ov = document.getElementById('fc-dup-overlay');
+  if (!ov) { ov = document.createElement('div'); ov.id = 'fc-dup-overlay'; ov.className = 'modal-overlay'; ov.style.zIndex = '1300'; ov.innerHTML = '<div class="modal" id="fc-dup-modal"></div>'; document.body.appendChild(ov); }
+  ov.onclick = function(ev) { if (ev.target === ov) fermerModalDoublon(); };
+  document.getElementById('fc-dup-modal').innerHTML = html; ov.classList.add('open');
+}
 function fcCopierMail(objet, corps) { var txt = 'Objet : ' + objet + '\n\n' + corps; if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(function() { if (typeof showCopyToast === 'function') showCopyToast('✓ Brouillon copié'); }); }
 function fcHtmlNotes() {
   var cl = fcClients(loadStore())[_fc.cle] || {};
@@ -3741,7 +3754,7 @@ function relancesLocales() {
   var store = loadStore(), out = [];
   Object.keys(store).forEach(function(k) {
     if (!/^\d{4}-\d{2}$/.test(k) || !Array.isArray(store[k])) return;
-    store[k].forEach(function(r, i) { if (r && r.relanceDate && !r.relanceFait) out.push({ id: 'sd|' + k + '|' + i, local: true, nom: r.client, reseau: r.type || '', secteur: '', date: fcIsoDepuisFr(r.date), outcome: 'rappel', raison: r.result === 'Intéressé' ? 'Intéressé' : (r.result || ''), relance: { quand: r.relanceDate, condition: r.relanceCond || '', note: '' } }); });
+    store[k].forEach(function(r, i) { if (r && r.relanceDate && !r.relanceFait) out.push({ id: 'sd|' + k + '|' + i, local: true, nom: r.client, email: r.email || '', reseau: r.type || '', secteur: '', date: fcIsoDepuisFr(r.date), outcome: 'rappel', raison: r.result === 'Intéressé' ? 'Intéressé' : (r.result || ''), relance: { quand: r.relanceDate, condition: r.relanceCond || '', note: '' } }); });
   });
   return out;
 }
@@ -8616,7 +8629,7 @@ function dessinerRelances() {
         + '<td style="padding:8px;white-space:nowrap;color:var(--text3);">' + (r.date ? r.date.split('-').reverse().join('/') : '') + '</td>'
         + '<td style="padding:8px;">' + escapeHtml([r.raison, (r.relance && r.relance.condition)].filter(Boolean).join(' · ') || (r.outcome === 'perdu' ? 'Perdu' : 'Rappel calé')) + '</td>'
         + '<td style="padding:8px;color:var(--text2);max-width:260px;">' + escapeHtml(r.contexte || (r.relance && r.relance.note) || '—') + ((r.objections || []).length ? '<div style="font-size:11px;color:var(--red);">Reste : ' + escapeHtml(r.objections.join(' · ')) + '</div>' : '') + (r.action && r.action.quoi ? '<div style="font-size:11px;color:var(--text3);">Prévu : ' + escapeHtml(r.action.quoi) + '</div>' : '') + '</td>'
-        + '<td style="padding:8px;">' + (r.message ? '<button class="btn btn-sm" style="font-size:11px;padding:3px 8px;" onclick="fcCopierMail(' + JSON.stringify(r.message.objet).replace(/"/g, '&quot;') + ',' + JSON.stringify(r.message.corps).replace(/"/g, '&quot;') + ')" title="' + escapeHtml(r.message.objet) + '">📋 Brouillon</button>' : '<span style="color:var(--text3);">—</span>') + '</td>'
+        + '<td style="padding:8px;">' + (r.message ? '<button class="btn btn-sm" style="font-size:11px;padding:3px 8px;" onclick="fcVoirBrouillon(' + JSON.stringify(r.message.objet).replace(/"/g, '&quot;') + ',' + JSON.stringify(r.message.corps).replace(/"/g, '&quot;') + ',' + JSON.stringify(r.email || '').replace(/"/g, '&quot;') + ',' + JSON.stringify(r.message.origine || '').replace(/"/g, '&quot;') + ',' + JSON.stringify(r.nom || '').replace(/"/g, '&quot;') + ')" title="' + escapeHtml(r.message.objet) + '">' + (r.message.origine === 'no-show' ? '✉ Brouillon no-show' : '📋 Brouillon') + '</button>' : '<span style="color:var(--text3);">—</span>') + '</td>'
         + '<td style="padding:8px;white-space:nowrap;"><button class="btn btn-sm" style="margin-right:4px;" title="Changer la date sans rien clôturer" onclick="relanceResultat(\'' + String(r.id).replace(/'/g, '') + '\', this, true)">📅 Décaler</button><button class="btn btn-sm btn-primary" title="Consigner ce que la relance a donné" onclick="relanceResultat(\'' + String(r.id).replace(/'/g, '') + '\', this)">✅ Résultat</button></td>'
         + '</tr>';
     }).join('') + '</tbody></table>' : '<div style="font-size:12px;color:var(--text3);">Rien pour ce filtre.</div>';
