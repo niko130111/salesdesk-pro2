@@ -387,6 +387,14 @@ main { max-width: 100%; margin: 0; padding: 6px 8px; }
 .fc-chip.accent { background: var(--accent-bg); color: var(--accent); border-color: transparent; }
 .fc-chip .k { font-size: 11px; font-weight: 500; color: var(--text3); }
 .fc-suivi { margin-top: 12px; display: flex; flex-wrap: wrap; gap: 8px; }
+.fc-dernier { margin: 12px 0 4px; padding: 12px 14px; border-radius: 12px; background: #fffbea; border: 1px solid #f3e4a6; font-size: 13.5px; line-height: 1.45; }
+.fc-dernier .t { font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: #8a6d00; margin-bottom: 6px; display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+.fc-dernier .t a { color: #8a6d00; font-weight: 600; text-transform: none; letter-spacing: 0; font-size: 11px; cursor: pointer; }
+.fc-dernier ul { margin: 0; padding-left: 18px; }
+.fc-dernier li { margin: 2px 0; }
+.fc-dernier .faits { font-size: 12px; color: var(--text2); margin-top: 6px; }
+[data-theme="dark"] .fc-dernier { background: #2a2410; border-color: #4a3e14; }
+[data-theme="dark"] .fc-dernier .t, [data-theme="dark"] .fc-dernier .t a { color: #e2c45a; }
 .fc-suivi span { font-size: 12.5px; font-weight: 600; padding: 6px 10px; border-radius: 8px; }
 .fc-suivi .r2 { background: var(--purple-bg); color: var(--purple); }
 .fc-suivi .rel { background: var(--orange-bg); color: var(--orange); }
@@ -3339,7 +3347,7 @@ function ouvrirFicheClient(nom, email, date) {
   _fc = { cle: fcCle(nom, email), nom: nom, email: email, rows: rows, tab: 'rdv', dossiers: null, close: null, date: date || '' };
   fcRendre();
   document.getElementById('fc-overlay').classList.add('open');
-  fcChargerClose(); fcChargerDossiers();
+  fcChargerClose(); fcChargerDossiers(); fcChargerDernierContact();
 }
 function fcPopupDoublon(nom, emails, rows) {
   var sansEmail = rows.filter(function(r) { return !String(r.email || '').trim(); }).length;
@@ -3429,6 +3437,31 @@ function fcChargerClose() {
   fetch(COPILOT_URL + '/close/contact?' + new URLSearchParams({ email: _fc.email, nom: _fc.nom }), { mode: 'cors', cache: 'no-store', signal: ctrl.signal })
     .then(function(r) { return r.json(); }).then(function(j) { fcMemoriserClose(cle, _fc.nom, _fc.email, j); if (_fc.cle === cle) { _fc.close = j; fcRendreContact(); } })
     .catch(function() { if (_fc.cle === cle) { _fc.close = undefined; fcRendreContact(); } });
+}
+// « La dernière fois » : 4-6 lignes condensées par le copilot depuis Close (appels, mails, compte rendu Claap) — jamais inventées
+function fcChargerDernierContact(force) {
+  var cle = _fc.cle, el = document.getElementById('fc-dernier'); if (!el) return;
+  el.innerHTML = '<div class="t"><span>🗣 La dernière fois</span></div><div class="fc-muted">lecture de Close…</div>';
+  var ctrl = new AbortController(); setTimeout(function() { ctrl.abort(); }, 60000);
+  fetch(COPILOT_URL + '/close/dernier-contact?' + new URLSearchParams({ email: _fc.email || '', nom: _fc.nom, force: force ? '1' : '0' }), { mode: 'cors', cache: 'no-store', signal: ctrl.signal })
+    .then(function(r) { return r.json(); }).then(function(j) { if (_fc.cle === cle) fcRendreDernierContact(j); })
+    .catch(function() { if (_fc.cle === cle) el.innerHTML = ''; });
+}
+function fcRendreDernierContact(j) {
+  var el = document.getElementById('fc-dernier'); if (!el) return;
+  if (!j || j.configure === false || j.error || j.trouve === false) { el.innerHTML = j && j.error ? '<div class="t"><span>🗣 La dernière fois</span></div><div class="fc-muted">Close : ' + escapeHtml(j.error) + '</div>' : ''; return; }
+  var faits = [], last = _fc.rows[0] || {};
+  var sec = function(n) { return n >= 60 ? Math.round(n / 60) + ' min' : n + ' s'; };
+  if (j.derniereConversation) faits.push((j.derniereConversation.claap ? 'RDV du ' : 'Vrai échange le ') + j.derniereConversation.date + (j.derniereConversation.claap ? ' (compte rendu Claap)' : ' (' + sec(j.derniereConversation.duree) + ')'));
+  if (j.dernierAppel && !(j.derniereConversation && j.dernierAppel.date === j.derniereConversation.date)) faits.push('dernier appel ' + j.dernierAppel.date + (j.dernierAppel.joint ? ' (' + sec(j.dernierAppel.duree) + ')' : ' sans réponse'));
+  if (j.tentativesDepuis > 1) faits.push(j.tentativesDepuis + ' appels sans réponse depuis');
+  if (j.dernierMail) faits.push((j.dernierMail.envoye ? 'mail envoyé ' : 'mail reçu ') + j.dernierMail.date + (j.dernierMail.objet ? ' « ' + j.dernierMail.objet + ' »' : ''));
+  if (last.retour) faits.push('ton retour SalesDesk : ' + last.retour);
+  if (last.relanceDernier) faits.push('dernière relance : ' + ({ joint: 'joint', pas_de_reponse: 'pas de réponse' }[last.relanceDernier] || last.relanceDernier) + (last.relanceDernierAt ? ' le ' + fcFrDepuisIso(last.relanceDernierAt) : ''));
+  var lignes = (j.lignes || []).slice(0, 6);
+  el.innerHTML = '<div class="t"><span>🗣 La dernière fois</span><a onclick="fcChargerDernierContact(true)" title="Relire Close">↻</a></div>'
+    + (lignes.length ? '<ul>' + lignes.map(function(l) { return '<li>' + escapeHtml(l) + '</li>'; }).join('') + '</ul>' : '<div class="fc-muted">Rien d\'exploitable dans Close (pas de note, pas de compte rendu).</div>')
+    + (faits.length ? '<div class="faits">' + faits.map(escapeHtml).join(' · ') + '</div>' : '');
 }
 // L'URL de la fiche Close est gardée sur le client (_clients) : les cartes Pipeline l'ouvrent d'un clic sans re-chercher
 function fcMemoriserClose(cle, nom, email, j) {
@@ -12068,6 +12101,7 @@ window.addEventListener('load', function() {
       <div class="fc-nom"><span id="fc-nom"></span><button class="fc-close" onclick="fermerFicheClient()" title="Fermer">✕</button></div>
       <div class="fc-badges" id="fc-badges"></div>
       <div class="fc-contact" id="fc-contact"></div>
+      <div class="fc-dernier" id="fc-dernier"></div>
     </div>
     <div class="fc-tabs">
       <button class="fc-tab on" data-tab="rdv" onclick="fcOnglet('rdv')">📅 RDV</button>
