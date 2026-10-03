@@ -3644,7 +3644,7 @@ function rlAction(ix, action, btn) {
   var it = (window._rlItems || [])[ix]; if (!it) return;
   var id = rlIdentite(it), today = rlIso(new Date()), suivi = rlSuivi(it), nb = suivi.tentatives || 0;
   var occupe = function(on) { if (btn) { btn.disabled = on; btn.style.opacity = on ? '.5' : ''; } };
-  var fini = function(msg) { occupe(false); if (typeof showCopyToast === 'function') showCopyToast(msg); chargerTachesClose(rlPlus(_rlLundi, -7), rlPlus(_rlLundi, 13), true); setTimeout(dessinerRelances, 400); if (typeof majAlerteRelances === 'function') majAlerteRelances(); };
+  var fini = function(msg) { occupe(false); if (typeof showCopyToast === 'function') showCopyToast(msg); chargerTachesClose(rlPlus(_rlLundi, -7), rlPlus(_rlLundi, 13), true); setTimeout(dessinerRelances, 400); setTimeout(renderMaJournee, 450); if (typeof majAlerteRelances === 'function') majAlerteRelances(); };
   var echec = function(e) { occupe(false); alert('Close n\'a pas été mis à jour : ' + (e && e.message ? e.message : e)); };
   var tacheClose = function(date, texte, heure) { // déplace la tâche existante, sinon en crée une (sans doublon côté serveur)
     return it.t ? rlPost('/close/taches/' + encodeURIComponent(it.t.id), { action: 'decaler', date: date, heure: heure || '', texte: texte, motif: action }) : rlPost('/close/taches', { lead: id.lead, nom: id.nom, email: id.email, date: date, heure: heure || '', texte: texte, motif: action });
@@ -8765,7 +8765,7 @@ function chargerMaJournee(force) {
     fetch(COPILOT_URL + '/etat', { mode: 'cors', cache: 'no-store', signal: ctrl.signal }).then(function(r) { return r.json(); }).catch(function() { return null; }),
     fetch('http://127.0.0.1:3016/api/status', { mode: 'cors', cache: 'no-store', signal: ctrl.signal }).then(function(r) { return r.json(); }).catch(function() { return false; })
   ]).then(function(r) { _mj.copilot = r[0] && r[0].rdvs ? r[0].rdvs : null; _mj.sdRdvs = r[1] && r[1].rdvs ? r[1].rdvs : null; _mj.etat = r[2]; _mj.rappels = r[3]; fin(); }).catch(fin);
-  try { chargerVerifClose(false); } catch (e) {} try { chargerSms(false); } catch (e) {} try { chargerControle(false); setInterval(function() { chargerControle(true); }, 5 * 60000); } catch (e) {}
+  try { chargerVerifClose(false); } catch (e) {} try { chargerSms(false); } catch (e) {} try { chargerControle(false); setInterval(function() { chargerControle(true); }, 5 * 60000); } catch (e) {} try { chargerAppelsJour(false); setInterval(function() { chargerAppelsJour(true); }, 2 * 60000); } catch (e) {}
 }
 // ── Contrôle : organe de contrôle (copilot /controle + état SalesDesk), alertes en bandeau dans Quotidien et Mes RDV ──
 var _ctl = null, _ctlAt = 0;
@@ -8948,6 +8948,39 @@ function sdVerifCloseAppliquer(ignorerAussi) {
   if (typeof showCopyToast === 'function') showCopyToast(n ? '✓ Close : ' + n + ' correction(s) appliquée(s) — ' + msgs.slice(0, 4).join(', ') : 'Rien appliqué');
 }
 function mjAller(page) { var b = [...document.querySelectorAll('.nav-tab')].find(function(x) { return x.textContent.indexOf(page) >= 0; }); if (b) b.click(); }
+// ── Retour des appels Close : les appels passés aujourd'hui remontent sur les cartes, « joint » ou « pas de réponse » pré-rempli, tu valides ──
+var _appelsJour = null, _appelsJourAt = 0;
+function chargerAppelsJour(force) {
+  if (typeof COPILOT_URL === 'undefined') return;
+  if (_appelsJour && Date.now() - _appelsJourAt < 60000 && !force) return;
+  fetch(COPILOT_URL + '/close/appels-jour' + (force ? '?force=1' : ''), { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).then(function(j) { _appelsJour = j.appels || []; _appelsJourAt = Date.now(); renderMaJournee(); dessinerRelances(); }).catch(function() {});
+}
+// Appels du jour non encore constatés, pour une carte : même fiche Close, ou même personne (nom / contacts de la fiche)
+function rlAppelsPour(it) {
+  if (!_appelsJour || !_appelsJour.length) return [];
+  var vus = (window._rlStoreCache || loadStore())._appelsVus || {}, sv = rlSuivi(it), depuis = sv.at ? Date.parse(sv.at) : 0;
+  var n = fcNormNom(it.nom), lead = it.t && it.t.lead;
+  return _appelsJour.filter(function(a) {
+    if (vus[a.id] || Date.parse(a.at) <= depuis) return false;
+    if (lead && a.lead === lead) return true;
+    // nom complet seulement (un contact « Nicolas » ne doit pas accrocher « Christelle Nicolas »)
+    var plein = function(x) { return x.split(' ').filter(Boolean).length >= 2; };
+    return [a.fiche, a.contact].concat(a.contacts || []).some(function(x) { var xn = fcNormNom(x); return xn && (xn === n || rlMemePersonne(xn, n) || (plein(xn) && plein(n) && (xn.indexOf(n) >= 0 || n.indexOf(xn) >= 0))); });
+  });
+}
+function rlMarquerAppelVu(id) { var st = loadStore(); if (!st._appelsVus) st._appelsVus = {}; st._appelsVus[id] = Date.now(); saveStore(st); }
+// Chip « ☎ 14:55 · joint 2 min » avec Valider / ignorer ; valider = la même action que le bouton (📞 joint → date, 📵 sans réponse → cadence)
+function rlChipAppels(it, ix) {
+  var apps = rlAppelsPour(it); if (!apps.length) return '';
+  var a = apps[0], joint = apps.some(function(x) { return x.joint; }), dur = a.duree >= 60 ? Math.round(a.duree / 60) + ' min' : a.duree + ' s';
+  var ids = JSON.stringify(apps.map(function(x) { return x.id; })).replace(/"/g, '&quot;');
+  return '<div style="margin-top:6px;padding:6px 8px;border-radius:8px;background:' + (joint ? '#eaf7ee' : '#fff4e6') + ';font-size:12px;display:flex;gap:6px;align-items:center;flex-wrap:wrap;" onclick="event.stopPropagation()">'
+    + '<span style="flex:1;">☎ <b>' + (joint ? 'Joint' : 'Sans réponse') + '</b> · ' + escapeHtml(a.heure) + (joint ? ' · ' + dur : '') + (apps.length > 1 ? ' · ' + apps.length + ' appels' : '') + ' <span style="color:var(--text3)">(Close)</span></span>'
+    + '<button class="btn btn-sm btn-primary" style="font-size:11px;padding:2px 8px;" onclick="rlValiderAppel(' + ix + ', ' + ids + ', ' + (joint ? 'true' : 'false') + ', this)">' + (joint ? '📞 Joint → rappel le…' : '📵 Pas de réponse') + '</button>'
+    + '<button class="btn btn-sm" style="font-size:11px;padding:2px 8px;" title="Ne pas tenir compte de cet appel" onclick="rlIgnorerAppels(' + ids + ')">ignorer</button></div>';
+}
+function rlValiderAppel(ix, ids, joint, btn) { (ids || []).forEach(rlMarquerAppelVu); rlAction(ix, joint ? 'joint' : 'pas_reponse', btn); }
+function rlIgnorerAppels(ids) { (ids || []).forEach(rlMarquerAppelVu); dessinerRelances(); renderMaJournee(); }
 // Cockpit d'appels : la file du jour (retards d'abord, puis R2, no-shows, prise de RDV), 3 lignes closer sous la main, actions directes
 var _mjCockpitOuvert = false, _mjCles = {};
 function mjCockpitHtml(todayIso) {
@@ -8955,7 +8988,7 @@ function mjCockpitHtml(todayIso) {
   if (!_tachesClose && typeof chargerTachesClose === 'function') { if (!_rlLundi) _rlLundi = rlLundiDe(todayIso); chargerTachesClose(rlPlus(_rlLundi, -7), rlPlus(_rlLundi, 13), false); }
   var items; try { items = rlConstruireItems(todayIso).items; } catch (e) { return ''; }
   window._rlItems = items;
-  var dus = items.filter(function(i) { return i.date && i.date <= todayIso; });
+  var dus = items.filter(function(i) { return (i.date && i.date <= todayIso) || rlAppelsPour(i).length; });
   var ordreCol = { r2: 0, nsin: 1, nsout: 1, rdv: 2, aclasser: 3 };
   dus.sort(function(a, b) { var ra = a.date < todayIso ? 0 : 1, rb = b.date < todayIso ? 0 : 1; return ra - rb || (ordreCol[a.col] || 9) - (ordreCol[b.col] || 9) || a._rang - b._rang; });
   if (!dus.length) return '';
@@ -8968,14 +9001,16 @@ function mjCockpitHtml(todayIso) {
     var cles = c === undefined ? '<span style="color:var(--text3);">…</span>' : (c && (c.promesse || c.deal || c.accroche) ? [c.promesse ? '🤝 ' + escapeHtml(c.promesse) : '', c.deal ? '💶 ' + escapeHtml(c.deal) : '', c.accroche ? '💬 ' + escapeHtml(c.accroche) : ''].filter(Boolean).join(' · ') : '<span style="color:var(--text3);">pas d\'historique Close</span>');
     return '<div style="display:flex;gap:10px;align-items:flex-start;padding:7px 0;border-top:1px dashed var(--border);font-size:13px;">'
       + '<span style="width:22px;text-align:center;" title="' + (LIB[it.col] || '') + '">' + (ICO[it.col] || '📞') + '</span>'
-      + '<span style="flex:1;min-width:0;"><div><b style="cursor:pointer;" onclick="ouvrirFicheClient(' + nomJs + ',' + emailJs + ')">' + escapeHtml(it.nom) + '</b> <span style="color:var(--text3);font-size:12px;">· ' + (LIB[it.col] || '') + (it.date < todayIso ? ' · <span style="color:var(--red);font-weight:700;">retard ' + escapeHtml(it.date.split('-').reverse().slice(0, 2).join('/')) + '</span>' : '') + (nb ? ' · appel ' + nb : '') + (it.t && it.t.texte && !/^follow ?up/i.test(it.t.texte) ? ' · ' + escapeHtml(it.t.texte.slice(0, 60)) : '') + '</span></div><div style="font-size:12px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + cles + '</div></span>'
+      + '<span style="flex:1;min-width:0;"><div><b style="cursor:pointer;" onclick="ouvrirFicheClient(' + nomJs + ',' + emailJs + ')">' + escapeHtml(it.nom) + '</b> <span style="color:var(--text3);font-size:12px;">· ' + (LIB[it.col] || '') + (it.date < todayIso ? ' · <span style="color:var(--red);font-weight:700;">retard ' + escapeHtml(it.date.split('-').reverse().slice(0, 2).join('/')) + '</span>' : '') + (nb ? ' · appel ' + nb : '') + (it.t && it.t.texte && !/^follow ?up/i.test(it.t.texte) ? ' · ' + escapeHtml(it.t.texte.slice(0, 60)) : '') + '</span></div><div style="font-size:12px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + cles + '</div>' + rlChipAppels(it, ix) + '</span>'
       + '<span style="display:flex;gap:4px;flex-shrink:0;"><button class="btn btn-sm" style="font-size:11px;padding:2px 7px;" title="Avant d\'appeler" onclick="rlAvantAppel(' + nomJs + ',' + emailJs + ')">👁</button><button class="btn btn-sm" style="font-size:11px;padding:2px 7px;" title="Pas de réponse" onclick="rlAction(' + ix + ', \'pas_reponse\', this)">📵</button><button class="btn btn-sm" style="font-size:11px;padding:2px 7px;" title="Joint" onclick="rlAction(' + ix + ', \'joint\', this)">📞</button><button class="btn btn-sm" style="font-size:11px;padding:2px 7px;" title="RDV pris" onclick="rlAction(' + ix + ', \'rdv_pris\', this)">📅</button></span></div>';
   }).join('');
   setTimeout(function() { mjChargerCles(vis); }, 50);
   var retards = dus.filter(function(i) { return i.date < todayIso; }).length;
+  var vus = loadStore()._appelsVus || {}, nbAppels = (_appelsJour || []).length, aConstater = dus.filter(function(i) { return rlAppelsPour(i).length; }).length, orphelins = (_appelsJour || []).filter(function(a) { return !vus[a.id] && !items.some(function(i) { return rlAppelsPour(i).some(function(x) { return x.id === a.id; }); }); }).length;
+  var ligneAppels = nbAppels ? '<div style="font-size:12px;color:var(--text2);margin:2px 0 6px;">☎ ' + nbAppels + ' appel(s) passés aujourd\'hui dans Close' + (aConstater ? ' · <b style="color:var(--orange)">' + aConstater + ' à valider ci-dessous</b>' : '') + (orphelins ? ' · ' + orphelins + ' hors file' : '') + '</div>' : '';
   return '<div style="margin-top:10px;padding:10px 12px;border-radius:12px;background:var(--surface2);border:1px solid var(--border);">'
     + '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:2px;"><div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);">📞 Mes appels du jour · ' + dus.length + (retards ? ' <span style="color:var(--red);">dont ' + retards + ' en retard</span>' : '') + '</div><div style="display:flex;gap:6px;">' + (dus.length > 8 ? '<button class="btn btn-sm" style="font-size:11px;padding:2px 8px;" onclick="_mjCockpitOuvert=!_mjCockpitOuvert;renderMaJournee()">' + (_mjCockpitOuvert ? 'réduire' : 'voir les ' + (dus.length - 8) + ' autres') + '</button>' : '') + '<button class="btn btn-sm" style="font-size:11px;padding:2px 8px;" onclick="_rlJour=null;mjAller(\'Relances\')">Relances ↗</button></div></div>'
-    + lignes + '</div>';
+    + ligneAppels + lignes + '</div>';
 }
 // 3 lignes closer : lues depuis le cache du copilot (pré-calculées le matin), 3 à la fois, puis la liste se redessine
 function mjChargerCles(vis) {
@@ -9342,6 +9377,7 @@ function renderRelancesPage() {
       + '<div class="pipeline-card-sub">' + (it.type === 'sd-noshow' ? '👻 No-show du ' + escapeHtml(row.date || '') + ' · à relancer' : '') + (t ? '📌 Close' + (t.heure ? ' ' + t.heure : '') : '') + (t && r ? ' · ' : '') + (r ? '📞 SalesDesk' + ((rel.r.relance && rel.r.relance.condition) ? ' · ' + escapeHtml(rel.r.relance.condition) : '') : '') + (row.source || row.type ? ' · ' + escapeHtml([row.type, row.source].filter(Boolean).join(' ')) : '') + '</div>'
       + (txt ? '<div class="pipeline-card-sub" style="color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="' + escapeHtml(txt) + '">' + escapeHtml(txt) + '</div>' : (r && (r.contexte || row.retour) ? '<div class="pipeline-card-sub" style="color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(r.contexte || row.retour) + '</div>' : ''))
       + (dernier ? '<div class="pipeline-card-sub">dernier : ' + escapeHtml(dernier) + '</div>' : '')
+      + rlChipAppels(it, ix)
       + '<div class="pipeline-card-footer" style="gap:4px;flex-wrap:wrap;margin-top:6px;" onclick="event.stopPropagation()"><span style="display:flex;gap:4px;"><button class="btn btn-sm" style="font-size:11px;padding:2px 7px;" title="Avant d\'appeler : promesse, accroche, état du deal" onclick="rlAvantAppel(' + nomJs + ',' + emailJs + ')">👁</button>' + mail + '<a class="tag" style="text-decoration:none;" href="' + escapeHtml((t && t.url) || '#') + '" target="_blank" rel="noopener" onclick="' + (t ? '' : 'event.preventDefault();fcOuvrirClose(' + nomJs + ',' + emailJs + ', event)') + '">↗ Close</a></span>'
       + '<span style="display:flex;gap:4px;align-items:center;">' + choix + (RL_MOTIFS_GERES.indexOf(it.col) >= 0
         ? (nb ? '<span class="tag" title="Appels sans réponse">appel ' + nb + '</span>' : '') + '<button class="btn btn-sm" style="font-size:11px;padding:2px 7px;" title="Pas de réponse → prochaine tentative selon la cadence, Close mis à jour" onclick="rlAction(' + ix + ', \'pas_reponse\', this)">📵</button><button class="btn btn-sm" style="font-size:11px;padding:2px 7px;" title="Joint → rappel à la date qu\'il demande" onclick="rlAction(' + ix + ', \'joint\', this)">📞</button><button class="btn btn-sm" style="font-size:11px;padding:2px 7px;" title="RDV pris" onclick="rlAction(' + ix + ', \'rdv_pris\', this)">📅</button><button class="btn btn-sm' + (nb >= 3 ? ' btn-primary' : '') + '" style="font-size:11px;padding:2px 7px;" title="Passer à mon manager (note épinglée + tâche dans Close)" onclick="rlAction(' + ix + ', \'manager\', this)">👔</button><button class="btn btn-sm" style="font-size:11px;padding:2px 7px;" title="Supprimer (tâche Close terminée)" onclick="rlAction(' + ix + ', \'supprimer\', this)">🗑</button>'
