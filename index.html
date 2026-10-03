@@ -3405,6 +3405,16 @@ function fcRendre() {
   else if (_fc.tab === 'prepa') body.innerHTML = fcHtmlPrepa();
   else body.innerHTML = fcHtmlNotes();
 }
+// Appeler : l'appli Close ne prend pas les liens tel:, donc on ouvre la fiche DANS l'application Close (closeio://) avec le numéro copié ;
+// l'appel passé là-bas est loggé et enregistré (ce qui nourrit « avant d'appeler », le compteur, l'escalade). Alt+clic = tel: classique.
+function fcAppeler(ev, tel, closeUrl) {
+  if (ev && ev.altKey) return true;
+  if (ev) ev.preventDefault();
+  try { navigator.clipboard.writeText(String(tel).replace(/\s/g, '')); } catch (e) {}
+  if (closeUrl) { window.location.href = String(closeUrl).replace(/^https:/, 'closeio:'); if (typeof showCopyToast === 'function') showCopyToast('📞 Fiche ouverte dans Close · numéro copié'); }
+  else { window.location.href = 'tel:' + String(tel).replace(/\s/g, ''); }
+  return false;
+}
 function fcRendreContact() {
   var el = document.getElementById('fc-contact'), chips = [], note = '';
   var propre = function(arr) { return (arr || []).map(function(x) { return String(x || '').trim(); }).filter(function(x) { return x && x !== 'null' && x !== 'undefined'; }); };
@@ -3418,7 +3428,7 @@ function fcRendreContact() {
     if (!tel) cts.some(function(x) { tel = propre(x.tels)[0] || ''; return !!tel; });
   }
   var mail = _fc.email || mailClose;
-  if (tel) chips.push('<a class="fc-chip accent" href="tel:' + escapeHtml(tel.replace(/\s/g, '')) + '">📞 ' + escapeHtml(tel) + '</a>');
+  if (tel) chips.push('<a class="fc-chip accent" href="tel:' + escapeHtml(tel.replace(/\s/g, '')) + '" title="Ouvre la fiche dans l\'application Close (numéro copié) : l\'appel y est loggé et enregistré. Alt+clic = appel direct (FaceTime)." onclick="return fcAppeler(event, ' + JSON.stringify(tel).replace(/"/g, '&quot;') + ', ' + JSON.stringify(url || '').replace(/"/g, '&quot;') + ')">📞 ' + escapeHtml(tel) + '</a>');
   if (mail) chips.push('<a class="fc-chip" href="mailto:' + escapeHtml(mail) + '">✉ ' + escapeHtml(mail) + '</a>');
   if (url) chips.push('<a class="fc-chip" href="' + escapeHtml(url) + '" target="_blank" rel="noopener">↗ Close' + (statut ? ' <span class="k">' + escapeHtml(statut) + '</span>' : '') + '</a>');
   if (c === null) note = 'Close : recherche…';
