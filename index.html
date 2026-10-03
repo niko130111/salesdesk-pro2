@@ -8704,7 +8704,7 @@ function chargerTachesClose(depuis, jusqua, force) {
     .then(function(r) { return r.json(); }).then(function(d) { _tachesClose = d; _tachesCloseAt = Date.now(); _tachesCloseCle = cle; renderRelancesPage(); })
     .catch(function() { _tachesClose = { error: 'copilot', taches: [], terminees: [] }; renderRelancesPage(); });
 }
-var _rlVue = 'semaine', _rlLundi = null;
+var _rlLundi = null, _rlJour = null;
 function rlIso(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
 function rlLundiDe(iso) { var d = new Date(iso + 'T12:00:00'); d.setDate(d.getDate() - ((d.getDay() || 7) - 1)); return rlIso(d); }
 function rlPlus(iso, n) { var d = new Date(iso + 'T12:00:00'); d.setDate(d.getDate() + n); return rlIso(d); }
@@ -8744,62 +8744,55 @@ function renderRelancesPage() {
   });
   rels.forEach(function(x) { if (!relsUtilisees[x.r.id]) items.push({ type: 'sd', rel: x, nom: x.nom, date: x.date, col: x.col }); });
   var nbDues = items.filter(function(i) { return i.date && i.date <= today; }).length;
-  // bascule + navigation
-  document.getElementById('rl-filtres').innerHTML = '<button class="btn btn-sm' + (_rlVue === 'semaine' ? ' btn-primary' : '') + '" onclick="_rlVue=\'semaine\';renderRelancesPage()">📆 Semaine</button><button class="btn btn-sm' + (_rlVue === 'colonnes' ? ' btn-primary' : '') + '" onclick="_rlVue=\'colonnes\';renderRelancesPage()">🗂 Par motif</button>'
+  // navigation : semaine → jour (onglets) → les 4 colonnes par motif pour ce jour
+  if (!_rlJour) _rlJour = (today >= _rlLundi && today <= finSem) ? today : _rlLundi;
+  document.getElementById('rl-filtres').innerHTML = '<button class="btn btn-sm" onclick="_rlLundi=rlPlus(_rlLundi,-7);_rlJour=null;renderRelancesPage()">← Sem. préc.</button>'
+    + (_rlLundi !== rlLundiDe(today) ? '<button class="btn btn-sm" onclick="_rlLundi=null;_rlJour=null;renderRelancesPage()">Aujourd\'hui</button>' : '')
+    + '<button class="btn btn-sm" onclick="_rlLundi=rlPlus(_rlLundi,7);_rlJour=null;renderRelancesPage()">Sem. suiv. →</button>'
     + '<button class="btn btn-sm" style="margin-left:10px;" title="Relire les tâches Close" onclick="chargerTachesClose(rlPlus(_rlLundi,-7), rlPlus(_rlLundi,13), true)">↻</button>';
-  var etatClose = !_tachesClose ? 'tâches Close : chargement…' : (_tachesClose.error ? '⚠ tâches Close indisponibles (copilot éteint ?)' : (_tachesClose.configure === false ? 'clé Close absente' : taches.length + ' tâche(s) Close ouverte(s)'));
+  var etatClose = !_tachesClose ? 'tâches Close : chargement…' : (_tachesClose.error ? '⚠ tâches Close indisponibles (copilot éteint ou à relancer)' : (_tachesClose.configure === false ? 'clé Close absente' : taches.length + ' tâche(s) Close ouverte(s)'));
   document.getElementById('rl-resume').innerHTML = '<b>' + nbDues + '</b> à faire aujourd\'hui ou en retard · ' + liste.length + ' relance(s) SalesDesk · ' + etatClose;
   var badge = document.getElementById('nav-relances-badge'); if (badge) { badge.style.display = nbDues ? '' : 'none'; badge.textContent = nbDues; }
   var COLS = { r2: ['🔁', 'R2 sans réponse', '#6d4fc2'], rdv: ['📅', 'Prise de RDV', '#0e7490'], nsin: ['👻', 'No-show Inbound', 'var(--orange)'], nsout: ['👻', 'No-show Outbound', 'var(--red)'] };
-  var carte = function(it, compact) {
+  var carte = function(it) {
     var rel = it.rel, r = rel && rel.r, row = (rel && rel.row) || {}, t = it.t, q = it.date, retard = q && q < today, auj = q === today;
     var email = (r && r.email) || row.email || '';
     var idJs = r ? JSON.stringify(String(r.id)).replace(/"/g, '&quot;') : '';
     var nomJs = JSON.stringify(it.nom || '').replace(/"/g, '&quot;'), emailJs = JSON.stringify(email).replace(/"/g, '&quot;');
-    var c = COLS[it.col] || COLS.rdv;
     var mail = r && r.message ? '<button class="btn btn-sm" style="font-size:11px;padding:2px 7px;" onclick="event.stopPropagation();fcVoirBrouillon(' + JSON.stringify(r.message.objet || '').replace(/"/g, '&quot;') + ',' + JSON.stringify(r.message.corps || '').replace(/"/g, '&quot;') + ',' + emailJs + ',' + JSON.stringify(r.message.origine || '').replace(/"/g, '&quot;') + ',' + nomJs + ')">✉</button>' : (email ? '<a class="btn btn-sm" style="font-size:11px;padding:2px 7px;text-decoration:none;" href="mailto:' + escapeHtml(email) + '" onclick="event.stopPropagation()">✉</a>' : '');
     var txt = t && t.texte && !/^follow ?up(\s*\(\d+\))?$/i.test(t.texte.trim()) ? t.texte : '';
     var dernier = row.relanceDernier ? ({ joint: 'joint', pas_de_reponse: 'pas de réponse' }[row.relanceDernier] || row.relanceDernier) : '';
     return '<div class="pipeline-card" style="cursor:pointer;padding:8px 10px;' + (retard ? 'border-left:3px solid var(--red);' : auj ? 'border-left:3px solid var(--orange);' : '') + '" onclick="ouvrirFicheClient(' + nomJs + ',' + emailJs + ')">'
-      + '<div class="pipeline-card-name" style="display:flex;justify-content:space-between;gap:6px;align-items:baseline;"><span>' + escapeHtml(it.nom) + '</span>' + (compact ? '' : '<span style="font-size:10px;white-space:nowrap;color:' + c[2] + ';font-weight:700;">' + c[0] + ' ' + c[1] + '</span>') + '</div>'
+      + '<div class="pipeline-card-name" style="display:flex;justify-content:space-between;gap:6px;align-items:baseline;"><span>' + escapeHtml(it.nom) + '</span>' + (retard ? '<span style="font-size:10px;color:var(--red);font-weight:700;white-space:nowrap;">⏰ ' + q.split('-').reverse().slice(0, 2).join('/') + '</span>' : '') + '</div>'
       + '<div class="pipeline-card-sub">' + (t ? '📌 Close' + (t.heure ? ' ' + t.heure : '') : '') + (t && r ? ' · ' : '') + (r ? '📞 SalesDesk' + ((rel.r.relance && rel.r.relance.condition) ? ' · ' + escapeHtml(rel.r.relance.condition) : '') : '') + (row.source || row.type ? ' · ' + escapeHtml([row.type, row.source].filter(Boolean).join(' ')) : '') + '</div>'
       + (txt ? '<div class="pipeline-card-sub" style="color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="' + escapeHtml(txt) + '">' + escapeHtml(txt) + '</div>' : (r && (r.contexte || row.retour) ? '<div class="pipeline-card-sub" style="color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(r.contexte || row.retour) + '</div>' : ''))
       + (dernier ? '<div class="pipeline-card-sub">dernier : ' + escapeHtml(dernier) + '</div>' : '')
       + '<div class="pipeline-card-footer" style="gap:4px;flex-wrap:wrap;margin-top:6px;" onclick="event.stopPropagation()"><span style="display:flex;gap:4px;">' + mail + '<a class="tag" style="text-decoration:none;" href="' + escapeHtml((t && t.url) || '#') + '" target="_blank" rel="noopener" onclick="' + (t ? '' : 'event.preventDefault();fcOuvrirClose(' + nomJs + ',' + emailJs + ', event)') + '">↗ Close</a></span>'
       + '<span style="display:flex;gap:4px;">' + (r ? '<button class="btn btn-sm" style="font-size:11px;padding:2px 7px;" title="Décaler" onclick="relanceResultat(' + idJs + ', this, true)">📅</button><button class="btn btn-sm btn-primary" style="font-size:11px;padding:2px 7px;" onclick="relanceResultat(' + idJs + ', this)">✅</button>' : '<span class="tag" title="Tâche Close seule : se termine dans Close pour l\'instant">dans Close</span>') + '</span></div></div>';
   };
-  var sem = document.getElementById('rl-semaine'), colsEl = document.getElementById('rl-colonnes');
-  if (_rlVue === 'semaine') {
-    colsEl.style.display = 'none'; sem.style.display = '';
-    var jours = [0, 1, 2, 3, 4, 5, 6].map(function(i) { return rlPlus(_rlLundi, i); }).filter(function(iso, i) { return i < 5 || items.some(function(it) { return it.date === iso; }); });
-    // « En retard » : tout ce qui est daté avant aujourd'hui, affiché seulement sur la semaine en cours
-    var retardItems = (_rlLundi <= today && today <= finSem) ? items.filter(function(it) { return it.date && it.date < today; }) : [];
-    var fmt = function(iso) { var d = new Date(iso + 'T12:00:00'); return d.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' }).replace('.', ''); };
-    var faitsDuJour = function(iso) { return terminees.filter(function(t) { return t.date === iso; }).length; };
-    var html = '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;"><button class="btn btn-sm" onclick="_rlLundi=rlPlus(_rlLundi,-7);renderRelancesPage()">← Sem. préc.</button><div style="flex:1;text-align:center;font-weight:700;">Semaine du ' + fmt(_rlLundi) + ' au ' + fmt(rlPlus(_rlLundi, 4)) + (_rlLundi === rlLundiDe(today) ? ' · cette semaine' : '') + '</div>' + (_rlLundi !== rlLundiDe(today) ? '<button class="btn btn-sm" onclick="_rlLundi=null;renderRelancesPage()">Aujourd\'hui</button>' : '') + '<button class="btn btn-sm" onclick="_rlLundi=rlPlus(_rlLundi,7);renderRelancesPage()">Sem. suiv. →</button></div>';
-    var colonnes = [];
-    if (retardItems.length) colonnes.push({ titre: '⏰ En retard', sous: retardItems.length + ' à rattraper', items: retardItems.sort(function(a, b) { return a.date.localeCompare(b.date); }), couleur: 'var(--red)', fond: '#fdeeee' });
-    jours.forEach(function(iso) { var its = items.filter(function(it) { return it.date === iso && !(iso < today && retardItems.indexOf(it) >= 0); }); var faits = faitsDuJour(iso); colonnes.push({ titre: fmt(iso) + (iso === today ? ' · aujourd\'hui' : ''), sous: its.length + ' à faire' + (faits ? ' · ' + faits + ' faite(s) dans Close' : ''), items: its, couleur: iso === today ? 'var(--accent)' : 'var(--text)', fond: iso === today ? 'var(--accent-bg)' : 'var(--surface2)' }); });
-    // dans chaque jour : les cartes regroupées par motif (R2 sans réponse, prise de RDV, no-show inbound, no-show outbound)
-    var groupes = function(its) {
-      var ordre = ['r2', 'rdv', 'nsin', 'nsout'], out = '';
-      ordre.forEach(function(k) {
-        var g = its.filter(function(it) { return it.col === k; }); if (!g.length) return;
-        var c = COLS[k];
-        out += '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:' + c[2] + ';margin:8px 0 4px;display:flex;justify-content:space-between;"><span>' + c[0] + ' ' + c[1] + '</span><span>' + g.length + '</span></div>' + g.map(function(it) { return carte(it, true); }).join('');
-      });
-      return out || '<div style="font-size:12px;color:var(--text3);padding:6px 0;">—</div>';
-    };
-    html += '<div style="display:grid;grid-template-columns:repeat(' + colonnes.length + ',minmax(200px,1fr));gap:10px;align-items:start;overflow-x:auto;">' + colonnes.map(function(c) {
-      return '<div class="pipeline-col" style="background:' + c.fond + ';padding:12px;"><div class="pipeline-col-header"><div class="pipeline-col-title" style="color:' + c.couleur + ';font-size:13px;">' + c.titre + '</div><span class="pipeline-badge">' + c.items.length + '</span></div><div style="font-size:11px;color:var(--text3);margin-bottom:4px;">' + c.sous + '</div><div class="pipeline-cards" style="max-height:62vh;overflow:auto;gap:6px;">' + groupes(c.items) + '</div></div>';
+  // onglets jours (+ « En retard » sur la semaine en cours)
+  var fmt = function(iso) { var d = new Date(iso + 'T12:00:00'); return d.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' }).replace('.', ''); };
+  var jours = [0, 1, 2, 3, 4, 5, 6].map(function(i) { return rlPlus(_rlLundi, i); }).filter(function(iso, i) { return i < 5 || items.some(function(it) { return it.date === iso; }) || iso === _rlJour; });
+  var retardItems = (_rlLundi <= today && today <= finSem) ? items.filter(function(it) { return it.date && it.date < today; }) : [];
+  var onglets = [];
+  if (retardItems.length) onglets.push({ cle: 'retard', lib: '⏰ En retard', n: retardItems.length, couleur: 'var(--red)' });
+  jours.forEach(function(iso) { var n = items.filter(function(it) { return it.date === iso; }).length, faits = terminees.filter(function(t) { return t.date === iso; }).length; onglets.push({ cle: iso, lib: fmt(iso) + (iso === today ? ' · auj.' : ''), n: n, faits: faits, couleur: iso === today ? 'var(--accent)' : '' }); });
+  if (_rlJour === 'retard' && !retardItems.length) _rlJour = today;
+  var sem = document.getElementById('rl-semaine');
+  sem.style.display = '';
+  sem.innerHTML = '<div style="font-weight:700;margin:4px 0 8px;">Semaine du ' + fmt(_rlLundi) + ' au ' + fmt(rlPlus(_rlLundi, 4)) + (_rlLundi === rlLundiDe(today) ? ' · cette semaine' : '') + '</div>'
+    + '<div style="display:flex;gap:6px;overflow-x:auto;margin-bottom:14px;padding-bottom:2px;">' + onglets.map(function(o) {
+      var actif = o.cle === _rlJour;
+      return '<button onclick="_rlJour=\'' + o.cle + '\';renderRelancesPage()" style="flex:1;min-width:110px;padding:8px 10px;border-radius:10px;cursor:pointer;font:inherit;text-align:left;border:1.5px solid ' + (actif ? 'var(--accent)' : 'var(--border)') + ';background:' + (actif ? 'var(--accent)' : 'var(--surface)') + ';color:' + (actif ? '#fff' : (o.couleur || 'inherit')) + ';">'
+        + '<div style="font-size:12px;font-weight:700;">' + o.lib + '</div><div style="font-size:11px;opacity:.85;">' + (o.n ? o.n + ' à faire' : '—') + (o.faits ? ' · ' + o.faits + ' faite(s)' : '') + '</div></button>';
     }).join('') + '</div>';
-    sem.innerHTML = html;
-  } else {
-    sem.style.display = 'none'; colsEl.style.display = '';
-    var cols = { r2: [], rdv: [], nsin: [], nsout: [] };
-    items.filter(function(it) { return it.date && it.date <= finSem || !it.date; }).sort(function(a, b) { return (a.date || '9999').localeCompare(b.date || '9999'); }).forEach(function(it) { cols[it.col].push(it); });
-    Object.keys(cols).forEach(function(c) { document.getElementById('rl-badge-' + c).textContent = cols[c].length; document.getElementById('rl-col-' + c).innerHTML = cols[c].length ? cols[c].map(function(it) { return carte(it, false); }).join('') : '<div style="font-size:12px;color:var(--text3);padding:8px 0;">—</div>'; });
-  }
+  // les 4 colonnes par motif, pour le jour choisi
+  var duJour = _rlJour === 'retard' ? retardItems : items.filter(function(it) { return it.date === _rlJour; });
+  duJour.sort(function(a, b) { return (a.date || '').localeCompare(b.date || '') || (a.nom || '').localeCompare(b.nom || ''); });
+  var cols = { r2: [], rdv: [], nsin: [], nsout: [] };
+  duJour.forEach(function(it) { cols[it.col].push(it); });
+  document.getElementById('rl-colonnes').style.display = '';
+  Object.keys(cols).forEach(function(c) { document.getElementById('rl-badge-' + c).textContent = cols[c].length; document.getElementById('rl-col-' + c).innerHTML = cols[c].length ? cols[c].map(carte).join('') : '<div style="font-size:12px;color:var(--text3);padding:8px 0;">—</div>'; });
   var sans = (typeof sdRdvsSansAction === 'function') ? sdRdvsSansAction() : [];
   document.getElementById('rl-sans-date').innerHTML = sans.length ? '⚠️ ' + sans.length + ' RDV sans prochaine action (ni R2, ni relance datée) — <a href="#" onclick="sdClasserEnChaine();return false;">les traiter</a>' : '';
 }
