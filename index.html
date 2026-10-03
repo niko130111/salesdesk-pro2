@@ -3441,7 +3441,7 @@ function fcChargerClose() {
 // « La dernière fois » : 4-6 lignes condensées par le copilot depuis Close (appels, mails, compte rendu Claap) — jamais inventées
 function fcChargerDernierContact(force) {
   var cle = _fc.cle, el = document.getElementById('fc-dernier'); if (!el) return;
-  el.innerHTML = '<div class="t"><span>🗣 La dernière fois</span></div><div class="fc-muted">lecture de Close…</div>';
+  el.innerHTML = '<div class="t"><span>🗣 La dernière fois</span></div><div class="fc-muted">lecture de Close (et transcription des appels enregistrés la première fois : 10-20 s)…</div>';
   var ctrl = new AbortController(); setTimeout(function() { ctrl.abort(); }, 60000);
   fetch(COPILOT_URL + '/close/dernier-contact?' + new URLSearchParams({ email: _fc.email || '', nom: _fc.nom, force: force ? '1' : '0' }), { mode: 'cors', cache: 'no-store', signal: ctrl.signal })
     .then(function(r) { return r.json(); }).then(function(j) { if (_fc.cle === cle) fcRendreDernierContact(j); })
@@ -3452,7 +3452,7 @@ function fcRendreDernierContact(j) {
   if (!j || j.configure === false || j.error || j.trouve === false) { el.innerHTML = j && j.error ? '<div class="t"><span>🗣 La dernière fois</span></div><div class="fc-muted">Close : ' + escapeHtml(j.error) + '</div>' : ''; return; }
   var faits = [], last = _fc.rows[0] || {};
   var sec = function(n) { return n >= 60 ? Math.round(n / 60) + ' min' : n + ' s'; };
-  if (j.derniereConversation) faits.push((j.derniereConversation.claap ? 'RDV du ' : 'Vrai échange le ') + j.derniereConversation.date + (j.derniereConversation.claap ? ' (compte rendu Claap)' : ' (' + sec(j.derniereConversation.duree) + ')'));
+  if (j.derniereConversation) faits.push((j.derniereConversation.claap ? 'RDV du ' : 'Vrai échange le ') + j.derniereConversation.date + (j.derniereConversation.claap ? ' (compte rendu Claap)' : ' (' + sec(j.derniereConversation.duree) + (j.derniereConversation.enregistre ? ', enregistrement transcrit' : '') + ')'));
   var par = function(x) { return x && x.par && !/lapeyre/i.test(x.par) ? ' par ' + x.par : ''; };
   if (j.derniereConversation && par(j.derniereConversation)) faits[faits.length - 1] += par(j.derniereConversation);
   if (j.dernierAppel && !(j.derniereConversation && j.dernierAppel.date === j.derniereConversation.date)) faits.push('dernier appel ' + j.dernierAppel.date + par(j.dernierAppel) + (j.dernierAppel.joint ? ' (' + sec(j.dernierAppel.duree) + ')' : ' sans réponse'));
