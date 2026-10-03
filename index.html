@@ -1596,11 +1596,12 @@ select.form-input { cursor: pointer; }
   </div>
   <div id="rl-resume" style="font-size:12px;color:var(--text3);margin-bottom:12px;"></div>
   <div id="rl-semaine"></div>
-  <div class="pipeline-grid" id="rl-colonnes" style="display:grid;overflow-x:auto;grid-template-columns:repeat(4,minmax(220px,1fr));gap:12px;align-items:start;">
+  <div class="pipeline-grid" id="rl-colonnes" style="display:grid;overflow-x:auto;grid-template-columns:repeat(5,minmax(200px,1fr));gap:12px;align-items:start;">
     <div class="pipeline-col" style="background:#f3efff;"><div class="pipeline-col-header"><div class="pipeline-col-title" style="color:#6d4fc2;">🔁 R2 sans réponse</div><span class="pipeline-badge" id="rl-badge-r2">0</span></div><div style="font-size:11px;color:#6d4fc2;margin-bottom:10px;">R1 fait, intéressé, pas de nouvelles sur le R2</div><div class="pipeline-cards" id="rl-col-r2"></div></div>
     <div class="pipeline-col" style="background:#e8f4fb;"><div class="pipeline-col-header"><div class="pipeline-col-title" style="color:#0e7490;">📅 Prise de RDV</div><span class="pipeline-badge" id="rl-badge-rdv">0</span></div><div style="font-size:11px;color:#0e7490;margin-bottom:10px;">à rappeler pour caler un R1 (promo, carte, RENT, budget, ancien contact…)</div><div class="pipeline-cards" id="rl-col-rdv"></div></div>
     <div class="pipeline-col" style="background:#fff4e6;"><div class="pipeline-col-header"><div class="pipeline-col-title orange">👻 No-show Inbound</div><span class="pipeline-badge" id="rl-badge-nsin">0</span></div><div style="font-size:11px;color:var(--orange);margin-bottom:10px;">pas venu au R1 pris par un SDR ou le site</div><div class="pipeline-cards" id="rl-col-nsin"></div></div>
     <div class="pipeline-col" style="background:#fdeeee;"><div class="pipeline-col-header"><div class="pipeline-col-title" style="color:var(--red);">👻 No-show Outbound</div><span class="pipeline-badge" id="rl-badge-nsout">0</span></div><div style="font-size:11px;color:var(--red);margin-bottom:10px;">pas venu au R1 que tu as pris</div><div class="pipeline-cards" id="rl-col-nsout"></div></div>
+    <div class="pipeline-col" style="background:var(--surface2);"><div class="pipeline-col-header"><div class="pipeline-col-title" style="color:var(--text2);">❓ À classer</div><span class="pipeline-badge" id="rl-badge-aclasser">0</span></div><div style="font-size:11px;color:var(--text3);margin-bottom:10px;">tâche Close sans RDV connu : choisis le motif sur la carte</div><div class="pipeline-cards" id="rl-col-aclasser"></div></div>
   </div>
   <div id="rl-sans-date" style="margin-top:14px;font-size:12px;color:var(--text3);"></div>
 </div>
@@ -8715,12 +8716,39 @@ function rlNomFiche(fiche, contact) { // « Prénom Nom | Réseau » ou « Agenc
   var pers = segs.find(function(x) { return /^[A-Za-zÀ-ÿ'\-]+\s+[A-Za-zÀ-ÿ'\- ]+$/.test(x.trim()) && x.trim().split(/\s+/).length <= 4 && !/immo|agence|century|orpi|laforet|safti|iad|capifrance|efficity|bsk|exp\b/i.test(x); });
   return pers || segs[0];
 }
-function rlCategorieTache(t, rel) {
+function rlCategorieTache(t, rel, row) {
+  var fixe = (loadStore()._tachesCloseCol || {})[t.id]; if (fixe) return fixe; // motif choisi à la main
   if (rel) return rel.col;
-  var x = (t.texte || '').toLowerCase();
-  if (/no ?show|pas venu|absent/.test(x)) return 'nsin';
+  var x = (t.texte || '').toLowerCase(), src = row ? String(row.source || '') : '';
+  if (/no ?show|pas venu|absent/.test(x)) return src === 'Outbound' ? 'nsout' : 'nsin';
   if (/\br2\b|valid|contrat|signer|décision|decision/.test(x)) return 'r2';
-  return 'rdv';
+  if (row) { // le dernier RDV connu dans SalesDesk dit pourquoi on relance
+    var pres = String(row.presence || '').trim(), res = String(row.result || '').trim();
+    if (pres === 'No Show' || pres === 'Annulé' || pres === 'Reprogrammé') return src === 'Outbound' ? 'nsout' : 'nsin';
+    if (res === 'Non signé' || res === 'Promo') return 'rdv';
+    if (SD_INTERESSE.indexOf(res) >= 0 || row.r2Attendu) return 'r2';
+    if (!pres && !res && parseDateFR(row.date) > new Date()) return 'r2'; // RDV à venir : on attend
+  }
+  return 'aclasser';
+}
+// Même personne malgré une coquille (« Anthonu Birembaut » / « Anthony Birembaut ») : même nom de famille, prénom qui commence pareil
+function rlMemePersonne(a, b) {
+  if (a === b) return true; if (!a || !b) return false;
+  var ta = a.split(' ').filter(Boolean), tb = b.split(' ').filter(Boolean); if (ta.length < 2 || tb.length < 2) return false;
+  var la = ta[ta.length - 1], lb = tb[tb.length - 1];
+  return la.length >= 4 && la === lb && ta[0].slice(0, 3) === tb[0].slice(0, 3);
+}
+// Dernier RDV (hors R2) de l'une de ces personnes dans le store
+function sdRowPourNoms(noms) {
+  var store = loadStore(), ns = (noms || []).map(fcNormNom).filter(function(n) { return n.length > 3; }), best = null, bd = 0;
+  if (!ns.length) return null;
+  Object.keys(store).forEach(function(k) { if (!/^\d{4}-\d{2}$/.test(k) || !Array.isArray(store[k])) return; store[k].forEach(function(x) { if (!x || x.source === 'R2') return; var c = fcNormNom(x.client || ''); if (!c || !ns.some(function(n) { return rlMemePersonne(n, c); })) return; var d = parseDateFR(x.date); if (d && d > bd) { bd = d; best = x; } }); });
+  return best;
+}
+function rlClasser(taskId, col) {
+  var store = loadStore(); if (!store._tachesCloseCol) store._tachesCloseCol = {};
+  if (col) store._tachesCloseCol[taskId] = col; else delete store._tachesCloseCol[taskId];
+  saveStore(store); renderRelancesPage();
 }
 function renderRelancesPage() {
   var page = document.getElementById('page-relances'); if (!page) return;
@@ -8741,11 +8769,13 @@ function renderRelancesPage() {
     var nom = rlNomFiche(t.fiche, t.contact), n = fcNormNom(nom);
     // on relie la tâche à une relance SalesDesk par le nom de la fiche, du contact, ou d'un des contacts de la fiche Close (tâche posée sur l'agence)
     var noms = [n].concat((t.contacts || []).map(fcNormNom)).filter(Boolean);
-    var proche = function(a, b) { return a === b || (a.length > 5 && b.length > 5 && (a.indexOf(b) >= 0 || b.indexOf(a) >= 0)); };
+    var proche = function(a, b) { return a === b || rlMemePersonne(a, b) || (a.length > 5 && b.length > 5 && (a.indexOf(b) >= 0 || b.indexOf(a) >= 0)); };
     var rel = rels.find(function(x) { var xn = fcNormNom(x.nom); return !relsUtilisees[x.r.id] && noms.some(function(c) { return proche(c, xn); }); });
     if (rel) { relsUtilisees[rel.r.id] = true; if (fcNormNom(rel.nom) !== n && noms.indexOf(fcNormNom(rel.nom)) < 0) nom = rel.nom; else nom = rel.nom || nom; }
     else if (!t.contact && (t.contacts || []).length === 1 && t.fiche && fcNormNom(t.fiche) === n) nom = t.contacts[0]; // fiche agence : on affiche la personne
-    items.push({ type: 'close', t: t, rel: rel, nom: nom, date: t.date || (rel ? rel.date : ''), col: rlCategorieTache(t, rel) });
+    var rowT = rel ? rel.row : sdRowPourNoms([nom, t.contact, t.fiche].concat(t.contacts || []));
+    if (!rel && rowT && fcNormNom(rowT.client) !== n) nom = rowT.client;
+    items.push({ type: 'close', t: t, rel: rel, row: rowT, nom: nom, date: t.date || (rel ? rel.date : ''), col: rlCategorieTache(t, rel, rowT) });
   });
   rels.forEach(function(x) { if (!relsUtilisees[x.r.id]) items.push({ type: 'sd', rel: x, nom: x.nom, date: x.date, col: x.col }); });
   var nbDues = items.filter(function(i) { return i.date && i.date <= today; }).length;
@@ -8760,7 +8790,8 @@ function renderRelancesPage() {
   var badge = document.getElementById('nav-relances-badge'); if (badge) { badge.style.display = nbDues ? '' : 'none'; badge.textContent = nbDues; }
   var COLS = { r2: ['🔁', 'R2 sans réponse', '#6d4fc2'], rdv: ['📅', 'Prise de RDV', '#0e7490'], nsin: ['👻', 'No-show Inbound', 'var(--orange)'], nsout: ['👻', 'No-show Outbound', 'var(--red)'] };
   var carte = function(it) {
-    var rel = it.rel, r = rel && rel.r, row = (rel && rel.row) || {}, t = it.t, q = it.date, retard = q && q < today, auj = q === today;
+    var rel = it.rel, r = rel && rel.r, row = (rel && rel.row) || it.row || {}, t = it.t, q = it.date, retard = q && q < today, auj = q === today;
+    var choix = t ? '<select title="Motif" onclick="event.stopPropagation()" onchange="rlClasser(' + JSON.stringify(t.id).replace(/"/g, '&quot;') + ', this.value)" style="font-size:10px;padding:1px 2px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text2);max-width:92px;"><option value="">' + (it.col === 'aclasser' ? 'À classer…' : 'motif…') + '</option><option value="r2">🔁 R2</option><option value="rdv">📅 Prise RDV</option><option value="nsin">👻 NS Inbound</option><option value="nsout">👻 NS Outbound</option></select>' : '';
     var email = (r && r.email) || row.email || '';
     var idJs = r ? JSON.stringify(String(r.id)).replace(/"/g, '&quot;') : '';
     var nomJs = JSON.stringify(it.nom || '').replace(/"/g, '&quot;'), emailJs = JSON.stringify(email).replace(/"/g, '&quot;');
@@ -8773,7 +8804,7 @@ function renderRelancesPage() {
       + (txt ? '<div class="pipeline-card-sub" style="color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="' + escapeHtml(txt) + '">' + escapeHtml(txt) + '</div>' : (r && (r.contexte || row.retour) ? '<div class="pipeline-card-sub" style="color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(r.contexte || row.retour) + '</div>' : ''))
       + (dernier ? '<div class="pipeline-card-sub">dernier : ' + escapeHtml(dernier) + '</div>' : '')
       + '<div class="pipeline-card-footer" style="gap:4px;flex-wrap:wrap;margin-top:6px;" onclick="event.stopPropagation()"><span style="display:flex;gap:4px;">' + mail + '<a class="tag" style="text-decoration:none;" href="' + escapeHtml((t && t.url) || '#') + '" target="_blank" rel="noopener" onclick="' + (t ? '' : 'event.preventDefault();fcOuvrirClose(' + nomJs + ',' + emailJs + ', event)') + '">↗ Close</a></span>'
-      + '<span style="display:flex;gap:4px;">' + (r ? '<button class="btn btn-sm" style="font-size:11px;padding:2px 7px;" title="Décaler" onclick="relanceResultat(' + idJs + ', this, true)">📅</button><button class="btn btn-sm btn-primary" style="font-size:11px;padding:2px 7px;" onclick="relanceResultat(' + idJs + ', this)">✅</button>' : '<span class="tag" title="Tâche Close seule : se termine dans Close pour l\'instant">dans Close</span>') + '</span></div></div>';
+      + '<span style="display:flex;gap:4px;align-items:center;">' + choix + (r ? '<button class="btn btn-sm" style="font-size:11px;padding:2px 7px;" title="Décaler" onclick="relanceResultat(' + idJs + ', this, true)">📅</button><button class="btn btn-sm btn-primary" style="font-size:11px;padding:2px 7px;" onclick="relanceResultat(' + idJs + ', this)">✅</button>' : '<span class="tag" title="Tâche Close seule : se termine dans Close pour l\'instant">dans Close</span>') + '</span></div></div>';
   };
   // onglets jours (+ « En retard » sur la semaine en cours)
   var fmt = function(iso) { var d = new Date(iso + 'T12:00:00'); return d.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' }).replace('.', ''); };
@@ -8794,8 +8825,8 @@ function renderRelancesPage() {
   // les 4 colonnes par motif, pour le jour choisi
   var duJour = _rlJour === 'retard' ? retardItems : items.filter(function(it) { return it.date === _rlJour; });
   duJour.sort(function(a, b) { return (a.date || '').localeCompare(b.date || '') || (a.nom || '').localeCompare(b.nom || ''); });
-  var cols = { r2: [], rdv: [], nsin: [], nsout: [] };
-  duJour.forEach(function(it) { cols[it.col].push(it); });
+  var cols = { r2: [], rdv: [], nsin: [], nsout: [], aclasser: [] };
+  duJour.forEach(function(it) { (cols[it.col] || cols.aclasser).push(it); });
   document.getElementById('rl-colonnes').style.display = 'grid';
   Object.keys(cols).forEach(function(c) { document.getElementById('rl-badge-' + c).textContent = cols[c].length; document.getElementById('rl-col-' + c).innerHTML = cols[c].length ? cols[c].map(carte).join('') : '<div style="font-size:12px;color:var(--text3);padding:8px 0;">—</div>'; });
   var sans = (typeof sdRdvsSansAction === 'function') ? sdRdvsSansAction() : [];
