@@ -8735,6 +8735,7 @@ function renderEtatSysteme(force) {
     html += '<div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin:14px 0 4px;">Interrupteurs (server/.env, relancer le copilot après)</div>';
     html += ligne(!!sw.close_ecriture, 'Écriture dans Close depuis SalesDesk (tâches, appels, escalade)', sw.close_ecriture ? 'active · manager : ' + escapeHtml(sw.close_manager || '') : 'inactive (clé Close absente)', 'CLOSE_MANAGER=Prénom Nom pour changer le destinataire des escalades.');
     html += ligne(sw.sms_no_show ? true : null, 'SMS no-show à H+1', sw.sms_no_show ? ('ALLUMÉ · ' + (sw.sms_mode === 'auto' && sw.sms_gate ? 'envoi automatique par SMS Gate' : 'mode brouillon (tu envoies à la main)')) : 'éteint (préparé)', 'SMS_NO_SHOW=on pour allumer ; SMS_MODE=auto + SMS_GATE_USERNAME/PASSWORD/DEVICE_ID pour l\'envoi réel.');
+    html += ligne(sw.sms_r2_veille ? true : null, 'SMS de la veille pour les R2', sw.sms_r2_veille ? 'ALLUMÉ' : 'éteint (préparé)', 'SMS_R2_VEILLE=on pour allumer.');
     html += ligne(sw.mail_r1_inbound ? true : null, 'Mail R1 pris par un SDR (via Close)', sw.mail_r1_inbound ? 'ALLUMÉ' : 'éteint (préparé)', 'MAIL_R1_INBOUND=on pour allumer.');
     html += ligne(sw.mail_r1 ? true : null, 'Mail de confirmation R1 (via Close)', sw.mail_r1 ? ('ALLUMÉ · ' + (sw.mail_r1_mode === 'outbox' ? 'envoi réel depuis ta boîte' : 'brouillon dans Close')) : 'éteint (préparé)', 'MAIL_R1=on pour allumer ; MAIL_R1_MODE=outbox pour l\'envoi réel.');
     html += ligne(!!sw.calendly, 'Calendly côté copilot (créneaux, R1 récents)', sw.calendly ? 'jeton présent' : 'jeton absent', 'CALENDLY_TOKEN dans server/.env (ou automatisations-r1/.env).');
@@ -8821,6 +8822,7 @@ function renderControle(recharger, retester) {
   var sw = j.interrupteurs || {};
   document.getElementById('ctl-interrupteurs').innerHTML = L(sw.close_manager ? '🟢' : '⚪', 'Écriture dans Close depuis Relances', 'escalades vers ' + escapeHtml(sw.close_manager || '—'))
     + L(sw.sms_no_show ? '🟢' : '⚪', 'SMS no-show à H+1', sw.sms_no_show ? 'ALLUMÉ · ' + (sw.sms_mode === 'auto' ? 'envoi automatique' : 'brouillon') : 'éteint (préparé) · SMS_NO_SHOW=on')
+    + L(sw.sms_r2_veille ? '🟢' : '⚪', 'SMS de la veille pour les R2 (pris > 48 h avant)', sw.sms_r2_veille ? 'ALLUMÉ · ' + (sw.sms_mode === 'auto' ? 'envoi automatique 08:45' : 'brouillon la veille') : 'éteint (préparé) · SMS_R2_VEILLE=on')
     + L(sw.mail_r1 ? '🟢' : '⚪', 'Mail R1 pris par toi (via Close)', sw.mail_r1 ? 'ALLUMÉ · ' + (sw.mail_r1_mode === 'outbox' ? 'envoi réel' : 'brouillon dans Close') : 'éteint (préparé) · MAIL_R1=on')
     + L(sw.mail_r1_inbound ? '🟢' : '⚪', 'Mail R1 pris par un SDR « c\'est moi qui vous recevrai »', sw.mail_r1_inbound ? 'ALLUMÉ · ' + (sw.mail_r1_mode === 'outbox' ? 'envoi programmé 1 h 30 après la prise' : 'brouillon dans Close') : 'éteint (préparé) · MAIL_R1_INBOUND=on');
   var sms = (j.sms || []).slice(0, 15);
