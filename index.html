@@ -3453,12 +3453,14 @@ function fcRendreDernierContact(j) {
   var faits = [], last = _fc.rows[0] || {};
   var sec = function(n) { return n >= 60 ? Math.round(n / 60) + ' min' : n + ' s'; };
   if (j.derniereConversation) faits.push((j.derniereConversation.claap ? 'RDV du ' : 'Vrai échange le ') + j.derniereConversation.date + (j.derniereConversation.claap ? ' (compte rendu Claap)' : ' (' + sec(j.derniereConversation.duree) + ')'));
-  if (j.dernierAppel && !(j.derniereConversation && j.dernierAppel.date === j.derniereConversation.date)) faits.push('dernier appel ' + j.dernierAppel.date + (j.dernierAppel.joint ? ' (' + sec(j.dernierAppel.duree) + ')' : ' sans réponse'));
+  var par = function(x) { return x && x.par && !/lapeyre/i.test(x.par) ? ' par ' + x.par : ''; };
+  if (j.derniereConversation && par(j.derniereConversation)) faits[faits.length - 1] += par(j.derniereConversation);
+  if (j.dernierAppel && !(j.derniereConversation && j.dernierAppel.date === j.derniereConversation.date)) faits.push('dernier appel ' + j.dernierAppel.date + par(j.dernierAppel) + (j.dernierAppel.joint ? ' (' + sec(j.dernierAppel.duree) + ')' : ' sans réponse'));
   if (j.tentativesDepuis > 1) faits.push(j.tentativesDepuis + ' appels sans réponse depuis');
   if (j.dernierMail) faits.push((j.dernierMail.envoye ? 'mail envoyé ' : 'mail reçu ') + j.dernierMail.date + (j.dernierMail.objet ? ' « ' + j.dernierMail.objet + ' »' : ''));
   if (last.retour) faits.push('ton retour SalesDesk : ' + last.retour);
   if (last.relanceDernier) faits.push('dernière relance : ' + ({ joint: 'joint', pas_de_reponse: 'pas de réponse' }[last.relanceDernier] || last.relanceDernier) + (last.relanceDernierAt ? ' le ' + fcFrDepuisIso(last.relanceDernierAt) : ''));
-  var lignes = (j.lignes || []).slice(0, 6);
+  var lignes = (j.lignes || []).slice(0, 10);
   el.innerHTML = '<div class="t"><span>🗣 La dernière fois</span><a onclick="fcChargerDernierContact(true)" title="Relire Close">↻</a></div>'
     + (lignes.length ? '<ul>' + lignes.map(function(l) { return '<li>' + escapeHtml(l) + '</li>'; }).join('') + '</ul>' : '<div class="fc-muted">Rien d\'exploitable dans Close (pas de note, pas de compte rendu).</div>')
     + (faits.length ? '<div class="faits">' + faits.map(escapeHtml).join(' · ') + '</div>' : '');
