@@ -7974,7 +7974,12 @@ function classifyRow(r) {
   // No Show / Annulé / Reprogrammé : tous traités comme "No Show" dans le Pipeline
   // (RDV qui n'a pas abouti, peu importe la raison)
   var isNoShow = function(p) { return p === 'No Show' || p === 'Annulé' || p === 'Reprogrammé'; };
-  if (isNoShow(pres) || isNoShow(presR2)) return 'noshow';
+  // Un R1 manqué mais avec un R2 daté à venir (ou tenu) n'est plus un no-show : c'est une opportunité en cours
+  var dR2 = (r.dateR2 && String(r.dateR2).trim()) ? parseDateFR(r.dateR2) : null;
+  var r2AVenir = dR2 && !isNoShow(presR2) && (dR2 >= new Date(new Date().setHours(0, 0, 0, 0)) || presR2 === 'Show');
+  if (isNoShow(presR2)) return 'noshow';
+  if (isNoShow(pres) && !r2AVenir) return 'noshow';
+  if (isNoShow(pres) && r2AVenir && result !== 'Signé' && result !== 'Non signé') return 'interested';
 
   if (result === 'Signé') return 'signed';
   if (result === 'Non signé' || result === 'Promo') return 'nosigned'; // Promo = non signé, raison « si promo »
@@ -8049,7 +8054,7 @@ function buildPipelineCard(r, col) {
     + (col === 'interested' ? fcSuiteCarte(r) : fcRelanceCarte(r, col))
     + '<span style="display:flex;gap:4px;align-items:center;">'
     + (tier ? '<span class="tag">' + tier + '</span>' : '')
-    + (days !== null && col !== 'signed' ? '<span style="font-size:10px;color:' + urgColor + ';">' + days + 'j ⏱</span>' : '')
+    + (days !== null && col !== 'signed' ? '<span style="font-size:10px;color:' + (days < 0 ? 'var(--purple)' : urgColor) + ';">' + (days < 0 ? 'dans ' + (-days) + ' j' : days + 'j ⏱') + '</span>' : '')
     + '<span class="tag" style="cursor:pointer;" title="Ouvrir la fiche Close" onclick="fcOuvrirClose(' + JSON.stringify(r.client || '').replace(/"/g, '&quot;') + ',' + JSON.stringify(r.email || '').replace(/"/g, '&quot;') + ', event)">↗ Close</span>'
     + '</span></div></div>';
 }
