@@ -2467,11 +2467,11 @@ select.form-input { cursor: pointer; }
       <div class="form-group">
         <label class="form-label">Présence</label>
         <select class="form-input" id="new-rdv-presence">
+          <option value="">⏳ À venir (pas encore eu lieu)</option>
           <option>● Show</option>
           <option>✗ No Show</option>
           <option>🚫 Annulé</option>
           <option>🔄 Reprogrammé</option>
-          <option>⏳ Pending</option>
         </select>
       </div>
       <div class="form-group">
@@ -2497,7 +2497,7 @@ select.form-input { cursor: pointer; }
         <label class="form-label">Type</label>
         <select class="form-input" id="new-rdv-type">
           <option>Mandataire</option>
-          <option>Agence</option>
+          <option>Agences</option>
         </select>
       </div>
     </div>
@@ -2505,14 +2505,16 @@ select.form-input { cursor: pointer; }
       <div class="form-group">
         <label class="form-label">Pack</label>
         <select class="form-input" id="new-rdv-pack">
+          <option value="">— (si signé)</option>
           <option>Start+</option>
-          <option>Pro</option>
           <option>Pro+</option>
+          <option>Expert+</option>
         </select>
       </div>
       <div class="form-group">
         <label class="form-label">Fréquence</label>
         <select class="form-input" id="new-rdv-freq">
+          <option value="">— (si signé)</option>
           <option>Annuelle</option>
           <option>Mensuelle</option>
         </select>
@@ -2598,7 +2600,7 @@ select.form-input { cursor: pointer; }
       <div class="form-group">
         <label class="form-label">Pack</label>
         <select class="form-input" id="new-deal-pack">
-          <option>Start+</option><option>Pro</option><option>Pro+</option>
+          <option>Start+</option><option>Pro+</option><option>Expert+</option>
         </select>
       </div>
       <div class="form-group">
@@ -4846,16 +4848,19 @@ function addRdv() {
                  : presence.includes('Reprogrammé') ? 'Reprogrammé'
                  : presence.includes('No') ? 'No Show'
                  : presence.includes('Show') ? 'Show'
-                 : 'Pending';
+                 : ''; // à venir : présence vide, le RDV sera traité le jour venu
   const resNorm = result.includes('Signé') && !result.includes('Non') ? 'Signé' :
                   result.includes('Non') ? 'Non signé' :
                   result.includes('R2') ? 'R2 planifié' : '';
   const oneshotVal = (document.getElementById('new-rdv-oneshot') || {}).checked ? 'O' : 'N';
 
-  addRdvToStore(state.month, state.year, {
+  // Le RDV va dans le mois de SA date, pas dans le mois affiché à l'écran
+  const _pd = String(fmtDate || '').split('/');
+  const _mois = _pd.length === 3 ? MONTHS_FR[parseInt(_pd[1], 10) - 1] : state.month, _annee = _pd.length === 3 ? _pd[2] : state.year;
+  addRdvToStore(_mois, _annee, {
     date: fmtDate, datePrise: new Date().toLocaleDateString('fr-FR'),
-    client, presence: presNorm, result: resNorm,
-    source, type, pack, freq, oneshot: oneshotVal, commission
+    client, presence: presNorm, result: resNorm === 'Signé' ? 'Signé' : (presNorm === 'Show' ? resNorm : ''),
+    source, type, pack: resNorm === 'Signé' ? pack : '', freq: resNorm === 'Signé' ? freq : '', oneshot: oneshotVal, commission
   });
 
   refreshAll();
