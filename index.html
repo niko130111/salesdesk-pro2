@@ -1653,7 +1653,7 @@ select.form-input { cursor: pointer; }
         <div class="pipeline-col-title" style="color:#0e7490;">🔁 Ancien RDV à relancer</div>
         <span class="pipeline-badge" id="pipe-badge-relancer">0</span>
       </div>
-      <div style="font-size:11px;color:#0e7490;margin-bottom:10px;">À rappeler plus tard</div>
+      <div style="font-size:11px;color:#0e7490;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;gap:6px;"><span>À rappeler plus tard</span><button class="btn btn-sm" style="font-size:10px;padding:2px 8px;" title="Passer en revue les anciens : réactiver, mettre en veille ou clôturer" onclick="sdRevueAnciens()">🧹 Revue</button></div>
       <div class="pipeline-cards" id="pipe-col-relancer" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="pipelineDrop(event,this,'pipe-col-nosigned','relancer')"></div>
     </div>
 
@@ -8635,6 +8635,60 @@ function dessinerRelances() {
     }).join('') + '</tbody></table>' : '<div style="font-size:12px;color:var(--text3);">Rien pour ce filtre.</div>';
 }
 
+// ── REVUE DES ANCIENS RDV À RELANCER ───────────────────────────────────────────────────────
+// Pour chaque carte « Ancien RDV à relancer » : réactiver (date de relance), mettre en veille (sort du Pipeline, reste dans les
+// données et les stats, réveillable), ou clôturer avec une raison (pas intéressé / pas de budget / ghost).
+var _revueVoirVeille = false;
+function sdAnciensARelancer(enVeille) {
+  var store = loadStore(), out = [];
+  Object.keys(store).forEach(function(k) {
+    if (!/^\d{4}-\d{2}$/.test(k) || !Array.isArray(store[k])) return;
+    store[k].forEach(function(r, i) { if (!r || r.result !== 'Non signé' || r.nosignRaison !== 'relancer') return; if (!!r.enVeille !== !!enVeille) return; out.push({ mk: k, idx: i, r: r }); });
+  });
+  out.sort(function(a, b) { return (parseDateFR(a.r.date) || 0) - (parseDateFR(b.r.date) || 0); });
+  return out;
+}
+function sdRevueAnciens() {
+  var liste = sdAnciensARelancer(_revueVoirVeille), today = new Date(); today.setHours(0, 0, 0, 0);
+  var nbVeille = sdAnciensARelancer(true).length, nbActifs = sdAnciensARelancer(false).length;
+  var html = '<div class="fc-dup" style="max-width:860px;"><div style="font-size:16px;font-weight:700;margin-bottom:2px;">🧹 Revue des anciens RDV à relancer</div>'
+    + '<div style="font-size:12px;color:var(--text3);margin-bottom:10px;">' + nbActifs + ' dans le Pipeline · ' + nbVeille + ' en veille. Pour chacun : réactiver avec une date, mettre en veille, ou clôturer. Les stats ne bougent pas, seule la place dans le Pipeline change.</div>'
+    + '<div style="display:flex;gap:6px;margin-bottom:8px;"><button class="btn btn-sm' + (!_revueVoirVeille ? ' btn-primary' : '') + '" onclick="_revueVoirVeille=false;sdRevueAnciens()">Dans le Pipeline (' + nbActifs + ')</button><button class="btn btn-sm' + (_revueVoirVeille ? ' btn-primary' : '') + '" onclick="_revueVoirVeille=true;sdRevueAnciens()">💤 En veille (' + nbVeille + ')</button></div>';
+  if (!liste.length) html += '<div style="padding:10px 0;color:var(--text3);">Rien ici.</div>';
+  liste.forEach(function(x) {
+    var r = x.r, d = parseDateFR(r.date), age = d ? Math.round((today - d) / 86400000) : null;
+    var rel = r.relanceDate && !r.relanceFait ? '📞 relance le ' + fcFrDepuisIso(r.relanceDate) + (r.relanceCond ? ' · ' + r.relanceCond : '') : '<span style="color:var(--red);">aucune relance datée</span>';
+    var id = JSON.stringify(x.mk).replace(/"/g, '&quot;') + ',' + x.idx;
+    html += '<div style="display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-top:1px solid var(--border);font-size:13px;flex-wrap:wrap;">'
+      + '<div style="flex:1;min-width:220px;"><b class="fc-nomlien" onclick="ouvrirFicheClient(' + JSON.stringify(r.client || '').replace(/"/g, '&quot;') + ')">' + escapeHtml(r.client) + '</b> <span style="color:var(--text3);">· ' + escapeHtml(r.date) + (age !== null ? ' · il y a ' + age + ' j' : '') + ' · ' + escapeHtml([r.type, r.source].filter(Boolean).join(' · ')) + '</span>'
+      + '<div style="font-size:11px;">' + rel + (r.retour ? ' <span style="color:var(--text3);">— ' + escapeHtml(String(r.retour).slice(0, 120)) + '</span>' : '') + (r.enVeille ? ' <span style="color:var(--text3);">· en veille depuis le ' + escapeHtml(fcFrDepuisIso(r.enVeille)) + '</span>' : '') + '</div></div>'
+      + '<div style="display:flex;gap:4px;flex-wrap:wrap;">'
+      + '<input type="date" id="rv-' + x.mk + '-' + x.idx + '" value="' + relanceDateSuggeree({ relance: { quand: '' } }) + '" style="font-family:var(--mono);font-size:11px;padding:3px 5px;border:1px solid var(--border);border-radius:6px;">'
+      + '<button class="btn btn-sm" style="font-size:11px;padding:3px 8px;" onclick="sdRevueAction(' + id + ',\'reactiver\')">📅 Réactiver</button>'
+      + (r.enVeille ? '' : '<button class="btn btn-sm" style="font-size:11px;padding:3px 8px;" onclick="sdRevueAction(' + id + ',\'veille\')">💤 Veille</button>')
+      + '<button class="btn btn-sm" style="font-size:11px;padding:3px 8px;color:var(--red);" onclick="sdRevueAction(' + id + ',\'pasinteresse\')">✗ Pas intéressé</button>'
+      + '<button class="btn btn-sm" style="font-size:11px;padding:3px 8px;" onclick="sdRevueAction(' + id + ',\'pasbudget\')">💸 Pas de budget</button>'
+      + '<button class="btn btn-sm" style="font-size:11px;padding:3px 8px;" onclick="sdRevueAction(' + id + ',\'ghost\')">🫥 Ghost</button>'
+      + '</div></div>';
+  });
+  html += '<div style="text-align:right;margin-top:12px;"><button class="btn btn-sm" onclick="fermerModalDoublon()">Fermer</button></div></div>';
+  var ov = document.getElementById('fc-dup-overlay');
+  if (!ov) { ov = document.createElement('div'); ov.id = 'fc-dup-overlay'; ov.className = 'modal-overlay'; ov.style.zIndex = '1300'; ov.innerHTML = '<div class="modal" id="fc-dup-modal"></div>'; document.body.appendChild(ov); }
+  ov.onclick = function(ev) { if (ev.target === ov) fermerModalDoublon(); };
+  document.getElementById('fc-dup-modal').innerHTML = html; ov.classList.add('open');
+}
+function sdRevueAction(mk, idx, action) {
+  var store = loadStore(), r = (store[mk] || [])[idx]; if (!r) return;
+  var today = new Date().toISOString().slice(0, 10);
+  if (action === 'reactiver') {
+    var inp = document.getElementById('rv-' + mk + '-' + idx), quand = inp && inp.value; if (!quand) { alert('Choisis la date de relance.'); return; }
+    r.relanceDate = quand; r.relanceFait = false; r.relanceCond = r.relanceCond || 'Ancien RDV'; delete r.enVeille; delete r.pipelineMasque;
+  } else if (action === 'veille') { r.enVeille = today; r.pipelineMasque = true; }
+  else { r.nosignRaison = action; r.nosignRaisonAvant = 'relancer'; delete r.enVeille; delete r.pipelineMasque; }
+  saveStore(store); try { refreshAll(); } catch (e) {}
+  if (typeof showCopyToast === 'function') showCopyToast({ reactiver: '📅 Relance posée pour ' + r.client, veille: '💤 ' + r.client + ' mis en veille', pasinteresse: '✗ ' + r.client + ' : pas intéressé', pasbudget: '💸 ' + r.client + ' : pas de budget', ghost: '🫥 ' + r.client + ' : ghost' }[action]);
+  sdRevueAnciens();
+}
 // ── PIPELINE DRAG & DROP ────────────────────────────────────
 var _dragCard = null;
 
