@@ -387,6 +387,11 @@ main { max-width: 100%; margin: 0; padding: 6px 8px; }
 .fc-chip.accent { background: var(--accent-bg); color: var(--accent); border-color: transparent; }
 .fc-chip .k { font-size: 11px; font-weight: 500; color: var(--text3); }
 .fc-suivi { margin-top: 12px; display: flex; flex-wrap: wrap; gap: 8px; }
+.controle-alerte { margin: 0 0 12px; padding: 10px 14px; border-radius: 12px; background: #fdeeee; border: 1px solid var(--red); color: var(--red); font-size: 13px; font-weight: 600; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.controle-alerte.orange { background: #fff4e6; border-color: var(--orange); color: #8a4b00; }
+.ctl-ligne { display: flex; gap: 8px; align-items: flex-start; padding: 6px 0; border-top: 1px solid var(--border); font-size: 12.5px; }
+.ctl-ligne:first-child { border-top: 0; }
+.ctl-ligne .d { color: var(--text3); font-size: 11.5px; }
 .fc-dernier { margin: 12px 0 4px; padding: 12px 14px; border-radius: 12px; background: #fffbea; border: 1px solid #f3e4a6; font-size: 13.5px; line-height: 1.45; }
 .fc-dernier .t { font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: #8a6d00; margin-bottom: 6px; display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
 .fc-dernier .t a { color: #8a6d00; font-weight: 600; text-transform: none; letter-spacing: 0; font-size: 11px; cursor: pointer; }
@@ -643,6 +648,7 @@ select.form-input { cursor: pointer; }
     <button class="nav-tab" onclick="showPage('global',this);renderGlobal();togglePeriodSelector(false)">🌐 Global</button>
     <button class="nav-tab" onclick="showPage('pipeline',this);togglePeriodSelector(false);renderPipeline()">📋 Pipeline</button>
     <button class="nav-tab" onclick="showPage('rdvtable',this);togglePeriodSelector(true)">📅 RDV Table</button>
+    <button class="nav-tab" onclick="showPage('controle',this);togglePeriodSelector(false);renderControle(true)">🛡 Contrôle<span id="nav-controle-badge" style="display:none;margin-left:6px;background:var(--red);color:#fff;font-size:10px;padding:1px 6px;border-radius:99px;font-weight:700;"></span></button>
     <button class="nav-tab" onclick="showPage('settings',this);togglePeriodSelector(false)">⚙️ Objectifs & Config<span id="nav-settings-dot" style="display:none;width:7px;height:7px;border-radius:50%;background:var(--red);margin-left:6px;vertical-align:middle;"></span></button>
   </div>
   <div class="nav-right">
@@ -670,6 +676,7 @@ select.form-input { cursor: pointer; }
 
 <!-- ===================== DAILY PAGE ===================== -->
 <div id="page-mesrdv" class="page">
+  <div id="controle-alerte-mesrdv" class="controle-alerte" style="display:none;"></div>
   <div id="copilot-off">
     <b>Le copilot ne répond pas.</b><br>1. Si Chrome affiche un bandeau « autoriser l'accès au réseau local », clique Autoriser.<br>2. Sinon, lance le serveur dans un terminal, puis reviens sur cet onglet.
     <code>cd ~/Desktop/"Mes projets"/sales-copilot/sales-copilot-v2/server && node server.js</code>
@@ -680,6 +687,7 @@ select.form-input { cursor: pointer; }
 </div>
 <div id="page-daily" class="page active">
 <main>
+<div id="controle-alerte-daily" class="controle-alerte" style="display:none;"></div>
 
 <!-- Ma journée : RDV du jour, prépas manquantes, à finaliser, relances dues, sans prochaine action, incidents — chaque ligne = une action -->
 <div id="ma-journee" style="margin-bottom:14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 18px;"></div>
@@ -1614,6 +1622,22 @@ select.form-input { cursor: pointer; }
 
 <!-- ===================== PIPELINE PAGE ===================== -->
 <!-- ════ PAGE RELANCES : une seule file, 4 colonnes ════ -->
+<!-- ════ PAGE CONTRÔLE : ce qui marche, ce qui ne marche pas, ce qui est parti ════ -->
+<div id="page-controle" class="page">
+  <div class="section-header" style="margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+    <div><div class="section-title">🛡 Contrôle</div><div style="font-size:12px;color:var(--text3);margin-top:2px;">Connexions testées pour de vrai, envois (SMS, mails), automatisations, écritures dans Close. Si quelque chose casse, tu le vois ici — et en bandeau dans Quotidien et Mes RDV.</div></div>
+    <div style="display:flex;gap:6px;"><span id="ctl-at" style="font-size:12px;color:var(--text3);align-self:center;"></span><button class="btn btn-sm" onclick="renderControle(true, true)">↻ Retester</button></div>
+  </div>
+  <div id="ctl-problemes"></div>
+  <div class="pipeline-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px;align-items:start;">
+    <div class="pipeline-col" style="background:var(--surface);"><div class="pipeline-col-title" style="margin-bottom:8px;">🔌 Connexions</div><div id="ctl-connexions"></div></div>
+    <div class="pipeline-col" style="background:var(--surface);"><div class="pipeline-col-title" style="margin-bottom:8px;">🎚 Interrupteurs</div><div id="ctl-interrupteurs"></div></div>
+    <div class="pipeline-col" style="background:var(--surface);"><div class="pipeline-col-title" style="margin-bottom:8px;">💬 SMS</div><div id="ctl-sms"></div></div>
+    <div class="pipeline-col" style="background:var(--surface);"><div class="pipeline-col-title" style="margin-bottom:8px;">✉ Mails R1</div><div id="ctl-mails"></div></div>
+    <div class="pipeline-col" style="background:var(--surface);"><div class="pipeline-col-title" style="margin-bottom:8px;">⚙️ Automatisations</div><div id="ctl-automations"></div></div>
+    <div class="pipeline-col" style="background:var(--surface);"><div class="pipeline-col-title" style="margin-bottom:8px;">✍️ Écritures dans Close</div><div id="ctl-ecritures"></div></div>
+  </div>
+</div>
 <div id="page-relances" class="page">
   <div class="section-header" style="margin-bottom:6px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
     <div><div class="section-title">📞 Relances</div><div style="font-size:12px;color:var(--text3);margin-top:2px;">Tout ce que tu dois rappeler, au même endroit. Les colonnes disent pourquoi, la date dit quand.</div></div>
@@ -8739,7 +8763,70 @@ function chargerMaJournee(force) {
     fetch(COPILOT_URL + '/etat', { mode: 'cors', cache: 'no-store', signal: ctrl.signal }).then(function(r) { return r.json(); }).catch(function() { return null; }),
     fetch('http://127.0.0.1:3016/api/status', { mode: 'cors', cache: 'no-store', signal: ctrl.signal }).then(function(r) { return r.json(); }).catch(function() { return false; })
   ]).then(function(r) { _mj.copilot = r[0] && r[0].rdvs ? r[0].rdvs : null; _mj.sdRdvs = r[1] && r[1].rdvs ? r[1].rdvs : null; _mj.etat = r[2]; _mj.rappels = r[3]; fin(); }).catch(fin);
-  try { chargerVerifClose(false); } catch (e) {} try { chargerSms(false); } catch (e) {}
+  try { chargerVerifClose(false); } catch (e) {} try { chargerSms(false); } catch (e) {} try { chargerControle(false); setInterval(function() { chargerControle(true); }, 5 * 60000); } catch (e) {}
+}
+// ── Contrôle : organe de contrôle (copilot /controle + état SalesDesk), alertes en bandeau dans Quotidien et Mes RDV ──
+var _ctl = null, _ctlAt = 0;
+function ctlProblemesLocaux() {
+  var p = [];
+  if (typeof _syncErreur !== 'undefined' && _syncErreur) p.push({ niveau: 'rouge', quoi: 'Sauvegarde Supabase en échec (tes données ne sont plus sauvegardées en ligne)', zone: 'salesdesk' });
+  if (!((state.calendly && state.calendly.apiKey) || localStorage.getItem('calendly_key'))) p.push({ niveau: 'orange', quoi: 'Clé Calendly absente dans SalesDesk (pas de RDV du jour)', zone: 'salesdesk' });
+  if (typeof _calendlyErreur !== 'undefined' && _calendlyErreur) p.push({ niveau: 'rouge', quoi: 'Calendly (SalesDesk) : ' + _calendlyErreur, zone: 'salesdesk' });
+  return p;
+}
+function chargerControle(force, retester) {
+  if (typeof COPILOT_URL === 'undefined') return Promise.resolve();
+  if (_ctl && Date.now() - _ctlAt < 120000 && !force) return Promise.resolve(_ctl);
+  var ctrl = new AbortController(); setTimeout(function() { ctrl.abort(); }, 25000);
+  return fetch(COPILOT_URL + '/controle' + (retester ? '?force=1' : ''), { mode: 'cors', cache: 'no-store', signal: ctrl.signal }).then(function(r) { return r.json(); })
+    .then(function(j) { _ctl = j; _ctlAt = Date.now(); return j; })
+    .catch(function() { _ctl = { ok: false, copilotAbsent: true, connexions: [], problemes: [], sms: [], mails: [], journal: [], ecritures: [], automations: [] }; _ctlAt = Date.now(); return _ctl; })
+    .then(function(j) { dessinerAlertesControle(); return j; });
+}
+function ctlTousProblemes() {
+  var p = ctlProblemesLocaux().concat((_ctl && _ctl.problemes) || []);
+  if (_ctl && _ctl.copilotAbsent) p.unshift({ niveau: 'rouge', quoi: 'Copilot injoignable : relances Close, fiche « avant d\'appeler », SMS et mails sont à l\'arrêt', zone: 'copilot' });
+  return p;
+}
+function dessinerAlertesControle() {
+  var p = ctlTousProblemes(), rouges = p.filter(function(x) { return x.niveau === 'rouge'; });
+  var badge = document.getElementById('nav-controle-badge'); if (badge) { badge.style.display = p.length ? '' : 'none'; badge.textContent = p.length; badge.style.background = rouges.length ? 'var(--red)' : 'var(--orange)'; }
+  ['controle-alerte-daily', 'controle-alerte-mesrdv'].forEach(function(id) {
+    var el = document.getElementById(id); if (!el) return;
+    if (!p.length) { el.style.display = 'none'; return; }
+    el.className = 'controle-alerte' + (rouges.length ? '' : ' orange'); el.style.display = '';
+    el.innerHTML = '<span>' + (rouges.length ? '🔴' : '🟠') + ' ' + p.length + ' chose(s) à regarder :</span><span style="font-weight:500;flex:1;">' + escapeHtml(p.slice(0, 2).map(function(x) { return x.quoi; }).join(' · ')) + (p.length > 2 ? ' · …' : '') + '</span><button class="btn btn-sm" onclick="mjAller(\'Contrôle\')">Voir</button>';
+  });
+  if (document.getElementById('page-controle') && document.getElementById('page-controle').classList.contains('active')) renderControle(false);
+}
+function renderControle(recharger, retester) {
+  var page = document.getElementById('page-controle'); if (!page) return;
+  if (recharger) { document.getElementById('ctl-at').textContent = retester ? 'test des connexions…' : 'chargement…'; chargerControle(true, retester).then(function() { renderControle(false); }); if (!_ctl) return; }
+  var j = _ctl || { connexions: [], problemes: [], sms: [], mails: [], journal: [], ecritures: [], automations: [] };
+  var fr = function(x) { var d = typeof x === 'number' ? new Date(x) : new Date(x || 0); return isNaN(d) ? '' : d.toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }); };
+  var L = function(ico, titre, detail) { return '<div class="ctl-ligne"><span>' + ico + '</span><span style="flex:1;"><div>' + titre + '</div>' + (detail ? '<div class="d">' + detail + '</div>' : '') + '</span></div>'; };
+  document.getElementById('ctl-at').textContent = j.at ? 'testé ' + fr(j.at) + (j.demarre_at ? ' · copilot démarré ' + fr(j.demarre_at) : '') : (j.copilotAbsent ? 'copilot injoignable' : '');
+  var p = ctlTousProblemes();
+  document.getElementById('ctl-problemes').innerHTML = p.length ? '<div class="controle-alerte' + (p.some(function(x) { return x.niveau === 'rouge'; }) ? '' : ' orange') + '" style="flex-direction:column;align-items:flex-start;gap:4px;">' + p.map(function(x) { return '<div>' + (x.niveau === 'rouge' ? '🔴' : '🟠') + ' ' + escapeHtml(x.quoi) + '</div>'; }).join('') + '</div>' : '<div style="padding:10px 14px;border-radius:12px;background:#eaf7ee;border:1px solid var(--green);color:var(--green);font-weight:700;margin-bottom:12px;">🟢 Tout est connecté, rien en erreur.</div>';
+  // connexions : SalesDesk d'abord, puis copilot
+  var cx = '';
+  cx += L(typeof _syncErreur !== 'undefined' && _syncErreur ? '🔴' : '🟢', 'Supabase (sauvegarde en ligne)', (typeof _supaEmail !== 'undefined' && _supaEmail) ? 'connecté : ' + escapeHtml(_supaEmail) : 'clé publique seule');
+  cx += L(((state.calendly && state.calendly.apiKey) || localStorage.getItem('calendly_key')) ? '🟢' : '🟠', 'Calendly (SalesDesk)', 'RDV du jour, outbound');
+  cx += L(j.copilotAbsent ? '🔴' : '🟢', 'Copilot local', j.copilotAbsent ? 'injoignable sur ' + COPILOT_URL : 'répond');
+  (j.connexions || []).forEach(function(c) { cx += L(c.ok ? '🟢' : (/préparé/.test(c.detail) ? '⚪' : '🔴'), escapeHtml(c.nom), escapeHtml(c.detail || '') + (c.ms ? ' · ' + c.ms + ' ms' : '')); });
+  document.getElementById('ctl-connexions').innerHTML = cx;
+  var sw = j.interrupteurs || {};
+  document.getElementById('ctl-interrupteurs').innerHTML = L(sw.close_manager ? '🟢' : '⚪', 'Écriture dans Close depuis Relances', 'escalades vers ' + escapeHtml(sw.close_manager || '—'))
+    + L(sw.sms_no_show ? '🟢' : '⚪', 'SMS no-show à H+1', sw.sms_no_show ? 'ALLUMÉ · ' + (sw.sms_mode === 'auto' ? 'envoi automatique' : 'brouillon') : 'éteint (préparé) · SMS_NO_SHOW=on')
+    + L(sw.mail_r1 ? '🟢' : '⚪', 'Mail de confirmation R1 (via Close)', sw.mail_r1 ? 'ALLUMÉ · ' + (sw.mail_r1_mode === 'outbox' ? 'envoi réel' : 'brouillon dans Close') : 'éteint (préparé) · MAIL_R1=on');
+  var sms = (j.sms || []).slice(0, 15);
+  document.getElementById('ctl-sms').innerHTML = sms.length ? sms.map(function(x) { var ic = { envoye: '🟢', prevu: '⏱', brouillon: '✋', annule: '⚪', erreur: '🔴' }[x.statut] || '•'; return L(ic, escapeHtml(x.nom) + ' · ' + escapeHtml(x.statut), (x.statut === 'prevu' ? 'part ' + fr(x.prevu) : x.envoyeAt ? 'envoyé ' + fr(x.envoyeAt) : fr(x.cree)) + (x.motif ? ' · ' + escapeHtml(x.motif) : '')); }).join('') : '<div class="d" style="font-size:12px;color:var(--text3);">Aucun SMS sur 7 jours' + (sw.sms_no_show ? '' : ' (automatisation éteinte)') + '.</div>';
+  var mails = (j.mails || []).slice(0, 15);
+  document.getElementById('ctl-mails').innerHTML = mails.length ? mails.map(function(x) { var ic = { outbox: '🟢', draft: '📝', sans_fiche: '🟠', erreur: '🔴', anterieur: '⚪' }[x.statut] || '•'; return L(ic, escapeHtml(x.nom || '') + ' · ' + escapeHtml({ outbox: 'envoyé', draft: 'brouillon dans Close', sans_fiche: 'pas de fiche Close', erreur: 'erreur', anterieur: 'antérieur' }[x.statut] || x.statut), fr(x.at) + (x.raison ? ' · ' + escapeHtml(x.raison) : '') + (x.url ? ' · <a href="' + escapeHtml(x.url) + '" target="_blank" rel="noopener">fiche ↗</a>' : '')); }).join('') : '<div style="font-size:12px;color:var(--text3);">Aucun mail' + (sw.mail_r1 ? '' : ' (automatisation éteinte)') + '.</div>';
+  var dern = {}; (j.journal || []).forEach(function(e) { if (!dern[e.id]) dern[e.id] = e; });
+  document.getElementById('ctl-automations').innerHTML = (j.automations || []).map(function(a) { var e = dern[a.id]; return L(!a.actif ? '⚪' : !e ? '◌' : e.ok ? '🟢' : '🔴', escapeHtml(a.nom || a.id) + (a.actif ? '' : ' (désactivée)'), escapeHtml(a.declencheur || '') + (e ? ' · dernier : ' + fr(e.at) + (e.ok ? (e.resultat && e.resultat.lignes ? ' · ' + escapeHtml(String(e.resultat.lignes[0] || '')) : e.resultat && e.resultat.ignore ? ' · ignoré : ' + escapeHtml(e.resultat.raison || '') : '') : ' · ÉCHEC : ' + escapeHtml(e.erreur || '')) : ' · jamais lancée')); }).join('') || '<div style="font-size:12px;color:var(--text3);">—</div>';
+  var ecr = (j.ecritures || []).slice(0, 15);
+  document.getElementById('ctl-ecritures').innerHTML = ecr.length ? ecr.map(function(e) { var lib = e.type === 'defaire' ? '↶ défait : ' + (e.detail || '') : e.type === 'tache' ? 'tâche ' + ({ decaler: 'déplacée', deplacer_existante: 'déplacée', terminer: 'terminée', creer: 'créée' }[e.action] || e.action) + (e.apres && e.apres.date ? ' → ' + String(e.apres.date).slice(0, 10).split('-').reverse().join('/') : '') : e.type === 'appel' ? 'appel sans réponse loggé' : e.type === 'escalade' ? 'escalade au manager' : e.type === 'mail_r1' ? 'mail R1 (' + e.action + ')' : e.type; return L(e.defait ? '⚪' : '✍️', escapeHtml(lib) + (e.defait ? ' (défait)' : ''), fr(e.at) + (e.apres && e.apres.text ? ' · ' + escapeHtml(e.apres.text) : '') + (e.to ? ' · ' + escapeHtml(e.to) : '')); }).join('') : '<div style="font-size:12px;color:var(--text3);">Aucune écriture.</div>';
 }
 // ── SMS no-show (copilot /sms) : programmés à H+1 par le copilot ; ici on voit, on annule, on envoie (ou on copie / ouvre Messages si SMS Gate n'est pas branché) ──
 var _smsList = null, _smsAt = 0, _smsMode = null;
