@@ -3518,7 +3518,7 @@ function fcRendreDernierContact(j) {
 }
 // ── Traiter une tâche R2 sans réponse depuis SalesDesk : Close suit (tâche déplacée / terminée, appel sans réponse loggé, escalade manager) ──
 var RL_MANAGER = 'Anthony Gourdon';
-var RL_MOTIFS_GERES = ['r2', 'nsin', 'nsout']; // motifs traités depuis SalesDesk (Close suit) ; 'rdv' viendra ensuite
+var RL_MOTIFS_GERES = ['r2', 'nsin', 'nsout', 'rdv']; // motifs traités depuis SalesDesk (Close suit)
 var RL_LIBELLES = { r2: 'R2 sans réponse', nsin: 'No-show Inbound', nsout: 'No-show Outbound', rdv: 'Prise de RDV' };
 var RL_CADENCE = { r2: [1], nsin: [1, 1, 2, 3, 5, 5], nsout: [1, 1, 2, 3, 5, 5], rdv: [1, 1, 2, 3, 5, 5] }; // jours ouvrés entre deux appels, puis veille 30 j
 // Brouillons SMS (jamais envoyés seuls) : copiés, ou ouverts dans Messages. Accents volontaires, ton de Nicolas.
@@ -3552,6 +3552,25 @@ function rlProposerSms(it, id, moment) {
 }
 function rlFerie(iso) { var f = iso.split('-'); var jj = f[2] + '/' + f[1] + '/' + f[0]; var F = ['01/01/2025','21/04/2025','01/05/2025','08/05/2025','29/05/2025','09/06/2025','14/07/2025','15/08/2025','01/11/2025','11/11/2025','25/12/2025','01/01/2026','06/04/2026','01/05/2026','08/05/2026','14/05/2026','25/05/2026','14/07/2026','15/08/2026','01/11/2026','11/11/2026','25/12/2026','01/01/2027','29/03/2027','01/05/2027','06/05/2027','08/05/2027','17/05/2027','14/07/2027','15/08/2027','01/11/2027','11/11/2027','25/12/2027']; return F.indexOf(jj) >= 0; }
 function rlJourOuvre(iso, n) { var d = iso; var k = n || 1; while (k > 0) { d = rlPlus(d, 1); var dow = new Date(d + 'T12:00:00').getDay(); if (dow !== 0 && dow !== 6 && !rlFerie(d)) k--; } return d; }
+function rlNoShowsAuto(items, today) {
+  var st = loadStore(), suivi = st._tachesCloseSuivi || {}, dejaNoms = {}; items.forEach(function(i) { dejaNoms[fcNormNom(i.nom)] = true; });
+  var limite = new Date(); limite.setDate(limite.getDate() - 21); var out = [], vus = {};
+  Object.keys(st).forEach(function(k) { if (!/^\d{4}-\d{2}$/.test(k) || !Array.isArray(st[k])) return; st[k].forEach(function(r) {
+    if (!r || r.source === 'R2' || String(r.presence || '').trim() !== 'No Show' || r.pipelineMasque || r.enVeille) return;
+    var d = parseDateFR(r.date); if (!d || d < limite || d > new Date()) return;
+    var n = fcNormNom(r.client); if (!n || vus[n] || dejaNoms[n]) return;
+    if (r.relanceFait || (r.relanceDate && !r.relanceFait)) return; // déjà une relance posée (elle est dans rels) ou classée
+    // déjà traité depuis la file (abandon, RDV repris, escalade, veille) ou un RDV plus récent existe pour cette personne
+    var sv = Object.keys(suivi).map(function(c) { return suivi[c]; }).find(function(x) { return fcNormNom(x.nom || '') === n; });
+    if (sv && ['abandon', 'rdv_pris', 'escalade', 'veille'].indexOf(sv.dernier) >= 0 && Date.parse(sv.at) > d.getTime()) return;
+    var plusRecent = false; Object.keys(st).forEach(function(k2) { if (!/^\d{4}-\d{2}$/.test(k2)) return; (st[k2] || []).forEach(function(x) { if (x && x !== r && fcNormNom(x.client) === n && parseDateFR(x.date) > d) plusRecent = true; }); });
+    if (plusRecent) return;
+    vus[n] = true;
+    var echeance = rlJourOuvre(rlIso(d), 1); if (echeance < today) echeance = today;
+    out.push({ type: 'sd-noshow', row: r, nom: r.client, date: echeance, col: r.source === 'Outbound' ? 'nsout' : 'nsin' });
+  }); });
+  return out;
+}
 function rlCleSuivi(it) { return it.t && it.t.lead ? it.t.lead : 'n:' + fcNormNom(it.nom); }
 function rlSuivi(it) { var st = loadStore(); return (st._tachesCloseSuivi || {})[rlCleSuivi(it)] || {}; }
 function rlPoserSuivi(it, patch) { var st = loadStore(); if (!st._tachesCloseSuivi) st._tachesCloseSuivi = {}; var k = rlCleSuivi(it); st._tachesCloseSuivi[k] = Object.assign({}, st._tachesCloseSuivi[k] || {}, patch, { nom: it.nom, at: new Date().toISOString() }); saveStore(st); return st._tachesCloseSuivi[k]; }
@@ -3583,6 +3602,18 @@ function rlDateModal(titre, texte, dateDefaut, cb, avecHeure) {
   ov.classList.add('open');
   document.getElementById('rl-dm-ok').onclick = function() { var d = document.getElementById('rl-dm-date').value, h = avecHeure ? (document.getElementById('rl-dm-heure') || {}).value : ''; if (!d) { alert('Choisis une date.'); return; } fermerModalDoublon(); cb(d, h || ''); };
   setTimeout(function() { var i = document.getElementById('rl-dm-date'); if (i) i.focus(); }, 50);
+}
+// Défaire la dernière écriture Close (journal du copilot) : on montre ce que c'était, on confirme, on remet
+function rlDefaire(btn) {
+  fetch(COPILOT_URL + '/close/ecritures?n=20', { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).then(function(j) {
+    var e = (j.ecritures || []).find(function(x) { return !x.defait && x.type !== 'defaire'; });
+    if (!e) { alert('Rien à défaire.'); return; }
+    var lib = { tache: { decaler: 'tâche déplacée', deplacer_existante: 'tâche déplacée', terminer: 'tâche terminée', creer: 'tâche créée' }, appel: { sans_reponse: 'appel sans réponse loggé' }, escalade: { undefined: 'escalade au manager' }, mail_r1: { draft: 'brouillon de mail', outbox: 'mail envoyé' } };
+    var quoi = ((lib[e.type] || {})[e.action]) || e.type, quand = new Date(e.at).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+    if (!confirm('Défaire : ' + quoi + ' (' + quand + ')' + (e.apres && e.apres.text ? '\n« ' + e.apres.text + ' »' : '') + ' ?')) return;
+    if (btn) btn.disabled = true;
+    return rlPost('/close/defaire', {}).then(function(r) { if (typeof showCopyToast === 'function') showCopyToast('↶ ' + (r.detail || 'défait')); if (e.type === 'escalade' && r.detail) alert(r.detail); chargerTachesClose(rlPlus(_rlLundi, -7), rlPlus(_rlLundi, 13), true); setTimeout(dessinerRelances, 400); }).catch(function(x) { alert('Impossible de défaire : ' + x.message); }).then(function() { if (btn) btn.disabled = false; });
+  }).catch(function() { alert('Copilot injoignable.'); });
 }
 function rlAction(ix, action, btn) {
   var it = (window._rlItems || [])[ix]; if (!it) return;
@@ -8675,6 +8706,12 @@ function renderEtatSysteme(force) {
     html += ligne(!!e.supports.closing.present, 'Fiche de closing', e.supports.closing.chemin, 'server/.env : CLOSING_HTML=… .');
     html += ligne(e.detecteur, 'Détecteur (analyse pendant le RDV)', e.detecteur ? 'actif' : 'désactivé', 'server/.env : DETECTOR_ENABLED=true.');
     html += ligne(_mj.rappels ? true : (_mj.rappels === false ? false : null), 'Rappels R1 (SMS veille, relance 13h, mail du jour) — module indépendant', _mj.rappels ? 'mode ' + _mj.rappels.mode + ' · ' + Object.entries(_mj.rappels.readiness || {}).map(function(kv) { return (kv[1] ? '✓ ' : '✗ ') + kv[0]; }).join(' ') + ' · <a href="http://127.0.0.1:3016" target="_blank" rel="noopener">ouvrir</a>' : 'module éteint (port 3016)', 'Double-clique « Ouvrir les rappels.command » dans sales-copilot-v2/automatisations-r1. Tant que Make est actif, laisse le module en démo.');
+    var sw = e.interrupteurs || {};
+    html += '<div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin:14px 0 4px;">Interrupteurs (server/.env, relancer le copilot après)</div>';
+    html += ligne(!!sw.close_ecriture, 'Écriture dans Close depuis SalesDesk (tâches, appels, escalade)', sw.close_ecriture ? 'active · manager : ' + escapeHtml(sw.close_manager || '') : 'inactive (clé Close absente)', 'CLOSE_MANAGER=Prénom Nom pour changer le destinataire des escalades.');
+    html += ligne(sw.sms_no_show ? true : null, 'SMS no-show à H+1', sw.sms_no_show ? ('ALLUMÉ · ' + (sw.sms_mode === 'auto' && sw.sms_gate ? 'envoi automatique par SMS Gate' : 'mode brouillon (tu envoies à la main)')) : 'éteint (préparé)', 'SMS_NO_SHOW=on pour allumer ; SMS_MODE=auto + SMS_GATE_USERNAME/PASSWORD/DEVICE_ID pour l\'envoi réel.');
+    html += ligne(sw.mail_r1 ? true : null, 'Mail de confirmation R1 (via Close)', sw.mail_r1 ? ('ALLUMÉ · ' + (sw.mail_r1_mode === 'outbox' ? 'envoi réel depuis ta boîte' : 'brouillon dans Close')) : 'éteint (préparé)', 'MAIL_R1=on pour allumer ; MAIL_R1_MODE=outbox pour l\'envoi réel.');
+    html += ligne(!!sw.calendly, 'Calendly côté copilot (créneaux, R1 récents)', sw.calendly ? 'jeton présent' : 'jeton absent', 'CALENDLY_TOKEN dans server/.env (ou automatisations-r1/.env).');
     html += '<div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin:14px 0 4px;">Automatisations</div>';
     (e.automations || []).forEach(function(a) {
       var d = a.dernier, etatTxt = !d ? 'jamais exécutée' : (d.ok ? '✓ ' + quand(d.at) : (d.ignore ? '— ' + quand(d.at) + ' (' + (d.raison || 'ignorée') + ')' : '✗ ' + quand(d.at) + ' : ' + d.erreur));
@@ -9111,13 +9148,16 @@ function renderRelancesPage() {
     items.push({ type: 'close', t: t, rel: rel, row: rowT, nom: nom, date: t.date || (rel ? rel.date : ''), col: rlCategorieTache(t, rel, rowT) });
   });
   rels.forEach(function(x) { if (!relsUtilisees[x.r.id]) items.push({ type: 'sd', rel: x, nom: x.nom, date: x.date, col: x.col }); });
+  // No-shows récents (lignes SalesDesk) : ils entrent d'eux-mêmes dans la file au jour ouvré suivant, sans relance fantôme — jusqu'à ce que tu agisses (la tâche Close prend alors le relais)
+  rlNoShowsAuto(items, today).forEach(function(it) { items.push(it); });
   var nbDues = items.filter(function(i) { return i.date && i.date <= today; }).length;
   // navigation par jour : on choisit le jour, et dessous les 4 colonnes par motif
   var jourRef = _rlJour === 'retard' ? today : _rlJour;
   document.getElementById('rl-filtres').innerHTML = '<button class="btn btn-sm" onclick="_rlJour=rlPlus(' + JSON.stringify(jourRef).replace(/"/g, '&quot;') + ',-1);renderRelancesPage()">← Jour préc.</button>'
     + (_rlJour !== today ? '<button class="btn btn-sm" onclick="_rlJour=null;renderRelancesPage()">Aujourd\'hui</button>' : '')
     + '<button class="btn btn-sm" onclick="_rlJour=rlPlus(' + JSON.stringify(jourRef).replace(/"/g, '&quot;') + ',1);renderRelancesPage()">Jour suiv. →</button>'
-    + '<button class="btn btn-sm" style="margin-left:10px;" title="Relire les tâches Close" onclick="chargerTachesClose(rlPlus(_rlLundi,-7), rlPlus(_rlLundi,13), true)">↻</button>';
+    + '<button class="btn btn-sm" style="margin-left:10px;" title="Relire les tâches Close" onclick="chargerTachesClose(rlPlus(_rlLundi,-7), rlPlus(_rlLundi,13), true)">↻</button>'
+    + '<button class="btn btn-sm" title="Défaire la dernière action faite dans Close depuis SalesDesk" onclick="rlDefaire(this)">↶ Défaire</button>';
   var etatClose = !_tachesClose ? 'tâches Close : chargement…' : (_tachesClose.error ? '⚠ tâches Close indisponibles (copilot éteint ou à relancer)' : (_tachesClose.configure === false ? 'clé Close absente' : taches.length + ' tâche(s) Close ouverte(s)'));
   document.getElementById('rl-resume').innerHTML = '<b>' + nbDues + '</b> à faire aujourd\'hui ou en retard · ' + liste.length + ' relance(s) SalesDesk · ' + etatClose;
   var badge = document.getElementById('nav-relances-badge'); if (badge) { badge.style.display = nbDues ? '' : 'none'; badge.textContent = nbDues; }
@@ -9135,7 +9175,7 @@ function renderRelancesPage() {
     var dernier = row.relanceDernier ? ({ joint: 'joint', pas_de_reponse: 'pas de réponse' }[row.relanceDernier] || row.relanceDernier) : '';
     return '<div class="pipeline-card" style="cursor:pointer;padding:8px 10px;' + (retard ? 'border-left:3px solid var(--red);' : auj ? 'border-left:3px solid var(--orange);' : '') + '" onclick="ouvrirFicheClient(' + nomJs + ',' + emailJs + ')">'
       + '<div class="pipeline-card-name" style="display:flex;justify-content:space-between;gap:6px;align-items:baseline;"><span>' + escapeHtml(it.nom) + '</span>' + (retard ? '<span style="font-size:10px;color:var(--red);font-weight:700;white-space:nowrap;">⏰ ' + q.split('-').reverse().slice(0, 2).join('/') + '</span>' : '') + '</div>'
-      + '<div class="pipeline-card-sub">' + (t ? '📌 Close' + (t.heure ? ' ' + t.heure : '') : '') + (t && r ? ' · ' : '') + (r ? '📞 SalesDesk' + ((rel.r.relance && rel.r.relance.condition) ? ' · ' + escapeHtml(rel.r.relance.condition) : '') : '') + (row.source || row.type ? ' · ' + escapeHtml([row.type, row.source].filter(Boolean).join(' ')) : '') + '</div>'
+      + '<div class="pipeline-card-sub">' + (it.type === 'sd-noshow' ? '👻 No-show du ' + escapeHtml(row.date || '') + ' · à relancer' : '') + (t ? '📌 Close' + (t.heure ? ' ' + t.heure : '') : '') + (t && r ? ' · ' : '') + (r ? '📞 SalesDesk' + ((rel.r.relance && rel.r.relance.condition) ? ' · ' + escapeHtml(rel.r.relance.condition) : '') : '') + (row.source || row.type ? ' · ' + escapeHtml([row.type, row.source].filter(Boolean).join(' ')) : '') + '</div>'
       + (txt ? '<div class="pipeline-card-sub" style="color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="' + escapeHtml(txt) + '">' + escapeHtml(txt) + '</div>' : (r && (r.contexte || row.retour) ? '<div class="pipeline-card-sub" style="color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(r.contexte || row.retour) + '</div>' : ''))
       + (dernier ? '<div class="pipeline-card-sub">dernier : ' + escapeHtml(dernier) + '</div>' : '')
       + '<div class="pipeline-card-footer" style="gap:4px;flex-wrap:wrap;margin-top:6px;" onclick="event.stopPropagation()"><span style="display:flex;gap:4px;"><button class="btn btn-sm" style="font-size:11px;padding:2px 7px;" title="Avant d\'appeler : promesse, accroche, état du deal" onclick="rlAvantAppel(' + nomJs + ',' + emailJs + ')">👁</button>' + mail + '<a class="tag" style="text-decoration:none;" href="' + escapeHtml((t && t.url) || '#') + '" target="_blank" rel="noopener" onclick="' + (t ? '' : 'event.preventDefault();fcOuvrirClose(' + nomJs + ',' + emailJs + ', event)') + '">↗ Close</a></span>'
