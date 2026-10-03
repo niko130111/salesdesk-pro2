@@ -8739,8 +8739,12 @@ function renderRelancesPage() {
   var items = []; var relsUtilisees = {};
   taches.forEach(function(t) {
     var nom = rlNomFiche(t.fiche, t.contact), n = fcNormNom(nom);
-    var rel = rels.find(function(x) { return !relsUtilisees[x.r.id] && (fcNormNom(x.nom) === n || (fcNormNom(x.nom).length > 5 && (n.indexOf(fcNormNom(x.nom)) >= 0 || fcNormNom(x.nom).indexOf(n) >= 0))); });
-    if (rel) relsUtilisees[rel.r.id] = true;
+    // on relie la tâche à une relance SalesDesk par le nom de la fiche, du contact, ou d'un des contacts de la fiche Close (tâche posée sur l'agence)
+    var noms = [n].concat((t.contacts || []).map(fcNormNom)).filter(Boolean);
+    var proche = function(a, b) { return a === b || (a.length > 5 && b.length > 5 && (a.indexOf(b) >= 0 || b.indexOf(a) >= 0)); };
+    var rel = rels.find(function(x) { var xn = fcNormNom(x.nom); return !relsUtilisees[x.r.id] && noms.some(function(c) { return proche(c, xn); }); });
+    if (rel) { relsUtilisees[rel.r.id] = true; if (fcNormNom(rel.nom) !== n && noms.indexOf(fcNormNom(rel.nom)) < 0) nom = rel.nom; else nom = rel.nom || nom; }
+    else if (!t.contact && (t.contacts || []).length === 1 && t.fiche && fcNormNom(t.fiche) === n) nom = t.contacts[0]; // fiche agence : on affiche la personne
     items.push({ type: 'close', t: t, rel: rel, nom: nom, date: t.date || (rel ? rel.date : ''), col: rlCategorieTache(t, rel) });
   });
   rels.forEach(function(x) { if (!relsUtilisees[x.r.id]) items.push({ type: 'sd', rel: x, nom: x.nom, date: x.date, col: x.col }); });
