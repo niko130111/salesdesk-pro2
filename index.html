@@ -8726,7 +8726,8 @@ function renderRelancesPage() {
   var page = document.getElementById('page-relances'); if (!page) return;
   if (_relances === null) { try { chargerRelancesPourQuotidien(); } catch (e) {} setTimeout(function() { if (page.classList.contains('active')) renderRelancesPage(); }, 1500); }
   var today = rlIso(new Date());
-  if (!_rlLundi) _rlLundi = rlLundiDe(today);
+  if (!_rlJour) _rlJour = today;
+  _rlLundi = rlLundiDe(_rlJour === 'retard' ? today : _rlJour);
   var finSem = rlPlus(_rlLundi, 6);
   chargerTachesClose(rlPlus(_rlLundi, -7), rlPlus(_rlLundi, 13), false);
   var liste = (_relances || []).slice();
@@ -8744,11 +8745,11 @@ function renderRelancesPage() {
   });
   rels.forEach(function(x) { if (!relsUtilisees[x.r.id]) items.push({ type: 'sd', rel: x, nom: x.nom, date: x.date, col: x.col }); });
   var nbDues = items.filter(function(i) { return i.date && i.date <= today; }).length;
-  // navigation : semaine → jour (onglets) → les 4 colonnes par motif pour ce jour
-  if (!_rlJour) _rlJour = (today >= _rlLundi && today <= finSem) ? today : _rlLundi;
-  document.getElementById('rl-filtres').innerHTML = '<button class="btn btn-sm" onclick="_rlLundi=rlPlus(_rlLundi,-7);_rlJour=null;renderRelancesPage()">← Sem. préc.</button>'
-    + (_rlLundi !== rlLundiDe(today) ? '<button class="btn btn-sm" onclick="_rlLundi=null;_rlJour=null;renderRelancesPage()">Aujourd\'hui</button>' : '')
-    + '<button class="btn btn-sm" onclick="_rlLundi=rlPlus(_rlLundi,7);_rlJour=null;renderRelancesPage()">Sem. suiv. →</button>'
+  // navigation par jour : on choisit le jour, et dessous les 4 colonnes par motif
+  var jourRef = _rlJour === 'retard' ? today : _rlJour;
+  document.getElementById('rl-filtres').innerHTML = '<button class="btn btn-sm" onclick="_rlJour=rlPlus(' + JSON.stringify(jourRef).replace(/"/g, '&quot;') + ',-1);renderRelancesPage()">← Jour préc.</button>'
+    + (_rlJour !== today ? '<button class="btn btn-sm" onclick="_rlJour=null;renderRelancesPage()">Aujourd\'hui</button>' : '')
+    + '<button class="btn btn-sm" onclick="_rlJour=rlPlus(' + JSON.stringify(jourRef).replace(/"/g, '&quot;') + ',1);renderRelancesPage()">Jour suiv. →</button>'
     + '<button class="btn btn-sm" style="margin-left:10px;" title="Relire les tâches Close" onclick="chargerTachesClose(rlPlus(_rlLundi,-7), rlPlus(_rlLundi,13), true)">↻</button>';
   var etatClose = !_tachesClose ? 'tâches Close : chargement…' : (_tachesClose.error ? '⚠ tâches Close indisponibles (copilot éteint ou à relancer)' : (_tachesClose.configure === false ? 'clé Close absente' : taches.length + ' tâche(s) Close ouverte(s)'));
   document.getElementById('rl-resume').innerHTML = '<b>' + nbDues + '</b> à faire aujourd\'hui ou en retard · ' + liste.length + ' relance(s) SalesDesk · ' + etatClose;
@@ -8780,7 +8781,7 @@ function renderRelancesPage() {
   if (_rlJour === 'retard' && !retardItems.length) _rlJour = today;
   var sem = document.getElementById('rl-semaine');
   sem.style.display = '';
-  sem.innerHTML = '<div style="font-weight:700;margin:4px 0 8px;">Semaine du ' + fmt(_rlLundi) + ' au ' + fmt(rlPlus(_rlLundi, 4)) + (_rlLundi === rlLundiDe(today) ? ' · cette semaine' : '') + '</div>'
+  sem.innerHTML = ''
     + '<div style="display:flex;gap:6px;overflow-x:auto;margin-bottom:14px;padding-bottom:2px;">' + onglets.map(function(o) {
       var actif = o.cle === _rlJour;
       return '<button onclick="_rlJour=\'' + o.cle + '\';renderRelancesPage()" style="flex:1;min-width:110px;padding:8px 10px;border-radius:10px;cursor:pointer;font:inherit;text-align:left;border:1.5px solid ' + (actif ? 'var(--accent)' : 'var(--border)') + ';background:' + (actif ? 'var(--accent)' : 'var(--surface)') + ';color:' + (actif ? '#fff' : (o.couleur || 'inherit')) + ';">'
