@@ -8360,6 +8360,76 @@ function chargerMaJournee(force) {
     fetch(COPILOT_URL + '/etat', { mode: 'cors', cache: 'no-store', signal: ctrl.signal }).then(function(r) { return r.json(); }).catch(function() { return null; }),
     fetch('http://127.0.0.1:3016/api/status', { mode: 'cors', cache: 'no-store', signal: ctrl.signal }).then(function(r) { return r.json(); }).catch(function() { return false; })
   ]).then(function(r) { _mj.copilot = r[0] && r[0].rdvs ? r[0].rdvs : null; _mj.sdRdvs = r[1] && r[1].rdvs ? r[1].rdvs : null; _mj.etat = r[2]; _mj.rappels = r[3]; fin(); }).catch(fin);
+  try { chargerVerifClose(false); } catch (e) {}
+}
+// ── Vérification Close (copilot /close/verif) : écarts de type / source / nom et ventes manquantes, à valider ici ──
+var _verifClose = null, _verifCloseAt = 0;
+function chargerVerifClose(force) {
+  if (typeof COPILOT_URL === 'undefined') return;
+  if (_verifClose && Date.now() - _verifCloseAt < 10 * 60000 && !force) return;
+  var ctrl = new AbortController(); setTimeout(function() { ctrl.abort(); }, force ? 240000 : 20000);
+  fetch(COPILOT_URL + '/close/verif' + (force ? '?force=1' : ''), { mode: 'cors', cache: 'no-store', signal: ctrl.signal })
+    .then(function(r) { return r.json(); }).then(function(d) { if (d && d.ok) { _verifClose = d; _verifCloseAt = Date.now(); renderMaJournee(); if (force && typeof showCopyToast === 'function') showCopyToast('🔎 Close : ' + sdVerifCloseRestants().length + ' point(s) à valider'); } })
+    .catch(function() {});
+}
+function sdVerifCloseCle(x) { return x.champ ? ['e', x.date, x.client, x.champ, x.close].join('|') : ['v', x.dateSignature, x.client].join('|'); }
+function sdVerifCloseRestants() {
+  if (!_verifClose) return [];
+  var vus = loadStore()._verifCloseVus || {};
+  return (_verifClose.ecarts || []).concat((_verifClose.ventes || []).map(function(v) { return Object.assign({ vente: true }, v); })).filter(function(x) { return !vus[sdVerifCloseCle(x)]; });
+}
+function sdPopupVerifClose() {
+  var items = sdVerifCloseRestants(), nf = (_verifClose && _verifClose.nonTrouves) || [];
+  var html = '<div class="fc-dup"><div style="font-size:16px;font-weight:700;margin-bottom:2px;">🔎 Ce que Close dit autrement</div>'
+    + '<div style="font-size:12px;color:var(--text3);margin-bottom:10px;">Vérification du ' + (_verifClose ? new Date(_verifClose.at).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—') + ' · ' + (_verifClose ? _verifClose.lignes : 0) + ' RDV comparés. Coche ce que tu veux appliquer, décoche ce qui est faux côté Close.</div>';
+  if (!items.length) html += '<div style="padding:10px 0;color:var(--green);font-weight:600;">✓ Rien à corriger : le SalesDesk et Close sont d\'accord.</div>';
+  items.forEach(function(x, i) {
+    var lib = x.vente
+      ? '<b>Vente à ajouter</b> · ' + escapeHtml(x.client) + ' · signée le ' + escapeHtml(x.dateSignature) + (x.dateR1 ? ' (R1 le ' + escapeHtml(x.dateR1) + ')' : '') + ' · ' + escapeHtml([x.pack, x.tier, x.freq, x.valeur].filter(Boolean).join(' · ')) + '<div style="font-size:11px;color:var(--text3);">fiche Close : ' + escapeHtml(x.fiche || '') + '</div>'
+      : '<b>' + escapeHtml(x.client) + '</b> · ' + escapeHtml(x.date) + ' · ' + { type: 'type', source: 'source', client: 'nom' }[x.champ] + ' : <span style="text-decoration:line-through;color:var(--text3);">' + escapeHtml(x.sd || '(vide)') + '</span> → <b>' + escapeHtml(x.close) + '</b><div style="font-size:11px;color:var(--text3);">' + escapeHtml(x.why || '') + '</div>';
+    html += '<label style="display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-top:1px solid var(--border);font-size:13px;cursor:pointer;"><input type="checkbox" class="vc-item" data-i="' + i + '" checked style="margin-top:3px;"><span style="flex:1;">' + lib + '</span></label>';
+  });
+  if (nf.length) html += '<div style="font-size:11px;color:var(--text3);margin-top:8px;">Sans RDV Close à cette date (reprogrammé ou pris hors agenda) : ' + escapeHtml(nf.map(function(n) { return n.client + ' ' + n.date; }).join(' · ')) + '</div>';
+  html += '<div style="display:flex;justify-content:space-between;gap:6px;margin-top:12px;flex-wrap:wrap;"><button class="btn btn-sm" onclick="chargerVerifClose(true);fermerModalDoublon();if(typeof showCopyToast===\'function\')showCopyToast(\'🔎 Vérification Close relancée (1 à 3 min)…\')">↻ Relancer la vérification</button><span style="display:flex;gap:6px;">'
+    + (items.length ? '<button class="btn btn-sm" onclick="sdVerifCloseAppliquer(true)">Ignorer les non cochés</button><button class="btn btn-sm btn-primary" onclick="sdVerifCloseAppliquer(false)">Appliquer la sélection</button>' : '<button class="btn btn-sm" onclick="fermerModalDoublon()">Fermer</button>') + '</span></div></div>';
+  var ov = document.getElementById('fc-dup-overlay');
+  if (!ov) { ov = document.createElement('div'); ov.id = 'fc-dup-overlay'; ov.className = 'modal-overlay'; ov.style.zIndex = '1300'; ov.innerHTML = '<div class="modal" id="fc-dup-modal"></div>'; document.body.appendChild(ov); }
+  ov.onclick = function(ev) { if (ev.target === ov) fermerModalDoublon(); };
+  document.getElementById('fc-dup-modal').innerHTML = html; ov.classList.add('open');
+}
+// Applique les écarts cochés : la ligne SalesDesk prend la valeur Close ; une vente manquante crée la ligne Signé au jour de la signature
+// (ou marque le R1 s'il est dans le même mois). Les non cochés sont mémorisés comme « vus » pour ne plus être proposés.
+function sdVerifCloseAppliquer(ignorerAussi) {
+  var items = sdVerifCloseRestants(); if (!items.length) { fermerModalDoublon(); return; }
+  var coches = {}; document.querySelectorAll('.vc-item').forEach(function(c) { coches[c.dataset.i] = c.checked; });
+  var store = loadStore(); if (!store._verifCloseVus) store._verifCloseVus = {};
+  try { sdBackupStore(store); } catch (e) {}
+  var n = 0, msgs = [];
+  items.forEach(function(x, i) {
+    var cle = sdVerifCloseCle(x);
+    if (!coches[i]) { if (ignorerAussi) store._verifCloseVus[cle] = Date.now(); return; }
+    if (x.vente) {
+      var ds = x.dateSignature, mkS = ds.slice(6) + '-' + ds.slice(3, 5), mkR1 = x.dateR1 ? x.dateR1.slice(6) + '-' + x.dateR1.slice(3, 5) : '';
+      var r1 = mkR1 ? (store[mkR1] || []).find(function(r) { return r && r.date === x.dateR1 && fcNormNom(r.client) === fcNormNom(x.client); }) : null;
+      if (r1 && mkR1 === mkS) { r1.result = 'Signé'; r1.presence = 'Show'; if (x.pack) r1.pack = x.pack; if (x.tier) r1.tier = x.tier; if (x.freq) r1.freq = x.freq; r1.dateSignature = ds; r1.dateSignatureSource = 'close'; delete r1.nosignRaison; }
+      else {
+        if (!Array.isArray(store[mkS])) store[mkS] = [];
+        store[mkS].push({ date: ds, datePrise: x.dateR1 || '', client: x.client, email: x.email || '', presence: 'Show', result: 'Signé', source: (r1 && r1.source) || 'Inbound', type: x.type || (r1 && r1.type) || 'Mandataire', pack: x.pack || '', freq: x.freq || '', tier: x.tier || '', fms: '', oneshot: 'N', commission: 0, dateSignature: ds, dateSignatureSource: 'close', importClose: new Date().toISOString().slice(0, 10), closeLead: x.lead || '', retour: 'Vente vue dans Close' + (x.dateR1 ? ' (R1 du ' + x.dateR1 + ')' : '') });
+        if (r1) { r1.result = 'Intéressé'; r1.dateR2 = ds; r1.presenceR2 = 'Show'; delete r1.nosignRaison; }
+      }
+      msgs.push('vente ' + x.client);
+    } else {
+      var row = (store[x.mk] || [])[x.idx];
+      if (!row || row.date !== x.date || fcNormNom(row.client) !== fcNormNom(x.client)) row = (store[x.mk] || []).find(function(r) { return r && r.date === x.date && fcNormNom(r.client) === fcNormNom(x.client); });
+      if (!row) return;
+      if (x.champ === 'client') { row.clientAvant = row.client; row.client = x.close; }
+      else { row[x.champ + 'AvantClose'] = row[x.champ] || ''; row[x.champ] = x.close; }
+      msgs.push(x.client + ' ' + x.champ);
+    }
+    store._verifCloseVus[cle] = Date.now(); n++;
+  });
+  saveStore(store); fermerModalDoublon(); try { refreshAll(); } catch (e) {} renderMaJournee();
+  if (typeof showCopyToast === 'function') showCopyToast(n ? '✓ Close : ' + n + ' correction(s) appliquée(s) — ' + msgs.slice(0, 4).join(', ') : 'Rien appliqué');
 }
 function mjAller(page) { var b = [...document.querySelectorAll('.nav-tab')].find(function(x) { return x.textContent.indexOf(page) >= 0; }); if (b) b.click(); }
 function renderMaJournee() {
@@ -8398,6 +8468,8 @@ function renderMaJournee() {
   html += ligne('✅', aFinaliser.length ? '<b>' + aFinaliser.length + ' RDV à finaliser</b> (passés sans débrief) · ' + escapeHtml(aFinaliser.slice(0, 3).map(function(d) { return d.nom; }).join(' · ')) : 'Rien à finaliser', aFinaliser.length ? 'Finaliser' : '', "mjAller('Mes RDV')", aFinaliser.length ? 'var(--orange)' : '');
   html += ligne('📞', dues.length ? '<b>' + dues.length + ' relance(s) due(s)</b>' + (retard ? ' dont ' + retard + ' en retard' : '') + ' · ' + escapeHtml(dues.slice(0, 3).map(function(r) { return r.nom; }).join(' · ')) : 'Aucune relance due', dues.length ? 'Relancer' : '', "mjAller('Pipeline')", retard ? 'var(--red)' : (dues.length ? 'var(--orange)' : ''));
   html += ligne('⚠️', sansAction.length ? '<b>' + sansAction.length + ' RDV sans prochaine action</b>' : 'Tous les RDV ont une suite', sansAction.length ? 'Compléter' : '', 'sdClasserEnChaine()', sansAction.length ? 'var(--red)' : '');
+  var vc = sdVerifCloseRestants();
+  if (_verifClose) html += ligne('🔎', vc.length ? '<b>' + vc.length + ' point(s) où Close dit autre chose</b> · ' + escapeHtml(vc.slice(0, 3).map(function(x) { return x.vente ? 'vente ' + x.client : x.client + ' (' + { type: 'type', source: 'source', client: 'nom' }[x.champ] + ')'; }).join(' · ')) : 'Close et SalesDesk sont d\'accord sur les 7 derniers jours', vc.length ? 'Valider' : 'Détail', 'sdPopupVerifClose()', vc.length ? 'var(--orange)' : 'var(--green)');
   if (incidents.length) incidents.forEach(function(i) { html += ligne('🔌', '<b>' + escapeHtml(i.t) + '</b> — ' + escapeHtml(i.a), 'État', "mjAller('Objectifs'); showSettingsSection('etat', document.querySelector('.settings-nav-item[data-sec=etat]'))", 'var(--red)'); });
   else html += ligne('🔌', 'Synchronisations OK (copilot, Supabase, Calendly)', '', '', 'var(--green)');
   el.innerHTML = html;
