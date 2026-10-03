@@ -3518,6 +3518,38 @@ function fcRendreDernierContact(j) {
 }
 // ── Traiter une tâche R2 sans réponse depuis SalesDesk : Close suit (tâche déplacée / terminée, appel sans réponse loggé, escalade manager) ──
 var RL_MANAGER = 'Anthony Gourdon';
+var RL_MOTIFS_GERES = ['r2', 'nsin', 'nsout']; // motifs traités depuis SalesDesk (Close suit) ; 'rdv' viendra ensuite
+var RL_LIBELLES = { r2: 'R2 sans réponse', nsin: 'No-show Inbound', nsout: 'No-show Outbound', rdv: 'Prise de RDV' };
+var RL_CADENCE = { r2: [1], nsin: [1, 1, 2, 3, 5, 5], nsout: [1, 1, 2, 3, 5, 5], rdv: [1, 1, 2, 3, 5, 5] }; // jours ouvrés entre deux appels, puis veille 30 j
+// Brouillons SMS (jamais envoyés seuls) : copiés, ou ouverts dans Messages. Accents volontaires, ton de Nicolas.
+var RL_SMS = {
+  nsin: { appel2: 'Bonjour {prenom}, on s\'est manqués pour notre échange du {date_rdv} 🙂 Je peux vous proposer un créneau cette semaine, lequel vous arrangerait ? Nicolas – RealAdvisor',
+          appel4: 'Bonjour {prenom}, je reviens vers vous une dernière fois pour reprogrammer notre échange sur la visibilité de votre agence. Un créneau qui vous irait ? Nicolas',
+          dernier: 'Bonjour {prenom}, je comprends que ce n\'est peut-être pas le moment. Je garde votre demande sous le coude, revenez vers moi quand vous voulez. Nicolas – RealAdvisor' },
+  nsout: { appel2: 'Bonjour {prenom}, notre RDV du {date_rdv} n\'a pas pu avoir lieu. Je vous repropose un créneau cette semaine : lequel je bloque ? Nicolas – RealAdvisor',
+           appel4: 'Bonjour {prenom}, je ne vous relance que si ça a du sens pour vous : on reprend un créneau, ou je laisse tomber ? Nicolas',
+           dernier: 'Bonjour {prenom}, je classe le dossier pour l\'instant. Si la visibilité sur votre secteur redevient un sujet, je suis là. Nicolas – RealAdvisor' }
+};
+function rlProposerSms(it, id, moment) {
+  var tpl = (RL_SMS[it.col] || {})[moment]; if (!tpl) return;
+  var row = (it.rel && it.rel.row) || it.row || {}, prenom = String(it.nom || '').trim().split(/\s+/)[0] || '';
+  prenom = prenom ? prenom.charAt(0).toUpperCase() + prenom.slice(1).toLowerCase() : '';
+  var texte = tpl.replace(/\{prenom\}/g, prenom).replace(/\{date_rdv\}/g, row.date ? row.date.slice(0, 5) : 'prévu');
+  var ov = document.getElementById('fc-dup-overlay');
+  if (!ov) { ov = document.createElement('div'); ov.id = 'fc-dup-overlay'; ov.className = 'modal-overlay'; ov.style.zIndex = '1300'; ov.innerHTML = '<div class="modal" id="fc-dup-modal"></div>'; document.body.appendChild(ov); }
+  ov.onclick = function(ev) { if (ev.target === ov) fermerModalDoublon(); };
+  var m = document.getElementById('fc-dup-modal'); ov.classList.add('open');
+  m.innerHTML = '<div class="fc-dup"><div style="font-size:15px;font-weight:700;">💬 SMS à ' + escapeHtml(it.nom) + '</div><div class="fc-muted" style="margin:4px 0 10px;">' + (moment === 'dernier' ? 'Dernier geste avant la veille.' : 'Après ' + (moment === 'appel2' ? '2' : '4') + ' appels sans réponse, un SMS double les chances de réponse.') + ' Relis, puis copie ou ouvre Messages. Rien ne part tout seul.</div>'
+    + '<textarea id="rl-sms-texte" class="input" style="width:100%;min-height:110px;font-size:13.5px;line-height:1.4;">' + escapeHtml(texte) + '</textarea>'
+    + '<div style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap;"><span id="rl-sms-tel" class="fc-muted">numéro : recherche dans Close…</span><span style="flex:1"></span><button class="btn btn-sm" onclick="fermerModalDoublon()">Pas de SMS</button><button class="btn btn-sm" onclick="navigator.clipboard.writeText(document.getElementById(\'rl-sms-texte\').value).then(function(){ if (typeof showCopyToast === \'function\') showCopyToast(\'SMS copié\'); })">Copier</button><a class="btn btn-sm btn-primary" id="rl-sms-ouvrir" style="display:none;text-decoration:none;" target="_blank">Ouvrir dans Messages</a></div></div>';
+  fetch(COPILOT_URL + '/close/contact?' + new URLSearchParams({ email: id.email || '', nom: id.nom }), { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).then(function(j) {
+    var tel = ''; ((j.leads || [])[0] || { contacts: [] }).contacts.some(function(c) { tel = (c.tels || [])[0] || ''; return !!tel; });
+    var el = document.getElementById('rl-sms-tel'), a = document.getElementById('rl-sms-ouvrir'); if (!el) return;
+    if (!tel) { el.textContent = 'numéro introuvable dans Close'; return; }
+    el.textContent = tel; a.style.display = ''; a.href = 'sms:' + tel.replace(/\s/g, '') + '&body=' + encodeURIComponent(document.getElementById('rl-sms-texte').value);
+    document.getElementById('rl-sms-texte').oninput = function() { a.href = 'sms:' + tel.replace(/\s/g, '') + '&body=' + encodeURIComponent(this.value); };
+  }).catch(function() { var el = document.getElementById('rl-sms-tel'); if (el) el.textContent = 'copilot injoignable'; });
+}
 function rlFerie(iso) { var f = iso.split('-'); var jj = f[2] + '/' + f[1] + '/' + f[0]; var F = ['01/01/2025','21/04/2025','01/05/2025','08/05/2025','29/05/2025','09/06/2025','14/07/2025','15/08/2025','01/11/2025','11/11/2025','25/12/2025','01/01/2026','06/04/2026','01/05/2026','08/05/2026','14/05/2026','25/05/2026','14/07/2026','15/08/2026','01/11/2026','11/11/2026','25/12/2026','01/01/2027','29/03/2027','01/05/2027','06/05/2027','08/05/2027','17/05/2027','14/07/2027','15/08/2027','01/11/2027','11/11/2027','25/12/2027']; return F.indexOf(jj) >= 0; }
 function rlJourOuvre(iso, n) { var d = iso; var k = n || 1; while (k > 0) { d = rlPlus(d, 1); var dow = new Date(d + 'T12:00:00').getDay(); if (dow !== 0 && dow !== 6 && !rlFerie(d)) k--; } return d; }
 function rlCleSuivi(it) { return it.t && it.t.lead ? it.t.lead : 'n:' + fcNormNom(it.nom); }
@@ -3563,39 +3595,49 @@ function rlAction(ix, action, btn) {
   };
   var terminerClose = function() { return it.t ? rlPost('/close/taches/' + encodeURIComponent(it.t.id), { action: 'terminer', motif: action }) : Promise.resolve(); };
   if (action === 'pas_reponse') {
-    var n = nb + 1, date = rlJourOuvre(today, 1);
+    var n = nb + 1, lib = RL_LIBELLES[it.col] || it.col, cad = RL_CADENCE[it.col] || [1];
+    // au-delà de la cadence : mise en veille 30 jours (la tâche Close part à J+30, le compteur repart)
+    if (it.col !== 'r2' && n > cad.length) {
+      if (!confirm(it.nom + ' : ' + nb + ' appels sans réponse. Mettre en veille 30 jours ? (la tâche Close est déplacée à J+30, elle reviendra dans ta file)')) return;
+      var dv = rlJourOuvre(rlPlus(today, 29), 1);
+      occupe(true);
+      tacheClose(dv, lib + ' · retour de veille · SalesDesk').then(function() { rlPoserSuivi(it, { tentatives: 0, col: it.col, dernier: 'veille', prochaine: dv, veille: today }); return rlMajRelance(it, 'plus_tard', dv); })
+        .then(function() { fini('💤 En veille jusqu\'au ' + fcFrDepuisIso(dv)); rlProposerSms(it, id, 'dernier'); }).catch(echec);
+      return;
+    }
+    var pas = it.col === 'r2' ? 1 : cad[Math.min(n - 1, cad.length - 1)], date = rlJourOuvre(today, pas);
     occupe(true);
-    rlPost('/close/appel-sans-reponse', { lead: id.lead, nom: id.nom, email: id.email, note: 'Pas de réponse · R2 sans réponse · appel ' + n + ' (SalesDesk)' }).catch(function() {})
-      .then(function() { return tacheClose(date, 'R2 sans réponse · appel ' + (n + 1) + ' · SalesDesk'); })
-      .then(function() { rlPoserSuivi(it, { tentatives: n, col: 'r2', dernier: 'pas_de_reponse', prochaine: date }); return rlMajRelance(it, 'pas_de_reponse', date); })
-      .then(function() { fini('📵 Pas de réponse (' + n + ') → ' + fcFrDepuisIso(date) + (n >= 3 ? ' · pense à passer la main (👔)' : '')); })
+    rlPost('/close/appel-sans-reponse', { lead: id.lead, nom: id.nom, email: id.email, note: 'Pas de réponse · ' + lib + ' · appel ' + n + ' (SalesDesk)' }).catch(function() {})
+      .then(function() { return tacheClose(date, lib + ' · appel ' + (n + 1) + (it.col !== 'r2' ? '/' + cad.length : '') + ' · SalesDesk'); })
+      .then(function() { rlPoserSuivi(it, { tentatives: n, col: it.col, dernier: 'pas_de_reponse', prochaine: date }); return rlMajRelance(it, 'pas_de_reponse', date); })
+      .then(function() { fini('📵 Pas de réponse (' + n + ') → ' + fcFrDepuisIso(date) + (it.col === 'r2' && n >= 3 ? ' · pense à passer la main (👔)' : '')); if (it.col !== 'r2' && (n === 2 || n === 4)) rlProposerSms(it, id, n === 2 ? 'appel2' : 'appel4'); })
       .catch(echec);
     return;
   }
   if (action === 'joint') {
     rlDateModal(it.nom + ' — joint, il demande qu\'on le rappelle le…', 'La tâche Close est déplacée à cette date, le compteur d\'appels repart à zéro.', rlJourOuvre(today, 1), function(d, h) {
       occupe(true);
-      tacheClose(d, 'R2 sans réponse · joint le ' + fcFrDepuisIso(today) + ', rappeler · SalesDesk', h)
-        .then(function() { rlPoserSuivi(it, { tentatives: 0, col: 'r2', dernier: 'joint', prochaine: d }); return rlMajRelance(it, 'joint', d); })
+      tacheClose(d, (RL_LIBELLES[it.col] || it.col) + ' · joint le ' + fcFrDepuisIso(today) + ', rappeler · SalesDesk', h)
+        .then(function() { rlPoserSuivi(it, { tentatives: 0, col: it.col, dernier: 'joint', prochaine: d }); return rlMajRelance(it, 'joint', d); })
         .then(function() { fini('📞 Joint → rappel le ' + fcFrDepuisIso(d)); }).catch(echec);
     }, true);
     return;
   }
   if (action === 'rdv_pris') {
-    rlDateModal(it.nom + ' — RDV pris, date du R2', 'La tâche Close est terminée ; le R2 est posé dans SalesDesk.', rlJourOuvre(today, 1), function(d, h) {
+    rlDateModal(it.nom + (it.col === 'r2' ? ' — RDV pris, date du R2' : ' — nouveau RDV pris, date'), it.col === 'r2' ? 'La tâche Close est terminée ; le R2 est posé dans SalesDesk.' : 'La tâche Close est terminée ; le nouveau RDV arrivera par Calendly dans Mes RDV.', rlJourOuvre(today, 1), function(d, h) {
       occupe(true);
       terminerClose().then(function() {
         var row = (it.rel && it.rel.row) || it.row; var st = loadStore();
-        if (row) { var trouve = null; Object.keys(st).forEach(function(k) { if (!/^\d{4}-\d{2}$/.test(k)) return; (st[k] || []).forEach(function(x) { if (x && x.client === row.client && x.date === row.date) trouve = x; }); }); if (trouve) { trouve.dateR2 = fcFrDepuisIso(d); if (h) trouve.heureR2 = h; if (!trouve.result || SD_INTERESSE.indexOf(trouve.result) >= 0) trouve.result = 'R2 planifié'; saveStore(st); } }
-        rlPoserSuivi(it, { tentatives: 0, col: 'r2', dernier: 'rdv_pris', prochaine: d }); return rlMajRelance(it, 'rdv_pris', '');
-      }).then(function() { fini('📅 R2 le ' + fcFrDepuisIso(d)); if (typeof refreshAll === 'function') refreshAll(); }).catch(echec);
+        if (row && it.col === 'r2') { var trouve = null; Object.keys(st).forEach(function(k) { if (!/^\d{4}-\d{2}$/.test(k)) return; (st[k] || []).forEach(function(x) { if (x && x.client === row.client && x.date === row.date) trouve = x; }); }); if (trouve) { trouve.dateR2 = fcFrDepuisIso(d); if (h) trouve.heureR2 = h; if (!trouve.result || SD_INTERESSE.indexOf(trouve.result) >= 0) trouve.result = 'R2 planifié'; saveStore(st); } }
+        rlPoserSuivi(it, { tentatives: 0, col: it.col, dernier: 'rdv_pris', prochaine: d }); return rlMajRelance(it, 'rdv_pris', '');
+      }).then(function() { fini((it.col === 'r2' ? '📅 R2 le ' : '📅 Nouveau RDV le ') + fcFrDepuisIso(d)); if (typeof refreshAll === 'function') refreshAll(); }).catch(echec);
     }, true);
     return;
   }
   if (action === 'supprimer') {
     if (!confirm('Supprimer cette relance ? La tâche Close sera terminée.')) return;
     occupe(true);
-    terminerClose().then(function() { rlPoserSuivi(it, { col: 'r2', dernier: 'abandon' }); return rlMajRelance(it, 'abandon', ''); }).then(function() { fini('🗑 Relance supprimée'); }).catch(echec);
+    terminerClose().then(function() { rlPoserSuivi(it, { col: it.col, dernier: 'abandon' }); return rlMajRelance(it, 'abandon', ''); }).then(function() { fini('🗑 Relance supprimée'); }).catch(echec);
     return;
   }
   if (action === 'manager') { rlEscalader(it, id, suivi); return; }
@@ -3633,10 +3675,10 @@ function rlEscalader(it, id, suivi) {
     document.getElementById('rl-esc-ok').onclick = function() {
       var b = this; b.disabled = true; b.textContent = '…';
       var noteF = document.getElementById('rl-esc-note').value, d = document.getElementById('rl-esc-date').value || rlJourOuvre(today, 1);
-      var tache = 'Rattrapage R2 — ' + it.nom + ' (escalade Nicolas, voir note épinglée)';
+      var tache = 'Rattrapage ' + (it.col === 'r2' ? 'R2' : (RL_LIBELLES[it.col] || '')) + ' — ' + it.nom + ' (escalade Nicolas, voir note épinglée)';
       rlPost('/close/escalader', { lead: id.lead, nom: id.nom, email: id.email, note: noteF + '\n\nLigne Excel :\n' + document.getElementById('rl-esc-excel').value, tache: tache, date: d, tacheNicolas: it.t ? it.t.id : '' })
         .then(function(res) {
-          rlPoserSuivi(it, { col: 'r2', dernier: 'escalade', escalade: { date: today, a: RL_MANAGER, tache: res.tache && res.tache.id, note: res.note } });
+          rlPoserSuivi(it, { col: it.col, dernier: 'escalade', escalade: { date: today, a: RL_MANAGER, tache: res.tache && res.tache.id, note: res.note } });
           return rlMajRelance(it, 'escalade', '');
         })
         .then(function() { fermerModalDoublon(); if (typeof showCopyToast === 'function') showCopyToast('👔 Passé à ' + RL_MANAGER); chargerTachesClose(rlPlus(_rlLundi, -7), rlPlus(_rlLundi, 13), true); setTimeout(dessinerRelances, 400); })
@@ -9052,8 +9094,8 @@ function renderRelancesPage() {
       + (txt ? '<div class="pipeline-card-sub" style="color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="' + escapeHtml(txt) + '">' + escapeHtml(txt) + '</div>' : (r && (r.contexte || row.retour) ? '<div class="pipeline-card-sub" style="color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(r.contexte || row.retour) + '</div>' : ''))
       + (dernier ? '<div class="pipeline-card-sub">dernier : ' + escapeHtml(dernier) + '</div>' : '')
       + '<div class="pipeline-card-footer" style="gap:4px;flex-wrap:wrap;margin-top:6px;" onclick="event.stopPropagation()"><span style="display:flex;gap:4px;"><button class="btn btn-sm" style="font-size:11px;padding:2px 7px;" title="Avant d\'appeler : promesse, accroche, état du deal" onclick="rlAvantAppel(' + nomJs + ',' + emailJs + ')">👁</button>' + mail + '<a class="tag" style="text-decoration:none;" href="' + escapeHtml((t && t.url) || '#') + '" target="_blank" rel="noopener" onclick="' + (t ? '' : 'event.preventDefault();fcOuvrirClose(' + nomJs + ',' + emailJs + ', event)') + '">↗ Close</a></span>'
-      + '<span style="display:flex;gap:4px;align-items:center;">' + choix + (it.col === 'r2'
-        ? (nb ? '<span class="tag" title="Appels sans réponse">appel ' + nb + '</span>' : '') + '<button class="btn btn-sm" style="font-size:11px;padding:2px 7px;" title="Pas de réponse → lendemain ouvré, Close mis à jour" onclick="rlAction(' + ix + ', \'pas_reponse\', this)">📵</button><button class="btn btn-sm" style="font-size:11px;padding:2px 7px;" title="Joint → rappel à la date qu\'il demande" onclick="rlAction(' + ix + ', \'joint\', this)">📞</button><button class="btn btn-sm" style="font-size:11px;padding:2px 7px;" title="RDV pris" onclick="rlAction(' + ix + ', \'rdv_pris\', this)">📅</button><button class="btn btn-sm' + (nb >= 3 ? ' btn-primary' : '') + '" style="font-size:11px;padding:2px 7px;" title="Passer à mon manager (note épinglée + tâche dans Close)" onclick="rlAction(' + ix + ', \'manager\', this)">👔</button><button class="btn btn-sm" style="font-size:11px;padding:2px 7px;" title="Supprimer (tâche Close terminée)" onclick="rlAction(' + ix + ', \'supprimer\', this)">🗑</button>'
+      + '<span style="display:flex;gap:4px;align-items:center;">' + choix + (RL_MOTIFS_GERES.indexOf(it.col) >= 0
+        ? (nb ? '<span class="tag" title="Appels sans réponse">appel ' + nb + '</span>' : '') + '<button class="btn btn-sm" style="font-size:11px;padding:2px 7px;" title="Pas de réponse → prochaine tentative selon la cadence, Close mis à jour" onclick="rlAction(' + ix + ', \'pas_reponse\', this)">📵</button><button class="btn btn-sm" style="font-size:11px;padding:2px 7px;" title="Joint → rappel à la date qu\'il demande" onclick="rlAction(' + ix + ', \'joint\', this)">📞</button><button class="btn btn-sm" style="font-size:11px;padding:2px 7px;" title="RDV pris" onclick="rlAction(' + ix + ', \'rdv_pris\', this)">📅</button><button class="btn btn-sm' + (nb >= 3 ? ' btn-primary' : '') + '" style="font-size:11px;padding:2px 7px;" title="Passer à mon manager (note épinglée + tâche dans Close)" onclick="rlAction(' + ix + ', \'manager\', this)">👔</button><button class="btn btn-sm" style="font-size:11px;padding:2px 7px;" title="Supprimer (tâche Close terminée)" onclick="rlAction(' + ix + ', \'supprimer\', this)">🗑</button>'
         : (r ? '<button class="btn btn-sm" style="font-size:11px;padding:2px 7px;" title="Décaler" onclick="relanceResultat(' + idJs + ', this, true)">📅</button><button class="btn btn-sm btn-primary" style="font-size:11px;padding:2px 7px;" onclick="relanceResultat(' + idJs + ', this)">✅</button>' : '<span class="tag" title="Tâche Close seule : se termine dans Close pour l\'instant">dans Close</span>')) + '</span></div></div>';
   };
   // onglets jours (+ « En retard » sur la semaine en cours)
