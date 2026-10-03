@@ -1624,7 +1624,7 @@ select.form-input { cursor: pointer; }
   <!-- Relances (lues depuis le copilot local : raison + relance saisies au débrief) -->
   <div id="relances-wrap" style="display:none;margin-bottom:20px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;">
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px;">
-      <div class="section-title" style="font-size:14px;">📞 Relances <span id="relances-count" style="color:var(--text3);font-weight:500;"></span></div>
+      <div class="section-title" style="font-size:14px;">📞 Relances <span id="relances-count" style="color:var(--text3);font-weight:500;"></span> <button class="btn btn-sm" style="font-size:11px;margin-left:8px;" onclick="var b=document.querySelector('.nav-tab[onclick*=relances]'); if(b) b.click();">Ouvrir la page Relances →</button></div>
       <div id="relances-filtres" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
       <span id="relances-info" style="font-size:11px;color:var(--text3);margin-left:auto;"></span>
     </div>
@@ -8519,7 +8519,7 @@ function renderMaJournee() {
   html += ligne('📅', rdvJour.length ? '<b>' + rdvJour.length + ' RDV aujourd\'hui</b>' + (prochainRdv ? ' · prochain : ' + escapeHtml(prochainRdv.heure + ' ' + prochainRdv.nom) : ' · tous passés') : 'Aucun RDV aujourd\'hui', rdvJour.length ? 'Mes RDV' : '', "mjAller('Mes RDV')");
   html += ligne('📋', prepas.length ? '<b>' + prepas.length + ' prépa(s) à faire</b> · ' + escapeHtml(prepas.slice(0, 3).map(function(p) { return p.nom + ' (' + p.quand + ' : ' + p.manque + ')'; }).join(' · ')) : (_mj.sdRdvs ? 'Prépas à jour pour aujourd\'hui et demain' : 'Prépas : copilot injoignable'), prepas.length ? 'Préparer' : '', "mjAller('Mes RDV')", prepas.length ? 'var(--orange)' : '');
   html += ligne('✅', aFinaliser.length ? '<b>' + aFinaliser.length + ' RDV à finaliser</b> (passés sans débrief) · ' + escapeHtml(aFinaliser.slice(0, 3).map(function(d) { return d.nom; }).join(' · ')) : 'Rien à finaliser', aFinaliser.length ? 'Finaliser' : '', "mjAller('Mes RDV')", aFinaliser.length ? 'var(--orange)' : '');
-  html += ligne('📞', dues.length ? '<b>' + dues.length + ' relance(s) due(s)</b>' + (retard ? ' dont ' + retard + ' en retard' : '') + ' · ' + escapeHtml(dues.slice(0, 3).map(function(r) { return r.nom; }).join(' · ')) : 'Aucune relance due', dues.length ? 'Relancer' : '', "_relancesFiltre='__dues';mjAller('Pipeline');setTimeout(function(){try{dessinerRelances();var e=document.getElementById('relances-liste');if(e)e.scrollIntoView({behavior:'smooth',block:'start'});}catch(x){}},150)", retard ? 'var(--red)' : (dues.length ? 'var(--orange)' : ''));
+  html += ligne('📞', dues.length ? '<b>' + dues.length + ' relance(s) due(s)</b>' + (retard ? ' dont ' + retard + ' en retard' : '') + ' · ' + escapeHtml(dues.slice(0, 3).map(function(r) { return r.nom; }).join(' · ')) : 'Aucune relance due', dues.length ? 'Relancer' : '', "_rlFiltre='dues';mjAller('Relances')", retard ? 'var(--red)' : (dues.length ? 'var(--orange)' : ''));
   html += ligne('⚠️', sansAction.length ? '<b>' + sansAction.length + ' RDV sans prochaine action</b>' : 'Tous les RDV ont une suite', sansAction.length ? 'Compléter' : '', 'sdClasserEnChaine()', sansAction.length ? 'var(--red)' : '');
   var vc = sdVerifCloseRestants();
   if (_verifClose) html += ligne('🔎', vc.length ? '<b>' + vc.length + ' point(s) où Close dit autre chose</b> · ' + escapeHtml(vc.slice(0, 3).map(function(x) { return x.vente ? 'vente ' + x.client : x.client + ' (' + { type: 'type', source: 'source', client: 'nom' }[x.champ] + ')'; }).join(' · ')) : 'Close et SalesDesk sont d\'accord sur les 7 derniers jours', vc.length ? 'Valider' : 'Détail', 'sdPopupVerifClose()', vc.length ? 'var(--orange)' : 'var(--green)');
@@ -8639,9 +8639,10 @@ function relanceFaite(id, btn) {
     .catch(function(){ if (btn) { btn.disabled = false; btn.textContent = '✓ Fait'; } alert('Le copilot ne répond pas : relance non marquée.'); });
 }
 function dessinerRelances() {
+  try { var _pr = document.getElementById('page-relances'); if (_pr && _pr.classList.contains('active')) renderRelancesPage(); else { var _b = document.getElementById('nav-relances-badge'); if (_b) { var _t = new Date().toISOString().slice(0, 10), _n = (_relances || []).filter(function(r) { return r.relance && r.relance.quand && r.relance.quand <= _t; }).length; _b.style.display = _n ? '' : 'none'; _b.textContent = _n; } } } catch (e) {}
   var liste = _relances || [];
   var conds = {}; liste.forEach(function(r){ var c = (r.relance && r.relance.condition) || ''; if (c) conds[c] = (conds[c]||0) + 1; });
-  var filtres = document.getElementById('relances-filtres');
+  var filtres = document.getElementById('relances-filtres'); if (!filtres) return;
   var todayF = new Date().toISOString().slice(0, 10), nbDues = liste.filter(function(r) { return r.relance && r.relance.quand && r.relance.quand <= todayF; }).length;
   filtres.innerHTML = ['__dues', ''].concat(Object.keys(conds).sort()).map(function(c){
     var on = _relancesFiltre === c;
