@@ -1406,19 +1406,19 @@ select.form-input { cursor: pointer; }
   </div>
 
   <!-- ════ BLOC 3 : PERTE DE PERFORMANCE ════ -->
-  <div class="section-header" style="margin-bottom:10px;"><div class="section-title">🚨 Analyse des Pertes</div></div>
+  <div class="section-header" style="margin-bottom:10px;"><div class="section-title">🎯 Ce que rapporterait un cran de mieux</div></div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px;">
-    <div style="background:var(--red-bg);border:1px solid #fca5a5;border-radius:var(--radius-lg);padding:18px;">
-      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--red);margin-bottom:8px;">💸 CA perdu — No Shows</div>
-      <div style="font-size:28px;font-weight:700;color:var(--red);" id="g-perte-noshow">—</div>
-      <div style="font-size:12px;color:var(--red);opacity:0.8;margin-top:4px;" id="g-perte-noshow-sub">— no shows × comm. moy.</div>
-      <div style="margin-top:10px;font-size:11px;color:var(--text2);">Si tous les no shows avaient été presentés et closés au taux habituel</div>
+    <div style="background:var(--accent-bg);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px;">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--accent);margin-bottom:8px;">📅 Show rate +5 points</div>
+      <div style="font-size:28px;font-weight:700;color:var(--accent);" id="g-sim-show">—</div>
+      <div style="font-size:12px;color:var(--text2);margin-top:4px;" id="g-sim-show-sub">—</div>
+      <div style="margin-top:10px;font-size:11px;color:var(--text3);" id="g-sim-show-hyp">Hypothèses : même nombre de RDV, closing inchangé, commission moyenne réelle par vente.</div>
     </div>
-    <div style="background:#fff8ed;border:1px solid #fcd34d;border-radius:var(--radius-lg);padding:18px;">
-      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--orange);margin-bottom:8px;">💸 CA perdu — Non Signés</div>
-      <div style="font-size:28px;font-weight:700;color:var(--orange);" id="g-perte-nonsigne">—</div>
-      <div style="font-size:12px;color:var(--orange);opacity:0.8;margin-top:4px;" id="g-perte-nonsigne-sub">— non signés × comm. moy.</div>
-      <div style="margin-top:10px;font-size:11px;color:var(--text2);">Shows qui n'ont pas abouti à une vente — potentiel non transformé</div>
+    <div style="background:var(--green-bg);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px;">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--green);margin-bottom:8px;">🤝 Closing +5 points</div>
+      <div style="font-size:28px;font-weight:700;color:var(--green);" id="g-sim-closing">—</div>
+      <div style="font-size:12px;color:var(--text2);margin-top:4px;" id="g-sim-closing-sub">—</div>
+      <div style="margin-top:10px;font-size:11px;color:var(--text3);" id="g-sim-closing-hyp">Hypothèses : mêmes shows, commission moyenne réelle par vente.</div>
     </div>
   </div>
 
@@ -9025,13 +9025,16 @@ function renderGlobal() {
 
   // Bloc projection supprimé — voir page Quotidien
 
-  // ── Perte de performance ──
-  const perteNoshow   = Math.round(totalNoshow   * commAvg * (closing / 100));
-  const perteNonsigne = Math.round(totalNonsigne * commAvg);
-  set('g-perte-noshow',     perteNoshow.toLocaleString('fr-FR') + ' \u20ac');
-  set('g-perte-noshow-sub', totalNoshow + ' no shows \u00d7 ' + commAvg + ' \u20ac \u00d7 ' + closing + '% closing');
-  set('g-perte-nonsigne',     perteNonsigne.toLocaleString('fr-FR') + ' \u20ac');
-  set('g-perte-nonsigne-sub', totalNonsigne + ' non sign\u00e9s \u00d7 ' + commAvg + ' \u20ac comm. moy.');
+  // ── Simulation « un cran de mieux » (remplace l'ancien « CA perdu », qui supposait que tous les absents auraient signé) ──
+  const moisActifs = Math.max(1, activeMois || 1);
+  const showsEnPlus = totalRdv * 0.05, ventesShow = showsEnPlus * (closing / 100), gainShow = Math.round(ventesShow * commAvg);
+  set('g-sim-show', (gainShow > 0 ? '+' : '') + gainShow.toLocaleString('fr-FR') + ' \u20ac');
+  set('g-sim-show-sub', '≈ ' + Math.round(showsEnPlus) + ' show(s) de plus → ' + ventesShow.toFixed(1).replace('.', ',') + ' vente(s), soit ' + Math.round(gainShow / moisActifs).toLocaleString('fr-FR') + ' \u20ac par mois');
+  set('g-sim-show-hyp', 'Hypothèses : ' + totalRdv + ' RDV, show rate ' + showrate + '% → ' + (showrate + 5) + '%, closing ' + closing + '%, ' + commAvg.toLocaleString('fr-FR') + ' \u20ac par vente (total réel ÷ ventes).');
+  const ventesClos = totalShows * 0.05, gainClos = Math.round(ventesClos * commAvg);
+  set('g-sim-closing', (gainClos > 0 ? '+' : '') + gainClos.toLocaleString('fr-FR') + ' \u20ac');
+  set('g-sim-closing-sub', '≈ ' + ventesClos.toFixed(1).replace('.', ',') + ' vente(s) de plus sur ' + totalShows + ' shows, soit ' + Math.round(gainClos / moisActifs).toLocaleString('fr-FR') + ' \u20ac par mois');
+  set('g-sim-closing-hyp', 'Hypothèses : closing ' + closing + '% → ' + (closing + 5) + '%, ' + commAvg.toLocaleString('fr-FR') + ' \u20ac par vente.');
 
   // ── Tableau type ──
   const srcColors = { Inbound:'var(--accent)', Outbound:'var(--purple)', PUB:'var(--orange)', Autre:'var(--text3)' };
