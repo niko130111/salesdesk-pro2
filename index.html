@@ -8471,7 +8471,7 @@ function renderMaJournee() {
   html += ligne('📅', rdvJour.length ? '<b>' + rdvJour.length + ' RDV aujourd\'hui</b>' + (prochainRdv ? ' · prochain : ' + escapeHtml(prochainRdv.heure + ' ' + prochainRdv.nom) : ' · tous passés') : 'Aucun RDV aujourd\'hui', rdvJour.length ? 'Mes RDV' : '', "mjAller('Mes RDV')");
   html += ligne('📋', prepas.length ? '<b>' + prepas.length + ' prépa(s) à faire</b> · ' + escapeHtml(prepas.slice(0, 3).map(function(p) { return p.nom + ' (' + p.quand + ' : ' + p.manque + ')'; }).join(' · ')) : (_mj.sdRdvs ? 'Prépas à jour pour aujourd\'hui et demain' : 'Prépas : copilot injoignable'), prepas.length ? 'Préparer' : '', "mjAller('Mes RDV')", prepas.length ? 'var(--orange)' : '');
   html += ligne('✅', aFinaliser.length ? '<b>' + aFinaliser.length + ' RDV à finaliser</b> (passés sans débrief) · ' + escapeHtml(aFinaliser.slice(0, 3).map(function(d) { return d.nom; }).join(' · ')) : 'Rien à finaliser', aFinaliser.length ? 'Finaliser' : '', "mjAller('Mes RDV')", aFinaliser.length ? 'var(--orange)' : '');
-  html += ligne('📞', dues.length ? '<b>' + dues.length + ' relance(s) due(s)</b>' + (retard ? ' dont ' + retard + ' en retard' : '') + ' · ' + escapeHtml(dues.slice(0, 3).map(function(r) { return r.nom; }).join(' · ')) : 'Aucune relance due', dues.length ? 'Relancer' : '', "mjAller('Pipeline')", retard ? 'var(--red)' : (dues.length ? 'var(--orange)' : ''));
+  html += ligne('📞', dues.length ? '<b>' + dues.length + ' relance(s) due(s)</b>' + (retard ? ' dont ' + retard + ' en retard' : '') + ' · ' + escapeHtml(dues.slice(0, 3).map(function(r) { return r.nom; }).join(' · ')) : 'Aucune relance due', dues.length ? 'Relancer' : '', "_relancesFiltre='__dues';mjAller('Pipeline');setTimeout(function(){try{dessinerRelances();var e=document.getElementById('relances-liste');if(e)e.scrollIntoView({behavior:'smooth',block:'start'});}catch(x){}},150)", retard ? 'var(--red)' : (dues.length ? 'var(--orange)' : ''));
   html += ligne('⚠️', sansAction.length ? '<b>' + sansAction.length + ' RDV sans prochaine action</b>' : 'Tous les RDV ont une suite', sansAction.length ? 'Compléter' : '', 'sdClasserEnChaine()', sansAction.length ? 'var(--red)' : '');
   var vc = sdVerifCloseRestants();
   if (_verifClose) html += ligne('🔎', vc.length ? '<b>' + vc.length + ' point(s) où Close dit autre chose</b> · ' + escapeHtml(vc.slice(0, 3).map(function(x) { return x.vente ? 'vente ' + x.client : x.client + ' (' + { type: 'type', source: 'source', client: 'nom' }[x.champ] + ')'; }).join(' · ')) : 'Close et SalesDesk sont d\'accord sur les 7 derniers jours', vc.length ? 'Valider' : 'Détail', 'sdPopupVerifClose()', vc.length ? 'var(--orange)' : 'var(--green)');
@@ -8533,8 +8533,8 @@ function chargerRelancesPourQuotidien() {
 function relanceResultat(id, btn, decaler) {
   var r = (_relances || []).find(function(x) { return x.id === id; }); if (!r) return;
   var html = '<div class="fc-dup"><div style="font-size:15px;font-weight:700;margin-bottom:6px;">' + escapeHtml(r.nom) + ' — résultat de la relance</div>'
-    + [['joint', '📞 Joint, on avance'], ['rdv_pris', '📅 RDV pris'], ['pas_de_reponse', '📭 Pas de réponse (je réessaie)'], ['plus_tard', '⏩ Repousser'], ['perdu', '❌ Perdu']].map(function(c) { return '<button class="fc-dup-item" onclick="relanceResultatChoisir(' + JSON.stringify(id).replace(/"/g, '&quot;') + ',\'' + c[0] + '\')">' + c[1] + '</button>'; }).join('')
-    + '<div id="rl-plustard" style="display:' + (decaler ? '' : 'none') + ';margin-top:8px;"><input type="date" id="rl-quand" value="' + (decaler ? relanceDateSuggeree(r) : '') + '" style="font-family:var(--mono);font-size:12px;padding:5px;border:1px solid var(--border);border-radius:6px;"> <button class="btn btn-sm btn-primary" onclick="relanceResultatChoisir(' + JSON.stringify(id).replace(/"/g, '&quot;') + ',\'plus_tard\',true)">Repousser à cette date</button></div>'
+    + [['joint', '📞 Joint, on avance', 'reste intéressé, on cale la prochaine relance'], ['rdv_pris', '📅 RDV pris', 'passe en R2 planifié'], ['pas_de_reponse', '📭 Pas de réponse', 'je réessaie, nouvelle date proposée à +3 jours'], ['plus_tard', '⏩ Repousser', 'tu choisis la date'], ['perdu', '❌ Perdu', 'non signé, tu choisis la raison']].map(function(c) { return '<button class="fc-dup-item" onclick="relanceResultatChoisir(' + JSON.stringify(id).replace(/"/g, '&quot;') + ',\'' + c[0] + '\')">' + c[1] + ' <span style="font-weight:400;color:var(--text3);font-size:12px;">· ' + c[2] + '</span></button>'; }).join('')
+    + '<div id="rl-plustard" style="display:' + (decaler ? '' : 'none') + ';margin-top:10px;padding:10px;background:var(--surface2);border-radius:var(--radius);"><div id="rl-plustard-lib" style="font-size:12px;font-weight:600;margin-bottom:6px;">Prochaine relance le…</div><input type="date" id="rl-quand" value="' + (decaler ? relanceDateSuggeree(r) : '') + '" style="font-family:var(--mono);font-size:12px;padding:5px;border:1px solid var(--border);border-radius:6px;"> <button class="btn btn-sm btn-primary" id="rl-valider" onclick="relanceResultatChoisir(' + JSON.stringify(id).replace(/"/g, '&quot;') + ', window._rlCode || \'plus_tard\', true)">Enregistrer</button></div>'
     + '<div style="text-align:right;margin-top:12px;"><button class="btn btn-sm" onclick="fermerModalDoublon()">Annuler</button></div></div>';
   var ov = document.getElementById('fc-dup-overlay');
   if (!ov) { ov = document.createElement('div'); ov.id = 'fc-dup-overlay'; ov.className = 'modal-overlay'; ov.style.zIndex = '1300'; ov.innerHTML = '<div class="modal" id="fc-dup-modal"></div>'; document.body.appendChild(ov); }
@@ -8550,15 +8550,23 @@ function relanceDateSuggeree(r) {
   return d.toISOString().slice(0, 10);
 }
 function relanceResultatChoisir(id, resultat, confirmeDate) {
-  if (resultat === 'plus_tard' && !confirmeDate) { document.getElementById('rl-plustard').style.display = ''; return; }
-  var quand = resultat === 'plus_tard' ? (document.getElementById('rl-quand') || {}).value : '';
-  if (resultat === 'plus_tard' && !quand) { alert('Choisis la nouvelle date.'); return; }
   var r = (_relances || []).find(function(x) { return x.id === id; }); var today = new Date().toISOString().slice(0, 10);
+  var suite = ['plus_tard', 'joint', 'pas_de_reponse'].indexOf(resultat) >= 0; // la relance reste ouverte avec une nouvelle date
+  if (suite && !confirmeDate) {
+    window._rlCode = resultat;
+    var sec = document.getElementById('rl-plustard'), inp = document.getElementById('rl-quand'), lib = document.getElementById('rl-plustard-lib');
+    var d = new Date(); d.setDate(d.getDate() + (resultat === 'pas_de_reponse' ? 3 : 7)); if (d.getDay() === 6) d.setDate(d.getDate() + 2); if (d.getDay() === 0) d.setDate(d.getDate() + 1);
+    if (inp && (!inp.value || resultat !== 'plus_tard')) inp.value = d.toISOString().slice(0, 10);
+    if (lib) lib.textContent = resultat === 'joint' ? 'Joint ✓ — prochaine relance le…' : resultat === 'pas_de_reponse' ? 'Pas de réponse — je réessaie le…' : 'Repousser au…';
+    if (sec) sec.style.display = ''; if (inp) inp.focus(); return;
+  }
+  var quand = suite ? (document.getElementById('rl-quand') || {}).value : '';
+  if (suite && !quand) { alert('Choisis la prochaine date.'); return; }
   var store = loadStore(); if (!store._relancesLog) store._relancesLog = [];
   if (resultat !== 'plus_tard') store._relancesLog.push({ id: id, nom: r ? r.nom : '', quand: r && r.relance ? r.relance.quand : '', fait: today, resultat: resultat, aTemps: !!(r && r.relance && r.relance.quand && today <= r.relance.quand) });
   if (String(id).indexOf('sd|') === 0) { // relance locale : sur la ligne
     var p = String(id).split('|'), row = (store[p[1]] || [])[parseInt(p[2])];
-    if (row) { if (resultat === 'plus_tard') { row.relanceDate = quand; } else { row.relanceFait = true; row.relanceResultat = resultat; row.relanceFaitAt = today; if (resultat === 'perdu') { row.result = 'Non signé'; row.nosignRaison = row.nosignRaison || 'pasinteresse'; } if (resultat === 'rdv_pris') { row.result = 'R2 planifié'; } } }
+    if (row) { if (suite) { row.relanceDate = quand; row.relanceFait = false; if (resultat !== 'plus_tard') { row.relanceDernier = resultat; row.relanceDernierAt = today; } } else { row.relanceFait = true; row.relanceResultat = resultat; row.relanceFaitAt = today; if (resultat === 'perdu') { row.result = 'Non signé'; row.nosignRaison = row.nosignRaison || 'pasinteresse'; } if (resultat === 'rdv_pris') { row.result = 'R2 planifié'; } } }
     saveStore(store); fermerModalDoublon();
     _relances = fusionRelances((_relances || []).filter(function(x) { return !x.local; })); dessinerRelances(); majAlerteRelances(); refreshAll();
     if (typeof showCopyToast === 'function') showCopyToast('✓ Relance : ' + resultat.replace('_', ' '));
@@ -8566,7 +8574,7 @@ function relanceResultatChoisir(id, resultat, confirmeDate) {
   }
   saveStore(store);
   fetch(COPILOT_URL + '/rdvs/' + encodeURIComponent(id) + '/relance-resultat', { method: 'POST', mode: 'cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ resultat: resultat, quand: quand }) })
-    .then(function(x) { if (!x.ok) throw new Error(x.status); fermerModalDoublon(); if (resultat === 'plus_tard') { if (r) r.relance.quand = quand; } else { _relances = (_relances || []).filter(function(x) { return x.id !== id; }); } dessinerRelances(); majAlerteRelances(); if (typeof showCopyToast === 'function') showCopyToast('✓ Relance : ' + resultat.replace('_', ' ')); })
+    .then(function(x) { if (!x.ok) throw new Error(x.status); fermerModalDoublon(); if (suite) { if (r) r.relance.quand = quand; } else { _relances = (_relances || []).filter(function(x) { return x.id !== id; }); } dessinerRelances(); majAlerteRelances(); if (typeof showCopyToast === 'function') showCopyToast('✓ Relance : ' + resultat.replace('_', ' ')); })
     .catch(function() { alert('Le copilot ne répond pas : résultat non enregistré.'); });
 }
 // Relance faite : elle sort de la liste (et de l'alerte Quotidien) ; sinon elle reste
@@ -8586,11 +8594,13 @@ function dessinerRelances() {
   var liste = _relances || [];
   var conds = {}; liste.forEach(function(r){ var c = (r.relance && r.relance.condition) || ''; if (c) conds[c] = (conds[c]||0) + 1; });
   var filtres = document.getElementById('relances-filtres');
-  filtres.innerHTML = ['', ].concat(Object.keys(conds).sort()).map(function(c){
+  var todayF = new Date().toISOString().slice(0, 10), nbDues = liste.filter(function(r) { return r.relance && r.relance.quand && r.relance.quand <= todayF; }).length;
+  filtres.innerHTML = ['__dues', ''].concat(Object.keys(conds).sort()).map(function(c){
     var on = _relancesFiltre === c;
-    return '<button class="btn btn-sm' + (on ? ' btn-primary' : '') + '" onclick="_relancesFiltre=\'' + c.replace(/'/g,"\\'") + '\';dessinerRelances()">' + (c ? escapeHtml(c) + ' (' + conds[c] + ')' : 'Toutes (' + liste.length + ')') + '</button>';
+    var lib = c === '__dues' ? '⏰ Aujourd\'hui + retard (' + nbDues + ')' : (c ? escapeHtml(c) + ' (' + conds[c] + ')' : 'Toutes (' + liste.length + ')');
+    return '<button class="btn btn-sm' + (on ? ' btn-primary' : '') + '" onclick="_relancesFiltre=\'' + c.replace(/'/g,"\\'") + '\';dessinerRelances()">' + lib + '</button>';
   }).join('');
-  var rows = liste.filter(function(r){ return !_relancesFiltre || ((r.relance && r.relance.condition) === _relancesFiltre); });
+  var rows = liste.filter(function(r){ if (_relancesFiltre === '__dues') return r.relance && r.relance.quand && r.relance.quand <= todayF; return !_relancesFiltre || ((r.relance && r.relance.condition) === _relancesFiltre); });
   rows.sort(function(a,b){ return ((a.relance&&a.relance.quand)||'9999').localeCompare((b.relance&&b.relance.quand)||'9999'); });
   document.getElementById('relances-count').textContent = rows.length ? '· ' + rows.length + ' à rappeler' : '';
   document.getElementById('relances-info').textContent = liste.length ? '' : 'Aucune relance enregistrée.';
@@ -8607,7 +8617,7 @@ function dessinerRelances() {
         + '<td style="padding:8px;">' + escapeHtml([r.raison, (r.relance && r.relance.condition)].filter(Boolean).join(' · ') || (r.outcome === 'perdu' ? 'Perdu' : 'Rappel calé')) + '</td>'
         + '<td style="padding:8px;color:var(--text2);max-width:260px;">' + escapeHtml(r.contexte || (r.relance && r.relance.note) || '—') + ((r.objections || []).length ? '<div style="font-size:11px;color:var(--red);">Reste : ' + escapeHtml(r.objections.join(' · ')) + '</div>' : '') + (r.action && r.action.quoi ? '<div style="font-size:11px;color:var(--text3);">Prévu : ' + escapeHtml(r.action.quoi) + '</div>' : '') + '</td>'
         + '<td style="padding:8px;">' + (r.message ? '<button class="btn btn-sm" style="font-size:11px;padding:3px 8px;" onclick="fcCopierMail(' + JSON.stringify(r.message.objet).replace(/"/g, '&quot;') + ',' + JSON.stringify(r.message.corps).replace(/"/g, '&quot;') + ')" title="' + escapeHtml(r.message.objet) + '">📋 Brouillon</button>' : '<span style="color:var(--text3);">—</span>') + '</td>'
-        + '<td style="padding:8px;white-space:nowrap;"><button class="btn btn-sm" style="margin-right:4px;" title="Changer la date sans rien clôturer" onclick="relanceResultat(\'' + String(r.id).replace(/'/g, '') + '\', this, true)">📅 Décaler</button><button class="btn btn-sm" onclick="relanceResultat(\'' + String(r.id).replace(/'/g, '') + '\', this)">✓ Fait</button></td>'
+        + '<td style="padding:8px;white-space:nowrap;"><button class="btn btn-sm" style="margin-right:4px;" title="Changer la date sans rien clôturer" onclick="relanceResultat(\'' + String(r.id).replace(/'/g, '') + '\', this, true)">📅 Décaler</button><button class="btn btn-sm btn-primary" title="Consigner ce que la relance a donné" onclick="relanceResultat(\'' + String(r.id).replace(/'/g, '') + '\', this)">✅ Résultat</button></td>'
         + '</tr>';
     }).join('') + '</tbody></table>' : '<div style="font-size:12px;color:var(--text3);">Rien pour ce filtre.</div>';
 }
