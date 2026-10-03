@@ -6190,6 +6190,13 @@ async function fetchOutbound2Mois(forcer) {
     _outbound2MoisDernierFetch = _incomplets ? (Date.now() - OUTBOUND_INTERVALLE_MIN_MS + 60000) : Date.now();
     if (_incomplets) setTimeout(function() { fetchOutbound2Mois().then(function() { try { renderDaily(); renderRdvTable(); } catch (e) {} }).catch(function(){}); }, 65000);
     try { sdRattacherR2Attendus(); } catch (e) { console.warn('[R2] rattachement :', e); }
+    // Les RDV à venir (jusqu'à la fin du mois prochain) entrent dans les données dès maintenant, pas seulement quand la semaine
+    // est affichée dans le Quotidien : Mes RDV (copilot) et les automatisations voient les mêmes RDV que l'agenda.
+    try {
+      const _auj = new Date(); _auj.setHours(0, 0, 0, 0); const _parJour = {};
+      _outbound2Mois.forEach(function(e) { if (e.annule || !e.start || e.start < _auj || e.source === 'R2' || !e.name || e.name === '—') return; const k = e.start.toLocaleDateString('fr-FR'); (_parJour[k] = _parJour[k] || []).push({ name: e.name, email: e.email, source: e.source, start: e.start, createdAt: e.createdAt, uri: e.uri }); });
+      if (Object.keys(_parJour).length) persistCalendlyEventsToStore(_parJour);
+    } catch (e) { console.warn('[agenda] enregistrement des RDV à venir :', e); }
     console.log('[Outbound 2 mois] ' + _outbound2Mois.length + ' events, dont '
               + _outbound2Mois.filter(e => e.source === 'Outbound').length + ' outbound.');
   } catch (e) {
