@@ -3597,7 +3597,7 @@ function rlNoShowsAuto(items, today) {
   return out;
 }
 function rlCleSuivi(it) { return it.t && it.t.lead ? it.t.lead : 'n:' + fcNormNom(it.nom); }
-function rlSuivi(it) { var st = loadStore(); return (st._tachesCloseSuivi || {})[rlCleSuivi(it)] || {}; }
+function rlSuivi(it) { var st = (window._rlStoreCache || loadStore()); return (st._tachesCloseSuivi || {})[rlCleSuivi(it)] || {}; }
 function rlPoserSuivi(it, patch) { var st = loadStore(); if (!st._tachesCloseSuivi) st._tachesCloseSuivi = {}; var k = rlCleSuivi(it); st._tachesCloseSuivi[k] = Object.assign({}, st._tachesCloseSuivi[k] || {}, patch, { nom: it.nom, at: new Date().toISOString() }); saveStore(st); return st._tachesCloseSuivi[k]; }
 function rlPost(chemin, corps) { return fetch(COPILOT_URL + chemin, { method: 'POST', mode: 'cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corps || {}) }).then(function(r) { return r.json().then(function(j) { if (!r.ok || j.ok === false) throw new Error(j.error || ('HTTP ' + r.status)); return j; }); }); }
 // La relance SalesDesk (locale ou copilot) suit la même date / le même résultat
@@ -8947,6 +8947,51 @@ function sdVerifCloseAppliquer(ignorerAussi) {
   if (typeof showCopyToast === 'function') showCopyToast(n ? '✓ Close : ' + n + ' correction(s) appliquée(s) — ' + msgs.slice(0, 4).join(', ') : 'Rien appliqué');
 }
 function mjAller(page) { var b = [...document.querySelectorAll('.nav-tab')].find(function(x) { return x.textContent.indexOf(page) >= 0; }); if (b) b.click(); }
+// Cockpit d'appels : la file du jour (retards d'abord, puis R2, no-shows, prise de RDV), 3 lignes closer sous la main, actions directes
+var _mjCockpitOuvert = false, _mjCles = {};
+function mjCockpitHtml(todayIso) {
+  if (typeof rlConstruireItems !== 'function') return '';
+  if (!_tachesClose && typeof chargerTachesClose === 'function') { if (!_rlLundi) _rlLundi = rlLundiDe(todayIso); chargerTachesClose(rlPlus(_rlLundi, -7), rlPlus(_rlLundi, 13), false); }
+  var items; try { items = rlConstruireItems(todayIso).items; } catch (e) { return ''; }
+  window._rlItems = items;
+  var dus = items.filter(function(i) { return i.date && i.date <= todayIso; });
+  var ordreCol = { r2: 0, nsin: 1, nsout: 1, rdv: 2, aclasser: 3 };
+  dus.sort(function(a, b) { var ra = a.date < todayIso ? 0 : 1, rb = b.date < todayIso ? 0 : 1; return ra - rb || (ordreCol[a.col] || 9) - (ordreCol[b.col] || 9) || a._rang - b._rang; });
+  if (!dus.length) return '';
+  var max = _mjCockpitOuvert ? 60 : 8, vis = dus.slice(0, max);
+  var ICO = { r2: '🔁', nsin: '👻', nsout: '👻', rdv: '📅', aclasser: '❓' }, LIB = { r2: 'R2', nsin: 'no-show in', nsout: 'no-show out', rdv: 'prise de RDV', aclasser: 'à classer' };
+  var lignes = vis.map(function(it) {
+    var ix = items.indexOf(it), sv = rlSuivi(it), nb = sv.tentatives || 0, row = (it.rel && it.rel.row) || it.row || {}, email = (it.rel && it.rel.r && it.rel.r.email) || row.email || '';
+    var nomJs = JSON.stringify(it.nom).replace(/"/g, '&quot;'), emailJs = JSON.stringify(email).replace(/"/g, '&quot;');
+    var cle = fcNormNom(it.nom), c = _mjCles[cle];
+    var cles = c === undefined ? '<span style="color:var(--text3);">…</span>' : (c && (c.promesse || c.deal || c.accroche) ? [c.promesse ? '🤝 ' + escapeHtml(c.promesse) : '', c.deal ? '💶 ' + escapeHtml(c.deal) : '', c.accroche ? '💬 ' + escapeHtml(c.accroche) : ''].filter(Boolean).join(' · ') : '<span style="color:var(--text3);">pas d\'historique Close</span>');
+    return '<div style="display:flex;gap:10px;align-items:flex-start;padding:7px 0;border-top:1px dashed var(--border);font-size:13px;">'
+      + '<span style="width:22px;text-align:center;" title="' + (LIB[it.col] || '') + '">' + (ICO[it.col] || '📞') + '</span>'
+      + '<span style="flex:1;min-width:0;"><div><b style="cursor:pointer;" onclick="ouvrirFicheClient(' + nomJs + ',' + emailJs + ')">' + escapeHtml(it.nom) + '</b> <span style="color:var(--text3);font-size:12px;">· ' + (LIB[it.col] || '') + (it.date < todayIso ? ' · <span style="color:var(--red);font-weight:700;">retard ' + escapeHtml(it.date.split('-').reverse().slice(0, 2).join('/')) + '</span>' : '') + (nb ? ' · appel ' + nb : '') + (it.t && it.t.texte && !/^follow ?up/i.test(it.t.texte) ? ' · ' + escapeHtml(it.t.texte.slice(0, 60)) : '') + '</span></div><div style="font-size:12px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + cles + '</div></span>'
+      + '<span style="display:flex;gap:4px;flex-shrink:0;"><button class="btn btn-sm" style="font-size:11px;padding:2px 7px;" title="Avant d\'appeler" onclick="rlAvantAppel(' + nomJs + ',' + emailJs + ')">👁</button><button class="btn btn-sm" style="font-size:11px;padding:2px 7px;" title="Pas de réponse" onclick="rlAction(' + ix + ', \'pas_reponse\', this)">📵</button><button class="btn btn-sm" style="font-size:11px;padding:2px 7px;" title="Joint" onclick="rlAction(' + ix + ', \'joint\', this)">📞</button><button class="btn btn-sm" style="font-size:11px;padding:2px 7px;" title="RDV pris" onclick="rlAction(' + ix + ', \'rdv_pris\', this)">📅</button></span></div>';
+  }).join('');
+  setTimeout(function() { mjChargerCles(vis); }, 50);
+  var retards = dus.filter(function(i) { return i.date < todayIso; }).length;
+  return '<div style="margin-top:10px;padding:10px 12px;border-radius:12px;background:var(--surface2);border:1px solid var(--border);">'
+    + '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:2px;"><div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);">📞 Mes appels du jour · ' + dus.length + (retards ? ' <span style="color:var(--red);">dont ' + retards + ' en retard</span>' : '') + '</div><div style="display:flex;gap:6px;">' + (dus.length > 8 ? '<button class="btn btn-sm" style="font-size:11px;padding:2px 8px;" onclick="_mjCockpitOuvert=!_mjCockpitOuvert;renderMaJournee()">' + (_mjCockpitOuvert ? 'réduire' : 'voir les ' + (dus.length - 8) + ' autres') + '</button>' : '') + '<button class="btn btn-sm" style="font-size:11px;padding:2px 8px;" onclick="_rlJour=null;mjAller(\'Relances\')">Relances ↗</button></div></div>'
+    + lignes + '</div>';
+}
+// 3 lignes closer : lues depuis le cache du copilot (pré-calculées le matin), 3 à la fois, puis la liste se redessine
+function mjChargerCles(vis) {
+  if (typeof COPILOT_URL === 'undefined') return;
+  var aFaire = vis.filter(function(it) { return _mjCles[fcNormNom(it.nom)] === undefined; }).slice(0, 3);
+  if (!aFaire.length) return;
+  var fini = 0;
+  aFaire.forEach(function(it) {
+    var cle = fcNormNom(it.nom), row = (it.rel && it.rel.row) || it.row || {}, email = (it.rel && it.rel.r && it.rel.r.email) || row.email || '';
+    _mjCles[cle] = null;
+    var q = it.t && it.t.lead ? { lead: it.t.lead } : { nom: it.nom, email: email };
+    var ctrl = new AbortController(); setTimeout(function() { ctrl.abort(); }, 45000);
+    fetch(COPILOT_URL + '/close/dernier-contact?' + new URLSearchParams(q), { mode: 'cors', cache: 'no-store', signal: ctrl.signal }).then(function(r) { return r.json(); })
+      .then(function(j) { _mjCles[cle] = (j && j.cles) || {}; }).catch(function() { _mjCles[cle] = {}; })
+      .then(function() { fini++; if (fini === aFaire.length) renderMaJournee(); });
+  });
+}
 function renderMaJournee() {
   var el = document.getElementById('ma-journee'); if (!el) return;
   var now = new Date(), todayKey = now.toLocaleDateString('fr-FR'), todayIso = now.toISOString().slice(0, 10);
@@ -8982,6 +9027,7 @@ function renderMaJournee() {
   html += ligne('📋', prepas.length ? '<b>' + prepas.length + ' prépa(s) à faire</b> · ' + escapeHtml(prepas.slice(0, 3).map(function(p) { return p.nom + ' (' + p.quand + ' : ' + p.manque + ')'; }).join(' · ')) : (_mj.sdRdvs ? 'Prépas à jour pour aujourd\'hui et demain' : 'Prépas : copilot injoignable'), prepas.length ? 'Préparer' : '', "mjAller('Mes RDV')", prepas.length ? 'var(--orange)' : '');
   html += ligne('✅', aFinaliser.length ? '<b>' + aFinaliser.length + ' RDV à finaliser</b> (passés sans débrief) · ' + escapeHtml(aFinaliser.slice(0, 3).map(function(d) { return d.nom; }).join(' · ')) : 'Rien à finaliser', aFinaliser.length ? 'Finaliser' : '', "mjAller('Mes RDV')", aFinaliser.length ? 'var(--orange)' : '');
   html += ligne('📞', dues.length ? '<b>' + dues.length + ' relance(s) due(s)</b>' + (retard ? ' dont ' + retard + ' en retard' : '') + ' · ' + escapeHtml(dues.slice(0, 3).map(function(r) { return r.nom; }).join(' · ')) : 'Aucune relance due', dues.length ? 'Relancer' : '', "_rlFiltre='dues';mjAller('Relances')", retard ? 'var(--red)' : (dues.length ? 'var(--orange)' : ''));
+  html += mjCockpitHtml(todayIso);
   html += ligne('⚠️', sansAction.length ? '<b>' + sansAction.length + ' RDV sans prochaine action</b>' : 'Tous les RDV ont une suite', sansAction.length ? 'Compléter' : '', 'sdClasserEnChaine()', sansAction.length ? 'var(--red)' : '');
   // SMS no-show programmés / prêts (copilot /sms)
   var smsActifs = (_smsList || []).filter(function(x) { return x.statut === 'prevu' || x.statut === 'brouillon'; });
@@ -9143,7 +9189,7 @@ function dessinerRelances() {
 //   nsin  : R1 manqué, pris par un SDR / le site (Inbound, PUB)      nsout : R1 manqué que Nicolas avait pris (Outbound)
 var _rlFiltre = 'dues';
 function sdRowPourRelance(r) {
-  var store = loadStore();
+  var store = window._rlStoreCache || loadStore();
   if (String(r.id).indexOf('sd|') === 0) { var p = String(r.id).split('|'); return (store[p[1]] || [])[parseInt(p[2])] || null; }
   var n = fcNormNom(r.nom), best = null, bd = 0;
   Object.keys(store).forEach(function(k) { if (!/^\d{4}-\d{2}$/.test(k) || !Array.isArray(store[k])) return; store[k].forEach(function(x) { if (!x || fcNormNom(x.client || '') !== n || x.source === 'R2') return; var d = parseDateFR(x.date); if (d && d > bd) { bd = d; best = x; } }); });
@@ -9165,8 +9211,8 @@ function chargerTachesClose(depuis, jusqua, force) {
   if (_tachesClose && _tachesCloseCle === cle && Date.now() - _tachesCloseAt < 120000 && !force) return;
   var ctrl = new AbortController(); setTimeout(function() { ctrl.abort(); }, 60000);
   fetch(COPILOT_URL + '/close/taches?' + new URLSearchParams({ depuis: depuis, jusqua: jusqua, terminees: '1' }) + (force ? '&force=1' : ''), { mode: 'cors', cache: 'no-store', signal: ctrl.signal })
-    .then(function(r) { return r.json(); }).then(function(d) { _tachesClose = d; _tachesCloseAt = Date.now(); _tachesCloseCle = cle; renderRelancesPage(); })
-    .catch(function() { _tachesClose = { error: 'copilot', taches: [], terminees: [] }; renderRelancesPage(); });
+    .then(function(r) { return r.json(); }).then(function(d) { _tachesClose = d; _tachesCloseAt = Date.now(); _tachesCloseCle = cle; renderRelancesPage(); if (typeof renderMaJournee === 'function') renderMaJournee(); })
+    .catch(function() { _tachesClose = { error: 'copilot', taches: [], terminees: [] }; renderRelancesPage(); if (typeof renderMaJournee === 'function') renderMaJournee(); });
 }
 var _rlLundi = null, _rlJour = null;
 function rlIso(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
@@ -9180,7 +9226,7 @@ function rlNomFiche(fiche, contact) { // « Prénom Nom | Réseau » ou « Agenc
   return pers || segs[0];
 }
 function rlCategorieTache(t, rel, row) {
-  var fixe = (loadStore()._tachesCloseCol || {})[t.id]; if (fixe) return fixe; // motif choisi à la main
+  var fixe = ((window._rlStoreCache || loadStore())._tachesCloseCol || {})[t.id]; if (fixe) return fixe; // motif choisi à la main
   if (rel) return rel.col;
   var x = (t.texte || '').toLowerCase(), src = row ? String(row.source || '') : '';
   if (/no ?show|pas venu|absent/.test(x)) return src === 'Outbound' ? 'nsout' : 'nsin';
@@ -9204,7 +9250,7 @@ function rlMemePersonne(a, b) {
 }
 // Dernier RDV (hors R2) de l'une de ces personnes dans le store
 function sdRowPourNoms(noms) {
-  var store = loadStore(), ns = (noms || []).map(fcNormNom).filter(function(n) { return n.length > 3; }), best = null, bd = 0;
+  var store = (window._rlStoreCache || loadStore()), ns = (noms || []).map(fcNormNom).filter(function(n) { return n.length > 3; }), best = null, bd = 0;
   if (!ns.length) return null;
   Object.keys(store).forEach(function(k) { if (!/^\d{4}-\d{2}$/.test(k) || !Array.isArray(store[k])) return; store[k].forEach(function(x) { if (!x || x.source === 'R2') return; var c = fcNormNom(x.client || ''); if (!c || !ns.some(function(n) { return rlMemePersonne(n, c); })) return; var d = parseDateFR(x.date); if (d && d > bd) { bd = d; best = x; } }); });
   return best;
@@ -9214,14 +9260,10 @@ function rlClasser(taskId, col) {
   if (col) store._tachesCloseCol[taskId] = col; else delete store._tachesCloseCol[taskId];
   saveStore(store); renderRelancesPage();
 }
-function renderRelancesPage() {
-  var page = document.getElementById('page-relances'); if (!page) return;
-  if (_relances === null) { try { chargerRelancesPourQuotidien(); } catch (e) {} setTimeout(function() { if (page.classList.contains('active')) renderRelancesPage(); }, 1500); }
-  var today = rlIso(new Date());
-  if (!_rlJour) _rlJour = today;
-  _rlLundi = rlLundiDe(_rlJour === 'retard' ? today : _rlJour);
-  var finSem = rlPlus(_rlLundi, 6);
-  chargerTachesClose(rlPlus(_rlLundi, -7), rlPlus(_rlLundi, 13), false);
+// Construit la file (tâches Close reliées aux personnes + relances SalesDesk + no-shows récents) — partagée par Relances et le cockpit de Ma journée
+function rlConstruireItems(today) {
+  window._rlStoreCache = loadStore(); // un seul parse du store pour toute la construction
+  try {
   var liste = (_relances || []).slice();
   var quand = function(r) { return (r.relance && r.relance.quand) || ''; };
   // relances SalesDesk enrichies (ligne, colonne)
@@ -9244,6 +9286,33 @@ function renderRelancesPage() {
   rels.forEach(function(x) { if (!relsUtilisees[x.r.id]) items.push({ type: 'sd', rel: x, nom: x.nom, date: x.date, col: x.col }); });
   // No-shows récents (lignes SalesDesk) : ils entrent d'eux-mêmes dans la file au jour ouvré suivant, sans relance fantôme — jusqu'à ce que tu agisses (la tâche Close prend alors le relais)
   rlNoShowsAuto(items, today).forEach(function(it) { items.push(it); });
+  rlTrierItems(items);
+  return { items: items, liste: liste, taches: taches, terminees: terminees };
+  } finally { window._rlStoreCache = null; }
+}
+// Ordre utile dans chaque colonne : joints récemment, puis relances explicites, puis tâches avec un vrai texte, puis les « Follow up » (plus récents d'abord)
+function rlTrierItems(items) {
+  var st = (window._rlStoreCache || loadStore()), suivi = st._tachesCloseSuivi || {};
+  var rang = function(it) {
+    var sv = suivi[rlCleSuivi(it)] || {};
+    if (sv.dernier === 'joint') return 0;
+    if (it.type === 'sd' || it.type === 'sd-noshow') return 1;
+    if (it.rel) return 2;
+    if (it.t && it.t.texte && !/^follow ?up(\s*\(\d+\))?$/i.test(it.t.texte.trim())) return 3;
+    return 4;
+  };
+  items.forEach(function(it, i) { it._i = i; it._rang = rang(it); });
+  items.sort(function(a, b) { return a._rang - b._rang || ((b.t && b.t.cree) || '').localeCompare((a.t && a.t.cree) || '') || a._i - b._i; });
+}
+function renderRelancesPage() {
+  var page = document.getElementById('page-relances'); if (!page) return;
+  if (_relances === null) { try { chargerRelancesPourQuotidien(); } catch (e) {} setTimeout(function() { if (page.classList.contains('active')) renderRelancesPage(); }, 1500); }
+  var today = rlIso(new Date());
+  if (!_rlJour) _rlJour = today;
+  _rlLundi = rlLundiDe(_rlJour === 'retard' ? today : _rlJour);
+  var finSem = rlPlus(_rlLundi, 6);
+  chargerTachesClose(rlPlus(_rlLundi, -7), rlPlus(_rlLundi, 13), false);
+  var _c = rlConstruireItems(today), liste = _c.liste, taches = _c.taches, terminees = _c.terminees, items = _c.items;
   var nbDues = items.filter(function(i) { return i.date && i.date <= today; }).length;
   // navigation par jour : on choisit le jour, et dessous les 4 colonnes par motif
   var jourRef = _rlJour === 'retard' ? today : _rlJour;
@@ -9295,11 +9364,11 @@ function renderRelancesPage() {
     }).join('') + '</div>';
   // les 4 colonnes par motif, pour le jour choisi
   var duJour = _rlJour === 'retard' ? retardItems : items.filter(function(it) { return it.date === _rlJour; });
-  duJour.sort(function(a, b) { return (a.date || '').localeCompare(b.date || '') || (a.nom || '').localeCompare(b.nom || ''); });
   var cols = { r2: [], rdv: [], nsin: [], nsout: [], aclasser: [] };
   duJour.forEach(function(it) { (cols[it.col] || cols.aclasser).push(it); });
   document.getElementById('rl-colonnes').style.display = 'grid';
-  Object.keys(cols).forEach(function(c) { document.getElementById('rl-badge-' + c).textContent = cols[c].length; document.getElementById('rl-col-' + c).innerHTML = cols[c].length ? cols[c].map(carte).join('') : '<div style="font-size:12px;color:var(--text3);padding:8px 0;">—</div>'; });
+  window._rlOuvertes = window._rlOuvertes || {};
+  Object.keys(cols).forEach(function(c) { document.getElementById('rl-badge-' + c).textContent = cols[c].length; var max = window._rlOuvertes[c] ? 1e9 : 20; var vis = cols[c].slice(0, max); document.getElementById('rl-col-' + c).innerHTML = (vis.length ? vis.map(carte).join('') : '<div style="font-size:12px;color:var(--text3);padding:8px 0;">—</div>') + (cols[c].length > max ? '<button class="btn btn-sm" style="width:100%;margin-top:6px;" onclick="window._rlOuvertes[\'' + c + '\']=true;renderRelancesPage()">voir les ' + (cols[c].length - max) + ' suivantes</button>' : ''); });
   var sans = (typeof sdRdvsSansAction === 'function') ? sdRdvsSansAction() : [];
   document.getElementById('rl-sans-date').innerHTML = sans.length ? '⚠️ ' + sans.length + ' RDV sans prochaine action (ni R2, ni relance datée) — <a href="#" onclick="sdClasserEnChaine();return false;">les traiter</a>' : '';
 }
