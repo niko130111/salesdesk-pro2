@@ -8780,14 +8780,15 @@ function chargerControle(force, retester) {
   if (typeof COPILOT_URL === 'undefined') return Promise.resolve();
   if (_ctl && Date.now() - _ctlAt < 120000 && !force) return Promise.resolve(_ctl);
   var ctrl = new AbortController(); setTimeout(function() { ctrl.abort(); }, 25000);
-  return fetch(COPILOT_URL + '/controle' + (retester ? '?force=1' : ''), { mode: 'cors', cache: 'no-store', signal: ctrl.signal }).then(function(r) { return r.json(); })
+  return fetch(COPILOT_URL + '/controle' + (retester ? '?force=1' : ''), { mode: 'cors', cache: 'no-store', signal: ctrl.signal }).then(function(r) { if (r.status === 404) { var e = new Error('ancienne'); e.ancienne = true; throw e; } return r.json(); })
     .then(function(j) { _ctl = j; _ctlAt = Date.now(); return j; })
-    .catch(function() { _ctl = { ok: false, copilotAbsent: true, connexions: [], problemes: [], sms: [], mails: [], journal: [], ecritures: [], automations: [] }; _ctlAt = Date.now(); return _ctl; })
+    .catch(function(e) { _ctl = { ok: false, copilotAbsent: !(e && e.ancienne), copilotAncien: !!(e && e.ancienne), connexions: [], problemes: [], sms: [], mails: [], journal: [], ecritures: [], automations: [] }; _ctlAt = Date.now(); return _ctl; })
     .then(function(j) { dessinerAlertesControle(); return j; });
 }
 function ctlTousProblemes() {
   var p = ctlProblemesLocaux().concat((_ctl && _ctl.problemes) || []);
   if (_ctl && _ctl.copilotAbsent) p.unshift({ niveau: 'rouge', quoi: 'Copilot injoignable : relances Close, fiche « avant d\'appeler », SMS et mails sont à l\'arrêt', zone: 'copilot' });
+  if (_ctl && _ctl.copilotAncien) p.unshift({ niveau: 'orange', quoi: 'Copilot à relancer : il tourne sur une ancienne version (Ctrl+C puis node server.js)', zone: 'copilot' });
   return p;
 }
 function dessinerAlertesControle() {
@@ -8814,7 +8815,7 @@ function renderControle(recharger, retester) {
   var cx = '';
   cx += L(typeof _syncErreur !== 'undefined' && _syncErreur ? '🔴' : '🟢', 'Supabase (sauvegarde en ligne)', (typeof _supaEmail !== 'undefined' && _supaEmail) ? 'connecté : ' + escapeHtml(_supaEmail) : 'clé publique seule');
   cx += L(((state.calendly && state.calendly.apiKey) || localStorage.getItem('calendly_key')) ? '🟢' : '🟠', 'Calendly (SalesDesk)', 'RDV du jour, outbound');
-  cx += L(j.copilotAbsent ? '🔴' : '🟢', 'Copilot local', j.copilotAbsent ? 'injoignable sur ' + COPILOT_URL : 'répond');
+  cx += L(j.copilotAbsent ? '🔴' : j.copilotAncien ? '🟠' : '🟢', 'Copilot local', j.copilotAbsent ? 'injoignable sur ' + COPILOT_URL : j.copilotAncien ? 'répond, mais ancienne version : à relancer' : 'répond');
   (j.connexions || []).forEach(function(c) { cx += L(c.ok ? '🟢' : (/préparé/.test(c.detail) ? '⚪' : '🔴'), escapeHtml(c.nom), escapeHtml(c.detail || '') + (c.ms ? ' · ' + c.ms + ' ms' : '')); });
   document.getElementById('ctl-connexions').innerHTML = cx;
   var sw = j.interrupteurs || {};
