@@ -3618,7 +3618,7 @@ function rlAction(ix, action, btn) {
     rlDateModal(it.nom + ' — joint, il demande qu\'on le rappelle le…', 'La tâche Close est déplacée à cette date, le compteur d\'appels repart à zéro.', rlJourOuvre(today, 1), function(d, h) {
       occupe(true);
       tacheClose(d, (RL_LIBELLES[it.col] || it.col) + ' · joint le ' + fcFrDepuisIso(today) + ', rappeler · SalesDesk', h)
-        .then(function() { rlPoserSuivi(it, { tentatives: 0, col: it.col, dernier: 'joint', prochaine: d }); return rlMajRelance(it, 'joint', d); })
+        .then(function() { rlPoserSuivi(it, { tentatives: 0, col: it.col, dernier: 'joint', prochaine: d }); rlPost('/sms/annuler-pour', { nom: it.nom, raison: 'joint' }).catch(function() {}); return rlMajRelance(it, 'joint', d); })
         .then(function() { fini('📞 Joint → rappel le ' + fcFrDepuisIso(d)); }).catch(echec);
     }, true);
     return;
@@ -3629,7 +3629,7 @@ function rlAction(ix, action, btn) {
       terminerClose().then(function() {
         var row = (it.rel && it.rel.row) || it.row; var st = loadStore();
         if (row && it.col === 'r2') { var trouve = null; Object.keys(st).forEach(function(k) { if (!/^\d{4}-\d{2}$/.test(k)) return; (st[k] || []).forEach(function(x) { if (x && x.client === row.client && x.date === row.date) trouve = x; }); }); if (trouve) { trouve.dateR2 = fcFrDepuisIso(d); if (h) trouve.heureR2 = h; if (!trouve.result || SD_INTERESSE.indexOf(trouve.result) >= 0) trouve.result = 'R2 planifié'; saveStore(st); } }
-        rlPoserSuivi(it, { tentatives: 0, col: it.col, dernier: 'rdv_pris', prochaine: d }); return rlMajRelance(it, 'rdv_pris', '');
+        rlPoserSuivi(it, { tentatives: 0, col: it.col, dernier: 'rdv_pris', prochaine: d }); rlPost('/sms/annuler-pour', { nom: it.nom, raison: 'RDV repris' }).catch(function() {}); return rlMajRelance(it, 'rdv_pris', '');
       }).then(function() { fini((it.col === 'r2' ? '📅 R2 le ' : '📅 Nouveau RDV le ') + fcFrDepuisIso(d)); if (typeof refreshAll === 'function') refreshAll(); }).catch(echec);
     }, true);
     return;
@@ -5041,8 +5041,8 @@ function sdEnvoyerEtatCopilot() {
 function sdSignalerNoShow(row) {
   if (typeof COPILOT_URL === 'undefined' || !row || !row.client) return;
   var iso = frVersIsoSd(row.date); if (!iso) return;
-  fetch(COPILOT_URL + '/evenement', { method: 'POST', mode: 'cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'no_show', nom: row.client, date: iso, email: row.email || '' }) })
-    .then(function(r) { return r.json(); }).then(function(j) { if (j && j.ok && typeof showCopyToast === 'function') showCopyToast('🎯 No show : brouillon de reprogrammation prêt (copilot, fiche client)'); }).catch(function() {});
+  fetch(COPILOT_URL + '/evenement', { method: 'POST', mode: 'cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'no_show', nom: row.client, date: iso, email: row.email || '', heure: row.heure || '' }) })
+    .then(function(r) { return r.json(); }).then(function(j) { if (j && j.sms && j.sms.sms) { var x = j.sms.sms; if (typeof showCopyToast === 'function') showCopyToast(x.statut === 'prevu' ? '💬 SMS no-show programmé à ' + new Date(x.prevu).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) + (new Date(x.prevu).toDateString() !== new Date().toDateString() ? ' (' + new Date(x.prevu).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric' }) + ')' : '') + ' · annulable dans Ma journée' : '💬 SMS no-show prêt (numéro à vérifier) — voir Ma journée'); chargerSms(true); } else if (j && j.ok && typeof showCopyToast === 'function') showCopyToast('🎯 No show : brouillon de reprogrammation prêt (copilot, fiche client)'); }).catch(function() {});
 }
 function frVersIsoSd(d) { var m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(d || ''); return m ? m[3] + '-' + m[2] + '-' + m[1] : ''; }
 function sdAppliquerCopilot(m) {
@@ -8702,7 +8702,49 @@ function chargerMaJournee(force) {
     fetch(COPILOT_URL + '/etat', { mode: 'cors', cache: 'no-store', signal: ctrl.signal }).then(function(r) { return r.json(); }).catch(function() { return null; }),
     fetch('http://127.0.0.1:3016/api/status', { mode: 'cors', cache: 'no-store', signal: ctrl.signal }).then(function(r) { return r.json(); }).catch(function() { return false; })
   ]).then(function(r) { _mj.copilot = r[0] && r[0].rdvs ? r[0].rdvs : null; _mj.sdRdvs = r[1] && r[1].rdvs ? r[1].rdvs : null; _mj.etat = r[2]; _mj.rappels = r[3]; fin(); }).catch(fin);
-  try { chargerVerifClose(false); } catch (e) {}
+  try { chargerVerifClose(false); } catch (e) {} try { chargerSms(false); } catch (e) {}
+}
+// ── SMS no-show (copilot /sms) : programmés à H+1 par le copilot ; ici on voit, on annule, on envoie (ou on copie / ouvre Messages si SMS Gate n'est pas branché) ──
+var _smsList = null, _smsAt = 0, _smsMode = null;
+function chargerSms(force) {
+  if (typeof COPILOT_URL === 'undefined') return;
+  if (_smsList && Date.now() - _smsAt < 60000 && !force) return;
+  fetch(COPILOT_URL + '/sms', { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).then(function(j) { _smsList = j.sms || []; _smsMode = { mode: j.mode, configure: j.configure }; _smsAt = Date.now(); renderMaJournee(); }).catch(function() {});
+}
+function sdPopupSms() {
+  var l = (_smsList || []).filter(function(x) { return x.statut === 'prevu' || x.statut === 'brouillon' || (x.statut === 'envoye' && Date.now() - Date.parse(x.envoyeAt || x.cree) < 86400000) || x.statut === 'erreur'; });
+  var ov = document.getElementById('fc-dup-overlay');
+  if (!ov) { ov = document.createElement('div'); ov.id = 'fc-dup-overlay'; ov.className = 'modal-overlay'; ov.style.zIndex = '1300'; ov.innerHTML = '<div class="modal" id="fc-dup-modal"></div>'; document.body.appendChild(ov); }
+  ov.onclick = function(ev) { if (ev.target === ov) fermerModalDoublon(); };
+  var mode = _smsMode || {};
+  var html = '<div class="fc-dup"><div style="font-size:16px;font-weight:700;">💬 SMS no-show</div><div class="fc-muted" style="margin:2px 0 10px;">' + (mode.mode === 'auto' && mode.configure ? 'Envoi automatique par SMS Gate à l\'heure prévue. Tu peux annuler ou modifier avant.' : 'SMS Gate n\'est pas branché : à l\'heure prévue, le SMS passe en « prêt » et tu l\'envoies d\'un clic (Messages) ou tu le copies.') + '</div>';
+  if (!l.length) html += '<div class="fc-muted">Aucun SMS en attente.</div>';
+  l.forEach(function(x) {
+    var q = new Date(x.prevu), quand = q.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' }) + ' ' + q.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+    var etat = { prevu: '⏱ part ' + quand, brouillon: '✋ prêt à envoyer' + (x.motif && /numéro/.test(x.motif) ? ' · ' + x.motif : ''), envoye: '✓ envoyé ' + (x.envoyeAt ? new Date(x.envoyeAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : ''), erreur: '⚠ erreur : ' + (x.motif || '') }[x.statut];
+    var idJs = JSON.stringify(x.id).replace(/"/g, '&quot;'), tel = (x.tel || '').replace(/\s/g, '');
+    html += '<div style="border-top:1px solid var(--border);padding:10px 0;"><div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline;"><b>' + escapeHtml(x.nom) + '</b><span style="font-size:12px;color:' + (x.statut === 'erreur' ? 'var(--red)' : x.statut === 'brouillon' ? 'var(--orange)' : 'var(--text3)') + ';">' + escapeHtml(etat) + '</span></div>'
+      + '<div style="font-size:12px;color:var(--text3);">RDV ' + escapeHtml(x.date ? x.date.split('-').reverse().join('/') : '') + (x.heure ? ' ' + escapeHtml(x.heure) : '') + ' · ' + (tel ? escapeHtml(x.tel) : '<span style="color:var(--red)">numéro manquant</span>') + '</div>'
+      + '<textarea class="input" id="sms-t-' + escapeHtml(x.id) + '" style="width:100%;min-height:84px;font-size:12.5px;line-height:1.4;margin:6px 0;"' + (x.statut === 'envoye' ? ' readonly' : '') + '>' + escapeHtml(x.texte) + '</textarea>';
+    if (x.statut !== 'envoye') html += '<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;">'
+      + '<button class="btn btn-sm" onclick="sdSmsAction(' + idJs + ', \'annuler\', this)">✕ Annuler</button>'
+      + '<button class="btn btn-sm" onclick="navigator.clipboard.writeText(document.getElementById(\'sms-t-' + escapeHtml(x.id) + '\').value).then(function(){ if (typeof showCopyToast === \'function\') showCopyToast(\'SMS copié\'); })">Copier</button>'
+      + (tel ? '<a class="btn btn-sm" style="text-decoration:none;" target="_blank" href="sms:' + escapeHtml(tel) + '&body=' + encodeURIComponent(x.texte) + '" onclick="this.href=\'sms:' + escapeHtml(tel) + '&body=\'+encodeURIComponent(document.getElementById(\'sms-t-' + escapeHtml(x.id) + '\').value)">Ouvrir dans Messages</a><button class="btn btn-sm" title="Je l\'ai envoyé moi-même" onclick="sdSmsAction(' + idJs + ', \'manuel\', this)">Marquer envoyé</button>' : '')
+      + (mode.configure && tel ? '<button class="btn btn-sm btn-primary" onclick="sdSmsAction(' + idJs + ', \'envoyer\', this)">Envoyer maintenant</button>' : '')
+      + '</div>';
+    html += '</div>';
+  });
+  html += '<div style="text-align:right;margin-top:10px;"><button class="btn btn-sm" onclick="fermerModalDoublon()">Fermer</button></div></div>';
+  document.getElementById('fc-dup-modal').innerHTML = html; ov.classList.add('open');
+}
+function sdSmsAction(id, action, btn) {
+  if (btn) btn.disabled = true;
+  var texte = (document.getElementById('sms-t-' + id) || {}).value || '';
+  var url = action === 'annuler' ? '/sms/' + id + '/annuler' : '/sms/' + id + '/envoyer';
+  var corps = action === 'annuler' ? {} : { texte: texte, manuel: action === 'manuel' };
+  fetch(COPILOT_URL + url, { method: 'POST', mode: 'cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corps) }).then(function(r) { return r.json(); })
+    .then(function(j) { if (j.ok === false) throw new Error(j.error || 'refus'); if (typeof showCopyToast === 'function') showCopyToast(action === 'annuler' ? '✕ SMS annulé' : '✓ SMS ' + (action === 'manuel' ? 'marqué envoyé' : 'envoyé')); _smsAt = 0; chargerSms(true); setTimeout(sdPopupSms, 400); })
+    .catch(function(e) { if (btn) btn.disabled = false; alert('SMS : ' + e.message); });
 }
 // ── Vérification Close (copilot /close/verif) : écarts de type / source / nom et ventes manquantes, à valider ici ──
 var _verifClose = null, _verifCloseAt = 0;
@@ -8810,6 +8852,9 @@ function renderMaJournee() {
   html += ligne('✅', aFinaliser.length ? '<b>' + aFinaliser.length + ' RDV à finaliser</b> (passés sans débrief) · ' + escapeHtml(aFinaliser.slice(0, 3).map(function(d) { return d.nom; }).join(' · ')) : 'Rien à finaliser', aFinaliser.length ? 'Finaliser' : '', "mjAller('Mes RDV')", aFinaliser.length ? 'var(--orange)' : '');
   html += ligne('📞', dues.length ? '<b>' + dues.length + ' relance(s) due(s)</b>' + (retard ? ' dont ' + retard + ' en retard' : '') + ' · ' + escapeHtml(dues.slice(0, 3).map(function(r) { return r.nom; }).join(' · ')) : 'Aucune relance due', dues.length ? 'Relancer' : '', "_rlFiltre='dues';mjAller('Relances')", retard ? 'var(--red)' : (dues.length ? 'var(--orange)' : ''));
   html += ligne('⚠️', sansAction.length ? '<b>' + sansAction.length + ' RDV sans prochaine action</b>' : 'Tous les RDV ont une suite', sansAction.length ? 'Compléter' : '', 'sdClasserEnChaine()', sansAction.length ? 'var(--red)' : '');
+  // SMS no-show programmés / prêts (copilot /sms)
+  var smsActifs = (_smsList || []).filter(function(x) { return x.statut === 'prevu' || x.statut === 'brouillon'; });
+  if (smsActifs.length) html += ligne('💬', '<b>' + smsActifs.length + ' SMS no-show</b> · ' + smsActifs.slice(0, 3).map(function(x) { var q = new Date(x.prevu); return escapeHtml(x.nom) + (x.statut === 'prevu' ? ' <span style="color:var(--text3)">part ' + (q.toDateString() === new Date().toDateString() ? 'à ' : q.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric' }) + ' ') + q.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) + '</span>' : ' <span style="color:var(--orange)">prêt, à envoyer</span>'); }).join(' · '), 'Voir', 'sdPopupSms()', smsActifs.some(function(x) { return x.statut === 'brouillon'; }) ? 'var(--orange)' : '');
   var vc = sdVerifCloseRestants();
   if (_verifClose) html += ligne('🔎', vc.length ? '<b>' + vc.length + ' point(s) où Close dit autre chose</b> · ' + escapeHtml(vc.slice(0, 3).map(function(x) { return x.vente ? 'vente ' + x.client : x.client + ' (' + { type: 'type', source: 'source', client: 'nom' }[x.champ] + ')'; }).join(' · ')) : 'Close et SalesDesk sont d\'accord sur les 7 derniers jours', vc.length ? 'Valider' : 'Détail', 'sdPopupVerifClose()', vc.length ? 'var(--orange)' : 'var(--green)');
   if (incidents.length) incidents.forEach(function(i) { html += ligne('🔌', '<b>' + escapeHtml(i.t) + '</b> — ' + escapeHtml(i.a), 'État', "mjAller('Objectifs'); showSettingsSection('etat', document.querySelector('.settings-nav-item[data-sec=etat]'))", 'var(--red)'); });
