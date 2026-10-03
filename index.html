@@ -8653,7 +8653,8 @@ function sdRevueAnciens() {
   var nbVeille = sdAnciensARelancer(true).length, nbActifs = sdAnciensARelancer(false).length;
   var html = '<div class="fc-dup" style="max-width:860px;"><div style="font-size:16px;font-weight:700;margin-bottom:2px;">🧹 Revue des anciens RDV à relancer</div>'
     + '<div style="font-size:12px;color:var(--text3);margin-bottom:10px;">' + nbActifs + ' dans le Pipeline · ' + nbVeille + ' en veille. Pour chacun : réactiver avec une date, mettre en veille, ou clôturer. Les stats ne bougent pas, seule la place dans le Pipeline change.</div>'
-    + '<div style="display:flex;gap:6px;margin-bottom:8px;"><button class="btn btn-sm' + (!_revueVoirVeille ? ' btn-primary' : '') + '" onclick="_revueVoirVeille=false;sdRevueAnciens()">Dans le Pipeline (' + nbActifs + ')</button><button class="btn btn-sm' + (_revueVoirVeille ? ' btn-primary' : '') + '" onclick="_revueVoirVeille=true;sdRevueAnciens()">💤 En veille (' + nbVeille + ')</button></div>';
+    + '<div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;align-items:center;"><button class="btn btn-sm' + (!_revueVoirVeille ? ' btn-primary' : '') + '" onclick="_revueVoirVeille=false;sdRevueAnciens()">Dans le Pipeline (' + nbActifs + ')</button><button class="btn btn-sm' + (_revueVoirVeille ? ' btn-primary' : '') + '" onclick="_revueVoirVeille=true;sdRevueAnciens()">💤 En veille (' + nbVeille + ')</button>'
+    + (!_revueVoirVeille && sdAnciensVieux().length ? '<span style="flex:1;"></span><button class="btn btn-sm" style="font-size:11px;" title="Plus de 120 jours et aucune relance datée : ils sortent du Pipeline, restent dans les stats, et se réveillent depuis l\'onglet En veille" onclick="sdRevueVeilleGroupee()">💤 Mettre en veille les ' + sdAnciensVieux().length + ' de plus de 120 j sans relance</button>' : '') + '</div>';
   if (!liste.length) html += '<div style="padding:10px 0;color:var(--text3);">Rien ici.</div>';
   liste.forEach(function(x) {
     var r = x.r, d = parseDateFR(r.date), age = d ? Math.round((today - d) / 86400000) : null;
@@ -8676,6 +8677,20 @@ function sdRevueAnciens() {
   if (!ov) { ov = document.createElement('div'); ov.id = 'fc-dup-overlay'; ov.className = 'modal-overlay'; ov.style.zIndex = '1300'; ov.innerHTML = '<div class="modal" id="fc-dup-modal"></div>'; document.body.appendChild(ov); }
   ov.onclick = function(ev) { if (ev.target === ov) fermerModalDoublon(); };
   document.getElementById('fc-dup-modal').innerHTML = html; ov.classList.add('open');
+}
+function sdAnciensVieux() {
+  var today = new Date(); today.setHours(0, 0, 0, 0);
+  return sdAnciensARelancer(false).filter(function(x) { var d = parseDateFR(x.r.date); return d && (today - d) / 86400000 > 120 && !(x.r.relanceDate && !x.r.relanceFait); });
+}
+function sdRevueVeilleGroupee() {
+  var vieux = sdAnciensVieux(); if (!vieux.length) return;
+  if (!confirm('Mettre en veille ' + vieux.length + ' ancien(s) RDV à relancer de plus de 120 jours sans relance datée ?\nIls sortent du Pipeline, restent dans tes données et tes stats, et peuvent être réveillés depuis l\'onglet « En veille ».')) return;
+  var store = loadStore(); try { sdBackupStore(store); } catch (e) {}
+  var today = new Date().toISOString().slice(0, 10);
+  vieux.forEach(function(x) { var r = (store[x.mk] || [])[x.idx]; if (r) { r.enVeille = today; r.pipelineMasque = true; } });
+  saveStore(store); try { refreshAll(); } catch (e) {}
+  if (typeof showCopyToast === 'function') showCopyToast('💤 ' + vieux.length + ' ancien(s) RDV mis en veille');
+  sdRevueAnciens();
 }
 function sdRevueAction(mk, idx, action) {
   var store = loadStore(), r = (store[mk] || [])[idx]; if (!r) return;
