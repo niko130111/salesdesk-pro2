@@ -3610,6 +3610,27 @@ var _fc = { cle: null, nom: '', email: '', rows: [], tab: 'rdv', dossiers: null,
 function fcNormNom(x) { return String(x || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\s+/g, ' ').trim(); }
 function fcCle(nom, email) { return email ? 'e:' + String(email).toLowerCase().trim() : 'n:' + fcNormNom(nom); }
 function fcClients(store) { if (!store._clients) store._clients = {}; return store._clients; }
+// ── Identité par fiche Close : une fois qu'on sait quelle fiche Close correspond à une personne, on le note sur ses lignes (closeLead)
+// et on l'envoie à chaque écriture (statut, tâche, mail, « avant d'appeler ») : plus de recherche par nom, donc plus de « non retrouvé » pour une orthographe.
+function sdLeadPour(nom, email, store) {
+  var st = store || loadStore(), n = fcNormNom(nom || ''), e = String(email || '').toLowerCase().trim(), parNom = '', conflit = false;
+  var mois = Object.keys(st).filter(function(k) { return /^\d{4}-\d{2}$/.test(k) && Array.isArray(st[k]); });
+  for (var i = 0; i < mois.length; i++) { var rows = st[mois[i]]; for (var j = 0; j < rows.length; j++) { var r = rows[j]; if (!r || !/^lead_/.test(String(r.closeLead || ''))) continue;
+    var re = String(r.email || '').toLowerCase().trim();
+    if (e && re === e) return r.closeLead;                                   // même email : certain
+    if (n && fcNormNom(r.client || '') === n && (!e || !re || re === e)) { if (parNom && parNom !== r.closeLead) conflit = true; parNom = r.closeLead; } } }
+  if (parNom && !conflit) return parNom;                                       // même nom, une seule fiche connue
+  var cls = st._clients || {}, cl = (e && cls['e:' + e]) || cls['n:' + n] || null, m = cl && /lead_[A-Za-z0-9]+/.exec(cl.closeUrl || '');
+  return m ? m[0] : '';
+}
+function sdMemoriserLead(nom, email, lead, store) { // pose closeLead sur les lignes de cette personne qui ne l'ont pas ; renvoie le nombre de lignes touchées (sans enregistrer)
+  if (!/^lead_/.test(String(lead || ''))) return 0;
+  var st = store || loadStore(), n = fcNormNom(nom || ''), e = String(email || '').toLowerCase().trim(), nb = 0;
+  Object.keys(st).forEach(function(k) { if (!/^\d{4}-\d{2}$/.test(k) || !Array.isArray(st[k])) return; st[k].forEach(function(r) {
+    if (!r || r.closeLead) return; var re = String(r.email || '').toLowerCase().trim();
+    if ((e && re === e) || (n && fcNormNom(r.client || '') === n && (!e || !re || re === e))) { r.closeLead = lead; nb++; } }); });
+  return nb;
+}
 // Toutes les lignes du store à ce nom (tous les mois), avec leur mois
 function fcLignesDuNom(nom) {
   var store = loadStore(), n = fcNormNom(nom), out = [];
@@ -3795,7 +3816,7 @@ function fcChargerDernierContact(force, leadId) {
   var cle = _fc.cle, el = document.getElementById('fc-dernier'); if (!el) return;
   el.innerHTML = '<div class="t"><span>🗣 Avant d\'appeler</span></div><div class="fc-muted">lecture de Close' + (force ? ' et transcription des appels enregistrés (10-20 s)' : '') + '…</div>';
   var ctrl = new AbortController(); setTimeout(function() { ctrl.abort(); }, 90000);
-  var q = { email: _fc.email || '', nom: _fc.nom, force: force ? '1' : '0' }; if (leadId) { q.lead = leadId; _fc.leadChoisi = leadId; } else if (_fc.leadChoisi) q.lead = _fc.leadChoisi;
+  var q = { email: _fc.email || '', nom: _fc.nom, force: force ? '1' : '0' }; if (leadId) { q.lead = leadId; _fc.leadChoisi = leadId; } else if (_fc.leadChoisi) q.lead = _fc.leadChoisi; else { var _lk = sdLeadPour(_fc.nom, _fc.email || ''); if (_lk) q.lead = _lk; }
   fetch(COPILOT_URL + '/close/dernier-contact?' + new URLSearchParams(q), { mode: 'cors', cache: 'no-store', signal: ctrl.signal })
     .then(function(r) { return r.json(); }).then(function(j) { if (_fc.cle === cle) { _fc.dernier = j; fcRendreDernierContact(j); if (_fc.tab === 'prepa') fcRendre(); } })
     .catch(function() { if (_fc.cle === cle) { _fc.dernier = { error: 'copilot sans réponse' }; if (_fc.tab === 'prepa') fcRendre(); } if (_fc.cle === cle) el.innerHTML = '<div class="t"><span>🗣 Avant d\'appeler</span><a onclick="fcChargerDernierContact(true)">↻ réessayer</a></div><div class="fc-muted">Le copilot n\'a pas répondu à temps (appels longs à transcrire ?) — réessaie dans quelques secondes.</div>'; });
@@ -3879,7 +3900,7 @@ function rlJourOuvre(iso, n) { var d = iso; var k = n || 1; while (k > 0) { d = 
 function rlCleSuivi(it) { return it.t && it.t.lead ? it.t.lead : 'n:' + fcNormNom(it.nom); }
 function rlSuivi(it) { var st = (window._rlStoreCache || loadStore()); return (st._tachesCloseSuivi || {})[rlCleSuivi(it)] || {}; }
 function rlPoserSuivi(it, patch) { var st = loadStore(); if (!st._tachesCloseSuivi) st._tachesCloseSuivi = {}; var k = rlCleSuivi(it); st._tachesCloseSuivi[k] = Object.assign({}, st._tachesCloseSuivi[k] || {}, patch, { nom: it.nom, at: new Date().toISOString() }); saveStore(st); return st._tachesCloseSuivi[k]; }
-function rlPost(chemin, corps) { return fetch(COPILOT_URL + chemin, { method: 'POST', mode: 'cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corps || {}) }).then(function(r) { return r.json().then(function(j) { if (!r.ok || j.ok === false) throw new Error(j.error || ('HTTP ' + r.status)); return j; }); }); }
+function rlPost(chemin, corps) { try { if (corps && corps.nom && !corps.lead) { var _l = sdLeadPour(corps.nom, corps.email || ''); if (_l) corps = Object.assign({}, corps, { lead: _l }); } } catch (e) {} return fetch(COPILOT_URL + chemin, { method: 'POST', mode: 'cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corps || {}) }).then(function(r) { return r.json().then(function(j) { if (!r.ok || j.ok === false) throw new Error(j.error || ('HTTP ' + r.status)); return j; }); }); }
 // La relance SalesDesk (locale ou copilot) suit la même date / le même résultat
 function rlMajRelance(it, resultat, quand) {
   var rel = it.rel, r = rel && rel.r;
@@ -4115,7 +4136,9 @@ function fcMotsExacts(i, a) {
 function fcMemoriserClose(cle, nom, email, j) {
   var url = j && j.leads && j.leads.length ? String(j.leads[0].url || '') : '';
   var store = loadStore(), cls = fcClients(store), cl = cls[cle] || { nom: nom, email: email, notes: '', claap: {} };
-  if (url ? cl.closeUrl === url : !cl.closeUrl) return;
+  var _lm = /lead_[A-Za-z0-9]+/.exec(url || ''), _sur = j && j.leads && (j.leads.length === 1 || j.par === 'email');
+  var _nb = (_lm && _sur) ? sdMemoriserLead(nom, email, _lm[0], store) : 0;
+  if (url ? cl.closeUrl === url : !cl.closeUrl) { if (_nb) saveStore(store); return; }
   if (url) cl.closeUrl = url; else delete cl.closeUrl;
   cls[cle] = cl; saveStore(store);
 }
@@ -4607,7 +4630,7 @@ function arCharger() {
   fetch(COPILOT_URL + '/clients/dossiers?' + new URLSearchParams({ nom: r.client, email: r.email || '' }), { mode: 'cors', cache: 'no-store' }).then(function(x) { return x.json(); })
     .then(function(j) { if (_ar !== a) return; var ds = j.dossiers || []; a.dossier = ds.find(function(d) { return d.date === iso; }) || null; a.dossiersOk = true; arRendreC1(); }).catch(function() { if (_ar === a) { a.dossiersOk = false; arRendreC1(); } });
   var ctrl = new AbortController(); setTimeout(function() { ctrl.abort(); }, 90000);
-  fetch(COPILOT_URL + '/close/dernier-contact?' + new URLSearchParams({ nom: r.client, email: r.email || '', force: '0' }), { mode: 'cors', cache: 'no-store', signal: ctrl.signal }).then(function(x) { return x.json(); })
+  fetch(COPILOT_URL + '/close/dernier-contact?' + new URLSearchParams(Object.assign({ nom: r.client, email: r.email || '', force: '0' }, (r.closeLead || sdLeadPour(r.client, r.email || '')) ? { lead: r.closeLead || sdLeadPour(r.client, r.email || '') } : {})), { mode: 'cors', cache: 'no-store', signal: ctrl.signal }).then(function(x) { return x.json(); })
     .then(function(j) { if (_ar !== a) return; a.dernier = j; arRendreC1(); }).catch(function() { if (_ar === a) { a.dernier = { error: 'copilot sans réponse' }; arRendreC1(); } });
   fetch(COPILOT_URL + '/mails-fin-r1', { mode: 'cors', cache: 'no-store' }).then(function(x) { return x.json(); })
     .then(function(j) { if (_ar !== a) return; var n = fcNormNom(r.client); a.mail = (j.mails || []).find(function(m) { return fcNormNom(m.nom || '') === n && m.date === iso; }) || false; arRendreC3(); }).catch(function() {});
@@ -5745,7 +5768,7 @@ var _sdStatutDernier = {};
 function sdStatutClose(row, evenement) {
   if (typeof COPILOT_URL === 'undefined' || !row || !row.client || row.source === 'R2') return;
   var cle = fcNormNom(row.client) + '|' + evenement; if (_sdStatutDernier[cle] && Date.now() - _sdStatutDernier[cle] < 5000) return; _sdStatutDernier[cle] = Date.now();
-  fetch(COPILOT_URL + '/close/statut', { method: 'POST', mode: 'cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nom: row.client, email: row.email || '', evenement: evenement }) })
+  fetch(COPILOT_URL + '/close/statut', { method: 'POST', mode: 'cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nom: row.client, email: row.email || '', evenement: evenement, lead: row.closeLead || sdLeadPour(row.client, row.email || '') }) })
     .then(function(r) { return r.json(); }).then(function(j) {
       if (!j || typeof showCopyToast !== 'function') return;
       if (j.sansFiche) { showCopyToast('Close : pas de fiche pour ' + row.client + ' (statut non modifié)'); return; }
@@ -9503,7 +9526,7 @@ function renderControle(recharger, retester) {
   var vc = (typeof sdVerifCloseRestants === 'function') ? sdVerifCloseRestants() : [], nf = (_verifClose && _verifClose.nonTrouves) || [];
   document.getElementById('ctl-verif').innerHTML = '<div class="d" style="font-size:11.5px;color:var(--text3);margin-bottom:4px;">Chaque matin à 07:45, les R1 des 7 jours passés et à venir sont comparés à Close : type (Mandataire / Agences), source (Inbound / Outbound / PUB selon qui a appelé avant la prise), nom, ventes gagnées. Rien n\'est modifié sans toi.' + (_verifCloseAt ? ' · lu ' + fr(_verifCloseAt) : '') + '</div>'
     + (vc.length ? vc.slice(0, 12).map(function(x) { return L('🟠', escapeHtml(x.client) + ' · ' + escapeHtml(x.date || '') + ' · <b>' + escapeHtml(x.vente ? 'vente gagnée sans ligne Signé' : ({ type: 'type', source: 'source', client: 'nom' }[x.champ] || x.champ)) + '</b>', x.vente ? '' : 'SalesDesk : ' + escapeHtml(x.sd || '—') + ' → Close : ' + escapeHtml(x.close || '—') + (x.why ? ' · ' + escapeHtml(x.why) : '')); }).join('') + '<div style="display:flex;gap:6px;margin-top:8px;"><button class="btn btn-sm btn-primary" onclick="sdPopupVerifClose()">Valider un par un</button><button class="btn btn-sm" onclick="chargerVerifClose(true)">↻ Relancer la vérification</button></div>' : '<div style="font-size:12px;color:var(--green);font-weight:600;">Close et SalesDesk sont d\'accord sur les RDV de la quinzaine.</div>')
-    + (nf.length ? '<div class="d" style="font-size:11.5px;color:var(--text3);margin-top:6px;">Non retrouvés dans Close : ' + escapeHtml(nf.map(function(x) { return x.client || x.nom || x; }).join(', ')) + ' (orthographe ? → « Corriger le nom » dans la fiche)</div>' : '');
+    + (nf.length ? '<div class="d" style="font-size:11.5px;color:var(--text3);margin-top:6px;"><b>RDV SalesDesk sans RDV Close à ton nom ce jour-là :</b>' + nf.map(function(x) { return '<div style="margin-top:3px;">· ' + escapeHtml((x.client || x.nom || x) + (x.date ? ' · ' + x.date : '')) + ' — ' + escapeHtml(x.raison || 'pas de RDV Close à cette date') + '</div>'; }).join('') + '</div>' : '');
   var inc = (j.incidents || []).slice(0, 20);
   var duree = function(a, b) { var m = Math.round((Date.parse(b || new Date().toISOString()) - Date.parse(a)) / 60000); return m < 60 ? m + ' min' : Math.round(m / 60) + ' h' + (m % 60 ? String(m % 60).padStart(2, '0') : ''); };
   document.getElementById('ctl-incidents').innerHTML = '<div class="d" style="font-size:11.5px;color:var(--text3);margin-bottom:4px;">Le copilot se teste tout seul toutes les 15 min' + (j.gardien_at ? ' · dernier passage ' + fr(j.gardien_at) : '') + ' · alerte hors écran : ' + escapeHtml(j.alerte_hors_ecran === 'sms' ? 'SMS sur ton téléphone' : j.alerte_hors_ecran === 'mail' ? 'mail' : 'aucune (SMS Gate pas branché)') + '</div>'
@@ -9566,8 +9589,14 @@ function chargerVerifClose(force) {
   if (_verifClose && Date.now() - _verifCloseAt < 10 * 60000 && !force) return;
   var ctrl = new AbortController(); setTimeout(function() { ctrl.abort(); }, force ? 240000 : 20000);
   fetch(COPILOT_URL + '/close/verif' + (force ? '?force=1' : ''), { mode: 'cors', cache: 'no-store', signal: ctrl.signal })
-    .then(function(r) { return r.json(); }).then(function(d) { if (d && d.ok) { _verifClose = d; _verifCloseAt = Date.now(); renderMaJournee(); if (typeof dessinerAlertesControle === 'function') dessinerAlertesControle(); if (force && typeof showCopyToast === 'function') showCopyToast('🔎 Close : ' + sdVerifCloseRestants().length + ' point(s) à valider'); } })
+    .then(function(r) { return r.json(); }).then(function(d) { if (d && d.ok) { _verifClose = d; _verifCloseAt = Date.now(); try { sdAppliquerLiensClose(d.liens || []); } catch (e) {} renderMaJournee(); if (typeof dessinerAlertesControle === 'function') dessinerAlertesControle(); if (force && typeof showCopyToast === 'function') showCopyToast('🔎 Close : ' + sdVerifCloseRestants().length + ' point(s) à valider'); } })
     .catch(function() {});
+}
+function sdAppliquerLiensClose(liens) { // lignes rapprochées d'un RDV Close par la vérification : on garde l'identifiant de la fiche
+  if (!liens.length) return; var st = loadStore(), nb = 0;
+  liens.forEach(function(l) { var r = (st[l.mk] || [])[l.idx]; if (!r || r.date !== l.date || fcNormNom(r.client) !== fcNormNom(l.client)) r = (st[l.mk] || []).find(function(x) { return x && x.date === l.date && fcNormNom(x.client) === fcNormNom(l.client); });
+    if (r && !r.closeLead && /^lead_/.test(String(l.lead || ''))) { r.closeLead = l.lead; nb++; nb += sdMemoriserLead(r.client, r.email || '', l.lead, st); } });
+  if (nb) { saveStore(st); console.log('[identité Close] ' + nb + ' ligne(s) reliées à leur fiche'); }
 }
 function sdVerifCloseCle(x) { return x.champ ? ['e', x.date, x.client, x.champ, x.close].join('|') : ['v', x.dateSignature, x.client].join('|'); }
 function sdVerifCloseRestants() {
@@ -9586,7 +9615,7 @@ function sdPopupVerifClose() {
       : '<b>' + escapeHtml(x.client) + '</b> · ' + escapeHtml(x.date) + ' · ' + { type: 'type', source: 'source', client: 'nom' }[x.champ] + ' : <span style="text-decoration:line-through;color:var(--text3);">' + escapeHtml(x.sd || '(vide)') + '</span> → <b>' + escapeHtml(x.close) + '</b><div style="font-size:11px;color:var(--text3);">' + escapeHtml(x.why || '') + '</div>';
     html += '<label style="display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-top:1px solid var(--border);font-size:13px;cursor:pointer;"><input type="checkbox" class="vc-item" data-i="' + i + '" checked style="margin-top:3px;"><span style="flex:1;">' + lib + '</span></label>';
   });
-  if (nf.length) html += '<div style="font-size:11px;color:var(--text3);margin-top:8px;">Sans RDV Close à cette date (reprogrammé ou pris hors agenda) : ' + escapeHtml(nf.map(function(n) { return n.client + ' ' + n.date; }).join(' · ')) + '</div>';
+  if (nf.length) html += '<div style="font-size:11px;color:var(--text3);margin-top:8px;"><b>Sans RDV Close à ton nom ce jour-là :</b>' + nf.map(function(n) { return '<div style="margin-top:3px;">· ' + escapeHtml(n.client + ' · ' + n.date) + ' — ' + escapeHtml(n.raison || 'reprogrammé ou pris hors agenda') + '</div>'; }).join('') + '</div>';
   html += '<div style="display:flex;justify-content:space-between;gap:6px;margin-top:12px;flex-wrap:wrap;"><button class="btn btn-sm" onclick="chargerVerifClose(true);fermerModalDoublon();if(typeof showCopyToast===\'function\')showCopyToast(\'🔎 Vérification Close relancée (1 à 3 min)…\')">↻ Relancer la vérification</button><span style="display:flex;gap:6px;">'
     + (items.length ? '<button class="btn btn-sm" onclick="sdVerifCloseAppliquer(true)">Ignorer les non cochés</button><button class="btn btn-sm btn-primary" onclick="sdVerifCloseAppliquer(false)">Appliquer la sélection</button>' : '<button class="btn btn-sm" onclick="fermerModalDoublon()">Fermer</button>') + '</span></div></div>';
   var ov = document.getElementById('fc-dup-overlay');
@@ -9638,7 +9667,7 @@ function sdDemanderMailFinR1(row, resultatCopilot, email) {
   if (resultatCopilot === 'nosign' && row.nosignRaison === 'pasinteresse') return; // pas intéressé : pas de mail
   var r2 = ''; if (row.dateR2) { var d = parseDateFR(row.dateR2); if (d) r2 = d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }) + (row.heureR2 ? ' à ' + String(row.heureR2).replace(':', 'h') : ''); }
   var rappel = row.relanceDate ? fcFrDepuisIso(row.relanceDate) : '';
-  fetch(COPILOT_URL + '/mails-fin-r1/preparer', { method: 'POST', mode: 'cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nom: row.client, date: iso, email: email || row.email || '', resultat: resultat, r2: r2, rappel: rappel, tier: (row.tier || '').toString().replace(/\D/g, '') || null }) })
+  fetch(COPILOT_URL + '/mails-fin-r1/preparer', { method: 'POST', mode: 'cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nom: row.client, date: iso, email: email || row.email || '', lead: row.closeLead || sdLeadPour(row.client, email || row.email || ''), resultat: resultat, r2: r2, rappel: rappel, tier: (row.tier || '').toString().replace(/\D/g, '') || null }) })
     .then(function(r) { return r.json(); }).then(function(j) { if (j && j.ok) { if (typeof showCopyToast === 'function') showCopyToast('✉ Mail de fin de RDV : prêt dès que le compte rendu Claap arrive dans Close'); _mailsFinR1At = 0; chargerMailsFinR1(true); } }).catch(function() {});
 }
 function chargerMailsFinR1(force) {
