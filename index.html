@@ -392,6 +392,12 @@ main { max-width: 100%; margin: 0; padding: 6px 8px; }
 .ctl-ligne { display: flex; gap: 8px; align-items: flex-start; padding: 6px 0; border-top: 1px solid var(--border); font-size: 12.5px; }
 .ctl-ligne:first-child { border-top: 0; }
 .ctl-ligne .d { color: var(--text3); font-size: 11.5px; }
+.ctl-sw { position: relative; display: inline-block; width: 38px; height: 22px; flex-shrink: 0; }
+.ctl-sw input { opacity: 0; width: 0; height: 0; }
+.ctl-sw span { position: absolute; inset: 0; background: #cbd5e1; border-radius: 22px; transition: .2s; cursor: pointer; }
+.ctl-sw span::before { content: ''; position: absolute; width: 18px; height: 18px; left: 2px; top: 2px; background: #fff; border-radius: 50%; transition: .2s; }
+.ctl-sw input:checked + span { background: var(--green); }
+.ctl-sw input:checked + span::before { transform: translateX(16px); }
 .fc-dernier { margin: 12px 0 4px; padding: 12px 14px; border-radius: 12px; background: #fffbea; border: 1px solid #f3e4a6; font-size: 13.5px; line-height: 1.45; }
 .fc-dernier .t { font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: #8a6d00; margin-bottom: 6px; display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
 .fc-dernier .t a { color: #8a6d00; font-weight: 600; text-transform: none; letter-spacing: 0; font-size: 11px; cursor: pointer; }
@@ -3859,6 +3865,45 @@ function fcSetClaap(date, url) {
   cls[_fc.cle] = cl; saveStore(store); fcRendre();
 }
 function fcHtmlPrepa() {
+  return fcHtmlHistorique() + fcHtmlPrepaCorps();
+}
+// Historique de ce qu'on a fait pour cette personne depuis SalesDesk : statuts Close, tâches, appels loggés, escalade, mails de fin de RDV, SMS
+var _fcHisto = { cle: '', data: null };
+function fcHtmlHistorique() {
+  if (_fcHisto.cle !== _fc.cle) { _fcHisto = { cle: _fc.cle, data: null }; fcChargerHistorique(); return '<div class="fc-muted" style="margin-bottom:12px;">Historique : chargement…</div>'; }
+  var h = _fcHisto.data; if (!h) return '<div class="fc-muted" style="margin-bottom:12px;">Historique : chargement…</div>';
+  var lignes = [];
+  var fr = function(x) { var d = new Date(x); return isNaN(d) ? '' : d.toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }); };
+  (h.ecritures || []).forEach(function(e) {
+    var lib = e.type === 'statut' ? '🧭 Close : ' + (e.apres && e.apres.opp ? 'opportunité → ' + e.apres.opp : '') + (e.apres && e.apres.lead ? ' · lead → ' + e.apres.lead : '') + (e.defait ? ' (défait)' : '')
+      : e.type === 'tache' ? '📌 Tâche Close ' + ({ decaler: 'déplacée', deplacer_existante: 'déplacée', terminer: 'terminée', creer: 'créée' }[e.action] || e.action) + (e.apres && e.apres.date ? ' → ' + String(e.apres.date).slice(0, 10).split('-').reverse().join('/') : '') + (e.apres && e.apres.text ? ' · ' + e.apres.text : '')
+      : e.type === 'appel' ? '📵 Appel sans réponse loggé dans Close'
+      : e.type === 'escalade' ? '👔 Passé à Anthony (note épinglée + tâche)'
+      : e.type === 'mail_fin_r1' ? (e.action === 'outbox' ? '✉ Mail de fin de RDV envoyé' : '✉ Mail de fin de RDV préparé (brouillon)') + (e.sujet ? ' · ' + e.sujet : '')
+      : e.type === 'mail_r1' ? '✉ Mail R1 ' + e.action + (e.sujet ? ' · ' + e.sujet : '')
+      : e.type === 'mail_r2' ? '✉ Mail du jour J R2 (' + e.action + ')' : '';
+    if (lib) lignes.push({ at: e.at, lib: lib });
+  });
+  (h.sms || []).forEach(function(x) { lignes.push({ at: x.envoyeAt || x.prevu || x.cree, lib: '💬 SMS ' + ({ no_show: 'no-show', r2_veille: 'veille de R2', rappel_promis: 'rappel promis' }[x.type] || x.type) + ' · ' + ({ envoye: 'envoyé', prevu: 'programmé', brouillon: 'prêt', annule: 'annulé', erreur: 'erreur' }[x.statut] || x.statut) }); });
+  (h.mails || []).forEach(function(m) { if (!(h.ecritures || []).some(function(e) { return e.type === 'mail_fin_r1' && e.id === m.emailId; })) lignes.push({ at: m.envoye || m.pret || m.cree, lib: '✉ Mail de fin de RDV · ' + ({ brouillon: 'prêt dans Close', envoye: 'envoyé', annule: 'annulé', manuel: 'fait à la main', attente_cr: 'en attente du compte rendu', sans_cr: 'pas de compte rendu' }[m.statut] || m.statut) }); });
+  lignes.sort(function(a, b) { return String(b.at).localeCompare(String(a.at)); });
+  if (!lignes.length) return '';
+  return '<div style="margin-bottom:14px;"><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:4px;">Ce qu\'on a fait depuis SalesDesk</div>' + lignes.slice(0, 12).map(function(l) { return '<div style="display:flex;gap:8px;font-size:12.5px;padding:3px 0;border-top:1px dashed var(--border);"><span style="color:var(--text3);white-space:nowrap;">' + escapeHtml(fr(l.at)) + '</span><span>' + escapeHtml(l.lib) + '</span></div>'; }).join('') + '</div>';
+}
+function fcChargerHistorique() {
+  if (typeof COPILOT_URL === 'undefined') return; var cle = _fc.cle, nom = _fc.nom;
+  var cl = fcClients(loadStore())[cle] || {}; var m = /lead_[A-Za-z0-9]+/.exec(cl.closeUrl || ''); var q = m ? { lead: m[0], n: 40 } : { nom: nom, n: 40 };
+  Promise.all([
+    fetch(COPILOT_URL + '/close/ecritures?' + new URLSearchParams(q), { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).catch(function() { return { ecritures: [] }; }),
+    fetch(COPILOT_URL + '/sms', { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).catch(function() { return { sms: [] }; }),
+    fetch(COPILOT_URL + '/mails-fin-r1', { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).catch(function() { return { mails: [] }; })
+  ]).then(function(res) {
+    if (_fc.cle !== cle) return; var n = fcNormNom(nom);
+    _fcHisto = { cle: cle, data: { ecritures: (res[0].ecritures || []).filter(function(e) { return m ? e.lead === m[0] : fcNormNom(e.nom || '') === n; }), sms: (res[1].sms || []).filter(function(x) { return fcNormNom(x.nom || '') === n; }), mails: (res[2].mails || []).filter(function(x) { return fcNormNom(x.nom || '') === n; }) } };
+    if (_fc.tab === 'prepa') fcRendre();
+  });
+}
+function fcHtmlPrepaCorps() {
   if (_fc.dossiers === null) return '<div class="fc-empty">Chargement depuis le copilot…</div>';
   if (_fc.dossiers === false) return '<div class="fc-empty">Copilot éteint : lance-le pour voir la prépa.</div>';
   if (!_fc.dossiers.length) return '<div class="fc-empty">Aucune prépa copilot pour cette personne.</div>';
@@ -8852,6 +8897,21 @@ function dessinerAlertesControle() {
   });
   if (document.getElementById('page-controle') && document.getElementById('page-controle').classList.contains('active')) renderControle(false);
 }
+function ctlBasculer(cle, valeur, el, danger) {
+  if (danger && valeur && !confirm(cle === 'MAIL_MODE_OUTBOX' ? 'Les mails allumés partiront RÉELLEMENT depuis ta boîte, sans relecture. Confirmer ?' : 'Les SMS allumés partiront RÉELLEMENT par SMS Gate, sans relecture. Confirmer ?')) { el.checked = false; return; }
+  fetch(COPILOT_URL + '/reglages', { method: 'PUT', mode: 'cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ interrupteur: cle, valeur: !!valeur }) }).then(function(r) { return r.json(); })
+    .then(function(j) { if (!j.ok) throw new Error('refus'); if (typeof showCopyToast === 'function') showCopyToast((valeur ? '🟢 Allumé : ' : '⚪ Éteint : ') + cle); renderControle(true, false); })
+    .catch(function() { el.checked = !valeur; alert('Le copilot n\'a pas pris le réglage.'); });
+}
+function ctlModele(usage, modele) {
+  var corps = { modeles: {} }; corps.modeles[usage] = modele || '';
+  fetch(COPILOT_URL + '/reglages', { method: 'PUT', mode: 'cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corps) }).then(function(r) { return r.json(); }).then(function(j) { if (typeof showCopyToast === 'function') showCopyToast('Modèle ' + usage + ' : ' + (modele || 'par défaut')); renderControle(true, false); }).catch(function() { alert('Le copilot n\'a pas pris le réglage.'); });
+}
+function ctlDepenseHtml(dep) {
+  var mois = new Date().toISOString().slice(0, 7), M = dep[mois]; if (!M) return '<div class="d" style="font-size:12px;color:var(--text3);margin-top:8px;">Dépense IA ce mois : rien compté encore (compteur démarré aujourd\'hui ; hors RDV live).</div>';
+  var eur = function(x) { return (Math.round(x * 100) / 100).toFixed(2).replace('.', ',') + ' €'; };
+  return '<div style="margin-top:10px;padding:8px 10px;border-radius:10px;background:var(--surface2);font-size:12.5px;"><b>Dépense IA estimée ce mois : ' + eur(M.eur) + '</b> · ' + M.appels + ' appels au modèle · ' + Math.round((M.tokensIn + M.tokensOut) / 1000) + ' k tokens' + (M.parUsage ? '<div class="d" style="margin-top:3px;">' + Object.keys(M.parUsage).map(function(u) { return escapeHtml(u) + ' : ' + eur(M.parUsage[u].eur) + ' (' + escapeHtml(M.parUsage[u].model || '') + ')'; }).join(' · ') + '</div>' : '') + '<div class="d" style="margin-top:3px;">Estimation sur les caractères échangés, prix publics OpenAI · le réel est sur platform.openai.com → Usage.</div></div>';
+}
 function renderControle(recharger, retester) {
   var page = document.getElementById('page-controle'); if (!page) return;
   if (recharger) { document.getElementById('ctl-at').textContent = retester ? 'test des connexions…' : 'chargement…'; chargerControle(true, retester).then(function() { renderControle(false); }); if (!_ctl) return; }
@@ -8869,13 +8929,26 @@ function renderControle(recharger, retester) {
   (j.connexions || []).forEach(function(c) { cx += L(c.ok ? '🟢' : (/préparé/.test(c.detail) ? '⚪' : '🔴'), escapeHtml(c.nom), escapeHtml(c.detail || '') + (c.ms ? ' · ' + c.ms + ' ms' : '')); });
   document.getElementById('ctl-connexions').innerHTML = cx;
   var sw = j.interrupteurs || {};
-  document.getElementById('ctl-interrupteurs').innerHTML = L(sw.close_manager ? '🟢' : '⚪', 'Écriture dans Close depuis Relances', 'escalades vers ' + escapeHtml(sw.close_manager || '—'))
-    + L(sw.sms_no_show ? '🟢' : '⚪', 'SMS no-show à H+1', sw.sms_no_show ? 'ALLUMÉ · ' + (sw.sms_mode === 'auto' ? 'envoi automatique' : 'brouillon') : 'éteint (préparé) · SMS_NO_SHOW=on')
-    + L(sw.sms_r2_veille ? '🟢' : '⚪', 'SMS de la veille pour les R2 (pris > 48 h avant)', sw.sms_r2_veille ? 'ALLUMÉ · ' + (sw.sms_mode === 'auto' ? 'envoi automatique 08:45' : 'brouillon la veille') : 'éteint (préparé) · SMS_R2_VEILLE=on')
-    + L(sw.sms_rappel_promis ? '🟢' : '⚪', 'SMS du matin « je vous appelle aujourd\'hui » (rappel promis après R1)', sw.sms_rappel_promis ? 'ALLUMÉ · 08:45 le jour du rappel' : 'éteint (préparé) · SMS_RAPPEL_PROMIS=on')
-    + L(sw.mail_r2_jour ? '🟢' : '⚪', 'Mail du jour J pour les R2 (lien de connexion, via Close)', sw.mail_r2_jour ? 'ALLUMÉ · ' + (sw.mail_r1_mode === 'outbox' ? 'envoi 08:20' : 'brouillon dans Close') : 'éteint (préparé) · MAIL_R2_JOUR=on')
-    + L(sw.mail_r1 ? '🟢' : '⚪', 'Mail R1 pris par toi (via Close)', sw.mail_r1 ? 'ALLUMÉ · ' + (sw.mail_r1_mode === 'outbox' ? 'envoi réel' : 'brouillon dans Close') : 'éteint (préparé) · MAIL_R1=on')
-    + L(sw.mail_r1_inbound ? '🟢' : '⚪', 'Mail R1 pris par un SDR « c\'est moi qui vous recevrai »', sw.mail_r1_inbound ? 'ALLUMÉ · ' + (sw.mail_r1_mode === 'outbox' ? 'envoi programmé 1 h 30 après la prise' : 'brouillon dans Close') : 'éteint (préparé) · MAIL_R1_INBOUND=on');
+  var T = function(cle, titre, detail, on, danger) { return '<div class="ctl-ligne" style="align-items:center;"><label class="ctl-sw" title="' + (on ? 'Éteindre' : 'Allumer') + '"><input type="checkbox" ' + (on ? 'checked' : '') + ' onchange="ctlBasculer(\'' + cle + '\', this.checked, this' + (danger ? ', true' : '') + ')"><span></span></label><span style="flex:1;"><div>' + titre + '</div>' + (detail ? '<div class="d">' + detail + '</div>' : '') + '</span></div>'; };
+  var modeSms = sw.sms_mode === 'auto' ? (sw.sms_gate ? 'envoi automatique par SMS Gate' : 'auto demandé mais SMS Gate pas branché → brouillon') : 'brouillon (tu envoies à la main)';
+  var modeMail = sw.mail_r1_mode === 'outbox' ? 'envoi réel depuis ta boîte' : 'brouillon dans Close (tu cliques Envoyer)';
+  var modeles = j.modeles || {};
+  document.getElementById('ctl-interrupteurs').innerHTML = '<div class="d" style="font-size:11.5px;color:var(--text3);margin-bottom:6px;">Un clic = effet immédiat dans le copilot, sans toucher au .env. Rien ne part vers un prospect tant que les modes restent en brouillon.</div>'
+    + T('MAIL_R1', 'Mail R1 pris par toi (dans la minute + J-3 si pris ≥ 8 j avant)', 'via Close · ' + modeMail, !!sw.mail_r1)
+    + T('MAIL_R1_INBOUND', 'Mail R1 pris par un SDR « c\'est moi qui vous recevrai »', 'via Close, 1 h 30 après · ' + modeMail, !!sw.mail_r1_inbound)
+    + T('MAIL_R2_JOUR', 'Mail du jour J pour les R2 (lien de connexion)', 'via Close à 08:20 · ' + modeMail, !!sw.mail_r2_jour)
+    + T('SMS_NO_SHOW', 'SMS no-show à H+1 (si tu choisis « Relancer »)', modeSms, !!sw.sms_no_show)
+    + T('SMS_R2_VEILLE', 'SMS de la veille pour les R2 (pris > 48 h avant)', '08:45 la veille · ' + modeSms, !!sw.sms_r2_veille)
+    + T('SMS_RAPPEL_PROMIS', 'SMS du matin « je vous appelle aujourd\'hui » (rappel promis)', '08:45 le jour dit · ' + modeSms, !!sw.sms_rappel_promis)
+    + '<div style="margin:10px 0 4px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);">Modes d\'envoi</div>'
+    + T('MAIL_MODE_OUTBOX', '<b>Mails : envoi réel</b> (sinon brouillon dans Close)', 'à allumer seulement après avoir validé quelques brouillons', sw.mail_r1_mode === 'outbox', true)
+    + T('SMS_MODE_AUTO', '<b>SMS : envoi automatique</b> par SMS Gate (sinon brouillon)', sw.sms_gate ? 'SMS Gate branché' : 'SMS Gate pas branché : identifiants à mettre dans le .env', sw.sms_mode === 'auto', true)
+    + '<div style="margin:10px 0 4px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);">Modèles IA</div>'
+    + '<div class="ctl-ligne" style="align-items:center;gap:10px;"><span style="flex:1;"><div>Extraction (mail de fin de R1, avant d\'appeler)</div><div class="d">0,10 $ / M tokens avec gpt-6-luna · gpt-4o = 2,50 $</div></span><select class="input" style="font-size:12px;" onchange="ctlModele(\'extraction\', this.value)">' + ['', 'gpt-6-luna', 'gpt-4o-mini', 'gpt-5-mini', 'gpt-4o', 'gpt-6.1-sol'].map(function(m) { return '<option value="' + m + '"' + ((modeles.extraction || '') === m || (!m && !modeles.extraction) ? ' selected' : '') + '>' + (m || 'comme le live (' + escapeHtml(modeles.env || '') + ')') + '</option>'; }).join('') + '</select></div>'
+    + '<div class="ctl-ligne" style="align-items:center;gap:10px;"><span style="flex:1;"><div>Live RDV et le reste</div><div class="d">finesse d\'analyse en direct · env : ' + escapeHtml(modeles.env || '') + '</div></span><select class="input" style="font-size:12px;" onchange="ctlModele(\'live\', this.value)">' + ['', 'gpt-6.1-sol', 'gpt-4o', 'gpt-6-luna'].map(function(m) { return '<option value="' + m + '"' + ((modeles.live || '') === m || (!m && modeles.live === modeles.env) ? ' selected' : '') + '>' + (m || 'celui du .env (' + escapeHtml(modeles.env || '') + ')') + '</option>'; }).join('') + '</select></div>'
+    + ctlDepenseHtml(j.depense || {})
+    + L(sw.close_manager ? '🟢' : '⚪', 'Écriture dans Close depuis Relances', 'escalades vers ' + escapeHtml(sw.close_manager || '—'))
+    + L(!!sw.calendly, 'Calendly côté copilot (créneaux, R1 récents)', sw.calendly ? 'jeton présent' : 'jeton absent');
   var sms = (j.sms || []).slice(0, 15);
   document.getElementById('ctl-sms').innerHTML = sms.length ? sms.map(function(x) { var ic = { envoye: '🟢', prevu: '⏱', brouillon: '✋', annule: '⚪', erreur: '🔴' }[x.statut] || '•'; return L(ic, escapeHtml(x.nom) + ' · ' + escapeHtml(x.statut), (x.statut === 'prevu' ? 'part ' + fr(x.prevu) : x.envoyeAt ? 'envoyé ' + fr(x.envoyeAt) : fr(x.cree)) + (x.motif ? ' · ' + escapeHtml(x.motif) : '')); }).join('') : '<div class="d" style="font-size:12px;color:var(--text3);">Aucun SMS sur 7 jours' + (sw.sms_no_show ? '' : ' (automatisation éteinte)') + '.</div>';
   var mails = (j.mails || []).slice(0, 15);
@@ -9091,6 +9164,28 @@ function rlChipAppels(it, ix) {
 }
 function rlValiderAppel(ix, ids, joint, btn) { (ids || []).forEach(rlMarquerAppelVu); rlAction(ix, joint ? 'joint' : 'pas_reponse', btn); }
 function rlIgnorerAppels(ids) { (ids || []).forEach(rlMarquerAppelVu); dessinerRelances(); renderMaJournee(); }
+// Compteur du jour : ce que la journée a produit (appels Close, résultats posés dans SalesDesk, RDV tenus, mails de fin de RDV)
+function mjCompteurJourHtml(todayIso) {
+  var st = loadStore(), todayFr = todayIso.split('-').reverse().join('/');
+  var appels = _appelsJour || [], joints = appels.filter(function(a) { return a.joint; }).length;
+  var suivi = st._tachesCloseSuivi || {}, log = st._relancesLog || [];
+  var auj = function(t) { return t && String(t).slice(0, 10) === todayIso; };
+  var actions = { pas_de_reponse: 0, joint: 0, rdv_pris: 0, abandon: 0, escalade: 0, veille: 0, no_show: 0 };
+  Object.keys(suivi).forEach(function(k) { var x = suivi[k]; if (auj(x.at) && actions[x.dernier] !== undefined) actions[x.dernier]++; });
+  log.forEach(function(e) { if (e.fait === todayIso && e.resultat && actions[e.resultat] !== undefined) actions[e.resultat]++; });
+  var rows = (st[todayIso.slice(0, 7)] || []).filter(function(r) { return r && r.date === todayFr && r.source !== 'R2'; });
+  var shows = rows.filter(function(r) { return r.presence === 'Show'; }).length, noshows = rows.filter(function(r) { return ['No Show', 'Annulé', 'Reprogrammé'].indexOf(r.presence) >= 0; }).length, signes = rows.filter(function(r) { return r.result === 'Signé'; }).length;
+  var mails = (_mailsFinR1 || []).filter(function(m) { return m.statut === 'envoye' && auj(m.envoye); }).length;
+  var rien = !appels.length && !shows && !noshows && !actions.joint && !actions.pas_de_reponse && !actions.rdv_pris && !mails;
+  if (rien) return '';
+  var K = function(n, lib, couleur) { return '<div style="min-width:76px;text-align:center;"><div style="font-size:22px;font-weight:800;line-height:1.1;color:' + (couleur || 'var(--text)') + ';">' + n + '</div><div style="font-size:11px;color:var(--text3);margin-top:2px;">' + lib + '</div></div>'; };
+  return '<div style="margin-top:10px;padding:10px 12px;border-radius:12px;background:var(--surface2);border:1px solid var(--border);"><div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:8px;">📊 Ma journée en chiffres</div>'
+    + '<div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-start;">'
+    + K(appels.length, 'appels passés') + K(joints, 'joints', joints ? 'var(--green)' : '') + K(appels.length - joints, 'sans réponse', '') + '<div style="width:1px;background:var(--border);align-self:stretch;"></div>'
+    + K(actions.rdv_pris, 'RDV repris', actions.rdv_pris ? 'var(--green)' : '') + K(actions.joint + actions.pas_de_reponse + actions.rdv_pris + actions.abandon + actions.escalade + actions.veille, 'relances traitées') + (actions.escalade ? K(actions.escalade, 'passées à Anthony', 'var(--orange)') : '') + '<div style="width:1px;background:var(--border);align-self:stretch;"></div>'
+    + K(shows, 'RDV tenus', shows ? 'var(--green)' : '') + K(noshows, 'no-show / annulés', noshows ? 'var(--red)' : '') + (signes ? K(signes, 'signé(s) 🎉', 'var(--green)') : '') + K(mails, 'mails de fin de RDV envoyés')
+    + '</div></div>';
+}
 // Cockpit d'appels : la file du jour (retards d'abord, puis R2, no-shows, prise de RDV), 3 lignes closer sous la main, actions directes
 var _mjCockpitOuvert = false, _mjCles = {};
 function mjCockpitHtml(todayIso) {
@@ -9176,6 +9271,7 @@ function renderMaJournee() {
   html += ligne('📋', prepas.length ? '<b>' + prepas.length + ' prépa(s) à faire</b> · ' + escapeHtml(prepas.slice(0, 3).map(function(p) { return p.nom + ' (' + p.quand + ' : ' + p.manque + ')'; }).join(' · ')) : (_mj.sdRdvs ? 'Prépas à jour pour aujourd\'hui et demain' : 'Prépas : copilot injoignable'), prepas.length ? 'Préparer' : '', "mjAller('Mes RDV')", prepas.length ? 'var(--orange)' : '');
   html += ligne('✅', aFinaliser.length ? '<b>' + aFinaliser.length + ' RDV à finaliser</b> (passés sans débrief) · ' + escapeHtml(aFinaliser.slice(0, 3).map(function(d) { return d.nom; }).join(' · ')) : 'Rien à finaliser', aFinaliser.length ? 'Finaliser' : '', "mjAller('Mes RDV')", aFinaliser.length ? 'var(--orange)' : '');
   html += ligne('📞', dues.length ? '<b>' + dues.length + ' relance(s) due(s)</b>' + (retard ? ' dont ' + retard + ' en retard' : '') + ' · ' + escapeHtml(dues.slice(0, 3).map(function(r) { return r.nom; }).join(' · ')) : 'Aucune relance due', dues.length ? 'Relancer' : '', "_rlFiltre='dues';mjAller('Relances')", retard ? 'var(--red)' : (dues.length ? 'var(--orange)' : ''));
+  html += mjCompteurJourHtml(todayIso);
   html += mjCockpitHtml(todayIso);
   html += mjMailsFinR1Html();
   html += ligne('⚠️', sansAction.length ? '<b>' + sansAction.length + ' RDV sans prochaine action</b>' : 'Tous les RDV ont une suite', sansAction.length ? 'Compléter' : '', 'sdClasserEnChaine()', sansAction.length ? 'var(--red)' : '');
