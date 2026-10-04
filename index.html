@@ -3780,6 +3780,26 @@ function rlEscalader(it, id, suivi) {
 // 📆 Caler un RDV depuis une carte : Calendly pré-rempli (nom, e-mail, téléphone, code postal) sur le bon événement — R2 « Validation » pour la colonne R2, sinon le R1 outbound
 var CALENDLY_R1 = 'https://calendly.com/nicolas-lapeyre-realadvisor/30min';            // q1 = téléphone, q2 = code postal
 var CALENDLY_R2 = 'https://calendly.com/nicolas-lapeyre-realadvisor/validation-lancement-realadvisor'; // q1 = téléphone
+// Anciennes relances sans tâche Close → tâches Close (à leur date, ou au prochain jour ouvré si dépassée), ou suppression
+function rlConvertirOrphelines(btn) {
+  var l = window._rlOrphelines || []; if (!l.length) return; if (!confirm('Créer ' + l.length + ' tâche(s) dans Close ?')) return;
+  if (btn) btn.disabled = true; var today = rlIso(new Date()), n = 0;
+  var suite = Promise.resolve();
+  l.forEach(function(it) {
+    suite = suite.then(function() {
+      var id = rlIdentite(it), date = it.date && it.date > today ? it.date : rlJourOuvre(today, 1), lib = RL_LIBELLES[it.col] || 'Relance';
+      return rlPost('/close/taches', { lead: id.lead, nom: id.nom, email: id.email, date: date, texte: lib + ((it.rel.r.relance && it.rel.r.relance.condition) ? ' · ' + it.rel.r.relance.condition : '') + ' · SalesDesk', motif: 'conversion' })
+        .then(function() { n++; return rlMajRelance(it, 'plus_tard', date); }).catch(function() {});
+    });
+  });
+  suite.then(function() { if (typeof showCopyToast === 'function') showCopyToast('📌 ' + n + ' tâche(s) Close créée(s)'); chargerTachesClose(rlPlus(_rlLundi, -7), rlPlus(_rlLundi, 13), true); });
+}
+function rlSupprimerOrphelines(btn) {
+  var l = window._rlOrphelines || []; if (!l.length) return; if (!confirm('Supprimer ' + l.length + ' relance(s) SalesDesk sans tâche Close ? (les lignes RDV restent)')) return;
+  if (btn) btn.disabled = true; var suite = Promise.resolve();
+  l.forEach(function(it) { suite = suite.then(function() { return rlMajRelance(it, 'abandon', ''); }); });
+  suite.then(function() { if (typeof showCopyToast === 'function') showCopyToast('🗑 Relances supprimées'); dessinerRelances(); renderMaJournee(); });
+}
 function rlCalendly(cle) {
   var it = (window._rlItems || []).find(function(x) { return x.cle === cle; }); if (!it) return;
   var id = rlIdentite(it), row = (it.rel && it.rel.row) || it.row || {}, estR2 = it.col === 'r2';
@@ -4093,6 +4113,8 @@ function fcSuiviEnregistrer() {
   if (r2) { r.dateR2 = fcFrDepuisIso(r2); }
   if (rel) { r.relanceDate = rel; r.relanceCond = cond; r.relanceFait = false; } else if (!r2) { delete r.relanceDate; }
   if (!String(r.result || '').trim() && !r2) { r.result = 'Intéressé'; if (!r.presence) r.presence = 'Show'; }
+  // Close porte la date : le rappel devient une tâche Close (créée ou déplacée, jamais en double)
+  if (rel && typeof rlPost === 'function') { var colR = SD_INTERESSE.indexOf(String(r.result || '').trim()) >= 0 ? 'r2' : (['No Show', 'Annulé', 'Reprogrammé'].indexOf(String(r.presence || '').trim()) >= 0 ? (r.source === 'Outbound' ? 'nsout' : 'nsin') : 'rdv'); rlPost('/close/taches', { nom: r.client, email: r.email || '', date: rel, texte: (RL_LIBELLES[colR] || 'Relance') + (cond ? ' · ' + cond : '') + ' · SalesDesk', motif: 'rappel_fiche' }).then(function() { if (typeof showCopyToast === 'function') showCopyToast('📌 Tâche Close posée au ' + fcFrDepuisIso(rel)); if (typeof chargerTachesClose === 'function') chargerTachesClose(rlPlus(_rlLundi || rlLundiDe(rlIso(new Date())), -7), rlPlus(_rlLundi || rlLundiDe(rlIso(new Date())), 13), true); }).catch(function(e) { if (typeof showCopyToast === 'function') showCopyToast('Close : tâche non créée (' + e.message + ')'); }); }
   sdSmsRappelPromis(r, rel && !r2 && SD_INTERESSE.indexOf(String(r.result || '').trim()) >= 0 ? rel : ''); // un RDV déjà qualifié (pas de budget, si promo…) garde son résultat : la relance s'ajoute par-dessus
   saveStore(store); fermerModalDoublon(); window._fcSuivi = null;
   refreshAll();
@@ -9328,7 +9350,7 @@ function renderMaJournee() {
   html += ligne('📅', rdvJour.length ? '<b>' + rdvJour.length + ' RDV aujourd\'hui</b>' + (prochainRdv ? ' · prochain : ' + escapeHtml(prochainRdv.heure + ' ' + prochainRdv.nom) : ' · tous passés') : 'Aucun RDV aujourd\'hui', rdvJour.length ? 'Mes RDV' : '', "mjAller('Mes RDV')");
   html += ligne('📋', prepas.length ? '<b>' + prepas.length + ' prépa(s) à faire</b> · ' + escapeHtml(prepas.slice(0, 3).map(function(p) { return p.nom + ' (' + p.quand + ' : ' + p.manque + ')'; }).join(' · ')) : (_mj.sdRdvs ? 'Prépas à jour pour aujourd\'hui et demain' : 'Prépas : copilot injoignable'), prepas.length ? 'Préparer' : '', "mjAller('Mes RDV')", prepas.length ? 'var(--orange)' : '');
   html += ligne('✅', aFinaliser.length ? '<b>' + aFinaliser.length + ' RDV à finaliser</b> (passés sans débrief) · ' + escapeHtml(aFinaliser.slice(0, 3).map(function(d) { return d.nom; }).join(' · ')) : 'Rien à finaliser', aFinaliser.length ? 'Finaliser' : '', "mjAller('Mes RDV')", aFinaliser.length ? 'var(--orange)' : '');
-  html += ligne('📞', dues.length ? '<b>' + dues.length + ' relance(s) due(s)</b>' + (retard ? ' dont ' + retard + ' en retard' : '') + ' · ' + escapeHtml(dues.slice(0, 3).map(function(r) { return r.nom; }).join(' · ')) : 'Aucune relance due', dues.length ? 'Relancer' : '', "_rlFiltre='dues';mjAller('Relances')", retard ? 'var(--red)' : (dues.length ? 'var(--orange)' : ''));
+  // (la ligne « relances dues » a disparu : le cockpit « Mes appels du jour » la remplace, Close porte les dates)
   html += mjCompteurJourHtml(todayIso);
   html += mjCockpitHtml(todayIso);
   html += mjMailsFinR1Html();
@@ -9629,6 +9651,11 @@ function renderRelancesPage() {
     + '<button class="btn btn-sm" onclick="_rlJour=rlPlus(' + JSON.stringify(jourRef).replace(/"/g, '&quot;') + ',1);renderRelancesPage()">Jour suiv. →</button>'
     + '<button class="btn btn-sm" style="margin-left:10px;" title="Relire les tâches Close" onclick="chargerTachesClose(rlPlus(_rlLundi,-7), rlPlus(_rlLundi,13), true)">↻</button>'
     + '<button class="btn btn-sm" title="Défaire la dernière action faite dans Close depuis SalesDesk" onclick="rlDefaire(this)">↶ Défaire</button>';
+  // relances SalesDesk / copilot sans tâche Close : à convertir en tâches (Close = la date) ou à supprimer
+  var orphelines = items.filter(function(i) { return i.type === 'sd' && i.rel && i.rel.r; });
+  window._rlOrphelines = orphelines;
+  var bandeau = document.getElementById('rl-orphelines'); if (!bandeau) { bandeau = document.createElement('div'); bandeau.id = 'rl-orphelines'; document.getElementById('rl-resume').insertAdjacentElement('afterend', bandeau); }
+  bandeau.innerHTML = (orphelines.length && _tachesClose && !_tachesClose.error) ? '<div class="controle-alerte orange" style="margin:0 0 12px;"><span>📞 ' + orphelines.length + ' relance(s) sans tâche Close : ' + escapeHtml(orphelines.slice(0, 4).map(function(i) { return i.nom; }).join(' · ')) + (orphelines.length > 4 ? ' · …' : '') + '</span><span style="flex:1"></span><button class="btn btn-sm btn-primary" onclick="rlConvertirOrphelines(this)">Créer les tâches Close</button><button class="btn btn-sm" onclick="rlSupprimerOrphelines(this)">Supprimer ces relances</button></div>' : '';
   var etatClose = !_tachesClose ? 'tâches Close : chargement…' : (_tachesClose.error ? '⚠ tâches Close indisponibles (copilot éteint ou à relancer)' : (_tachesClose.configure === false ? 'clé Close absente' : taches.length + ' tâche(s) Close ouverte(s)'));
   document.getElementById('rl-resume').innerHTML = '<b>' + nbDues + '</b> à faire aujourd\'hui ou en retard · ' + liste.length + ' relance(s) SalesDesk · ' + etatClose;
   var badge = document.getElementById('nav-relances-badge'); if (badge) { badge.style.display = nbDues ? '' : 'none'; badge.textContent = nbDues; }
