@@ -1642,6 +1642,7 @@ select.form-input { cursor: pointer; }
     <div class="pipeline-col" style="background:var(--surface);"><div class="pipeline-col-title" style="margin-bottom:8px;">✉ Mails R1</div><div id="ctl-mails"></div></div>
     <div class="pipeline-col" style="background:var(--surface);"><div class="pipeline-col-title" style="margin-bottom:8px;">⚙️ Automatisations</div><div id="ctl-automations"></div></div>
     <div class="pipeline-col" style="background:var(--surface);"><div class="pipeline-col-title" style="margin-bottom:8px;">✍️ Écritures dans Close</div><div id="ctl-ecritures"></div></div>
+    <div class="pipeline-col" style="background:var(--surface);"><div class="pipeline-col-title" style="margin-bottom:8px;">🔎 Close dit autre chose</div><div id="ctl-verif"></div></div>
     <div class="pipeline-col" style="background:var(--surface);"><div class="pipeline-col-title" style="margin-bottom:8px;">🚨 Pannes (7 jours)</div><div id="ctl-incidents"></div></div>
   </div>
 </div>
@@ -4677,7 +4678,7 @@ function saveOutboundOverride(key, newSource) {
   localStorage.setItem('salesdesk_outbound_overrides', JSON.stringify(overrides));
 }
 
-// Pondération : type d'Outbound (Mandataire = 1 point, Agences = 2 points)
+// Pondération : 1 point par Outbound quel que soit le type (règle « Agences = 2 » terminée le 4 oct. 2026)
 function loadOutboundTypes() {
   try {
     return JSON.parse(localStorage.getItem('salesdesk_outbound_types') || '{}');
@@ -4702,7 +4703,7 @@ function changeOutboundType(key, newType) {
   if (typeof renderRdvTable === 'function') renderRdvTable();
   if (typeof renderDaily === 'function') renderDaily();
 }
-// Calcule les points d'un set d'events Outbound (Mandataire=1, Agences=2)
+// Calcule les points d'un set d'events Outbound (1 par RDV)
 // Règle des 10 points : un outbound pris avec quelqu'un que j'ai déjà eu en RDV (n'importe quelle source) dans les 2 mois
 // qui précèdent la prise est un RESCHEDULE → il ne compte pas. Cherche dans le store et dans les events Calendly chargés.
 // Retourne { date, source } du RDV précédent, ou null. Un reclassement manuel (menu de l'onglet Outbound) reste prioritaire.
@@ -4742,7 +4743,7 @@ function calcOutboundPoints(events) {
   events.forEach(function(ev) {
     const key = getOutboundOverrideKey(ev);
     const t = types[key] || 'Mandataire';
-    points += (t === 'Agences') ? 2 : 1;
+    points += 1; // depuis le 4 oct. 2026 : 1 point par outbound, Mandataire ou Agences (la règle « Agences ×2 » est finie)
   });
   return points;
 }
@@ -4956,7 +4957,7 @@ function renderRdvTable() {
   if (obCntEl) {
     // Si points différents du nombre (= il y a des Agences), afficher "X (Y pts)"
     obCntEl.textContent = outboundCount; // points outbound retirés de l'affichage
-    obCntEl.title = outboundCount + ' RDV outbound cette semaine, soit ' + outboundPoints + ' points (Agences ×2)';
+    obCntEl.title = outboundCount + ' RDV outbound cette semaine, soit ' + outboundPoints + ' point(s) (1 par RDV)';
   }
   if (alCntEl) alCntEl.textContent = allCount;
   if (utCntEl) {
@@ -8963,6 +8964,7 @@ function chargerControle(force, retester) {
 }
 function ctlTousProblemes() {
   var p = ctlProblemesLocaux().concat((_ctl && _ctl.problemes) || []);
+  try { var vc = sdVerifCloseRestants(); if (vc.length) p.push({ niveau: 'orange', quoi: vc.length + ' RDV où Close dit autre chose (type, source, nom, vente) : ' + vc.slice(0, 3).map(function(x) { return x.client; }).join(', ') + (vc.length > 3 ? '…' : ''), zone: 'verif' }); } catch (e) {}
   if (_ctl && _ctl.copilotAbsent) p.unshift({ niveau: 'rouge', quoi: 'Copilot injoignable : relances Close, fiche « avant d\'appeler », SMS et mails sont à l\'arrêt', zone: 'copilot' });
   if (_ctl && _ctl.copilotAncien) p.unshift({ niveau: 'orange', quoi: 'Copilot à relancer : il tourne sur une ancienne version (Ctrl+C puis node server.js)', zone: 'copilot' });
   return p;
@@ -9036,6 +9038,10 @@ function renderControle(recharger, retester) {
   document.getElementById('ctl-mails').innerHTML = mails.length ? mails.map(function(x) { var ic = { outbox: '🟢', draft: '📝', sans_fiche: '🟠', erreur: '🔴', anterieur: '⚪' }[x.statut] || '•'; return L(ic, escapeHtml(x.nom || '') + ' · ' + escapeHtml({ outbox: 'envoyé', draft: 'brouillon dans Close', sans_fiche: 'pas de fiche Close', erreur: 'erreur', anterieur: 'antérieur' }[x.statut] || x.statut), fr(x.at) + (x.raison ? ' · ' + escapeHtml(x.raison) : '') + (x.url ? ' · <a href="' + escapeHtml(x.url) + '" target="_blank" rel="noopener">fiche ↗</a>' : '')); }).join('') : '<div style="font-size:12px;color:var(--text3);">Aucun mail' + (sw.mail_r1 ? '' : ' (automatisation éteinte)') + '.</div>';
   var dern = {}; (j.journal || []).forEach(function(e) { if (!dern[e.id]) dern[e.id] = e; });
   document.getElementById('ctl-automations').innerHTML = (j.automations || []).map(function(a) { var e = dern[a.id]; return L(!a.actif ? '⚪' : !e ? '◌' : e.ok ? '🟢' : '🔴', escapeHtml(a.nom || a.id) + (a.actif ? '' : ' (désactivée)'), escapeHtml(a.declencheur || '') + (e ? ' · dernier : ' + fr(e.at) + (e.ok ? (e.resultat && e.resultat.lignes ? ' · ' + escapeHtml(String(e.resultat.lignes[0] || '')) : e.resultat && e.resultat.ignore ? ' · ignoré : ' + escapeHtml(e.resultat.raison || '') : '') : ' · ÉCHEC : ' + escapeHtml(e.erreur || '')) : ' · jamais lancée')); }).join('') || '<div style="font-size:12px;color:var(--text3);">—</div>';
+  var vc = (typeof sdVerifCloseRestants === 'function') ? sdVerifCloseRestants() : [], nf = (_verifClose && _verifClose.nonTrouves) || [];
+  document.getElementById('ctl-verif').innerHTML = '<div class="d" style="font-size:11.5px;color:var(--text3);margin-bottom:4px;">Chaque matin à 07:45, les R1 des 7 jours passés et à venir sont comparés à Close : type (Mandataire / Agences), source (Inbound / Outbound / PUB selon qui a appelé avant la prise), nom, ventes gagnées. Rien n\'est modifié sans toi.' + (_verifCloseAt ? ' · lu ' + fr(_verifCloseAt) : '') + '</div>'
+    + (vc.length ? vc.slice(0, 12).map(function(x) { return L('🟠', escapeHtml(x.client) + ' · ' + escapeHtml(x.date || '') + ' · <b>' + escapeHtml(x.vente ? 'vente gagnée sans ligne Signé' : ({ type: 'type', source: 'source', client: 'nom' }[x.champ] || x.champ)) + '</b>', x.vente ? '' : 'SalesDesk : ' + escapeHtml(x.sd || '—') + ' → Close : ' + escapeHtml(x.close || '—') + (x.why ? ' · ' + escapeHtml(x.why) : '')); }).join('') + '<div style="display:flex;gap:6px;margin-top:8px;"><button class="btn btn-sm btn-primary" onclick="sdPopupVerifClose()">Valider un par un</button><button class="btn btn-sm" onclick="chargerVerifClose(true)">↻ Relancer la vérification</button></div>' : '<div style="font-size:12px;color:var(--green);font-weight:600;">Close et SalesDesk sont d\'accord sur les RDV de la quinzaine.</div>')
+    + (nf.length ? '<div class="d" style="font-size:11.5px;color:var(--text3);margin-top:6px;">Non retrouvés dans Close : ' + escapeHtml(nf.map(function(x) { return x.client || x.nom || x; }).join(', ')) + ' (orthographe ? → « Corriger le nom » dans la fiche)</div>' : '');
   var inc = (j.incidents || []).slice(0, 20);
   var duree = function(a, b) { var m = Math.round((Date.parse(b || new Date().toISOString()) - Date.parse(a)) / 60000); return m < 60 ? m + ' min' : Math.round(m / 60) + ' h' + (m % 60 ? String(m % 60).padStart(2, '0') : ''); };
   document.getElementById('ctl-incidents').innerHTML = '<div class="d" style="font-size:11.5px;color:var(--text3);margin-bottom:4px;">Le copilot se teste tout seul toutes les 15 min' + (j.gardien_at ? ' · dernier passage ' + fr(j.gardien_at) : '') + ' · alerte hors écran : ' + escapeHtml(j.alerte_hors_ecran === 'sms' ? 'SMS sur ton téléphone' : j.alerte_hors_ecran === 'mail' ? 'mail' : 'aucune (SMS Gate pas branché)') + '</div>'
@@ -9098,7 +9104,7 @@ function chargerVerifClose(force) {
   if (_verifClose && Date.now() - _verifCloseAt < 10 * 60000 && !force) return;
   var ctrl = new AbortController(); setTimeout(function() { ctrl.abort(); }, force ? 240000 : 20000);
   fetch(COPILOT_URL + '/close/verif' + (force ? '?force=1' : ''), { mode: 'cors', cache: 'no-store', signal: ctrl.signal })
-    .then(function(r) { return r.json(); }).then(function(d) { if (d && d.ok) { _verifClose = d; _verifCloseAt = Date.now(); renderMaJournee(); if (force && typeof showCopyToast === 'function') showCopyToast('🔎 Close : ' + sdVerifCloseRestants().length + ' point(s) à valider'); } })
+    .then(function(r) { return r.json(); }).then(function(d) { if (d && d.ok) { _verifClose = d; _verifCloseAt = Date.now(); renderMaJournee(); if (typeof dessinerAlertesControle === 'function') dessinerAlertesControle(); if (force && typeof showCopyToast === 'function') showCopyToast('🔎 Close : ' + sdVerifCloseRestants().length + ' point(s) à valider'); } })
     .catch(function() {});
 }
 function sdVerifCloseCle(x) { return x.champ ? ['e', x.date, x.client, x.champ, x.close].join('|') : ['v', x.dateSignature, x.client].join('|'); }
@@ -9359,8 +9365,7 @@ function renderMaJournee() {
   // SMS no-show programmés / prêts (copilot /sms)
   var smsActifs = (_smsList || []).filter(function(x) { return x.statut === 'prevu' || x.statut === 'brouillon'; });
   if (smsActifs.length) html += ligne('💬', '<b>' + smsActifs.length + ' SMS no-show</b> · ' + smsActifs.slice(0, 3).map(function(x) { var q = new Date(x.prevu); return escapeHtml(x.nom) + (x.statut === 'prevu' ? ' <span style="color:var(--text3)">part ' + (q.toDateString() === new Date().toDateString() ? 'à ' : q.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric' }) + ' ') + q.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) + '</span>' : ' <span style="color:var(--orange)">prêt, à envoyer</span>'); }).join(' · '), 'Voir', 'sdPopupSms()', smsActifs.some(function(x) { return x.statut === 'brouillon'; }) ? 'var(--orange)' : '');
-  var vc = sdVerifCloseRestants();
-  if (_verifClose) html += ligne('🔎', vc.length ? '<b>' + vc.length + ' point(s) où Close dit autre chose</b> · ' + escapeHtml(vc.slice(0, 3).map(function(x) { return x.vente ? 'vente ' + x.client : x.client + ' (' + { type: 'type', source: 'source', client: 'nom' }[x.champ] + ')'; }).join(' · ')) : 'Close et SalesDesk sont d\'accord sur les 7 derniers jours', vc.length ? 'Valider' : 'Détail', 'sdPopupVerifClose()', vc.length ? 'var(--orange)' : 'var(--green)');
+  // la vérification Close vit dans Contrôle (bandeau d'alerte ici si écarts)
   if (incidents.length) incidents.forEach(function(i) { html += ligne('🔌', '<b>' + escapeHtml(i.t) + '</b> — ' + escapeHtml(i.a), 'Contrôle', "mjAller('Contrôle')", 'var(--red)'); }); // OK = rien (c'est dans Contrôle)
   el.innerHTML = html;
 }
