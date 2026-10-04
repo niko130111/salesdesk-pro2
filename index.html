@@ -797,13 +797,11 @@ select.form-input { cursor: pointer; }
   <div class="nav-tabs">
     <button class="nav-tab active" data-page="aujourdhui" onclick="showPage('aujourdhui',this);togglePeriodSelector(false);renderAujourdhui()">Aujourd'hui</button>
     <button class="nav-tab" data-page="relances" onclick="showPage('relances',this);togglePeriodSelector(false);renderRelancesPage()">Suivi<span id="nav-relances-badge" style="display:none;margin-left:6px;background:var(--red);color:#fff;font-size:10px;padding:1px 6px;border-radius:99px;font-weight:700;"></span></button>
-    <button class="nav-tab" data-page="analytics" onclick="showPage('analytics',this);togglePeriodSelector(true);chargerAppelsClose()">Performance</button>
+    <button class="nav-tab" data-page="analytics" onclick="showPage('analytics',this);togglePeriodSelector(true);chargerAppelsClose();renderDaily()">Performance</button>
     <div class="nav-more" id="nav-more">
       <button class="nav-tab nav-more-btn" id="nav-more-btn" onclick="navPlus(event)">Plus ▾<span id="nav-more-dot" style="display:none;width:7px;height:7px;border-radius:50%;background:var(--red);margin-left:6px;vertical-align:middle;"></span></button>
       <div class="nav-more-menu" id="nav-more-menu">
-        <div class="nav-more-grp">Au quotidien</div>
-        <button class="nav-tab" data-page="mesrdv" onclick="showPage('mesrdv',this);togglePeriodSelector(false);ouvrirCopilot()">🎯 Mes RDV <small>copilot : prépa · live · post-RDV</small></button>
-        <button class="nav-tab" data-page="daily" onclick="showPage('daily',this);renderDaily();dailyCalInit();initFromSupabase();togglePeriodSelector(false)">⚡ Quotidien <small>vue jour détaillée</small></button>
+        <div class="nav-more-grp">Mes données</div>
         <button class="nav-tab" data-page="pipeline" onclick="showPage('pipeline',this);togglePeriodSelector(false);renderPipeline()">📋 Pipeline <small>kanban</small></button>
         <button class="nav-tab" data-page="rdvtable" onclick="showPage('rdvtable',this);togglePeriodSelector(true)">📅 RDV Table <small>tableau éditable</small></button>
         <div class="nav-more-grp">Analyse</div>
@@ -864,6 +862,7 @@ select.form-input { cursor: pointer; }
 </div>
 <!-- ===================== DAILY PAGE ===================== -->
 <div id="page-mesrdv" class="page">
+  <div style="display:flex;align-items:center;gap:10px;padding:8px 18px;border-bottom:1px solid var(--border);background:var(--surface);"><button class="btn btn-sm" onclick="mjAller('Aujourd')">‹ Aujourd'hui</button><span style="font-size:12.5px;color:var(--text3);">Copilot — préparation, rendez-vous en direct, compte rendu</span></div>
   <div id="controle-alerte-mesrdv" class="controle-alerte" style="display:none;"></div>
   <div id="copilot-off">
     <b>Le copilot ne répond pas.</b><br>1. Si Chrome affiche un bandeau « autoriser l'accès au réseau local », clique Autoriser.<br>2. Sinon, lance le serveur dans un terminal, puis reviens sur cet onglet.
@@ -893,64 +892,6 @@ select.form-input { cursor: pointer; }
      BLOC 1 — HEADER PREMIUM
      Date grande · Objectif · Objectif ajusté · Activité
 ═══════════════════════════════════════════════════ -->
-<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:24px 28px;margin-bottom:16px;">
-
-  <!-- Ligne 1 : date + absences petites à droite -->
-  <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px;">
-    <div>
-      <div style="font-size:28px;font-weight:800;color:var(--text);letter-spacing:-.03em;line-height:1;" id="daily-date-label">-</div>
-      <div style="font-size:12px;color:var(--text3);margin-top:6px;" id="daily-week-label"></div>
-    </div>
-    <div style="display:flex;align-items:flex-start;gap:16px;padding-top:4px;">
-      <!-- Absences compactes -->
-      <div style="text-align:right;">
-        <div style="font-size:10px;color:var(--text3);margin-bottom:4px;">Absences</div>
-        <div style="display:flex;align-items:center;gap:5px;">
-          <button onclick="adjustAbsence(-1)" style="width:20px;height:20px;border-radius:4px;border:1px solid var(--border);background:var(--surface2);font-size:12px;cursor:pointer;font-weight:700;color:var(--text);">-</button>
-          <div style="font-size:18px;font-weight:800;color:var(--text);min-width:20px;text-align:center;" id="daily-absence-val">0</div>
-          <button onclick="adjustAbsence(1)" style="width:20px;height:20px;border-radius:4px;border:1px solid var(--border);background:var(--surface2);font-size:12px;cursor:pointer;font-weight:700;color:var(--text);">+</button>
-        </div>
-        <div style="font-size:10px;color:var(--text3);margin-top:3px;" id="daily-jours-restants-label"></div>
-      </div>
-      <!-- Badges statut -->
-      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
-        <div id="daily-perf-status" style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:99px;"></div>
-        <div id="daily-hero-badge" style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:99px;background:var(--surface2);color:var(--text2);"></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Séparateur -->
-  <div style="height:1px;background:var(--border);margin-bottom:20px;"></div>
-
-  <!-- 4 colonnes identiques : objectif · ajusté · commission · % atteint -->
-  <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:0;">
-
-    <div style="padding:0 32px;border-right:1px solid var(--border);text-align:center;">
-      <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--text3);margin-bottom:6px;">Objectif du mois</div>
-      <div style="font-size:40px;font-weight:800;color:var(--text);line-height:1;letter-spacing:-.02em;" id="daily-obj-mensuel">-</div>
-      <div style="font-size:11px;color:var(--text3);margin-top:5px;" id="daily-obj-mensuel-sub"></div>
-    </div>
-
-    <div style="padding:0 32px;border-right:1px solid var(--border);text-align:center;">
-      <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--text3);margin-bottom:6px;">Objectif ajusté</div>
-      <div style="font-size:40px;font-weight:800;color:var(--accent);line-height:1;letter-spacing:-.02em;" id="daily-obj-ajuste">-</div>
-      <div style="font-size:11px;color:var(--text3);margin-top:5px;" id="daily-obj-ajuste-sub"></div>
-    </div>
-
-    <div style="padding:0 32px;border-right:1px solid var(--border);text-align:center;">
-      <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--text3);margin-bottom:6px;">Commission actuelle</div>
-      <div style="font-size:40px;font-weight:800;color:var(--orange);line-height:1;letter-spacing:-.02em;" id="daily-comm-actuel">-</div>
-      <div style="font-size:11px;color:var(--text3);margin-top:5px;"></div>
-    </div>
-
-    <div style="padding:0 32px;text-align:center;">
-      <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--text3);margin-bottom:6px;">% objectif atteint</div>
-      <div style="font-size:40px;font-weight:800;line-height:1;letter-spacing:-.02em;padding:4px 14px;border-radius:4px;color:white;display:inline-block;" id="daily-comm-pct-val">-</div>
-    </div>
-
-  </div>
-</div>
 
 <!-- ═══ PHRASE COACH — SYSTÈME DE PRESSION ═══ -->
 <style>
@@ -966,93 +907,8 @@ select.form-input { cursor: pointer; }
   </div>
   <div style="font-size:16px;font-weight:700;margin-top:12px;opacity:.85;" id="daily-coach-sub"></div>
 </div>
-<div style="display:grid;grid-template-columns:2fr 1fr;gap:10px;margin-bottom:10px;">
-
-  <div style="background:var(--purple-bg);border:2px solid var(--purple);border-radius:var(--radius-lg);padding:20px 24px;">
-    <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:14px;">
-      <div>
-        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:var(--purple);margin-bottom:6px;">Outbound restants cette semaine</div>
-        <div style="font-size:12px;color:var(--purple);opacity:.6;">objectif ajusté au prorata des absences</div>
-      </div>
-      <div style="font-size:48px;font-weight:900;color:var(--purple);line-height:1;flex-shrink:0;" id="daily-outbound-reste">-</div>
-    </div>
-    <div id="daily-outbound-detail" style="font-size:11px;color:var(--text3);margin:2px 0 6px;"></div>
-    <div style="background:rgba(124,58,237,.15);border-radius:8px;height:14px;overflow:hidden;">
-      <div id="daily-bar-outbound" style="height:100%;background:var(--purple);border-radius:8px;transition:width .7s ease;width:0%;"></div>
-    </div>
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;">
-      <div style="font-size:13px;font-weight:700;color:var(--purple);opacity:.7;" id="daily-bar-outbound-pct"></div>
-      <div style="font-size:36px;font-weight:800;color:var(--purple);background:rgba(124,58,237,.15);padding:4px 16px;border-radius:6px;" id="daily-pct-outbound"></div>
-    </div>
-  </div>
-
-  <div style="background:var(--purple-bg);border:1px dashed var(--purple);border-radius:var(--radius-lg);padding:20px 24px;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;opacity:.6;">
-    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:var(--purple);margin-bottom:14px;">Outbound aujourd'hui</div>
-    <div style="font-size:56px;font-weight:900;color:var(--purple);line-height:1;">🔗</div>
-    <div style="font-size:18px;font-weight:700;color:var(--purple);margin-top:8px;" id="daily-outbound-today-count">— / 3</div>
-    <div style="font-size:10px;color:var(--purple);margin-top:6px;" id="daily-outbound-today-sub">En attente Calendly</div>
-  </div>
-
-</div>
 
 <!-- ═══ PRIORITÉ 2 : RDV avoir + Shows + Ventes (même ligne, même niveau) ═══ -->
-<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:0;">
-
-  <div style="background:var(--green-bg);border:1px solid var(--green);border-radius:var(--radius-lg);padding:16px 20px;">
-    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;">
-      <div>
-        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--green);">RDV à avoir</div>
-        <div style="font-size:10px;color:var(--text3);margin-top:2px;" id="daily-cible-rdv">- total</div>
-      </div>
-      <div style="font-size:44px;font-weight:900;color:var(--green);line-height:1;flex-shrink:0;" id="daily-reste-rdv">-</div>
-    </div>
-    <div style="background:rgba(5,150,105,.18);border-radius:6px;height:14px;overflow:hidden;">
-      <div id="daily-bar-rdv" style="height:100%;background:var(--green);border-radius:6px;transition:width .7s ease;width:0%;"></div>
-    </div>
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:5px;">
-      <div style="font-size:11px;font-weight:700;color:var(--green);" id="daily-bar-rdv-pct"></div>
-      <div style="font-size:22px;font-weight:800;color:var(--green);background:rgba(5,150,105,.15);padding:3px 12px;border-radius:4px;" id="daily-pct-rdv"></div>
-    </div>
-    <div style="font-size:11px;color:var(--green);font-weight:600;margin-top:8px;text-align:center;background:rgba(5,150,105,.1);padding:5px 8px;border-radius:5px;" id="daily-reste-rdv-perday">-</div>
-  </div>
-
-  <div style="background:var(--orange-bg);border:1px solid var(--soft-orange-line);border-radius:var(--radius-lg);padding:16px 20px;">
-    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;">
-      <div>
-        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--orange);">Shows à faire</div>
-        <div style="font-size:10px;color:var(--text3);margin-top:2px;" id="daily-cible-shows">- total</div>
-      </div>
-      <div style="font-size:44px;font-weight:900;color:var(--orange);line-height:1;flex-shrink:0;" id="daily-reste-shows">-</div>
-    </div>
-    <div style="background:rgba(217,119,6,.15);border-radius:6px;height:14px;overflow:hidden;">
-      <div id="daily-bar-shows" style="height:100%;background:var(--orange);border-radius:6px;transition:width .7s ease;width:0%;"></div>
-    </div>
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:5px;">
-      <div style="font-size:11px;font-weight:700;color:var(--orange);" id="daily-bar-shows-pct"></div>
-      <div style="font-size:22px;font-weight:800;color:var(--orange);background:rgba(217,119,6,.15);padding:3px 12px;border-radius:4px;" id="daily-pct-shows"></div>
-    </div>
-    <div style="font-size:11px;color:var(--orange);font-weight:600;margin-top:8px;text-align:center;background:rgba(217,119,6,.1);padding:5px 8px;border-radius:5px;" id="daily-reste-shows-perday">-</div>
-  </div>
-
-  <div style="background:var(--accent-bg);border:1px solid var(--soft-blue);border-radius:var(--radius-lg);padding:16px 20px;">
-    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;">
-      <div>
-        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--accent);">Ventes à signer</div>
-        <div style="font-size:10px;color:var(--text3);margin-top:2px;" id="daily-cible-signes">- total</div>
-      </div>
-      <div style="font-size:44px;font-weight:900;color:var(--accent);line-height:1;flex-shrink:0;" id="daily-reste-signes">-</div>
-    </div>
-    <div style="background:rgba(29,78,216,.12);border-radius:6px;height:14px;overflow:hidden;">
-      <div id="daily-bar-ventes" style="height:100%;background:var(--accent);border-radius:6px;transition:width .7s ease;width:0%;"></div>
-    </div>
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:5px;">
-      <div style="font-size:11px;font-weight:700;color:var(--accent);" id="daily-bar-ventes-pct"></div>
-      <div style="font-size:22px;font-weight:800;color:var(--accent);background:rgba(29,78,216,.12);padding:3px 12px;border-radius:4px;" id="daily-pct-ventes"></div>
-    </div>
-    <div style="font-size:11px;color:var(--accent);font-weight:600;margin-top:8px;text-align:center;background:rgba(29,78,216,.08);padding:5px 8px;border-radius:5px;" id="daily-reste-signes-perday">-</div>
-  </div>
-
-</div>
 
 <!-- Bande valeur RDV / Show -->
 <div style="background:var(--surface);border:1px solid var(--border);border-radius:0 0 var(--radius-lg) var(--radius-lg);border-top:none;padding:10px 22px;margin-bottom:16px;display:flex;align-items:center;gap:24px;">
@@ -1177,6 +1033,157 @@ select.form-input { cursor: pointer; }
 <!-- ===================== ANALYTICS PAGE ===================== -->
 <div id="page-analytics" class="page">
 <main>
+
+  <!-- Pilotage du mois en cours (venu de l'ancien Quotidien) : objectif, objectif ajusté aux absences, commission, ce qui reste à faire -->
+  <div id="perf-pilotage" style="margin-bottom:22px;">
+  <div style="font-size:12px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:10px;">Pilotage — mois en cours</div>
+<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:24px 28px;margin-bottom:16px;">
+
+  <!-- Ligne 1 : date + absences petites à droite -->
+  <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px;">
+    <div>
+      <div style="font-size:28px;font-weight:800;color:var(--text);letter-spacing:-.03em;line-height:1;" id="daily-date-label">-</div>
+      <div style="font-size:12px;color:var(--text3);margin-top:6px;" id="daily-week-label"></div>
+    </div>
+    <div style="display:flex;align-items:flex-start;gap:16px;padding-top:4px;">
+      <!-- Absences compactes -->
+      <div style="text-align:right;">
+        <div style="font-size:10px;color:var(--text3);margin-bottom:4px;">Absences</div>
+        <div style="display:flex;align-items:center;gap:5px;">
+          <button onclick="adjustAbsence(-1)" style="width:20px;height:20px;border-radius:4px;border:1px solid var(--border);background:var(--surface2);font-size:12px;cursor:pointer;font-weight:700;color:var(--text);">-</button>
+          <div style="font-size:18px;font-weight:800;color:var(--text);min-width:20px;text-align:center;" id="daily-absence-val">0</div>
+          <button onclick="adjustAbsence(1)" style="width:20px;height:20px;border-radius:4px;border:1px solid var(--border);background:var(--surface2);font-size:12px;cursor:pointer;font-weight:700;color:var(--text);">+</button>
+        </div>
+        <div style="font-size:10px;color:var(--text3);margin-top:3px;" id="daily-jours-restants-label"></div>
+      </div>
+      <!-- Badges statut -->
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
+        <div id="daily-perf-status" style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:99px;"></div>
+        <div id="daily-hero-badge" style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:99px;background:var(--surface2);color:var(--text2);"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Séparateur -->
+  <div style="height:1px;background:var(--border);margin-bottom:20px;"></div>
+
+  <!-- 4 colonnes identiques : objectif · ajusté · commission · % atteint -->
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:0;">
+
+    <div style="padding:0 32px;border-right:1px solid var(--border);text-align:center;">
+      <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--text3);margin-bottom:6px;">Objectif du mois</div>
+      <div style="font-size:40px;font-weight:800;color:var(--text);line-height:1;letter-spacing:-.02em;" id="daily-obj-mensuel">-</div>
+      <div style="font-size:11px;color:var(--text3);margin-top:5px;" id="daily-obj-mensuel-sub"></div>
+    </div>
+
+    <div style="padding:0 32px;border-right:1px solid var(--border);text-align:center;">
+      <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--text3);margin-bottom:6px;">Objectif ajusté</div>
+      <div style="font-size:40px;font-weight:800;color:var(--accent);line-height:1;letter-spacing:-.02em;" id="daily-obj-ajuste">-</div>
+      <div style="font-size:11px;color:var(--text3);margin-top:5px;" id="daily-obj-ajuste-sub"></div>
+    </div>
+
+    <div style="padding:0 32px;border-right:1px solid var(--border);text-align:center;">
+      <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--text3);margin-bottom:6px;">Commission actuelle</div>
+      <div style="font-size:40px;font-weight:800;color:var(--orange);line-height:1;letter-spacing:-.02em;" id="daily-comm-actuel">-</div>
+      <div style="font-size:11px;color:var(--text3);margin-top:5px;"></div>
+    </div>
+
+    <div style="padding:0 32px;text-align:center;">
+      <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--text3);margin-bottom:6px;">% objectif atteint</div>
+      <div style="font-size:40px;font-weight:800;line-height:1;letter-spacing:-.02em;padding:4px 14px;border-radius:4px;color:white;display:inline-block;" id="daily-comm-pct-val">-</div>
+    </div>
+
+  </div>
+</div>
+
+<div style="display:grid;grid-template-columns:2fr 1fr;gap:10px;margin-bottom:10px;">
+
+  <div style="background:var(--purple-bg);border:2px solid var(--purple);border-radius:var(--radius-lg);padding:20px 24px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:14px;">
+      <div>
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:var(--purple);margin-bottom:6px;">Outbound restants cette semaine</div>
+        <div style="font-size:12px;color:var(--purple);opacity:.6;">objectif ajusté au prorata des absences</div>
+      </div>
+      <div style="font-size:48px;font-weight:900;color:var(--purple);line-height:1;flex-shrink:0;" id="daily-outbound-reste">-</div>
+    </div>
+    <div id="daily-outbound-detail" style="font-size:11px;color:var(--text3);margin:2px 0 6px;"></div>
+    <div style="background:rgba(124,58,237,.15);border-radius:8px;height:14px;overflow:hidden;">
+      <div id="daily-bar-outbound" style="height:100%;background:var(--purple);border-radius:8px;transition:width .7s ease;width:0%;"></div>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;">
+      <div style="font-size:13px;font-weight:700;color:var(--purple);opacity:.7;" id="daily-bar-outbound-pct"></div>
+      <div style="font-size:36px;font-weight:800;color:var(--purple);background:rgba(124,58,237,.15);padding:4px 16px;border-radius:6px;" id="daily-pct-outbound"></div>
+    </div>
+  </div>
+
+  <div style="background:var(--purple-bg);border:1px dashed var(--purple);border-radius:var(--radius-lg);padding:20px 24px;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;opacity:.6;">
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:var(--purple);margin-bottom:14px;">Outbound aujourd'hui</div>
+    <div style="font-size:56px;font-weight:900;color:var(--purple);line-height:1;">🔗</div>
+    <div style="font-size:18px;font-weight:700;color:var(--purple);margin-top:8px;" id="daily-outbound-today-count">— / 3</div>
+    <div style="font-size:10px;color:var(--purple);margin-top:6px;" id="daily-outbound-today-sub">En attente Calendly</div>
+  </div>
+
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px;">
+
+  <div style="background:var(--green-bg);border:1px solid var(--green);border-radius:var(--radius-lg);padding:16px 20px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;">
+      <div>
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--green);">RDV à avoir</div>
+        <div style="font-size:10px;color:var(--text3);margin-top:2px;" id="daily-cible-rdv">- total</div>
+      </div>
+      <div style="font-size:44px;font-weight:900;color:var(--green);line-height:1;flex-shrink:0;" id="daily-reste-rdv">-</div>
+    </div>
+    <div style="background:rgba(5,150,105,.18);border-radius:6px;height:14px;overflow:hidden;">
+      <div id="daily-bar-rdv" style="height:100%;background:var(--green);border-radius:6px;transition:width .7s ease;width:0%;"></div>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:5px;">
+      <div style="font-size:11px;font-weight:700;color:var(--green);" id="daily-bar-rdv-pct"></div>
+      <div style="font-size:22px;font-weight:800;color:var(--green);background:rgba(5,150,105,.15);padding:3px 12px;border-radius:4px;" id="daily-pct-rdv"></div>
+    </div>
+    <div style="font-size:11px;color:var(--green);font-weight:600;margin-top:8px;text-align:center;background:rgba(5,150,105,.1);padding:5px 8px;border-radius:5px;" id="daily-reste-rdv-perday">-</div>
+  </div>
+
+  <div style="background:var(--orange-bg);border:1px solid var(--soft-orange-line);border-radius:var(--radius-lg);padding:16px 20px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;">
+      <div>
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--orange);">Shows à faire</div>
+        <div style="font-size:10px;color:var(--text3);margin-top:2px;" id="daily-cible-shows">- total</div>
+      </div>
+      <div style="font-size:44px;font-weight:900;color:var(--orange);line-height:1;flex-shrink:0;" id="daily-reste-shows">-</div>
+    </div>
+    <div style="background:rgba(217,119,6,.15);border-radius:6px;height:14px;overflow:hidden;">
+      <div id="daily-bar-shows" style="height:100%;background:var(--orange);border-radius:6px;transition:width .7s ease;width:0%;"></div>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:5px;">
+      <div style="font-size:11px;font-weight:700;color:var(--orange);" id="daily-bar-shows-pct"></div>
+      <div style="font-size:22px;font-weight:800;color:var(--orange);background:rgba(217,119,6,.15);padding:3px 12px;border-radius:4px;" id="daily-pct-shows"></div>
+    </div>
+    <div style="font-size:11px;color:var(--orange);font-weight:600;margin-top:8px;text-align:center;background:rgba(217,119,6,.1);padding:5px 8px;border-radius:5px;" id="daily-reste-shows-perday">-</div>
+  </div>
+
+  <div style="background:var(--accent-bg);border:1px solid var(--soft-blue);border-radius:var(--radius-lg);padding:16px 20px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;">
+      <div>
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--accent);">Ventes à signer</div>
+        <div style="font-size:10px;color:var(--text3);margin-top:2px;" id="daily-cible-signes">- total</div>
+      </div>
+      <div style="font-size:44px;font-weight:900;color:var(--accent);line-height:1;flex-shrink:0;" id="daily-reste-signes">-</div>
+    </div>
+    <div style="background:rgba(29,78,216,.12);border-radius:6px;height:14px;overflow:hidden;">
+      <div id="daily-bar-ventes" style="height:100%;background:var(--accent);border-radius:6px;transition:width .7s ease;width:0%;"></div>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:5px;">
+      <div style="font-size:11px;font-weight:700;color:var(--accent);" id="daily-bar-ventes-pct"></div>
+      <div style="font-size:22px;font-weight:800;color:var(--accent);background:rgba(29,78,216,.12);padding:3px 12px;border-radius:4px;" id="daily-pct-ventes"></div>
+    </div>
+    <div style="font-size:11px;color:var(--accent);font-weight:600;margin-top:8px;text-align:center;background:rgba(29,78,216,.08);padding:5px 8px;border-radius:5px;" id="daily-reste-signes-perday">-</div>
+  </div>
+
+</div>
+  </div>
+
 
   <div class="section-header" style="margin-bottom:14px;">
     <div style="font-size:12px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.07em;">
@@ -4865,7 +4872,7 @@ function refreshAll() {
   renderBonusSteps(kpis.signes);
   updateHistoChart();
   renderPipeline();
-  var _dp = document.getElementById('page-daily'); if (_dp && _dp.classList.contains('active')) renderDaily();
+  if (document.getElementById('page-analytics').classList.contains('active')) renderDaily();
   try { renderSansAction(); } catch (e) {}
 }
 
@@ -5881,6 +5888,7 @@ function navMajPlus() {
 }
 setInterval(navMajPlus, 4000);
 function showPage(id, btn) {
+  if (id === 'daily') { id = 'aujourdhui'; btn = document.querySelector('.nav-tab[data-page="aujourdhui"]'); setTimeout(function() { try { renderAujourdhui(); } catch (e) {} }, 0); } // Quotidien a fusionné dans Aujourd'hui
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
   document.getElementById('page-'+id).classList.add('active');
@@ -6587,7 +6595,7 @@ function saveTargets() {
   var od = document.getElementById('target-outbound-day');   if (od) state.targets.outboundDay   = parseInt(od.value)||3;
   localStorage.setItem('salesdesk_targets', JSON.stringify(state.targets));
   refreshAll();
-  if (document.getElementById('page-daily').classList.contains('active')) renderDaily();
+  if (document.getElementById('page-analytics').classList.contains('active')) renderDaily();
   alert('Objectifs enregistrés !');
 }
 function saveProfile() { alert('Profil sauvegardé !'); }
@@ -6823,7 +6831,7 @@ async function fetchWeekEvents() {
     renderWeekNav();
 
     // Mettre à jour la page Quotidien si active
-    if (document.getElementById('page-daily').classList.contains('active')) renderDaily();
+    if (document.getElementById('page-analytics').classList.contains('active')) renderDaily();
 
     // Auto-sélectionner aujourd'hui si dans la semaine courante
     if (currentWeekOffset === 0) {
@@ -7775,7 +7783,7 @@ window.addEventListener('load', async () => {
     fetchOutbound2Mois().then(function() { renderDaily(); try { renderRdvTable(); } catch (e) {} }).catch(function(){});
     // Re-render de sécurité 3s après le démarrage
     setTimeout(function() {
-      if (document.getElementById('page-daily').classList.contains('active')) renderDaily();
+      if (document.getElementById('page-analytics').classList.contains('active')) renderDaily();
     }, 3000);
     // Aussi afficher la section connectée si key présente
     const cc = document.getElementById('calendly-connect-card');
@@ -9721,7 +9729,7 @@ function sdVerifCloseAppliquer(ignorerAussi) {
   saveStore(store); fermerModalDoublon(); try { refreshAll(); } catch (e) {} renderMaJournee();
   if (typeof showCopyToast === 'function') showCopyToast(n ? '✓ Close : ' + n + ' correction(s) appliquée(s) — ' + msgs.slice(0, 4).join(', ') : 'Rien appliqué');
 }
-function mjAller(page) { var map = { 'Relances': 'relances', 'Suivi': 'relances', 'Analytics': 'analytics', 'Performance': 'analytics', 'Mes RDV': 'mesrdv', 'Contrôle': 'controle', 'Pipeline': 'pipeline', 'RDV Table': 'rdvtable', 'Quotidien': 'daily' }; var b = (map[page] && document.querySelector('.nav-tab[data-page="' + map[page] + '"]')) || [...document.querySelectorAll('.nav-tab')].find(function(x) { return x.textContent.indexOf(page) >= 0; }); if (b) b.click(); }
+function mjAller(page) { if (page === 'Mes RDV') { showPage('mesrdv', null); togglePeriodSelector(false); ouvrirCopilot(); return; } if (page === 'Quotidien') page = 'Aujourd'; var map = { 'Aujourd': 'aujourdhui', 'Relances': 'relances', 'Suivi': 'relances', 'Analytics': 'analytics', 'Performance': 'analytics', 'Mes RDV': 'mesrdv', 'Contrôle': 'controle', 'Pipeline': 'pipeline', 'RDV Table': 'rdvtable', 'Quotidien': 'daily' }; var b = (map[page] && document.querySelector('.nav-tab[data-page="' + map[page] + '"]')) || [...document.querySelectorAll('.nav-tab')].find(function(x) { return x.textContent.indexOf(page) >= 0; }); if (b) b.click(); }
 // ── Mail de fin de R1 : « Terminer » → le copilot attend le compte rendu Claap → brouillon dans Close → ici : Envoyer · Modifier · Annuler ──
 var _mailsFinR1 = null, _mailsFinR1At = 0;
 function sdDemanderMailFinR1(row, resultatCopilot, email) {
@@ -11611,9 +11619,9 @@ function closePrepRdv() {
   // Retour à la page Quotidien
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
-  document.getElementById('page-daily').classList.add('active');
+  document.getElementById('page-aujourdhui').classList.add('active'); setTimeout(function() { try { renderAujourdhui(); } catch (e) {} }, 0);
   // Réactiver l'onglet Quotidien
-  const dailyTab = document.querySelector('.nav-tab[data-page=daily]');
+  const dailyTab = document.querySelector('.nav-tab[data-page=aujourdhui]');
   if (dailyTab) dailyTab.classList.add('active');
   try { navMajPlus(); } catch (e) {}
   renderDaily();
@@ -12220,8 +12228,8 @@ function closePostRdv() {
 
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
-  document.getElementById('page-daily').classList.add('active');
-  const dailyTab = document.querySelector('.nav-tab[data-page=daily]');
+  document.getElementById('page-aujourdhui').classList.add('active'); setTimeout(function() { try { renderAujourdhui(); } catch (e) {} }, 0);
+  const dailyTab = document.querySelector('.nav-tab[data-page=aujourdhui]');
   if (dailyTab) dailyTab.classList.add('active');
   try { navMajPlus(); } catch (e) {}
   renderDaily();
