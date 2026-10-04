@@ -475,6 +475,11 @@ main { max-width: 100%; margin: 0; padding: 6px 8px; }
 .auj-item .d { font-size: 12px; color: var(--text2); }
 .auj-item .when { margin-left: auto; font-size: 12px; color: var(--text3); white-space: nowrap; }
 .auj-item.lien { cursor: pointer; } .auj-item.lien:hover .t { color: var(--accent); }
+.auj-pilot { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 8px; font-size: 12.5px; color: var(--text2); }
+.auj-pilot .pp { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); }
+.auj-pilot .pp b { color: var(--text); font-weight: 700; } .auj-pilot .pp.ok b { color: var(--green); }
+.auj-pilot .pp button { width: 18px; height: 18px; border-radius: 5px; border: 1px solid var(--border); background: var(--surface2); color: var(--text); font-size: 12px; line-height: 1; cursor: pointer; padding: 0; }
+.auj-pilot a { color: var(--accent); cursor: pointer; font-weight: 600; }
 .auj-nav { display: inline-flex; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
 .auj-nav .btn { border: 0; border-radius: 0; border-right: 1px solid var(--border); } .auj-nav .btn:last-child { border-right: 0; }
 .auj-seg { display: inline-flex; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: var(--surface); }
@@ -840,7 +845,7 @@ select.form-input { cursor: pointer; }
   <div class="auj">
     <div id="controle-alerte-auj" class="controle-alerte" style="display:none;"></div>
     <header class="auj-head">
-      <div><h1 class="auj-h1" id="auj-titre">Aujourd'hui</h1><div class="auj-date" id="auj-date">—</div><div class="auj-resume" id="auj-resume">—</div></div>
+      <div><h1 class="auj-h1" id="auj-titre">Aujourd'hui</h1><div class="auj-date" id="auj-date">—</div><div class="auj-resume" id="auj-resume">—</div><div class="auj-pilot" id="auj-pilot"></div></div>
       <div class="auj-head-actions">
         <div class="auj-nav"><button class="btn" title="Jour précédent" onclick="aujAller(-1)">‹</button><button class="btn" onclick="aujAller('auj')">Aujourd'hui</button><button class="btn" title="Jour suivant" onclick="aujAller(1)">›</button></div>
         <div class="auj-seg" id="auj-seg"><button class="on" onclick="aujVue('jour')">Jour</button><button onclick="aujVue('semaine')">Semaine</button></div>
@@ -9878,6 +9883,7 @@ function renderAujourdhui() {
   var page = document.getElementById('page-aujourdhui'); if (!page || !page.classList.contains('active')) return;
   var now = new Date(), todayIso = rlIso(now), hhmm = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
   var jour = _auj.jour, estAuj = jour === todayIso, lundi = rlLundiDe(jour), st = loadStore();
+  try { togglePeriodSelector(false); } catch (e) {} // le sélecteur de mois ne sert pas ici
   try { if (!_mj.at) chargerMaJournee(false); } catch (e) {}
   try { if (!_tachesClose) { if (!_rlLundi) _rlLundi = rlLundiDe(todayIso); chargerTachesClose(rlPlus(_rlLundi, -7), rlPlus(_rlLundi, 13), false); } } catch (e) {}
   aujChargerSemaine(lundi);
@@ -9888,6 +9894,18 @@ function renderAujourdhui() {
   document.getElementById('auj-titre').textContent = _auj.vue === 'semaine' ? (lundi === rlLundiDe(todayIso) ? 'Cette semaine' : (lundi === rlPlus(rlLundiDe(todayIso), 7) ? 'Semaine prochaine' : 'Semaine')) : (estAuj ? 'Aujourd\'hui' : (jour === rlPlus(todayIso, 1) ? 'Demain' : (jour === rlPlus(todayIso, -1) ? 'Hier' : dJ.toLocaleDateString('fr-FR', { weekday: 'long' }))));
   document.getElementById('auj-date').textContent = _auj.vue === 'semaine' ? 'Semaine du ' + new Date(lundi + 'T12:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' }) + ' au ' + new Date(jours[4] + 'T12:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) : dJ.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
   document.querySelectorAll('#auj-seg button').forEach(function(b, i) { b.classList.toggle('on', (i === 0) === (_auj.vue === 'jour')); });
+  // ── Consignes du jour (calculées par le pilotage, affichées en une ligne) : Outbound du jour, Outbound restants de la semaine, absences ──
+  try {
+    var T = function(id) { var e = document.getElementById(id); return e ? String(e.textContent || '').trim() : ''; };
+    if (!window._aujPilotInit) { window._aujPilotInit = true; try { renderDaily(); } catch (e) {} }
+    var oj = T('daily-outbound-today-count'), os = T('daily-outbound-reste'), ab = T('daily-absence-val');
+    var mj = /^(\d+)\s*\/\s*(\d+)/.exec(oj), fait = mj && +mj[1] >= +mj[2];
+    document.getElementById('auj-pilot').innerHTML = _auj.vue === 'semaine' ? '' :
+      '<span class="pp' + (fait ? ' ok' : '') + '" title="RDV Outbound pris aujourd\'hui / objectif du jour">Outbound du jour <b>' + escapeHtml(mj ? mj[1] + ' / ' + mj[2] : '—') + '</b></span>'
+      + '<span class="pp" title="Outbound qu\'il reste à prendre cette semaine (objectif ajusté aux absences)">Reste cette semaine <b>' + escapeHtml(/^\d+$/.test(os) ? os : '—') + '</b></span>'
+      + '<span class="pp" title="Jours d\'absence ce mois : ajuste tes objectifs">Absences <button onclick="adjustAbsence(-1);renderAujourdhui()">−</button><b>' + escapeHtml(ab || '0') + '</b><button onclick="adjustAbsence(1);renderAujourdhui()">+</button></span>'
+      + '<a onclick="mjAller(\'Performance\')">Objectifs du mois ›</a>';
+  } catch (e) {}
   // ── Données du jour ──
   var rdvs = aujRdvsDu(jour);
   var prepDe = function(r) { return r.r2 ? aujPrep(r.nom, jour) : aujPrep(r.nom, jour); };
