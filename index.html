@@ -3602,7 +3602,9 @@ function rlPoserSuivi(it, patch) { var st = loadStore(); if (!st._tachesCloseSui
 function rlPost(chemin, corps) { return fetch(COPILOT_URL + chemin, { method: 'POST', mode: 'cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corps || {}) }).then(function(r) { return r.json().then(function(j) { if (!r.ok || j.ok === false) throw new Error(j.error || ('HTTP ' + r.status)); return j; }); }); }
 // La relance SalesDesk (locale ou copilot) suit la même date / le même résultat
 function rlMajRelance(it, resultat, quand) {
-  var rel = it.rel, r = rel && rel.r; if (!r) return Promise.resolve();
+  var rel = it.rel, r = rel && rel.r;
+  if (['rdv_pris', 'abandon', 'escalade'].indexOf(resultat) >= 0) sdSmsRappelPromis({ client: it.nom }, '');
+  if (!r) return Promise.resolve();
   var suite = ['joint', 'pas_de_reponse', 'plus_tard'].indexOf(resultat) >= 0 && !!quand, today = new Date().toISOString().slice(0, 10);
   if (String(r.id).indexOf('sd|') === 0) {
     var p = String(r.id).split('|'), st = loadStore(), row = (st[p[1]] || [])[parseInt(p[2])];
@@ -3674,7 +3676,7 @@ function rlAction(ix, action, btn) {
     rlDateModal(it.nom + ' — joint, il demande qu\'on le rappelle le…', 'La tâche Close est déplacée à cette date, le compteur d\'appels repart à zéro.', rlJourOuvre(today, 1), function(d, h) {
       occupe(true);
       tacheClose(d, (RL_LIBELLES[it.col] || it.col) + ' · joint le ' + fcFrDepuisIso(today) + ', rappeler · SalesDesk', h)
-        .then(function() { rlPoserSuivi(it, { tentatives: 0, col: it.col, dernier: 'joint', prochaine: d }); rlPost('/sms/annuler-pour', { nom: it.nom, raison: 'joint' }).catch(function() {}); return rlMajRelance(it, 'joint', d); })
+        .then(function() { rlPoserSuivi(it, { tentatives: 0, col: it.col, dernier: 'joint', prochaine: d }); rlPost('/sms/annuler-pour', { nom: it.nom, raison: 'joint' }).catch(function() {}); if (it.col === 'r2') sdSmsRappelPromis({ client: it.nom, email: id.email }, d); return rlMajRelance(it, 'joint', d); })
         .then(function() { fini('📞 Joint → rappel le ' + fcFrDepuisIso(d)); }).catch(echec);
     }, true);
     return;
@@ -3984,7 +3986,8 @@ function fcSuiviEnregistrer() {
   var store = loadStore(), r = (store[sv.monthKey] || [])[sv.idx]; if (!r) return;
   if (r2) { r.dateR2 = fcFrDepuisIso(r2); }
   if (rel) { r.relanceDate = rel; r.relanceCond = cond; r.relanceFait = false; } else if (!r2) { delete r.relanceDate; }
-  if (!String(r.result || '').trim() && !r2) { r.result = 'Intéressé'; if (!r.presence) r.presence = 'Show'; } // un RDV déjà qualifié (pas de budget, si promo…) garde son résultat : la relance s'ajoute par-dessus
+  if (!String(r.result || '').trim() && !r2) { r.result = 'Intéressé'; if (!r.presence) r.presence = 'Show'; }
+  sdSmsRappelPromis(r, rel && !r2 && SD_INTERESSE.indexOf(String(r.result || '').trim()) >= 0 ? rel : ''); // un RDV déjà qualifié (pas de budget, si promo…) garde son résultat : la relance s'ajoute par-dessus
   saveStore(store); fermerModalDoublon(); window._fcSuivi = null;
   refreshAll();
   if (document.getElementById('fc-overlay').classList.contains('open')) { _fc.rows = fcLignesDuNom(_fc.nom).filter(function(x) { var e = String(x.email || '').toLowerCase().trim(); return !_fc.email || !e || e === _fc.email; }); fcRendre(); }
@@ -8737,6 +8740,7 @@ function renderEtatSysteme(force) {
     html += ligne(!!sw.close_ecriture, 'Écriture dans Close depuis SalesDesk (tâches, appels, escalade)', sw.close_ecriture ? 'active · manager : ' + escapeHtml(sw.close_manager || '') : 'inactive (clé Close absente)', 'CLOSE_MANAGER=Prénom Nom pour changer le destinataire des escalades.');
     html += ligne(sw.sms_no_show ? true : null, 'SMS no-show à H+1', sw.sms_no_show ? ('ALLUMÉ · ' + (sw.sms_mode === 'auto' && sw.sms_gate ? 'envoi automatique par SMS Gate' : 'mode brouillon (tu envoies à la main)')) : 'éteint (préparé)', 'SMS_NO_SHOW=on pour allumer ; SMS_MODE=auto + SMS_GATE_USERNAME/PASSWORD/DEVICE_ID pour l\'envoi réel.');
     html += ligne(sw.sms_r2_veille ? true : null, 'SMS de la veille pour les R2', sw.sms_r2_veille ? 'ALLUMÉ' : 'éteint (préparé)', 'SMS_R2_VEILLE=on pour allumer.');
+    html += ligne(sw.sms_rappel_promis ? true : null, 'SMS du matin pour un rappel promis', sw.sms_rappel_promis ? 'ALLUMÉ' : 'éteint (préparé)', 'SMS_RAPPEL_PROMIS=on pour allumer.');
     html += ligne(sw.mail_r2_jour ? true : null, 'Mail du jour J pour les R2 (via Close)', sw.mail_r2_jour ? 'ALLUMÉ' : 'éteint (préparé)', 'MAIL_R2_JOUR=on pour allumer.');
     html += ligne(sw.mail_r1_inbound ? true : null, 'Mail R1 pris par un SDR (via Close)', sw.mail_r1_inbound ? 'ALLUMÉ' : 'éteint (préparé)', 'MAIL_R1_INBOUND=on pour allumer.');
     html += ligne(sw.mail_r1 ? true : null, 'Mail de confirmation R1 (via Close)', sw.mail_r1 ? ('ALLUMÉ · ' + (sw.mail_r1_mode === 'outbox' ? 'envoi réel depuis ta boîte' : 'brouillon dans Close')) : 'éteint (préparé)', 'MAIL_R1=on pour allumer ; MAIL_R1_MODE=outbox pour l\'envoi réel.');
@@ -8825,6 +8829,7 @@ function renderControle(recharger, retester) {
   document.getElementById('ctl-interrupteurs').innerHTML = L(sw.close_manager ? '🟢' : '⚪', 'Écriture dans Close depuis Relances', 'escalades vers ' + escapeHtml(sw.close_manager || '—'))
     + L(sw.sms_no_show ? '🟢' : '⚪', 'SMS no-show à H+1', sw.sms_no_show ? 'ALLUMÉ · ' + (sw.sms_mode === 'auto' ? 'envoi automatique' : 'brouillon') : 'éteint (préparé) · SMS_NO_SHOW=on')
     + L(sw.sms_r2_veille ? '🟢' : '⚪', 'SMS de la veille pour les R2 (pris > 48 h avant)', sw.sms_r2_veille ? 'ALLUMÉ · ' + (sw.sms_mode === 'auto' ? 'envoi automatique 08:45' : 'brouillon la veille') : 'éteint (préparé) · SMS_R2_VEILLE=on')
+    + L(sw.sms_rappel_promis ? '🟢' : '⚪', 'SMS du matin « je vous appelle aujourd\'hui » (rappel promis après R1)', sw.sms_rappel_promis ? 'ALLUMÉ · 08:45 le jour du rappel' : 'éteint (préparé) · SMS_RAPPEL_PROMIS=on')
     + L(sw.mail_r2_jour ? '🟢' : '⚪', 'Mail du jour J pour les R2 (lien de connexion, via Close)', sw.mail_r2_jour ? 'ALLUMÉ · ' + (sw.mail_r1_mode === 'outbox' ? 'envoi 08:20' : 'brouillon dans Close') : 'éteint (préparé) · MAIL_R2_JOUR=on')
     + L(sw.mail_r1 ? '🟢' : '⚪', 'Mail R1 pris par toi (via Close)', sw.mail_r1 ? 'ALLUMÉ · ' + (sw.mail_r1_mode === 'outbox' ? 'envoi réel' : 'brouillon dans Close') : 'éteint (préparé) · MAIL_R1=on')
     + L(sw.mail_r1_inbound ? '🟢' : '⚪', 'Mail R1 pris par un SDR « c\'est moi qui vous recevrai »', sw.mail_r1_inbound ? 'ALLUMÉ · ' + (sw.mail_r1_mode === 'outbox' ? 'envoi programmé 1 h 30 après la prise' : 'brouillon dans Close') : 'éteint (préparé) · MAIL_R1_INBOUND=on');
@@ -8843,6 +8848,12 @@ function renderControle(recharger, retester) {
 }
 // ── SMS no-show (copilot /sms) : programmés à H+1 par le copilot ; ici on voit, on annule, on envoie (ou on copie / ouvre Messages si SMS Gate n'est pas branché) ──
 var _smsList = null, _smsAt = 0, _smsMode = null;
+// Rappel promis (intéressé, un jour sans créneau) : SMS du matin programmé par le copilot ; date vide = annulation
+function sdSmsRappelPromis(row, dateIso) {
+  if (typeof COPILOT_URL === 'undefined' || !row || !row.client) return;
+  var url = dateIso ? '/sms/rappel-promis' : '/sms/rappel-promis/annuler';
+  fetch(COPILOT_URL + url, { method: 'POST', mode: 'cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nom: row.client, email: row.email || '', date: dateIso || '', raison: 'rappel modifié' }) }).then(function(r) { return r.json(); }).then(function(j) { if (j && j.sms && typeof showCopyToast === 'function') showCopyToast('💬 SMS « je vous appelle aujourd\'hui » programmé le ' + fcFrDepuisIso(dateIso) + ' 08:45'); }).catch(function() {});
+}
 function chargerSms(force) {
   if (typeof COPILOT_URL === 'undefined') return;
   if (_smsList && Date.now() - _smsAt < 60000 && !force) return;
@@ -9429,7 +9440,7 @@ function renderRelancesPage() {
     var dernier = row.relanceDernier ? ({ joint: 'joint', pas_de_reponse: 'pas de réponse' }[row.relanceDernier] || row.relanceDernier) : '';
     return '<div class="pipeline-card" style="cursor:pointer;padding:8px 10px;' + (retard ? 'border-left:3px solid var(--red);' : auj ? 'border-left:3px solid var(--orange);' : '') + '" onclick="ouvrirFicheClient(' + nomJs + ',' + emailJs + ')">'
       + '<div class="pipeline-card-name" style="display:flex;justify-content:space-between;gap:6px;align-items:baseline;"><span>' + escapeHtml(it.nom) + '</span>' + (retard ? '<span style="font-size:10px;color:var(--red);font-weight:700;white-space:nowrap;">⏰ ' + q.split('-').reverse().slice(0, 2).join('/') + '</span>' : '') + '</div>'
-      + '<div class="pipeline-card-sub">' + (it.type === 'sd-noshow' ? '👻 No-show du ' + escapeHtml(row.date || '') + ' · à relancer' : '') + (t ? '📌 Close' + (t.heure ? ' ' + t.heure : '') : '') + (t && r ? ' · ' : '') + (r ? '📞 SalesDesk' + ((rel.r.relance && rel.r.relance.condition) ? ' · ' + escapeHtml(rel.r.relance.condition) : '') : '') + (row.source || row.type ? ' · ' + escapeHtml([row.type, row.source].filter(Boolean).join(' ')) : '') + '</div>'
+      + '<div class="pipeline-card-sub">' + (it.type === 'sd-noshow' ? '👻 No-show du ' + escapeHtml(row.date || '') + ' · à relancer' : '') + (it.col === 'r2' && !(row.dateR2 && String(row.dateR2).trim()) ? '📞 rappel promis · ' : '') + (t ? '📌 Close' + (t.heure ? ' ' + t.heure : '') : '') + (t && r ? ' · ' : '') + (r ? '📞 SalesDesk' + ((rel.r.relance && rel.r.relance.condition) ? ' · ' + escapeHtml(rel.r.relance.condition) : '') : '') + (row.source || row.type ? ' · ' + escapeHtml([row.type, row.source].filter(Boolean).join(' ')) : '') + '</div>'
       + (txt ? '<div class="pipeline-card-sub" style="color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="' + escapeHtml(txt) + '">' + escapeHtml(txt) + '</div>' : (r && (r.contexte || row.retour) ? '<div class="pipeline-card-sub" style="color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(r.contexte || row.retour) + '</div>' : ''))
       + (dernier ? '<div class="pipeline-card-sub">dernier : ' + escapeHtml(dernier) + '</div>' : '')
       + rlChipAppels(it, ix)
