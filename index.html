@@ -8983,7 +8983,8 @@ function dessinerAlertesControle() {
     var el = document.getElementById(id); if (!el) return;
     if (!p.length) { el.style.display = 'none'; return; }
     el.className = 'controle-alerte' + (rouges.length ? '' : ' orange'); el.style.display = '';
-    el.innerHTML = '<span>' + (rouges.length ? '🔴' : '🟠') + ' ' + p.length + ' chose(s) à regarder :</span><span style="font-weight:500;flex:1;">' + escapeHtml(p.slice(0, 2).map(function(x) { return x.quoi; }).join(' · ')) + (p.length > 2 ? ' · …' : '') + '</span><button class="btn btn-sm" onclick="mjAller(\'Contrôle\')">Voir</button>';
+    var aVerif = p.some(function(x) { return x.zone === 'verif'; });
+    el.innerHTML = '<span>' + (rouges.length ? '🔴' : '🟠') + ' ' + p.length + ' chose(s) à regarder :</span><span style="font-weight:500;flex:1;">' + escapeHtml(p.slice(0, 2).map(function(x) { return x.quoi; }).join(' · ')) + (p.length > 2 ? ' · …' : '') + '</span>' + (aVerif ? '<button class="btn btn-sm btn-primary" onclick="sdPopupVerifClose()">Corriger ici</button>' : '') + '<button class="btn btn-sm" onclick="mjAller(\'Contrôle\')">Voir</button>';
   });
   if (document.getElementById('page-controle') && document.getElementById('page-controle').classList.contains('active')) renderControle(false);
 }
