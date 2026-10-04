@@ -3349,28 +3349,7 @@ async function loadFromOnline() {
   } catch { return null; }
 }
 
-async function saveToOnline(store) {
-  if (!_jsonbinId || !_jsonbinKey) return;
-  try {
-    await fetch(`${JSONBIN_BASE}/b/${_jsonbinId}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json', 'X-Master-Key': _jsonbinKey },
-      body: JSON.stringify(store)
-    });
-  } catch(e) { console.log('Online save failed:', e); }
-}
 
-async function createOnlineBin(key) {
-  try {
-    const r = await fetch(`${JSONBIN_BASE}/b`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Master-Key': key, 'X-Bin-Name': 'SalesDesk-Nicolas' },
-      body: JSON.stringify({ rdvs: {}, created: new Date().toISOString() })
-    });
-    const data = await r.json();
-    return data.metadata?.id || null;
-  } catch { return null; }
-}
 
 // Mémoire en cours de session
 _sessionStore = null;
@@ -3897,26 +3876,6 @@ function rlProposerSms(it, id, moment) {
 }
 function rlFerie(iso) { var f = iso.split('-'); var jj = f[2] + '/' + f[1] + '/' + f[0]; var F = ['01/01/2025','21/04/2025','01/05/2025','08/05/2025','29/05/2025','09/06/2025','14/07/2025','15/08/2025','01/11/2025','11/11/2025','25/12/2025','01/01/2026','06/04/2026','01/05/2026','08/05/2026','14/05/2026','25/05/2026','14/07/2026','15/08/2026','01/11/2026','11/11/2026','25/12/2026','01/01/2027','29/03/2027','01/05/2027','06/05/2027','08/05/2027','17/05/2027','14/07/2027','15/08/2027','01/11/2027','11/11/2027','25/12/2027']; return F.indexOf(jj) >= 0; }
 function rlJourOuvre(iso, n) { var d = iso; var k = n || 1; while (k > 0) { d = rlPlus(d, 1); var dow = new Date(d + 'T12:00:00').getDay(); if (dow !== 0 && dow !== 6 && !rlFerie(d)) k--; } return d; }
-function rlNoShowsAuto(items, today) {
-  var st = loadStore(), suivi = st._tachesCloseSuivi || {}, dejaNoms = {}; items.forEach(function(i) { dejaNoms[fcNormNom(i.nom)] = true; });
-  // seulement les no-shows FRAIS (3 derniers jours) : un no-show plus ancien sans tâche Close ni relance, c'est un choix de Nicolas, on n'y touche pas
-  var limite = new Date(); limite.setDate(limite.getDate() - 3); var out = [], vus = {};
-  Object.keys(st).forEach(function(k) { if (!/^\d{4}-\d{2}$/.test(k) || !Array.isArray(st[k])) return; st[k].forEach(function(r) {
-    if (!r || r.source === 'R2' || String(r.presence || '').trim() !== 'No Show' || r.pipelineMasque || r.enVeille) return;
-    var d = parseDateFR(r.date); if (!d || d < limite || d > new Date()) return;
-    var n = fcNormNom(r.client); if (!n || vus[n] || dejaNoms[n]) return;
-    if (r.relanceFait || (r.relanceDate && !r.relanceFait)) return; // déjà une relance posée (elle est dans rels) ou classée
-    // déjà traité depuis la file (abandon, RDV repris, escalade, veille) ou un RDV plus récent existe pour cette personne
-    var sv = Object.keys(suivi).map(function(c) { return suivi[c]; }).find(function(x) { return fcNormNom(x.nom || '') === n; });
-    if (sv && ['abandon', 'rdv_pris', 'escalade', 'veille'].indexOf(sv.dernier) >= 0 && Date.parse(sv.at) > d.getTime()) return;
-    var plusRecent = false; Object.keys(st).forEach(function(k2) { if (!/^\d{4}-\d{2}$/.test(k2)) return; (st[k2] || []).forEach(function(x) { if (x && x !== r && fcNormNom(x.client) === n && parseDateFR(x.date) > d) plusRecent = true; }); });
-    if (plusRecent) return;
-    vus[n] = true;
-    var echeance = rlJourOuvre(rlIso(d), 1); if (echeance < today) echeance = today;
-    out.push({ type: 'sd-noshow', row: r, nom: r.client, date: echeance, col: r.source === 'Outbound' ? 'nsout' : 'nsin' });
-  }); });
-  return out;
-}
 function rlCleSuivi(it) { return it.t && it.t.lead ? it.t.lead : 'n:' + fcNormNom(it.nom); }
 function rlSuivi(it) { var st = (window._rlStoreCache || loadStore()); return (st._tachesCloseSuivi || {})[rlCleSuivi(it)] || {}; }
 function rlPoserSuivi(it, patch) { var st = loadStore(); if (!st._tachesCloseSuivi) st._tachesCloseSuivi = {}; var k = rlCleSuivi(it); st._tachesCloseSuivi[k] = Object.assign({}, st._tachesCloseSuivi[k] || {}, patch, { nom: it.nom, at: new Date().toISOString() }); saveStore(st); return st._tachesCloseSuivi[k]; }
@@ -4337,12 +4296,6 @@ function fcChargerHistorique() {
     _fcHisto = { cle: cle, data: { ecritures: (res[0].ecritures || []).filter(function(e) { return m ? e.lead === m[0] : fcNormNom(e.nom || '') === n; }), sms: (res[1].sms || []).filter(function(x) { return fcNormNom(x.nom || '') === n; }), mails: (res[2].mails || []).filter(function(x) { return fcNormNom(x.nom || '') === n; }) } };
     if (_fc.tab === 'prepa') fcRendre();
   });
-}
-function fcHtmlPrepaCorps() {
-  if (_fc.dossiers === null) return '<div class="fc-empty">Chargement depuis le copilot…</div>';
-  if (_fc.dossiers === false) return '<div class="fc-empty">Copilot éteint : lance-le pour voir la prépa.</div>';
-  if (!_fc.dossiers.length) return '<div class="fc-empty">Aucune prépa copilot pour cette personne.</div>';
-  return _fc.dossiers.map(function(d) { return fcHtmlDossier(d, false); }).join('');
 }
 // Un dossier copilot (prépa, notes, après-RDV, coach) — compact = dans la chronologie (replié sous un résumé)
 function fcHtmlDossier(d, compact) {
@@ -5030,44 +4983,9 @@ function renderSources(kpis) {
     srcStats(kpis.pub, 'PUB', 'var(--orange)');
 }
 
-// ====== TABLE RDV — édition directe inline ======
-function mkSel(opts, cur, idx, field) {
-  const optsHtml = opts.map(o => `<option value="${o}" ${o===cur?'selected':''}>${o||'—'}</option>`).join('');
-  return `<select onchange="updateField(${idx},'${field}',this.value)" style="font-family:var(--font);font-size:11px;border:1px solid var(--border);border-radius:5px;padding:2px 5px;background:var(--surface);color:var(--text);width:100%;">${optsHtml}</select>`;
-}
 
-function mkDate(val, idx, field) {
-  let iso = '';
-  if (val) { const p = val.split('/'); iso = p.length===3 ? `${p[2]}-${p[1]}-${p[0]}` : val; }
-  return `<input type="date" value="${iso}" onchange="updateField(${idx},'${field}',this.value,'date')" onclick="if(this.showPicker){try{this.showPicker()}catch(e){}}" style="font-family:var(--mono);font-size:10px;border:1px solid var(--border);border-radius:5px;padding:1px 2px;background:var(--surface);color:var(--text);width:108px;cursor:pointer;">`;
-}
 
-function mkText(val, idx, field, placeholder, w) {
-  return `<input type="text" value="${(val||'').replace(/"/g,'&quot;')}" placeholder="${placeholder||''}" onchange="updateField(${idx},'${field}',this.value)" style="font-family:var(--font);font-size:11px;border:1px solid var(--border);border-radius:5px;padding:2px 5px;background:var(--surface);color:var(--text);width:${w||'100px'};">`;
-}
 
-function updateField(idx, field, value, type) {
-  const rows = getRdvs(state.month, state.year);
-  if (!rows[idx]) return;
-  if (type === 'date') {
-    if (value) { const p = value.split('-'); value = `${p[2]}/${p[1]}/${p[0]}`; }
-    else value = '';
-  }
-  if (field === 'commission') value = parseFloat(value) || 0;
-  // Conversion spéciale pour oneshot : on stocke 'O'/'N' (un seul caractère)
-  if (field === 'oneshot') value = (value === 'Oui') ? 'O' : 'N';
-  rows[idx][field] = value;
-  setRdvs(state.month, state.year, rows);
-  refreshKpis();
-  // Re-render table si changement affectant le calcul de commission
-  if (['fms','pack','freq','result','tier','remise'].includes(field)) {
-    renderRdvTable();
-  } else {
-    // Mettre à jour couleur de la ligne
-    const tr = document.querySelector(`tr[data-idx="${idx}"]`);
-    if (tr) tr.className = rows[idx].result === 'Signé' ? 'signed' : rows[idx].result === 'Non signé' ? 'nosign' : '';
-  }
-}
 
 // Remplace les anciennes comparaisons "moy. équipe", qui étaient du texte figé
 // dans le HTML (jamais recalculé, flèches incluses). On compare désormais au réel :
@@ -6029,18 +5947,6 @@ function addRdv() {
   document.getElementById('new-rdv-commission').value = '';
 }
 
-// ====== EDIT ROW INLINE ======
-function deleteRow(idx) {
-  if (!confirm('Supprimer ce RDV ?')) return;
-  const store = loadStore();
-  const rows = store[monthKey(state.month, state.year)] || [];
-  marquerSupprime(store, rows[idx]);
-  rows.splice(idx, 1);
-  store[monthKey(state.month, state.year)] = rows;
-  saveStore(store);
-  document.getElementById('edit-row-actions')?.remove();
-  refreshAll();
-}
 
 // ====== ADD DEAL (pipeline) ======
 function addDeal() {
@@ -6243,7 +6149,6 @@ const bonusData = [
   {n:15,amt:'3 850 €',delta:'+400€'},{n:16,amt:'4 300 €',delta:'+450€'},{n:17,amt:'4 750 €',delta:'+450€'},
   {n:18,amt:'5 250 €',delta:'+500€'},{n:19,amt:'5 750 €',delta:'+500€'},{n:20,amt:'6 400 €',delta:'+650€'},
 ];
-function updateBonusSteps() { renderBonusSteps(); }
 // Carte « Prime palier » (Objectifs & Config) : le barème du mois affiché, calculé, jamais saisi
 function majCarteRegimePrime() {
   var el = document.getElementById('bonus-regime'); if (!el) return;
@@ -6695,8 +6600,6 @@ function addScaleRow() {
     </div>`);
 }
 
-// ====== TABLE SORT ======
-function sortTable(col) {}
 
 // ====== CALENDLY ======
 // ====== NAVIGATION SEMAINE CALENDLY ======
@@ -6998,97 +6901,6 @@ async function loadCalendlyDay() {
   document.getElementById('calendly-connected-section').style.display = 'block';
   renderWeekNav();
   await fetchWeekEvents();
-}
-async function _old_loadCalendlyRdv_unused() {
-  const key = state.calendly.apiKey;
-
-  const listEl = document.getElementById('rdv-today-list');
-  listEl.innerHTML = '<div class="ai-thinking"><div class="spinner"></div><span>Chargement des RDV depuis Calendly...</span></div>';
-  document.getElementById('calendly-connect-card').style.display = 'none';
-  document.getElementById('calendly-connected-section').style.display = 'block';
-
-  try {
-    // 1. Récupérer l'URI de l'utilisateur
-    const meRes = await fetch('https://api.calendly.com/users/me', {
-      headers: { 'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json' }
-    });
-    if (!meRes.ok) throw new Error('Clé API invalide (code ' + meRes.status + ')');
-    const meData = await meRes.json();
-    const userUri = meData.resource.uri;
-
-    // 2. Récupérer les events du jour
-    const now = new Date();
-    const startOfDay = new Date(now); startOfDay.setHours(0,0,0,0);
-    const endOfDay = new Date(now); endOfDay.setHours(23,59,59,999);
-
-    const evRes = await fetch(
-      `https://api.calendly.com/scheduled_events?user=${encodeURIComponent(userUri)}&min_start_time=${startOfDay.toISOString()}&max_start_time=${endOfDay.toISOString()}&status=active&count=20`,
-      { headers: { 'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json' } }
-    );
-    const evData = await evRes.json();
-    const events = evData.collection || [];
-
-    // 3. Pour chaque event, récupérer les invités
-    const rdvs = await Promise.all(events.map(async ev => {
-      const invRes = await fetch(`https://api.calendly.com/scheduled_events/${ev.uri.split('/').pop()}/invitees?count=1`, {
-        headers: { 'Authorization': 'Bearer ' + key }
-      });
-      const invData = await invRes.json();
-      const invitee = invData.collection?.[0];
-      return {
-        name: invitee?.name || 'Invité',
-        email: invitee?.email || '',
-        start: new Date(ev.start_time),
-        end: new Date(ev.end_time),
-        eventName: ev.name,
-        uri: ev.uri
-      };
-    }));
-
-    // 4. Afficher les vrais RDV
-    document.querySelector('.calendly-connect + div span, #calendly-connected-section .section-header span')
-    if (rdvs.length === 0) {
-      listEl.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text3);font-size:13px;">Aucun RDV prévu aujourd\'hui 🎉</div>';
-    } else {
-      listEl.innerHTML = rdvs.map((r, i) => {
-        const heure = r.start.toLocaleTimeString('fr-FR', {hour:'2-digit',minute:'2-digit'});
-        const duree = Math.round((r.end - r.start) / 60000);
-        return `<div class="rdv-card" id="rdv-${i}">
-          <div class="rdv-time">${heure}</div>
-          <div class="rdv-info">
-            <div class="rdv-name">${r.name}</div>
-            <div class="rdv-meta">${r.email} · ${r.eventName} · ${duree} min</div>
-            <div class="rdv-status">
-              <button class="status-pill show" onclick="setStatus(this,'show')">● Show</button>
-              <button class="status-pill noshow" onclick="setStatus(this,'noshow')">✗ No Show</button>
-              <button class="status-pill" style="background:var(--soft-orange);color:var(--orange);border-color:var(--orange);" onclick="setStatus(this,'cancelled')">🚫 Annulé</button>
-              <button class="status-pill" style="background:var(--purple-bg);color:var(--purple);border-color:var(--purple);" onclick="setStatus(this,'rescheduled')">🔄 Reprogrammé</button>
-              <button class="status-pill pending active" onclick="setStatus(this,'pending')">⏳ À venir</button>
-            </div>
-          </div>
-          <div class="rdv-result">
-            <div class="rdv-result-pills" style="display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end;" data-result="">
-              <button class="result-pill oneshot" onclick="setResultPill(this,'oneshot')" style="font-size:11px;padding:3px 8px;border:1px solid var(--green);background:white;color:var(--green);border-radius:99px;cursor:pointer;font-weight:500;">💰 One Shot</button>
-              <button class="result-pill nosign" onclick="setResultPill(this,'nosign')" style="font-size:11px;padding:3px 8px;border:1px solid var(--red);background:white;color:var(--red);border-radius:99px;cursor:pointer;font-weight:500;">❌ Non signé</button>
-              <button class="result-pill r2" onclick="setResultPill(this,'r2')" style="font-size:11px;padding:3px 8px;border:1px solid var(--purple);background:white;color:var(--purple);border-radius:99px;cursor:pointer;font-weight:500;">📅 R2 planifié</button>
-            </div>
-          </div>
-        </div>`;
-      }).join('');
-    }
-
-    // Mettre à jour le header
-    const hdrs = document.querySelectorAll('#calendly-connected-section .section-header span');
-    if (hdrs[0]) hdrs[0].textContent = `${rdvs.length} rendez-vous prévu${rdvs.length > 1 ? 's' : ''}`;
-    document.querySelector('#calendly-connected-section .section-header div').textContent =
-      `RDV d'aujourd'hui — ${now.toLocaleDateString('fr-FR', {day:'numeric', month:'long', year:'numeric'})}`;
-
-  } catch(err) {
-    listEl.innerHTML = `<div style="padding:16px;background:var(--red-bg);border-radius:var(--radius);color:var(--red);font-size:13px;">
-      <b>Erreur de connexion Calendly</b><br>${err.message}<br><br>
-      <button class="btn btn-sm" onclick="openModal('calendlyConnectModal')">Reconfigurer</button>
-    </div>`;
-  }
 }
 
 function setStatus(btn, status) {
@@ -8457,6 +8269,8 @@ function setTheme(pref) {
   };
   Chart.register({ id: 'sdTokens', beforeUpdate: function(chart) { try { var cs = getComputedStyle(document.documentElement); marcher(chart.config.data, cs, 0); marcher(chart.config.options, cs, 0); } catch (e) {} } });
 })();
+// Sélecteur d'année : toujours jusqu'à l'année prochaine (il s'arrêtait à 2026)
+(function() { try { var sel = document.getElementById('yearSelect'); if (!sel) return; var max = new Date().getFullYear() + 1, a = [].map.call(sel.options, function(o) { return +o.textContent; }); for (var y = Math.max.apply(null, a) + 1; y <= max; y++) { var o = document.createElement('option'); o.textContent = String(y); sel.appendChild(o); } } catch (e) {} })();
 function appliquerTheme() {
   var pref = 'system'; try { pref = localStorage.getItem('sd_theme') || 'system'; } catch (e) {}
   var eff = pref === 'system' ? (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : pref;
@@ -8467,7 +8281,7 @@ function appliquerTheme() {
   // le copilot (iframe Mes RDV) suit le même thème
   try { var f = document.getElementById('copilot-frame'); if (f && f.contentWindow) f.contentWindow.postMessage({ sd: 'theme', theme: eff }, '*'); } catch (e) {}
 }
-function toggleDarkMode() { setTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark'); } // compat
+ // compat
 (function() {
   document.addEventListener('DOMContentLoaded', appliquerTheme);
   try { var mq = window.matchMedia('(prefers-color-scheme: dark)'); (mq.addEventListener ? mq.addEventListener('change', appliquerTheme) : mq.addListener(appliquerTheme)); } catch (e) {}
@@ -10356,19 +10170,6 @@ function relanceResultatChoisir(id, resultat, confirmeDate) {
     .then(function(x) { if (!x.ok) throw new Error(x.status); fermerModalDoublon(); if (suite) { if (r) r.relance.quand = quand; } else { _relances = (_relances || []).filter(function(x) { return x.id !== id; }); } dessinerRelances(); majAlerteRelances(); if (typeof showCopyToast === 'function') showCopyToast('✓ Relance : ' + resultat.replace('_', ' ')); })
     .catch(function() { alert('Le copilot ne répond pas : résultat non enregistré.'); });
 }
-// Relance faite : elle sort de la liste (et de l'alerte Quotidien) ; sinon elle reste
-function relanceFaite(id, btn) {
-  if (btn) { btn.disabled = true; btn.textContent = '…'; }
-  if (String(id).indexOf('sd|') === 0) { // relance locale (ligne du store)
-    var p = String(id).split('|'), store = loadStore(), r = (store[p[1]] || [])[parseInt(p[2])];
-    if (r) { r.relanceFait = true; saveStore(store); }
-    _relances = (_relances || []).filter(function(x){ return x.id !== id; }); dessinerRelances(); majAlerteRelances(); if (typeof showCopyToast === 'function') showCopyToast('✓ Relance faite');
-    return;
-  }
-  fetch(COPILOT_URL + '/rdvs/' + encodeURIComponent(id) + '/relance-faite', { method: 'POST', mode: 'cors' })
-    .then(function(r){ if (!r.ok) throw new Error(r.status); _relances = (_relances || []).filter(function(x){ return x.id !== id; }); dessinerRelances(); majAlerteRelances(); if (typeof showCopyToast === 'function') showCopyToast('✓ Relance faite'); })
-    .catch(function(){ if (btn) { btn.disabled = false; btn.textContent = '✓ Fait'; } alert('Le copilot ne répond pas : relance non marquée.'); });
-}
 function dessinerRelances() {
   try { var _pr = document.getElementById('page-relances'); if (_pr && _pr.classList.contains('active')) renderRelancesPage(); else majBadgeSuivi(); } catch (e) {}
   var liste = _relances || [];
@@ -11991,10 +11792,6 @@ Cela nous permettra dans tous les cas de prendre une décision claire et d'évit
 À très vite,${NICOLAS_SIGNATURE}`;
 }
 
-// Objet email avant R2
-function buildEmailR2Subject() {
-  return 'Notre prochain échange';
-}
 
 // Le PROMPT EMAIL R1 — Nicolas RealAdvisor (intégré tel quel)
 const PROMPT_EMAIL_R1 = `Tu es l'assistant commercial de Nicolas Lapeyre (RealAdvisor).
@@ -12363,8 +12160,6 @@ function closePostRdv() {
   renderDaily();
 }
 
-// Ferme aussi pour la compat avec l'ancien nom
-function closeEmailR1() { return closePostRdv(); }
 
 // Termine le RDV depuis la page Post-RDV : sauvegarde + marque traité + retour Quotidien + toast
 function closePostRdvAndFinish() {
@@ -12478,20 +12273,6 @@ function updateTranscriptionStats() {
 
 // ─── Section 2 : EMAIL R1 ──────────────────────────────────
 
-// Version VIERGE : copie juste le prompt template sans données, à coller dans GPT/Claude
-function copyEmailR1PromptVierge() {
-  if (typeof PROMPT_EMAIL_R1 === 'undefined') {
-    alert('⚠️ Template prompt mail introuvable.');
-    return;
-  }
-  if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(PROMPT_EMAIL_R1).then(() => {
-      if (typeof showCopyToast === 'function') showCopyToast('✅ Prompt mail copié — colle dans ChatGPT/Claude');
-    }).catch(() => { if (typeof fallbackCopy === 'function') fallbackCopy(PROMPT_EMAIL_R1); });
-  } else if (typeof fallbackCopy === 'function') {
-    fallbackCopy(PROMPT_EMAIL_R1);
-  }
-}
 
 function copyEmailR1PromptForGPT() {
   if (!_currentPostRdvId) {
@@ -12602,112 +12383,9 @@ function generateEmailR2Body() {
   }
 }
 
-function regenerateEmailR2() {
-  const prenom = document.querySelector('#page-postrdv .postrdv-input[data-field="r2Prenom"]')?.value || '';
-  const jour = document.querySelector('#page-postrdv .postrdv-input[data-field="r2Jour"]')?.value || '';
-  const heure = document.querySelector('#page-postrdv .postrdv-input[data-field="r2Heure"]')?.value || '';
-  if (!prenom || !jour || !heure) {
-    alert('⚠️ Remplis prénom, jour et heure d\'abord.');
-    return;
-  }
-  if (!confirm('Regénérer le mail depuis le template (cela écrasera tes modifications) ?')) return;
-  const bodyEl = document.querySelector('#page-postrdv .postrdv-input[data-field="emailR2Body"]');
-  if (bodyEl) {
-    bodyEl.value = buildEmailR2Template(prenom, jour, heure);
-    savePostRdvData();
-    showCopyToast('🔄 Mail regénéré depuis le template');
-  }
-}
 
-function copyEmailR2FullBody() {
-  const body = document.querySelector('#page-postrdv .postrdv-input[data-field="emailR2Body"]')?.value || '';
-  if (!body.trim()) { alert('⚠️ Remplis prénom, jour et heure pour générer le mail.'); return; }
-  if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(body).then(() => {
-      showCopyToast('✅ Mail copié dans le presse-papier.');
-    }).catch(() => fallbackCopy(body));
-  } else {
-    fallbackCopy(body);
-  }
-}
 
-function openEmailR2InGmail() {
-  const to = document.querySelector('#page-postrdv .postrdv-input[data-field="emailR2To"]')?.value || '';
-  const body = document.querySelector('#page-postrdv .postrdv-input[data-field="emailR2Body"]')?.value || '';
-  if (!body.trim()) { alert('⚠️ Remplis prénom, jour et heure pour générer le mail.'); return; }
-  if (!to) { alert('⚠️ L\'email du destinataire est vide.'); return; }
-  const url = 'https://mail.google.com/mail/?view=cm&fs=1&tf=1'
-    + '&to=' + encodeURIComponent(to)
-    + '&su=' + encodeURIComponent(buildEmailR2Subject())
-    + '&body=' + encodeURIComponent(body);
-  window.open(url, '_blank');
-  showCopyToast('📨 Brouillon Gmail ouvert dans un nouvel onglet');
-}
 
-// ─── Section 3 : ANALYSE R1 par panel de closers ─────────────
-// Version VIERGE de l'analyse : copie juste le prompt template sans transcription, à remplir dans GPT/Claude
-function copyAnalysePromptVierge() {
-  const promptVierge = `Tu es un panel de 4 closers légendaires qui débriefent un commercial junior, sans concession, sans politesse de façade. La vérité, brutale, cash, sans filtre. Tu dois lui faire mal pour qu'il progresse.
-
-LE PANEL :
-🐺 JORDAN BELFORT — Loup de Wall Street. Obsédé par la conviction, le ton, l'énergie au téléphone. Te dit cash quand t'as molli, quand tu as laissé un blanc, quand t'es passé à côté d'un closing.
-🎯 GRANT CARDONE — 10X. Hardseller. Te défonce sur le manque de push, les questions de closing trop molles, l'absence de follow-up agressif, la peur de demander.
-🧠 CHRIS VOSS — ex-négociateur FBI. Maître des objections et de l'écoute tactique. Te dit où tu as mal géré une objection, raté un mirroring, ou parlé quand il fallait écouter.
-🇫🇷 MICHAEL AGUILAR — closer français, pragmatique. Te recadre sur la méthode, la structure du RDV, le respect des étapes (découverte, pitch, closing), la posture.
-
-CONTEXTE :
-- Je suis Nicolas Lapeyre, BDR/Sales chez RealAdvisor (solution d'estimation immobilière en ligne pour agents et mandataires)
-- Mon objectif : transformer un R1 en R2, puis closer en visio
-- Voici la transcription brute d'un R1 que je viens de faire avec [NOM DU PROSPECT]
-
-═══════════════════════════════════════
-TRANSCRIPTION DU R1
-═══════════════════════════════════════
-[COLLE ICI LA TRANSCRIPTION DE TON R1]
-
-═══════════════════════════════════════
-CE QUE TU DOIS ME RENDRE
-═══════════════════════════════════════
-
-Format : un debrief STRUCTURÉ en 6 parties, brutal, cash, sans filtre. Chaque coach intervient quand son expertise s'applique. Cite les passages PRÉCIS de la transcription que tu critiques (verbatim entre guillemets).
-
-**1. NOTE GLOBALE /10** — Une note honnête. 10 = closing parfait. 5 = banalement médiocre. 3 = catastrophe.
-
-**2. 🐺 BELFORT — TON & CONVICTION**
-- Énergie / conviction tu en as eu ? Quand t'as molli ?
-- Y a-t-il eu des silences morts ? Des hésitations ?
-- T'as joué le statut ou t'as quémandé ?
-
-**3. 🎯 CARDONE — PUSH & CLOSING**
-- Tu as VRAIMENT fermé ou tu as laissé filer ?
-- Est-ce que tu as demandé l'engagement ? Le R2 ? Le paiement ?
-- Si tu pouvais refaire ce RDV, qu'est-ce qu'il te faut pousser plus fort ?
-
-**4. 🧠 VOSS — OBJECTIONS & ÉCOUTE**
-- Quelles objections ont été mal gérées ? Cite-les.
-- T'as fait du mirroring ? Du labeling ? Ou t'as juste parlé ?
-- Quel "non" tu aurais pu transformer en "oui" ?
-
-**5. 🇫🇷 AGUILAR — MÉTHODE & POSTURE**
-- Tu as bien structuré le RDV (découverte → pitch → closing) ?
-- Tu as posé les bonnes questions de qualification ?
-- Quelle posture tu as eue ? Expert ou vendeur ?
-
-**6. 🏆 VERDICT FINAL — LE PLAN D'ACTION**
-- 3 trucs à corriger IMMÉDIATEMENT au prochain RDV
-- 1 phrase de mantra à te répéter avant chaque appel
-- La vraie raison pour laquelle ce RDV n'a pas fini en signature
-
-Maintenant débriefe-moi, sans filtre.`;
-
-  if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(promptVierge).then(() => {
-      if (typeof showCopyToast === 'function') showCopyToast('✅ Prompt analyse copié — colle dans ChatGPT/Claude');
-    }).catch(() => { if (typeof fallbackCopy === 'function') fallbackCopy(promptVierge); });
-  } else if (typeof fallbackCopy === 'function') {
-    fallbackCopy(promptVierge);
-  }
-}
 
 function copyAnalysePromptForGPT() {
   if (!_currentPostRdvId) { alert('⚠️ Ouvre d\'abord une fiche Post-RDV.'); return; }
@@ -12941,15 +12619,6 @@ function confirmReschedule() {
 // =====================================================
 var _currentR2Card = null;
 
-function openR2DateModal(card) {
-  _currentR2Card = card;
-  var name = card.dataset.name || '-';
-  var prospectEl = document.getElementById('r2date-prospect');
-  if (prospectEl) prospectEl.textContent = name;
-  var dEl = document.getElementById('r2date-date'); if (dEl) dEl.value = '';
-  var tEl = document.getElementById('r2date-time'); if (tEl) tEl.value = '';
-  if (typeof openModal === 'function') openModal('r2DateModal');
-}
 
 function confirmR2Date() {
   var date = document.getElementById('r2date-date').value;
@@ -13636,11 +13305,6 @@ function chooseTerminerResult(result) {
   confirmTerminerRdvDirect();
 }
 
-// Toggle case à cocher (clic sur la zone entière)
-function toggleTerminerCheck(id) {
-  var cb = document.getElementById(id);
-  if (cb) cb.checked = !cb.checked;
-}
 
 // Clôture directe (R1 et R2) sans étape mail/analyse + marque comme traité
 // Les boutons "Copier prompt mail/analyse" dans le header servent à générer mail/analyse à la demande
