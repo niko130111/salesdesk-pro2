@@ -148,6 +148,8 @@ main { max-width: 100%; margin: 0; padding: 6px 8px; }
 .page { display: none; }
 /* Post-RDV et fiche de préparation : remplacés par le copilot (11 sept 2026) */
 #page-postrdv, #page-preprdv { display: none !important; }
+/* Ancien tableau « Relances » du Pipeline : doublon de Suivi (qui porte la file fusionnée Close + SalesDesk) — retiré de l'affichage */
+#relances-wrap { display: none !important; }
 /* points outbound et donut : retirés de l'affichage */
 #daily-pct-outbound { display: none !important; }
 .page.active { display: block; }
@@ -457,6 +459,14 @@ main { max-width: 100%; margin: 0; padding: 6px 8px; }
 .ar-ecrit .manque { color: var(--red); font-weight: 600; }
 .ar-msg-etat { font-size: 12.5px; color: var(--text2); margin-top: 6px; }
 @media (max-width: 980px) { .ar-cols { grid-template-columns: 1fr; } .ar-col { border-right: 0; border-bottom: 1px solid var(--border); } }
+/* Panneau copilot : la prépa / le brief / le compte rendu s'ouvrent par-dessus l'écran en cours, sans changer de page */
+.cp-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.28); z-index: 1150; }
+.cp-overlay.open { display: block; }
+.cp-panel { position: absolute; top: 0; right: 0; bottom: 0; width: min(1180px, 94vw); background: var(--bg); box-shadow: -12px 0 40px rgba(0,0,0,0.2); display: flex; flex-direction: column; }
+.cp-head { display: flex; align-items: center; gap: 10px; padding: 10px 16px; background: var(--surface); border-bottom: 1px solid var(--border); }
+.cp-head .t { font-weight: 700; font-size: 14.5px; } .cp-head .s { font-size: 12.5px; color: var(--text3); }
+.cp-panel iframe { flex: 1; width: 100%; border: 0; background: var(--bg); }
+.cp-off { padding: 28px; font-size: 14px; line-height: 1.6; color: var(--text2); }
 .fc-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.25); z-index: 1200; }
 .fc-overlay.open { display: block; }
 .fc-panel { position: absolute; top: 0; right: 0; bottom: 0; width: 760px; max-width: 96vw; background: var(--bg); box-shadow: -12px 0 40px rgba(0,0,0,0.18); display: flex; flex-direction: column; }
@@ -9900,10 +9910,34 @@ function sdAssistantFenetre(nom, dateIso) {
   var w = window.open(u, 'copilot-live', 'width=1180,height=860,menubar=no,toolbar=no,location=no,status=no');
   if (w) w.focus(); else if (typeof showCopyToast === 'function') showCopyToast('Fenêtre bloquée : autorise les pop-ups pour SalesDesk');
 }
-function sdOuvrirCopilotSur(nom, dateIso, mode) {
-  mjAller('Mes RDV');
-  var essais = 0; var t = setInterval(function() { essais++; var f = document.getElementById('copilot-frame'); if (f && f.contentWindow && _copilotCharge) { try { f.contentWindow.postMessage({ sd: 'ouvrir', nom: nom, date: dateIso, mode: mode || 'prepa' }, '*'); } catch (e) {} clearInterval(t); } if (essais > 40) clearInterval(t); }, 250);
+function sdOuvrirCopilotSur(nom, dateIso, mode) { cpOuvrir(nom, dateIso, mode || 'prepa'); }
+// Le copilot (prépa, brief, compte rendu) dans un panneau par-dessus l'écran en cours : on ne quitte pas Aujourd'hui. Même page que « Mes RDV », ouverte directement sur ce RDV.
+var _cp = null;
+function cpUrl(nom, dateIso, mode) {
+  var theme = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+  return COPILOT_URL + '/live?' + new URLSearchParams({ fenetre: '1', theme: theme, nom: nom, date: dateIso || '', mode: mode || 'prepa' }).toString();
 }
+function cpOuvrir(nom, dateIso, mode) {
+  if (typeof COPILOT_URL === 'undefined') return;
+  _cp = { nom: nom, date: dateIso || '', mode: mode || 'prepa' };
+  document.getElementById('cp-titre').textContent = (mode === 'live' ? 'Compte rendu — ' : 'Préparation — ') + nom;
+  document.getElementById('cp-sous').textContent = dateIso ? new Date(dateIso + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }) : '';
+  var corps = document.getElementById('cp-corps'); corps.innerHTML = '<div class="cp-off">Connexion au copilot…</div>';
+  document.getElementById('cp-overlay').classList.add('open');
+  var ctrl = new AbortController(); var t = setTimeout(function() { ctrl.abort(); }, 6000), moi = _cp;
+  fetch(COPILOT_URL + '/rdvs', { mode: 'cors', cache: 'no-store', signal: ctrl.signal }).then(function(r) { if (!r.ok) throw new Error(r.status); })
+    .then(function() { clearTimeout(t); if (_cp !== moi) return; corps.innerHTML = '<iframe title="Copilot" allow="clipboard-write; clipboard-read; microphone; display-capture" src="' + escapeHtml(cpUrl(nom, dateIso, mode)) + '"></iframe>'; })
+    .catch(function() { clearTimeout(t); if (_cp !== moi) return; corps.innerHTML = '<div class="cp-off"><b>Le copilot ne répond pas.</b><br>Lance le serveur dans un terminal, puis réessaie :<br><code style="display:block;margin:10px 0;padding:10px 12px;background:var(--surface2);border-radius:8px;font-size:12px;user-select:all;">cd ~/Desktop/"Mes projets"/sales-copilot/sales-copilot-v2/server && node server.js</code><button class="btn btn-sm btn-primary" onclick="cpOuvrir(_cp.nom,_cp.date,_cp.mode)">Réessayer</button></div>'; });
+}
+function cpFermer() {
+  document.getElementById('cp-overlay').classList.remove('open'); document.getElementById('cp-corps').innerHTML = ''; _cp = null;
+  try { _mj.at = 0; chargerMaJournee(true); } catch (e) {} // l'état de préparation a pu changer : on relit
+}
+function cpDetacher() {
+  if (!_cp) return; var w = window.open(cpUrl(_cp.nom, _cp.date, _cp.mode), 'copilot-prepa', 'width=1180,height=860,menubar=no,toolbar=no,location=no,status=no');
+  if (w) { w.focus(); document.getElementById('cp-overlay').classList.remove('open'); document.getElementById('cp-corps').innerHTML = ''; } else if (typeof showCopyToast === 'function') showCopyToast('Fenêtre bloquée : autorise les pop-ups pour SalesDesk');
+}
+
 // ── Aujourd'hui = Quotidien + Mes RDV fusionnés : un jour (ou une semaine), mes rendez-vous, à faire, après le RDV. Mêmes données que Suivi (rlConstruireItems) et que le copilot (_mj). ──
 var _auj = { jour: rlIso(new Date()), vue: 'jour', cal: {}, calEtat: {}, calAt: {}, ouvert: null, briefs: {}, briefsEnCours: {} };
 function aujAller(d) { if (d === 'auj') _auj.jour = rlIso(new Date()); else { var n = new Date(_auj.jour + 'T12:00:00'); n.setDate(n.getDate() + (_auj.vue === 'semaine' ? 7 : 1) * d); _auj.jour = rlIso(n); } _auj.ouvert = null; renderAujourdhui(); }
@@ -13809,6 +13843,12 @@ window.addEventListener('load', function() {
 
 </script>
 <!-- Fiche client : panneau à droite, ouvert au clic sur un nom (Pipeline, Quotidien, RDV Table, Relances) -->
+<div id="cp-overlay" class="cp-overlay" onclick="if(event.target===this)cpFermer()">
+  <div class="cp-panel">
+    <div class="cp-head"><span class="t" id="cp-titre">Copilot</span><span class="s" id="cp-sous"></span><span style="margin-left:auto;display:flex;gap:6px;"><button class="btn btn-sm" title="Détacher dans une fenêtre à part (second écran)" onclick="cpDetacher()">⧉ Fenêtre</button><button class="btn btn-sm" onclick="cpFermer()">Fermer ✕</button></span></div>
+    <div id="cp-corps" style="flex:1;display:flex;flex-direction:column;min-height:0;"></div>
+  </div>
+</div>
 <div id="ar-overlay" class="ar-overlay" onclick="if(event.target===this)arFermer()">
   <div class="ar-panel">
     <div class="ar-head"><div><div class="ttl" id="ar-ttl"></div><div class="sub" id="ar-sub"></div></div><button class="x" onclick="arFermer()" title="Fermer">✕</button></div>
