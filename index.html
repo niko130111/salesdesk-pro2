@@ -380,6 +380,43 @@ main { max-width: 100%; margin: 0; padding: 6px 8px; }
 /* MODAL */
 .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.35); z-index: 1000; align-items: center; justify-content: center; }
 /* ---------- Fiche client (panneau à droite) ---------- */
+/* Après le RDV : un écran, trois colonnes (ce qui s'est dit · résultat & suite · message), un bouton qui écrit partout */
+.ar-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.3); z-index: 1250; align-items: center; justify-content: center; padding: 18px; }
+.ar-overlay.open { display: flex; }
+.ar-panel { width: 1180px; max-width: 100%; max-height: 100%; background: var(--bg); border-radius: 18px; box-shadow: 0 24px 80px rgba(0,0,0,0.28); display: flex; flex-direction: column; overflow: hidden; border: 1px solid var(--border); }
+.ar-head { padding: 18px 24px 14px; background: var(--surface); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.ar-head .ttl { font-size: 20px; font-weight: 800; letter-spacing: -.01em; }
+.ar-head .sub { font-size: 12.5px; color: var(--text3); }
+.ar-head .x { margin-left: auto; border: 0; background: transparent; font-size: 20px; color: var(--text3); cursor: pointer; }
+.ar-cols { display: grid; grid-template-columns: 1.1fr 1.2fr 1fr; gap: 0; flex: 1; overflow: auto; min-height: 0; }
+.ar-col { padding: 18px 20px 22px; border-right: 1px solid var(--border); overflow: auto; font-size: 13.5px; line-height: 1.5; }
+.ar-col:last-child { border-right: 0; }
+.ar-col h4 { margin: 0 0 10px; font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text3); display: flex; align-items: center; gap: 8px; }
+.ar-col h4 .n { display: inline-flex; width: 18px; height: 18px; border-radius: 50%; background: var(--accent); color: #fff; font-size: 11px; align-items: center; justify-content: center; }
+.ar-lab { font-size: 11.5px; font-weight: 700; color: var(--text2); margin: 12px 0 5px; }
+.ar-lab:first-of-type { margin-top: 0; }
+.ar-pills { display: flex; flex-wrap: wrap; gap: 6px; }
+.ar-pill { border: 1px solid var(--border); background: var(--surface); color: var(--text); font-family: var(--font); font-size: 13px; font-weight: 600; padding: 7px 12px; border-radius: 10px; cursor: pointer; transition: all .12s; }
+.ar-pill:hover { border-color: var(--accent); }
+.ar-pill.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.ar-pill.on.ok { background: var(--green); border-color: var(--green); }
+.ar-pill.on.ko { background: var(--red); border-color: var(--red); }
+.ar-pill.on.warn { background: var(--orange); border-color: var(--orange); }
+.ar-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 6px; }
+.ar-row input[type=date], .ar-row input[type=time], .ar-row input[type=text], .ar-row select { font-family: var(--font); font-size: 13px; padding: 6px 8px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); }
+.ar-row input[type=text] { flex: 1; min-width: 140px; }
+.ar-card { border: 1px solid var(--border); background: var(--surface); border-radius: 12px; padding: 10px 12px; margin-bottom: 8px; }
+.ar-card .t { font-size: 12px; font-weight: 700; color: var(--text2); margin-bottom: 4px; display: flex; gap: 8px; align-items: baseline; }
+.ar-card .t .src { font-weight: 500; color: var(--text3); font-size: 11px; margin-left: auto; }
+.ar-card ul { margin: 0; padding-left: 16px; } .ar-card li { margin: 1px 0; }
+.ar-card.cle { background: var(--surface2); }
+.ar-note { width: 100%; box-sizing: border-box; min-height: 74px; font-family: var(--font); font-size: 13px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); color: var(--text); resize: vertical; }
+.ar-foot { padding: 12px 24px 14px; border-top: 1px solid var(--border); background: var(--surface); display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+.ar-ecrit { flex: 1; min-width: 260px; font-size: 12.5px; color: var(--text2); display: flex; flex-wrap: wrap; gap: 4px 14px; }
+.ar-ecrit span::before { content: "• "; color: var(--text3); }
+.ar-ecrit .manque { color: var(--red); font-weight: 600; }
+.ar-msg-etat { font-size: 12.5px; color: var(--text2); margin-top: 6px; }
+@media (max-width: 980px) { .ar-cols { grid-template-columns: 1fr; } .ar-col { border-right: 0; border-bottom: 1px solid var(--border); } }
 .fc-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.25); z-index: 1200; }
 .fc-overlay.open { display: block; }
 .fc-panel { position: absolute; top: 0; right: 0; bottom: 0; width: 760px; max-width: 96vw; background: var(--bg); box-shadow: -12px 0 40px rgba(0,0,0,0.18); display: flex; flex-direction: column; }
@@ -3390,8 +3427,8 @@ function saveStore(store) {
   // FIX SD-01 : horodatage utilisé pour arbitrer local vs cloud au démarrage.
   store._lastWrite = new Date().toISOString();
   _sessionStore = store;
-  // 1. Sauvegarder localement immédiatement
-  try { localStorage.setItem('salesdesk_rdvs', JSON.stringify(store)); }
+  // 1. Sauvegarder localement immédiatement (sans les clés de travail _monthKey / _storeKey que le Pipeline pose sur les lignes : elles se périment dès qu'une ligne bouge)
+  try { localStorage.setItem('salesdesk_rdvs', JSON.stringify(store, function(k, v) { return (k === '_monthKey' || k === '_storeKey') ? undefined : v; })); }
   catch(e) { _signalerQuotaPlein(e); }
   // 2. Sauvegarder dans Supabase (debounce 1s pour éviter trop d'appels)
   if (_syncTimeout) clearTimeout(_syncTimeout);
@@ -3596,7 +3633,8 @@ function fcRendreProchaineEtape() {
   var dRdv = parseDateFR(last.date);
   var cible = _fc.rows.find(function(r) { return r.source !== 'R2'; }) || last;
   var suiviArg = JSON.stringify(cible._monthKey).replace(/"/g, '&quot;') + ',' + cible._storeKey;
-  if (dRdv && dRdv >= today && !String(last.presence || '').trim()) { lib = (last.source === 'R2' ? 'R2' : 'Rendez-vous') + ' le ' + last.date + (last.heure ? ' à ' + last.heure : ''); det = 'À préparer, puis à terminer dans Mes RDV'; acts.push('<button class="btn btn-sm btn-primary" onclick="sdOuvrirCopilotSur(' + nomJs + ',' + JSON.stringify(frVersIsoSd(last.date)).replace(/"/g, '&quot;') + ',\'prepa\')">Préparer</button>'); }
+  if (dRdv && sdRdvPasse(last) && !String(last.presence || '').trim()) { lib = (last.source === 'R2' ? 'R2' : 'Rendez-vous') + ' du ' + last.date + ' à terminer'; det = 'Présence, résultat, suite — tout s\'écrit d\'un coup'; acts.push('<button class="btn btn-sm btn-primary" onclick="sdApresRdv(' + JSON.stringify(last._monthKey).replace(/"/g, '&quot;') + ',' + last._storeKey + ')">Terminer</button>'); }
+  else if (dRdv && dRdv >= today && !String(last.presence || '').trim()) { lib = (last.source === 'R2' ? 'R2' : 'Rendez-vous') + ' le ' + last.date + (last.heure ? ' à ' + last.heure : ''); det = 'À préparer, puis à terminer dans Mes RDV'; acts.push('<button class="btn btn-sm btn-primary" onclick="sdOuvrirCopilotSur(' + nomJs + ',' + JSON.stringify(frVersIsoSd(last.date)).replace(/"/g, '&quot;') + ',\'prepa\')">Préparer</button>'); }
   else if (last.dateR2 && String(last.dateR2).trim() && parseDateFR(last.dateR2) >= today) { lib = 'R2 le ' + last.dateR2 + (last.heureR2 ? ' à ' + last.heureR2 : ''); det = 'Validation & lancement'; acts.push('<button class="btn btn-sm" onclick="sdOuvrirCopilotSur(' + nomJs + ',' + JSON.stringify(frVersIsoSd(last.dateR2)).replace(/"/g, '&quot;') + ',\'prepa\')">Préparer le R2</button>'); }
   else {
     // tâche Close / relance datée (suivi), sinon relance SalesDesk
@@ -4449,6 +4487,210 @@ function fcRaisonChoisir(monthKey, idx, raison) {
   if (raison === 'pasinteresse') sdStatutClose(r, 'pas_interesse');
   if (document.getElementById('fc-overlay').classList.contains('open')) { _fc.rows = fcLignesDuNom(_fc.nom); fcRendre(); }
   sdChaineSuite();
+}
+// ============================================================
+// APRÈS LE RDV — un écran : ce qui s'est dit (copilot / Close) · résultat & suite · message ; « Valider le suivi » écrit SalesDesk + Close + copilot d'un coup
+// ============================================================
+var _ar = null;
+function sdRdvPasse(r) { var d = parseDateFR(r && r.date); if (!d) return false; var now = new Date(); var hm = /^(\d{1,2}):(\d{2})/.exec(r.heure || ''); d.setHours(hm ? +hm[1] : 23, hm ? +hm[2] + 45 : 59, 0, 0); return d < now; }
+function sdApresRdvPour(nom, date) { // date : jj/mm/aaaa ou aaaa-mm-jj ; sans date → dernier RDV passé du nom
+  var fr = /^\d{4}-\d{2}-\d{2}$/.test(date || '') ? fcFrDepuisIso(date) : String(date || '').trim();
+  var rows = fcLignesDuNom(nom), r = fr ? rows.find(function(x) { return x.date === fr; }) : null;
+  if (!r) { var today = new Date(); today.setHours(23, 59, 59, 0); r = rows.find(function(x) { var d = parseDateFR(x.date); return d && d <= today; }); }
+  if (!r) { if (typeof showCopyToast === 'function') showCopyToast('Pas de ligne SalesDesk pour ' + nom + (fr ? ' le ' + fr : '') + ' — synchronise Calendly ou ajoute le RDV'); return; }
+  sdApresRdv(r._monthKey, r._storeKey);
+}
+function sdApresRdv(monthKey, idx) {
+  var store = loadStore(), r = (store[monthKey] || [])[idx]; if (!r) return;
+  var pres = String(r.presence || '').trim(), res = r.result === 'Promo' ? 'Non signé' : String(r.result || '').trim();
+  _ar = { monthKey: monthKey, idx: idx, row: r, estR2: r.source === 'R2',
+    presence: pres, result: res, raison: r.nosignRaison || (r.result === 'Promo' ? 'promo' : ''), pack: r.pack || '', freq: r.freq || '', oneshot: r.oneshot === 'O', type: r.type || '',
+    suite: (r.dateR2 && String(r.dateR2).trim()) ? 'r2' : ((r.relanceDate && !r.relanceFait) ? 'rel' : ''), r2Date: fcIsoDepuisFr(r.dateR2 || ''), r2Heure: r.heureR2 || '', relDate: r.relanceDate || '', relCond: r.relanceCond || '',
+    nsChoix: '', nsDate: rlJourOuvre(rlIso(new Date()), 1), note: r.retour || '',
+    dossier: null, dernier: undefined, mail: null, presenceAvant: pres, resultAvant: res, raisonAvant: r.nosignRaison || '' };
+  document.getElementById('ar-ttl').textContent = (_ar.estR2 ? 'Après le R2 — ' : 'Après le RDV — ') + r.client;
+  document.getElementById('ar-sub').textContent = [r.date, r.heure, r.type, r.source !== 'R2' ? r.source : '', r.email].filter(Boolean).join(' · ');
+  arRendre();
+  document.getElementById('ar-overlay').classList.add('open');
+  arCharger();
+}
+function arFermer() { document.getElementById('ar-overlay').classList.remove('open'); _ar = null; }
+function arCharger() {
+  if (typeof COPILOT_URL === 'undefined' || !_ar) return;
+  var a = _ar, r = a.row, iso = frVersIsoSd(r.date);
+  fetch(COPILOT_URL + '/clients/dossiers?' + new URLSearchParams({ nom: r.client, email: r.email || '' }), { mode: 'cors', cache: 'no-store' }).then(function(x) { return x.json(); })
+    .then(function(j) { if (_ar !== a) return; var ds = j.dossiers || []; a.dossier = ds.find(function(d) { return d.date === iso; }) || null; a.dossiersOk = true; arRendreC1(); }).catch(function() { if (_ar === a) { a.dossiersOk = false; arRendreC1(); } });
+  var ctrl = new AbortController(); setTimeout(function() { ctrl.abort(); }, 90000);
+  fetch(COPILOT_URL + '/close/dernier-contact?' + new URLSearchParams({ nom: r.client, email: r.email || '', force: '0' }), { mode: 'cors', cache: 'no-store', signal: ctrl.signal }).then(function(x) { return x.json(); })
+    .then(function(j) { if (_ar !== a) return; a.dernier = j; arRendreC1(); }).catch(function() { if (_ar === a) { a.dernier = { error: 'copilot sans réponse' }; arRendreC1(); } });
+  fetch(COPILOT_URL + '/mails-fin-r1', { mode: 'cors', cache: 'no-store' }).then(function(x) { return x.json(); })
+    .then(function(j) { if (_ar !== a) return; var n = fcNormNom(r.client); a.mail = (j.mails || []).find(function(m) { return fcNormNom(m.nom || '') === n && m.date === iso; }) || false; arRendreC3(); }).catch(function() {});
+}
+function arRendre() { arRendreC1(); arRendreC2(); arRendreC3(); arRendreEcrit(); }
+// Colonne 1 : ce qui s'est dit — après-RDV copilot, sinon compte rendu Claap (Close), sinon rien encore ; + ma note
+function arRendreC1() {
+  var a = _ar; if (!a) return; var el = document.getElementById('ar-c1'), out = '<h4><span class="n">1</span>Ce qui s\'est dit</h4>';
+  var d = a.dossier, ap = d && d.apresRdv, j = a.dernier;
+  var li = function(arr) { return '<ul>' + arr.map(function(x) { return '<li>' + escapeHtml(x) + '</li>'; }).join('') + '</ul>'; };
+  if (ap && (ap.resume || (ap.besoins || []).length || (ap.engagements || []).length)) {
+    out += '<div class="ar-card"><div class="t">Résumé du copilot<span class="src">' + (ap.valide ? 'validé' : 'à relire') + '</span></div>' + (ap.resume ? '<div>' + escapeHtml(ap.resume) + '</div>' : '') + '</div>';
+    if ((ap.besoins || []).length) out += '<div class="ar-card"><div class="t">Besoins</div>' + li(ap.besoins) + '</div>';
+    if ((ap.engagements || []).length) out += '<div class="ar-card"><div class="t">Engagements</div>' + li(ap.engagements.map(function(e) { return e.qui + ' : ' + e.quoi + (e.quand ? ' (' + fcFrDepuisIso(e.quand) + ')' : ''); })) + '</div>';
+    if ((ap.objections_restantes || []).length) out += '<div class="ar-card"><div class="t">Objections restantes</div>' + li(ap.objections_restantes) + '</div>';
+  }
+  var cr = null;
+  if (j && j.echanges) cr = (j.echanges || []).find(function(e) { return e.date === a.row.date && (e.type === 'rdv' || e.type === 'appel'); }) || null;
+  if (cr) out += '<div class="ar-card"><div class="t">Compte rendu Claap (Close)<span class="src">' + escapeHtml(cr.date) + '</span></div>' + li(cr.lignes || []) + ((cr.source || {}).claap ? '<div style="margin-top:4px;font-size:12px;"><a href="' + escapeHtml(cr.source.claap) + '" target="_blank" rel="noopener">Claap ↗</a></div>' : '') + '</div>';
+  if (j && j.cles && (j.cles.deal || j.cles.promesse)) out += '<div class="ar-card cle">' + (j.cles.deal ? '<div>💶 ' + escapeHtml(j.cles.deal) + '</div>' : '') + (j.cles.promesse ? '<div>🤝 ' + escapeHtml(j.cles.promesse) + '</div>' : '') + '</div>';
+  if (!ap && !cr) {
+    if (j === undefined || a.dossiersOk === undefined) out += '<div class="fc-muted">Lecture du copilot et de Close…</div>';
+    else out += '<div class="fc-muted">Pas encore de compte rendu : le Claap arrive dans Close ~45 min après la fin du RDV' + (typeof COPILOT_URL === 'undefined' || a.dossiersOk === false ? ' · copilot éteint' : '') + '. Tu peux valider sans, le mail de fin se préparera quand il sera là.</div>';
+  }
+  out += '<div class="ar-lab">Ma note (gardée sur la ligne)</div><textarea class="ar-note" placeholder="Ce que je retiens, ses mots, ce qui le ferait dire oui…" oninput="_ar.note=this.value">' + escapeHtml(a.note) + '</textarea>';
+  el.innerHTML = out;
+}
+function arPill(groupe, val, lib, cls) { var a = _ar, on = a[groupe] === val; return '<button class="ar-pill' + (on ? ' on ' + (cls || '') : '') + '" onclick="arSet(\'' + groupe + '\',' + JSON.stringify(val).replace(/"/g, '&quot;') + ')">' + lib + '</button>'; }
+function arSet(groupe, val) {
+  var a = _ar; if (!a) return; a[groupe] = (a[groupe] === val && groupe !== 'presence') ? '' : val;
+  if (groupe === 'presence' && val !== 'Show') { a.result = ''; a.raison = ''; a.suite = ''; }
+  if (groupe === 'result') { if (val !== 'Non signé') a.raison = ''; if (val === 'Signé') a.suite = ''; if (val === 'Intéressé' && !a.suite) a.suite = a.r2Date ? 'r2' : (a.relDate ? 'rel' : ''); }
+  if (groupe === 'raison' && ['pasbudget', 'promo', 'carte', 'rent', 'relancer'].indexOf(val) >= 0 && !a.suite) a.suite = 'rel';
+  if (groupe === 'raison' && (val === 'pasinteresse' || val === 'ghost')) a.suite = '';
+  arRendreC2(); arRendreC3(); arRendreEcrit();
+}
+function arChamp(champ, val) { if (_ar) { _ar[champ] = val; arRendreEcrit(); } }
+// Colonne 2 : résultat & suite
+function arRendreC2() {
+  var a = _ar; if (!a) return; var el = document.getElementById('ar-c2'), out = '<h4><span class="n">2</span>Résultat & suite</h4>';
+  out += '<div class="ar-lab">Présence</div><div class="ar-pills">' + arPill('presence', 'Show', '✅ Show', 'ok') + arPill('presence', 'No Show', '👻 No Show', 'ko') + arPill('presence', 'Annulé', 'Annulé', 'warn') + arPill('presence', 'Reprogrammé', 'Reprogrammé', 'warn') + '</div>';
+  if (a.presence === 'Show') {
+    out += '<div class="ar-lab">Résultat</div><div class="ar-pills">' + arPill('result', 'Signé', '💰 Signé', 'ok') + (a.estR2 ? '' : arPill('result', 'Intéressé', '🔥 Intéressé', '')) + arPill('result', 'Non signé', '❌ Non signé', 'ko') + '</div>';
+    if (a.result === 'Signé') {
+      var sel = function(champ, opts, val) { return '<select onchange="arChamp(\'' + champ + '\', this.value)">' + opts.map(function(o) { return '<option value="' + escapeHtml(o[0]) + '"' + (o[0] === val ? ' selected' : '') + '>' + escapeHtml(o[1]) + '</option>'; }).join('') + '</select>'; };
+      out += '<div class="ar-lab">Offre signée</div><div class="ar-row">' + sel('pack', [['', 'Pack ?'], ['Start+', 'Start+'], ['Pro+', 'Pro+'], ['Expert+', 'Expert+']], a.pack) + sel('freq', [['', 'Fréquence ?'], ['Annuelle', 'Annuelle'], ['Mensuelle', 'Mensuelle']], a.freq) + (a.type ? '' : sel('type', [['', 'Type ?'], ['Mandataire', 'Mandataire'], ['Agences', 'Agences']], a.type)) + '<label style="font-size:12.5px;display:flex;gap:5px;align-items:center;"><input type="checkbox"' + (a.oneshot ? ' checked' : '') + ' onchange="arChamp(\'oneshot\', this.checked)">One shot</label></div>';
+      out += '<div class="fc-muted" style="margin-top:6px;">Close passe en Won tout seul au paiement — rien à écrire côté statut.</div>';
+    }
+    if (a.result === 'Non signé') {
+      out += '<div class="ar-lab">Pourquoi</div><div class="ar-pills">' + arPill('raison', 'pasinteresse', '✗ Pas intéressé', 'ko') + arPill('raison', 'pasbudget', '💸 Pas de budget', 'warn') + arPill('raison', 'promo', '💡 Si promo', '') + arPill('raison', 'carte', '🗺️ Carte de prospection', '') + arPill('raison', 'rent', '🏢 Au RENT', '') + arPill('raison', 'ghost', '🫥 Ghost', 'warn') + '</div>';
+    }
+    var veutSuite = a.result === 'Intéressé' || (a.result === 'Non signé' && ['pasbudget', 'promo', 'carte', 'rent', 'relancer'].indexOf(a.raison) >= 0);
+    if (veutSuite) {
+      out += '<div class="ar-lab">Suite</div><div class="ar-pills">' + (a.estR2 ? '' : arPill('suite', 'r2', '📅 R2 calé', '')) + arPill('suite', 'rel', '📞 Me rappeler', '') + (a.result === 'Intéressé' ? '' : arPill('suite', '', 'Rien pour l\'instant', '')) + '</div>';
+      if (a.suite === 'r2') out += '<div class="ar-row"><input type="date" value="' + escapeHtml(a.r2Date) + '" onchange="arChamp(\'r2Date\', this.value)"><input type="time" value="' + escapeHtml(a.r2Heure) + '" onchange="arChamp(\'r2Heure\', this.value)"><button class="btn btn-sm" onclick="arCalendlyR2()" title="Calendly « Validation & lancement » pré-rempli ; la date se posera toute seule">📆 Caler dans Calendly</button></div><div class="fc-muted" style="margin-top:4px;">Sans date : je guette ton agenda et je la pose dès que le RDV « Validation » est pris.</div>';
+      if (a.suite === 'rel') out += '<div class="ar-row"><input type="date" value="' + escapeHtml(a.relDate) + '" onchange="arChamp(\'relDate\', this.value)"><input type="text" placeholder="Condition / ce qu\'il a dit (optionnel)" value="' + escapeHtml(a.relCond) + '" oninput="arChamp(\'relCond\', this.value)"></div><div class="fc-muted" style="margin-top:4px;">Une tâche Close à cette date, et il entre dans ta file.</div>';
+    }
+  }
+  if (['No Show', 'Annulé', 'Reprogrammé'].indexOf(a.presence) >= 0) {
+    if (a.presence === 'No Show' && !a.estR2) {
+      out += '<div class="ar-lab">On le relance ?</div><div class="ar-pills">' + arPill('nsChoix', 'demain', '📞 Dès demain', 'ok') + arPill('nsChoix', 'date', '📅 À une date', '') + arPill('nsChoix', 'stop', '✋ Laisser tomber', 'ko') + '</div>';
+      if (a.nsChoix === 'date') out += '<div class="ar-row"><input type="date" value="' + escapeHtml(a.nsDate) + '" onchange="arChamp(\'nsDate\', this.value)"></div>';
+      if (a.nsChoix === 'demain' || a.nsChoix === 'date') out += '<div class="fc-muted" style="margin-top:4px;">Tâche Close + file de relance (cadence +1, +1, +2, +3, +5, +5 jours ouvrés, puis veille 30 j).</div>';
+      if (a.nsChoix === 'stop') out += '<div class="fc-muted" style="margin-top:4px;">Close : opportunité → Lost - Cancelled. Aucune relance.</div>';
+    } else if (a.presence === 'Reprogrammé') out += '<div class="fc-muted" style="margin-top:8px;">Le nouveau créneau arrivera de Calendly ; Close → Demo Rescheduled.</div>';
+    else if (a.presence === 'Annulé') out += '<div class="fc-muted" style="margin-top:8px;">Close → Demo Cancelled. Pose un rappel depuis la fiche si tu veux le retenter.</div>';
+    else out += '<div class="fc-muted" style="margin-top:8px;">R2 manqué : la relance « R2 sans réponse » se gère depuis Relances.</div>';
+  }
+  el.innerHTML = out;
+}
+function arCalendlyR2() {
+  var a = _ar; if (!a) return; var r = a.row;
+  var faux = { cle: 'apres', nom: r.client, col: 'r2', rel: null, row: r, t: null }; window._rlItems = (window._rlItems || []).filter(function(x) { return x.cle !== 'apres'; }).concat([faux]); rlCalendly('apres');
+  a.r2Attendu = true; arRendreEcrit();
+}
+// Colonne 3 : le message qui suit
+function arRendreC3() {
+  var a = _ar; if (!a) return; var el = document.getElementById('ar-c3'), out = '<h4><span class="n">3</span>Message</h4>', r = a.row;
+  var LIB = { attente_cr: '⏳ en attente du compte rendu Claap', brouillon: '✉ prêt — brouillon dans Close, à relire', envoye: '✓ envoyé', sans_cr: '⚠ pas de compte rendu Claap — à écrire à la main', sans_fiche: '⚠ pas de fiche Close', sans_email: '⚠ pas d\'email', annule: 'annulé', manuel: 'fait à la main' };
+  if (a.presence === 'Show' && !a.estR2) {
+    if (a.result === 'Non signé' && a.raison === 'pasinteresse') out += '<div class="ar-card"><div class="t">Mail de fin de RDV</div><div class="fc-muted">Pas de mail pour un « pas intéressé ».</div></div>';
+    else {
+      out += '<div class="ar-card"><div class="t">Mail de fin de RDV<span class="src">ton modèle · depuis le Claap</span></div><div>🟢 Ce que je retiens · 🔵 L\'offre évoquée · 🟠 Prochaine étape' + (a.result === 'Signé' ? ' (version signé)' : (a.suite === 'r2' ? ' (R2' + (a.r2Date ? ' le ' + fcFrDepuisIso(a.r2Date) : '') + ')' : (a.suite === 'rel' && a.relDate ? ' (je vous rappelle le ' + fcFrDepuisIso(a.relDate) + ')' : ''))) + '</div>'
+        + '<div class="ar-msg-etat">' + (a.mail ? LIB[a.mail.statut] || a.mail.statut : (a.mail === false ? (a.dernier && (a.dernier.echanges || []).some(function(e) { return e.date === r.date && e.type === 'rdv'; }) ? 'Sera préparé à la validation depuis le compte rendu ci-contre. Tu le relis dans « À valider » avant tout envoi.' : 'Sera préparé à la validation, prêt dès que le compte rendu Claap arrive (alerte à 45 min sinon). Tu le relis dans « À valider » avant tout envoi.') : '…')) + '</div>'
+        + (a.mail && a.mail.statut === 'brouillon' ? '<div style="margin-top:6px;"><button class="btn btn-sm btn-primary" onclick="sdVoirMailFinR1(' + JSON.stringify(a.mail.cle || (String(a.mail.nom || '').toLowerCase() + '|' + a.mail.date)).replace(/"/g, '&quot;') + ')">Relire / envoyer</button></div>' : '') + '</div>';
+    }
+  } else if (a.presence === 'No Show' && !a.estR2) {
+    out += '<div class="ar-card"><div class="t">SMS no-show</div><div class="fc-muted">' + (a.nsChoix === 'demain' || a.nsChoix === 'date' ? 'Le brouillon « nous avions rendez-vous… un créneau ? » est préparé par le copilot ; l\'envoi automatique est éteint (Contrôle), tu l\'envoies depuis Relances.' : 'Seulement si tu choisis de le relancer.') + '</div></div>';
+  } else if (a.estR2 && a.presence === 'Show' && a.result === 'Signé') {
+    out += '<div class="ar-card"><div class="t">Lancement</div><div class="fc-muted">Onboarding et vitrine côté RealAdvisor. Rien à envoyer.</div></div>';
+  } else out += '<div class="fc-muted">Rien à envoyer pour ce cas.</div>';
+  el.innerHTML = out;
+}
+// Ce qui va s'écrire (calculé en direct) — et ce qui manque
+function arPlan() {
+  var a = _ar; if (!a) return { lignes: [], manque: [] }; var r = a.row, L = [], M = [];
+  if (!a.presence) { M.push('la présence'); return { lignes: L, manque: M }; }
+  var sd = ['présence ' + a.presence];
+  if (a.presence === 'Show') {
+    if (!a.result) M.push('le résultat');
+    else { sd.push('résultat ' + a.result + (a.raison ? ' · ' + ({ pasinteresse: 'pas intéressé', pasbudget: 'pas de budget', promo: 'si promo', carte: 'carte de prospection', rent: 'au RENT', ghost: 'ghost', relancer: 'à relancer' }[a.raison] || a.raison) : '')); }
+    if (a.result === 'Non signé' && !a.raison) M.push('la raison');
+    if (a.result === 'Signé') { if (!a.pack) M.push('le pack'); if (!a.freq) M.push('la fréquence'); if (!a.type) M.push('le type'); sd.push([a.pack, a.freq, a.oneshot ? 'one shot' : ''].filter(Boolean).join(' ') + (r.dateSignature ? '' : ' · signé le ' + new Date().toLocaleDateString('fr-FR'))); }
+    if (a.result === 'Intéressé' && !a.suite) M.push('la suite (R2 ou rappel)');
+    if (a.suite === 'r2') sd.push('R2 ' + (a.r2Date ? 'le ' + fcFrDepuisIso(a.r2Date) + (a.r2Heure ? ' à ' + a.r2Heure : '') : 'attendu dans Calendly'));
+    if (a.suite === 'rel') { if (!a.relDate) M.push('la date de rappel'); else sd.push('rappel le ' + fcFrDepuisIso(a.relDate)); }
+  }
+  if (a.presence === 'No Show' && !a.estR2 && !a.nsChoix) M.push('relancer ou laisser tomber');
+  if (a.note !== (r.retour || '')) sd.push('ma note');
+  L.push('SalesDesk : ' + sd.join(' · '));
+  if (!a.estR2) {
+    var ev = { 'No Show': 'Demo No Show', 'Annulé': 'Demo Cancelled', 'Reprogrammé': 'Demo Rescheduled', 'Show': 'Demo Completed' }[a.presence];
+    if (a.presence === 'Show' && a.result === 'Non signé' && a.raison === 'pasinteresse') ev = 'Lost - No Longer Interested · lead Not interested';
+    if (a.presence === 'No Show' && a.nsChoix === 'stop') ev = 'Lost - Cancelled';
+    if (ev && !(a.presence === 'Show' && a.result === 'Signé')) L.push('Close : opportunité → ' + ev);
+    if (a.presence === 'Show' && a.suite === 'rel' && a.relDate) L.push('Close : tâche « ' + (a.result === 'Intéressé' ? 'R2 sans réponse' : 'Prise de RDV') + ' » le ' + fcFrDepuisIso(a.relDate));
+    if (a.presence === 'No Show' && (a.nsChoix === 'demain' || a.nsChoix === 'date')) L.push('Close : tâche no-show le ' + fcFrDepuisIso(a.nsChoix === 'demain' ? rlJourOuvre(rlIso(new Date()), 1) : a.nsDate) + ' · file de relance');
+    if (a.presence === 'Show' && !(a.result === 'Non signé' && a.raison === 'pasinteresse') && a.result) L.push('Copilot : mail de fin de RDV à préparer');
+  }
+  L.push('Quotidien : RDV marqué traité');
+  return { lignes: L, manque: M };
+}
+function arRendreEcrit() {
+  var a = _ar; if (!a) return; var p = arPlan(), el = document.getElementById('ar-ecrit'), b = document.getElementById('ar-valider');
+  el.innerHTML = (p.manque.length ? '<span class="manque">Il manque ' + p.manque.map(escapeHtml).join(', ') + '</span>' : '') + p.lignes.map(function(l) { return '<span>' + escapeHtml(l) + '</span>'; }).join('');
+  b.disabled = !!p.manque.length; b.style.opacity = p.manque.length ? '.5' : '1';
+}
+function arValiderSuivi() {
+  var a = _ar; if (!a) return; var p = arPlan(); if (p.manque.length) return;
+  var store = loadStore(), r = (store[a.monthKey] || [])[a.idx]; if (!r) { alert('Ligne introuvable (le store a changé). Rouvre l\'écran.'); return; }
+  sdBackupStore(store);
+  r.presence = a.presence;
+  if (a.presence === 'Show') {
+    r.result = a.result;
+    if (a.result === 'Non signé') r.nosignRaison = a.raison; else delete r.nosignRaison;
+    if (a.result === 'Signé') { r.pack = a.pack; r.freq = a.freq; r.oneshot = a.oneshot ? 'O' : 'N'; if (a.type) r.type = a.type; if (!r.dateSignature) r.dateSignature = new Date().toLocaleDateString('fr-FR'); }
+    if (a.suite === 'r2') { if (a.r2Date) { r.dateR2 = fcFrDepuisIso(a.r2Date); if (a.r2Heure) r.heureR2 = a.r2Heure; if (!r.presenceR2) r.presenceR2 = 'Programmé'; } else r.r2Attendu = true; }
+    if (a.suite === 'rel' && a.relDate) { r.relanceDate = a.relDate; r.relanceCond = a.relCond; r.relanceFait = false; }
+    if (a.suite === '' && a.result === 'Non signé') { delete r.relanceDate; delete r.relanceCond; }
+  } else { r.result = ''; delete r.nosignRaison; }
+  if (a.note !== (r.retour || '')) r.retour = a.note;
+  // traité dans le Quotidien (clé nom|date)
+  if (!store._processedRdvs) store._processedRdvs = {};
+  store._processedRdvs[(r.client || '') + '|' + (r.date || '')] = { name: r.client || '', email: r.email || '', rdvDate: r.date || '', presence: r.presence, result: r.result || '', type: r.type || '', heure: r.heure || '', processedFrom: a.estR2 ? 'apres-r2' : 'apres-r1', processedDate: new Date().toLocaleDateString('fr-FR'), processedAt: new Date().toISOString() };
+  saveStore(store);
+  var copie = Object.assign({}, r);
+  // Close : statut
+  if (!a.estR2) {
+    if (a.presence === 'Show' && a.result === 'Non signé' && a.raison === 'pasinteresse') sdStatutClose(copie, 'pas_interesse');
+    else if (a.presence === 'No Show' && a.nsChoix === 'stop') sdStatutClose(copie, 'laisser_tomber');
+    else if (!(a.presence === 'Show' && a.result === 'Signé')) sdStatutDepuisPresence(copie, a.presence);
+    else if (a.presenceAvant !== 'Show') sdStatutDepuisPresence(copie, 'Show');
+  }
+  // Close : tâche de rappel (+ SMS « rappel promis » préparé si automatisation allumée)
+  if (a.presence === 'Show' && a.suite === 'rel' && a.relDate && typeof rlPost === 'function') {
+    var colR = a.result === 'Intéressé' ? 'r2' : 'rdv';
+    rlPost('/close/taches', { nom: r.client, email: r.email || '', date: a.relDate, texte: (RL_LIBELLES[colR] || 'Relance') + (a.relCond ? ' · ' + a.relCond : '') + ' · SalesDesk', motif: 'rappel' }).then(function(j) { var st = loadStore(); if (!st._tachesCloseSuivi) st._tachesCloseSuivi = {}; var k = (j.tache && j.tache.lead) ? j.tache.lead : 'n:' + fcNormNom(r.client); st._tachesCloseSuivi[k] = Object.assign({}, st._tachesCloseSuivi[k] || {}, { nom: r.client, col: colR, tentatives: 0, dernier: 'rappel', prochaine: a.relDate, at: new Date().toISOString() }); saveStore(st); }).catch(function(e) { if (typeof showCopyToast === 'function') showCopyToast('Tâche Close non créée : ' + e.message); });
+    try { sdSmsRappelPromis(copie, a.result === 'Intéressé' ? a.relDate : ''); } catch (e) {}
+  }
+  // No-show : relance (tâche + file + brouillon SMS) ou rien
+  if (a.presence === 'No Show' && !a.estR2 && (a.nsChoix === 'demain' || a.nsChoix === 'date')) { window._nsRow = copie; try { sdNoShowRelancer(r.client, r.email || '', r.source || '', a.nsChoix === 'demain' ? rlJourOuvre(rlIso(new Date()), 1) : a.nsDate, r.date, r.heure || ''); } catch (e) {} }
+  // R2 attendu : relire Calendly tout de suite
+  if (a.presence === 'Show' && a.suite === 'r2' && !a.r2Date && typeof sdChercherR2Maintenant === 'function') { try { sdChercherR2Maintenant(r.client); } catch (e) {} }
+  // Mail de fin de R1 (préparé par le copilot depuis le Claap, à relire avant envoi)
+  if (!a.estR2 && a.presence === 'Show' && a.result && !(a.result === 'Non signé' && a.raison === 'pasinteresse')) { try { sdDemanderMailFinR1(copie, a.result === 'Signé' ? 'oneshot' : (a.result === 'Non signé' ? 'nosign' : (a.suite === 'r2' ? 'r2' : 'relance')), r.email || ''); } catch (e) {} }
+  arFermer();
+  if (typeof showCopyToast === 'function') showCopyToast('✓ Suivi validé — ' + p.lignes.length + ' écriture(s) : ' + p.lignes.map(function(l) { return l.split(' : ')[0]; }).filter(function(x, i, s) { return s.indexOf(x) === i; }).join(', '));
+  try { refreshAll(); } catch (e) {}
+  if (document.getElementById('fc-overlay').classList.contains('open') && _fc && fcNormNom(_fc.nom) === fcNormNom(r.client)) { _fc.rows = fcLignesDuNom(_fc.nom); fcRendre(); }
 }
 // Relances locales (lignes Intéressé avec relanceDate) fusionnées avec celles du copilot
 function relancesLocales() {
@@ -9514,7 +9756,7 @@ function renderAujourdhui() {
     var compte = enCours ? 'en cours' : (bientot ? 'dans ' + mins + ' min' : (mins !== null && mins > 15 && idx === prochainIdx ? (mins < 60 ? 'dans ' + mins + ' min' : 'dans ' + Math.floor(mins / 60) + ' h' + (mins % 60 ? String(mins % 60).padStart(2, '0') : '')) : ''));
     var rejoindre = r.join ? '<a class="btn btn-sm' + (enCours || bientot ? ' btn-primary' : '') + '" style="text-decoration:none;" href="' + escapeHtml(r.join) + '" target="_blank" rel="noopener" title="Ouvrir la visio">Rejoindre</a>' : '';
     var actions = pres ? '<button class="btn btn-sm" onclick="ouvrirFicheClient(' + nomJs + ',' + emailJs + ')">Fiche</button>'
-      : '<button class="btn btn-sm" onclick="ouvrirFicheClient(' + nomJs + ',' + emailJs + ')">Fiche</button>' + (passe ? '<button class="btn btn-sm btn-primary" onclick="' + cible(r.nom, r.email, todayIso, 'live') + '">Terminer</button>' : '<button class="btn btn-sm" onclick="' + cible(r.nom, r.email, todayIso, 'prepa') + '">Préparer</button>' + rejoindre);
+      : '<button class="btn btn-sm" onclick="ouvrirFicheClient(' + nomJs + ',' + emailJs + ')">Fiche</button>' + (passe ? '<button class="btn btn-sm btn-primary" onclick="sdApresRdvPour(' + nomJs + ',' + JSON.stringify(todayIso).replace(/"/g, '&quot;') + ')">Terminer</button>' : '<button class="btn btn-sm" onclick="' + cible(r.nom, r.email, todayIso, 'prepa') + '">Préparer</button>' + rejoindre);
     return '<div class="auj-rdv' + (idx === prochainIdx && !passe ? ' prochain' : '') + '"><div class="h' + (passe ? ' passe' : '') + '">' + escapeHtml(r.heure || '—') + (compte ? '<div class="cd">' + escapeHtml(compte) + '</div>' : '') + '</div><div><div class="n" style="cursor:pointer" onclick="ouvrirFicheClient(' + nomJs + ',' + emailJs + ')">' + escapeHtml(r.nom) + '</div>' + (sousTitre(r.nom, row) ? '<div class="sub">' + escapeHtml(sousTitre(r.nom, row)) + '</div>' : '') + '<div class="chips">' + chips + '</div></div><div class="act">' + actions + '</div></div>';
   }).join('');
   // ── Cockpit d'appels (réutilisé) ──
@@ -12938,7 +13180,7 @@ function injectTerminerButtons() {
     btn.onclick = function(e) {
       e.preventDefault();
       var c = e.currentTarget.closest('.rdv-card');
-      if (c) openTerminerModal(c);
+      if (c) { if (c.dataset.name && typeof sdApresRdvPour === 'function') sdApresRdvPour(c.dataset.name, c.dataset.date || ''); else openTerminerModal(c); }
     };
 
     // On l'ajoute à la fin de la carte (ou dans la zone des actions)
@@ -13253,6 +13495,17 @@ window.addEventListener('load', function() {
 
 </script>
 <!-- Fiche client : panneau à droite, ouvert au clic sur un nom (Pipeline, Quotidien, RDV Table, Relances) -->
+<div id="ar-overlay" class="ar-overlay" onclick="if(event.target===this)arFermer()">
+  <div class="ar-panel">
+    <div class="ar-head"><div><div class="ttl" id="ar-ttl"></div><div class="sub" id="ar-sub"></div></div><button class="x" onclick="arFermer()" title="Fermer">✕</button></div>
+    <div class="ar-cols">
+      <div class="ar-col" id="ar-c1"></div>
+      <div class="ar-col" id="ar-c2"></div>
+      <div class="ar-col" id="ar-c3"></div>
+    </div>
+    <div class="ar-foot"><div class="ar-ecrit" id="ar-ecrit"></div><button class="btn" onclick="arFermer()">Plus tard</button><button class="btn btn-primary" id="ar-valider" onclick="arValiderSuivi()">✓ Valider le suivi</button></div>
+  </div>
+</div>
 <div id="fc-overlay" class="fc-overlay" onclick="if(event.target===this)fermerFicheClient()">
   <div class="fc-panel">
     <div class="fc-head">
