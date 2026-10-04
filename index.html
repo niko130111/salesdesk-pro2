@@ -2155,12 +2155,9 @@ select.form-input { cursor: pointer; }
           </div>
         </div>
         <div class="settings-card">
-          <h3>Objectif bonus ventes min.</h3>
-          <div class="flex gap-8" style="margin-bottom:12px;">
-            <input type="number" class="form-input" value="6" style="width:100px;" id="bonus-min-sales">
-            <span style="font-size:13px;color:var(--text2);">ventes minimum pour déclencher le bonus</span>
-          </div>
-          <button class="btn btn-sm btn-primary" onclick="updateBonusSteps()">Mettre à jour le tracker</button>
+          <h3>Prime palier</h3>
+          <div id="bonus-regime" style="font-size:13px;color:var(--text2);line-height:1.6;">—</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:8px;">Barème appliqué automatiquement selon le mois (ancien → mars 2026 · été 2026 : 1 000 € à la 6e · depuis septembre 2026 : 1 000 € à la 5e, +250 € par vente). Rien à saisir.</div>
         </div>
       </div>
 
@@ -5635,6 +5632,14 @@ const bonusData = [
   {n:18,amt:'5 250 €',delta:'+500€'},{n:19,amt:'5 750 €',delta:'+500€'},{n:20,amt:'6 400 €',delta:'+650€'},
 ];
 function updateBonusSteps() { renderBonusSteps(); }
+// Carte « Prime palier » (Objectifs & Config) : le barème du mois affiché, calculé, jamais saisi
+function majCarteRegimePrime() {
+  var el = document.getElementById('bonus-regime'); if (!el) return;
+  var MONTHS_B = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+  var yr = parseInt(state.year), mIdx = MONTHS_B.indexOf(state.month); if (mIdx < 0 || !yr) return;
+  var reg = regimePrime(yr, mIdx), steps = paliersPrime(yr, mIdx), s0 = steps[0];
+  el.innerHTML = '<b>' + escapeHtml(state.month + ' ' + yr) + '</b> : prime à partir de <b>' + s0.n + ' ventes</b> (' + s0.total.toLocaleString('fr-FR') + ' €)' + (reg === 'oct2026' ? ', puis <b>+250 €</b> par vente supplémentaire' : ', puis ' + steps.slice(1, 4).map(function(x) { return x.n + ' → ' + x.total.toLocaleString('fr-FR') + ' €'; }).join(' · ') + ' …') + '.';
+}
 
 // ====== SETTINGS ======
 function showSettingsSection(id, el) {
@@ -7490,6 +7495,7 @@ function getJoursTravailles(rows) {
 function renderBonusSteps(current, hasBonus) {
   const container = document.getElementById('bonus-steps');
   if (!container) return;
+  try { majCarteRegimePrime(); } catch (e) {}
   if (!hasBonus) { 
     const parent = container.closest('.bonus-tracker');
     if (parent) parent.style.display = 'none';
@@ -7498,6 +7504,7 @@ function renderBonusSteps(current, hasBonus) {
   const parent = container.closest('.bonus-tracker');
   if (parent) parent.style.display = '';
   
+  try { majCarteRegimePrime(); } catch (e) {}
   const MONTHS_B = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
   const steps = paliersPrime(parseInt(state.year), MONTHS_B.indexOf(state.month));
   container.innerHTML = steps.map((s,i) => {
