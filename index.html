@@ -410,6 +410,8 @@ main { max-width: 100%; margin: 0; padding: 6px 8px; }
 .auj-rdv:first-child { border-top: 0; }
 .auj-rdv .h { font-family: var(--mono); font-size: 15px; font-weight: 600; color: var(--text); }
 .auj-rdv .h.passe { color: var(--text3); }
+.auj-rdv .cd { font-family: var(--font); font-size: 11px; font-weight: 600; color: var(--green); margin-top: 2px; }
+.auj-rdv.prochain { border-left: 3px solid var(--primary); margin-left: -18px; padding-left: 15px; background: linear-gradient(90deg, var(--soft-green) 0, transparent 40%); border-radius: 0 var(--radius) var(--radius) 0; }
 .auj-rdv .n { font-weight: 700; font-size: 15px; color: var(--text); }
 .auj-rdv .sub { font-size: 13px; color: var(--text2); margin-top: 2px; }
 .auj-rdv .chips { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
@@ -734,7 +736,7 @@ select.form-input { cursor: pointer; }
     <div id="controle-alerte-auj" class="controle-alerte" style="display:none;"></div>
     <header class="auj-head">
       <div><div class="auj-date" id="auj-date">—</div><h1 class="auj-h1">Bonjour Nicolas</h1><div class="auj-resume" id="auj-resume">Votre journée, en un coup d'œil.</div></div>
-      <div class="auj-head-actions"><button class="btn" onclick="mjAller('Mes RDV')">Voir l'agenda</button><button class="btn btn-primary" onclick="openModal('newRdvModal')">+ Nouveau RDV</button></div>
+      <div class="auj-head-actions"><button class="btn" onclick="mjAller('Mes RDV')">Voir l'agenda</button></div>
     </header>
     <div class="auj-grid">
       <section class="auj-main">
@@ -6840,7 +6842,7 @@ async function dailyCalFetch() {
       _dailyCalWeekEvents[dateKey].push({
         start: s, end: e, name: item.name, email: item.email,
         source: sourceLabel, eventName: ev.name || '', isR2: isR2,
-        uri: ev.uri,
+        uri: ev.uri, join: (ev.location && (ev.location.join_url || (/^https?:/.test(ev.location.location || '') ? ev.location.location : ''))) || '',
         // FIX SD-06 : createdAt n'était pas lu ici, si bien que persistCalendlyEventsToStore
         // datait la prise du RDV au jour de la synchro.
         createdAt: ev.created_at ? new Date(ev.created_at) : null
@@ -9335,6 +9337,11 @@ function rlValiderAppel(ix, ids, joint, btn) { (ids || []).forEach(rlMarquerAppe
 function rlIgnorerAppels(ids) { (ids || []).forEach(rlMarquerAppelVu); dessinerRelances(); renderMaJournee(); }
 // ── Aujourd'hui : écran principal — la journée, les prospects, la prochaine action. Les stats restent dans Analytics. ──
 var _aujTimer = null;
+// Ouvrir le copilot directement sur un RDV (prépa ou live) : on va dans Mes RDV puis on lui envoie le nom + la date
+function sdOuvrirCopilotSur(nom, dateIso, mode) {
+  mjAller('Mes RDV');
+  var essais = 0; var t = setInterval(function() { essais++; var f = document.getElementById('copilot-frame'); if (f && f.contentWindow && _copilotCharge) { try { f.contentWindow.postMessage({ sd: 'ouvrir', nom: nom, date: dateIso, mode: mode || 'prepa' }, '*'); } catch (e) {} clearInterval(t); } if (essais > 40) clearInterval(t); }, 250);
+}
 function renderAujourdhui() {
   var page = document.getElementById('page-aujourdhui'); if (!page || !page.classList.contains('active')) return;
   var now = new Date(), todayKey = now.toLocaleDateString('fr-FR'), todayIso = rlIso(now), hhmm = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
@@ -9346,7 +9353,7 @@ function renderAujourdhui() {
   var cleCal = (state.calendly && state.calendly.apiKey) || localStorage.getItem('calendly_key');
   var evs = (typeof _dailyCalWeekEvents !== 'undefined' && _dailyCalWeekEvents[todayKey]) || null;
   var rdvs = [];
-  if (evs && evs.length) rdvs = evs.map(function(e) { return { nom: e.name, email: e.email || '', heure: e.start.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }), source: e.source, r2: !!e.isR2, uri: e.uri }; });
+  if (evs && evs.length) rdvs = evs.map(function(e) { return { nom: e.name, email: e.email || '', heure: e.start.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }), source: e.source, r2: !!e.isR2, uri: e.uri, join: e.join || '', start: e.start, end: e.end }; });
   else { var rows = (loadStore()[todayIso.slice(0, 7)] || []).filter(function(r) { return r && r.date === todayKey; }); rdvs = rows.map(function(r) { return { nom: r.client, email: r.email || '', heure: r.heure || '', source: r.source, r2: r.source === 'R2', row: r }; }); }
   rdvs.sort(function(a, b) { return (a.heure || '').localeCompare(b.heure || ''); });
   var st = loadStore(), moisRows = st[todayIso.slice(0, 7)] || [];
@@ -9356,15 +9363,22 @@ function renderAujourdhui() {
   var elR = document.getElementById('auj-rdvs');
   if (!cleCal && !rdvs.length) elR.innerHTML = '<div class="auj-empty"><b>Calendly n\'est pas connecté sur cet appareil.</b> Les rendez-vous du jour ne peuvent pas être affichés — <a style="color:var(--accent);cursor:pointer;" onclick="mjAller(\'Objectifs\')">coller la clé Calendly</a>.</div>';
   else if (!rdvs.length) elR.innerHTML = '<div class="auj-empty">' + (evs === null && cleCal ? 'Chargement de l\'agenda…' : '<b>Aucun rendez-vous aujourd\'hui.</b> Journée relances.') + '</div>';
-  else elR.innerHTML = rdvs.map(function(r) {
-    var row = r.row || rowDe(r.nom) || {}, prep = r.r2 ? null : prepDe(r.nom), passe = r.heure && r.heure < hhmm;
+  var prochainIdx = -1; rdvs.forEach(function(r, i) { if (prochainIdx < 0 && (!r.heure || r.heure >= hhmm || (r.end && r.end > now))) prochainIdx = i; });
+  var sousTitre = function(nom, row) { var cl = fcClients(st)[fcCle(nom, row.email || '')] || {}; var parts = []; if (row.reseau) parts.push(row.reseau); if (cl.entreprise) parts.push(cl.entreprise); if (row.ville || cl.ville) parts.push(row.ville || cl.ville); if (!parts.length && row.retour) parts.push(row.retour); return parts.join(' · '); };
+  var cible = function(nom, email, date, mode) { return "sdOuvrirCopilotSur(" + JSON.stringify(nom).replace(/"/g, '&quot;') + "," + JSON.stringify(date).replace(/"/g, '&quot;') + ",'" + mode + "')"; };
+  elR.innerHTML = rdvs.map(function(r, idx) {
+    var row = r.row || rowDe(r.nom) || {}, prep = r.r2 ? null : prepDe(r.nom), passe = r.heure && r.heure < hhmm && !(r.end && r.end > now);
     var pres = String(row.presence || '').trim(), res = String(row.result || '').trim();
     var etat = pres ? (pres === 'Show' ? (res ? res : 'Fait') : pres) : (passe ? 'À traiter' : '');
     var nomJs = JSON.stringify(r.nom).replace(/"/g, '&quot;'), emailJs = JSON.stringify(r.email || '').replace(/"/g, '&quot;');
     var chips = '<span class="auj-chip' + (r.r2 ? ' r2' : '') + '">' + (r.r2 ? 'R2' : 'R1') + '</span>' + (row.type ? '<span class="auj-chip">' + escapeHtml(row.type) + '</span>' : '') + (r.source && r.source !== 'R2' ? '<span class="auj-chip">' + escapeHtml(r.source) + '</span>' : '') + (prep ? '<span class="auj-chip ' + (prep.etat === 'ok' ? 'ok' : 'warn') + '">' + escapeHtml(prep.lib) + '</span>' : '') + (etat ? '<span class="auj-chip ' + (pres === 'Show' ? 'ok' : pres ? 'warn' : '') + '">' + escapeHtml(etat) + '</span>' : '');
+    // minutes avant le début
+    var mins = r.start ? Math.round((r.start - now) / 60000) : null, enCours = r.start && r.end && now >= r.start && now <= r.end, bientot = mins !== null && mins <= 15 && mins > 0;
+    var compte = enCours ? 'en cours' : (bientot ? 'dans ' + mins + ' min' : (mins !== null && mins > 15 && idx === prochainIdx ? (mins < 60 ? 'dans ' + mins + ' min' : 'dans ' + Math.floor(mins / 60) + ' h' + (mins % 60 ? String(mins % 60).padStart(2, '0') : '')) : ''));
+    var rejoindre = r.join ? '<a class="btn btn-sm' + (enCours || bientot ? ' btn-primary' : '') + '" style="text-decoration:none;" href="' + escapeHtml(r.join) + '" target="_blank" rel="noopener" title="Ouvrir la visio">Rejoindre</a>' : '';
     var actions = pres ? '<button class="btn btn-sm" onclick="ouvrirFicheClient(' + nomJs + ',' + emailJs + ')">Fiche</button>'
-      : '<button class="btn btn-sm" onclick="ouvrirFicheClient(' + nomJs + ',' + emailJs + ')">Fiche</button><button class="btn btn-sm" onclick="mjAller(\'Mes RDV\')">' + (passe ? 'Terminer' : 'Préparer') + '</button><button class="btn btn-sm btn-primary" onclick="mjAller(\'Mes RDV\')">Rejoindre</button>';
-    return '<div class="auj-rdv"><div class="h' + (passe ? ' passe' : '') + '">' + escapeHtml(r.heure || '—') + '</div><div><div class="n" style="cursor:pointer" onclick="ouvrirFicheClient(' + nomJs + ',' + emailJs + ')">' + escapeHtml(r.nom) + '</div><div class="sub">' + escapeHtml([row.retour ? '' : '', r.email].filter(Boolean).join(' · ')) + '</div><div class="chips">' + chips + '</div></div><div class="act">' + actions + '</div></div>';
+      : '<button class="btn btn-sm" onclick="ouvrirFicheClient(' + nomJs + ',' + emailJs + ')">Fiche</button>' + (passe ? '<button class="btn btn-sm btn-primary" onclick="' + cible(r.nom, r.email, todayIso, 'live') + '">Terminer</button>' : '<button class="btn btn-sm" onclick="' + cible(r.nom, r.email, todayIso, 'prepa') + '">Préparer</button>' + rejoindre);
+    return '<div class="auj-rdv' + (idx === prochainIdx && !passe ? ' prochain' : '') + '"><div class="h' + (passe ? ' passe' : '') + '">' + escapeHtml(r.heure || '—') + (compte ? '<div class="cd">' + escapeHtml(compte) + '</div>' : '') + '</div><div><div class="n" style="cursor:pointer" onclick="ouvrirFicheClient(' + nomJs + ',' + emailJs + ')">' + escapeHtml(r.nom) + '</div>' + (sousTitre(r.nom, row) ? '<div class="sub">' + escapeHtml(sousTitre(r.nom, row)) + '</div>' : '') + '<div class="chips">' + chips + '</div></div><div class="act">' + actions + '</div></div>';
   }).join('');
   // ── Cockpit d'appels (réutilisé) ──
   try { document.getElementById('auj-appels').innerHTML = (typeof mjCockpitHtml === 'function' ? mjCockpitHtml(todayIso) : '').replace('margin-top:10px;padding:10px 12px;border-radius:12px;background:var(--surface2);border:1px solid var(--border);', 'padding:14px 18px;border-radius:var(--radius-lg);background:var(--surface);border:1px solid var(--border);box-shadow:var(--shadow);'); } catch (e) { document.getElementById('auj-appels').innerHTML = ''; }
@@ -9399,7 +9413,7 @@ function renderAujourdhui() {
     document.getElementById('auj-commission').innerHTML = '<div class="big">' + comm.toLocaleString('fr-FR') + ' € <small>/ ' + obj.toLocaleString('fr-FR') + ' €</small></div><div class="auj-etat">Objectif du mois · ' + k.signes + ' vente(s)</div><div class="auj-bar"><div style="width:' + pct + '%"></div></div><div class="auj-etat" style="text-align:right;">' + pct + ' %</div>';
   } catch (e) { document.getElementById('auj-commission').innerHTML = '<div class="auj-empty">—</div>'; }
   // ── Résumé en tête + fraîcheur ──
-  var parts = []; parts.push(rdvs.length + ' rendez-vous'); var nbRel = retard.length + auj.length; parts.push(nbRel + ' relance' + (nbRel > 1 ? 's' : '')); if (prepas.length) parts.push(prepas.length + ' prépa' + (prepas.length > 1 ? 's' : '') + ' à faire');
+  var parts = []; parts.push(rdvs.length ? rdvs.length + ' rendez-vous' : 'aucun rendez-vous'); var nbRel = retard.length + auj.length; parts.push(nbRel ? nbRel + ' relance' + (nbRel > 1 ? 's' : '') : 'aucune relance'); if (prepas.length) parts.push(prepas.length + ' prépa' + (prepas.length > 1 ? 's' : '') + ' à faire');
   var frais = _mj.at ? 'copilot ' + (_mj.etat ? 'connecté' : 'absent') + ' · synchro ' + new Date(_mj.at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : 'copilot : connexion…';
   document.getElementById('auj-resume').textContent = parts.join(' · ') + ' — ' + frais;
   // bandeau d'alerte commun
