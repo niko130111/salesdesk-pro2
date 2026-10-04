@@ -5102,7 +5102,7 @@ function sdEnvoyerEtatCopilot() {
 // No-show confirmé → le copilot prépare le message de reprogrammation et cale un rappel (automatisation « no_show », aucun envoi)
 // Après un no-show : Nicolas décide — relancer (tâche Close demain / autre jour) ou laisser tomber. Rien n'entre dans la file sans ce choix.
 function sdDeciderNoShow(row) {
-  if (!row || !row.client) return;
+  if (!row || !row.client) return; window._nsRow = row;
   var iso = frVersIsoSd(row.date); var today = rlIso(new Date()); var demain = rlJourOuvre(today, 1);
   var ov = document.getElementById('fc-dup-overlay');
   if (!ov) { ov = document.createElement('div'); ov.id = 'fc-dup-overlay'; ov.className = 'modal-overlay'; ov.style.zIndex = '1300'; ov.innerHTML = '<div class="modal" id="fc-dup-modal"></div>'; document.body.appendChild(ov); }
@@ -5114,8 +5114,10 @@ function sdDeciderNoShow(row) {
     + '<button class="btn" onclick="fermerModalDoublon();if(typeof showCopyToast===\'function\')showCopyToast(\'✋ ' + escapeHtml(row.client).replace(/'/g, '') + ' : pas de relance\')">✋ Laisser tomber</button></div></div>';
   ov.classList.add('open');
 }
-function sdNoShowRelancer(nom, email, source, date) {
+function sdNoShowRelancer(nom, email, source, date, dateRdvFr, heure) {
   if (!date) { alert('Choisis une date.'); return; }
+  var r0 = window._nsRow || {}; var isoRdv = frVersIsoSd(r0.date || dateRdvFr || '');
+  if (isoRdv) fetch(COPILOT_URL + '/evenement', { method: 'POST', mode: 'cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'no_show', nom: nom, date: isoRdv, email: email || '', heure: r0.heure || heure || '' }) }).then(function(r) { return r.json(); }).then(function(j) { if (j && j.sms && j.sms.sms && typeof showCopyToast === 'function') { var x = j.sms.sms; showCopyToast('💬 SMS no-show programmé à ' + new Date(x.prevu).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })); chargerSms(true); } }).catch(function() {});
   var col = source === 'Outbound' ? 'nsout' : 'nsin', lib = RL_LIBELLES[col];
   rlPost('/close/taches', { nom: nom, email: email, date: date, texte: lib + ' · appel 1/' + RL_CADENCE[col].length + ' · SalesDesk', motif: 'no_show' })
     .then(function(j) { var st = loadStore(); if (!st._tachesCloseSuivi) st._tachesCloseSuivi = {}; var k = (j.tache && j.tache.lead) ? j.tache.lead : 'n:' + fcNormNom(nom); st._tachesCloseSuivi[k] = Object.assign({}, st._tachesCloseSuivi[k] || {}, { nom: nom, col: col, tentatives: 0, dernier: 'no_show', prochaine: date, at: new Date().toISOString() }); saveStore(st); fermerModalDoublon(); if (typeof showCopyToast === 'function') showCopyToast('📞 ' + nom + ' : relance le ' + fcFrDepuisIso(date) + ' (tâche Close créée)'); chargerTachesClose(rlPlus(_rlLundi || rlLundiDe(rlIso(new Date())), -7), rlPlus(_rlLundi || rlLundiDe(rlIso(new Date())), 13), true); })
@@ -5124,7 +5126,7 @@ function sdNoShowRelancer(nom, email, source, date) {
 function sdSignalerNoShow(row) {
   if (typeof COPILOT_URL === 'undefined' || !row || !row.client) return;
   var iso = frVersIsoSd(row.date); if (!iso) return;
-  if (row.source !== 'R2') setTimeout(function() { sdDeciderNoShow(row); }, 300);
+  if (row.source !== 'R2') { setTimeout(function() { sdDeciderNoShow(row); }, 300); return; } // le signal au copilot (brouillon + SMS H+1) part seulement si Nicolas choisit « Relancer »
   fetch(COPILOT_URL + '/evenement', { method: 'POST', mode: 'cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'no_show', nom: row.client, date: iso, email: row.email || '', heure: row.heure || '' }) })
     .then(function(r) { return r.json(); }).then(function(j) { if (j && j.sms && j.sms.sms) { var x = j.sms.sms; if (typeof showCopyToast === 'function') showCopyToast(x.statut === 'prevu' ? '💬 SMS no-show programmé à ' + new Date(x.prevu).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) + (new Date(x.prevu).toDateString() !== new Date().toDateString() ? ' (' + new Date(x.prevu).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric' }) + ')' : '') + ' · annulable dans Ma journée' : '💬 SMS no-show prêt (numéro à vérifier) — voir Ma journée'); chargerSms(true); } else if (j && j.ok && typeof showCopyToast === 'function') showCopyToast('🎯 No show : brouillon de reprogrammation prêt (copilot, fiche client)'); }).catch(function() {});
 }
