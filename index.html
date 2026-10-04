@@ -9717,6 +9717,14 @@ function rlIgnorerAppels(ids) { (ids || []).forEach(rlMarquerAppelVu); dessinerR
 // ── Aujourd'hui : écran principal — la journée, les prospects, la prochaine action. Les stats restent dans Analytics. ──
 var _aujTimer = null;
 // Ouvrir le copilot directement sur un RDV (prépa ou live) : on va dans Mes RDV puis on lui envoie le nom + la date
+// Assistant live dans une fenêtre à part (second écran), directement sur ce RDV ; le thème suit SalesDesk
+function sdAssistantFenetre(nom, dateIso) {
+  if (typeof COPILOT_URL === 'undefined') return;
+  var theme = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+  var u = COPILOT_URL + '/live?' + new URLSearchParams({ fenetre: '1', theme: theme, nom: nom, date: dateIso || '', mode: 'live' }).toString();
+  var w = window.open(u, 'copilot-live', 'width=1180,height=860,menubar=no,toolbar=no,location=no,status=no');
+  if (w) w.focus(); else if (typeof showCopyToast === 'function') showCopyToast('Fenêtre bloquée : autorise les pop-ups pour SalesDesk');
+}
 function sdOuvrirCopilotSur(nom, dateIso, mode) {
   mjAller('Mes RDV');
   var essais = 0; var t = setInterval(function() { essais++; var f = document.getElementById('copilot-frame'); if (f && f.contentWindow && _copilotCharge) { try { f.contentWindow.postMessage({ sd: 'ouvrir', nom: nom, date: dateIso, mode: mode || 'prepa' }, '*'); } catch (e) {} clearInterval(t); } if (essais > 40) clearInterval(t); }, 250);
@@ -9754,7 +9762,7 @@ function renderAujourdhui() {
     // minutes avant le début
     var mins = r.start ? Math.round((r.start - now) / 60000) : null, enCours = r.start && r.end && now >= r.start && now <= r.end, bientot = mins !== null && mins <= 15 && mins > 0;
     var compte = enCours ? 'en cours' : (bientot ? 'dans ' + mins + ' min' : (mins !== null && mins > 15 && idx === prochainIdx ? (mins < 60 ? 'dans ' + mins + ' min' : 'dans ' + Math.floor(mins / 60) + ' h' + (mins % 60 ? String(mins % 60).padStart(2, '0') : '')) : ''));
-    var rejoindre = r.join ? '<a class="btn btn-sm' + (enCours || bientot ? ' btn-primary' : '') + '" style="text-decoration:none;" href="' + escapeHtml(r.join) + '" target="_blank" rel="noopener" title="Ouvrir la visio">Rejoindre</a>' : '';
+    var rejoindre = (r.join ? '<a class="btn btn-sm' + (enCours || bientot ? ' btn-primary' : '') + '" style="text-decoration:none;" href="' + escapeHtml(r.join) + '" target="_blank" rel="noopener" title="Ouvrir la visio">Rejoindre</a>' : '') + (enCours || bientot ? '<button class="btn btn-sm" title="L\'assistant live dans une fenêtre à part, sur ce RDV (second écran)" onclick="sdAssistantFenetre(' + nomJs + ',' + JSON.stringify(todayIso).replace(/"/g, '&quot;') + ')">⧉ Assistant</button>' : '');
     var actions = pres ? '<button class="btn btn-sm" onclick="ouvrirFicheClient(' + nomJs + ',' + emailJs + ')">Fiche</button>'
       : '<button class="btn btn-sm" onclick="ouvrirFicheClient(' + nomJs + ',' + emailJs + ')">Fiche</button>' + (passe ? '<button class="btn btn-sm btn-primary" onclick="sdApresRdvPour(' + nomJs + ',' + JSON.stringify(todayIso).replace(/"/g, '&quot;') + ')">Terminer</button>' : '<button class="btn btn-sm" onclick="' + cible(r.nom, r.email, todayIso, 'prepa') + '">Préparer</button>' + rejoindre);
     return '<div class="auj-rdv' + (idx === prochainIdx && !passe ? ' prochain' : '') + '"><div class="h' + (passe ? ' passe' : '') + '">' + escapeHtml(r.heure || '—') + (compte ? '<div class="cd">' + escapeHtml(compte) + '</div>' : '') + '</div><div><div class="n" style="cursor:pointer" onclick="ouvrirFicheClient(' + nomJs + ',' + emailJs + ')">' + escapeHtml(r.nom) + '</div>' + (sousTitre(r.nom, row) ? '<div class="sub">' + escapeHtml(sousTitre(r.nom, row)) + '</div>' : '') + '<div class="chips">' + chips + '</div></div><div class="act">' + actions + '</div></div>';
