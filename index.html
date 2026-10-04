@@ -387,6 +387,9 @@ main { max-width: 100%; margin: 0; padding: 6px 8px; }
 .fc-chip.accent { background: var(--accent-bg); color: var(--accent); border-color: transparent; }
 .fc-chip .k { font-size: 11px; font-weight: 500; color: var(--text3); }
 .fc-suivi { margin-top: 12px; display: flex; flex-wrap: wrap; gap: 8px; }
+.rl-actions { margin-top: 8px; display: grid; gap: 4px; }
+.rl-row { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; }
+.rl-b { font-size: 11px !important; padding: 3px 8px !important; white-space: nowrap; }
 .controle-alerte { margin: 0 0 12px; padding: 10px 14px; border-radius: 12px; background: #fdeeee; border: 1px solid var(--red); color: var(--red); font-size: 13px; font-weight: 600; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 .controle-alerte.orange { background: #fff4e6; border-color: var(--orange); color: #8a4b00; }
 .ctl-ligne { display: flex; gap: 8px; align-items: flex-start; padding: 6px 0; border-top: 1px solid var(--border); font-size: 12.5px; }
@@ -1013,7 +1016,7 @@ select.form-input { cursor: pointer; }
     <div class="kpi-card">
       <div class="kpi-label">Total RDV</div>
       <div class="kpi-value" id="kpi-rdv">6</div>
-      <div class="kpi-sub" id="kpi-rdv-sub">rendez-vous</div>
+      <div class="kpi-sub" id="kpi-rdv-sub" title="R1 du mois dont la présence est renseignée (Show ou No Show). Les RDV à venir et les R2 ne comptent pas.">rendez-vous</div>
       <div class="kpi-vs"><span class="eq" id="bench-rdv">—</span></div>
     </div>
     <div class="kpi-card">
@@ -1037,7 +1040,7 @@ select.form-input { cursor: pointer; }
     <div class="kpi-card">
       <div class="kpi-label">Signés</div>
       <div class="kpi-value" id="kpi-signes">2</div>
-      <div class="kpi-sub">deals closés</div>
+      <div class="kpi-sub" title="Ventes comptées au mois de la date de signature (pas du R1). Un R1 de septembre signé en octobre compte en octobre.">signés ce mois (date de signature)</div>
       <div class="kpi-vs"><span class="eq" id="bench-signes">—</span></div>
     </div>
     <div class="kpi-card">
@@ -1225,7 +1228,7 @@ select.form-input { cursor: pointer; }
       <div class="source-name"><span class="source-dot" style="background:var(--accent)"></span>Inbound</div>
       <div class="source-stats">
         <div class="source-stat"><div class="s-label">Total RDV</div><div class="s-value">4</div></div>
-        <div class="source-stat"><div class="s-label">Signés</div><div class="s-value green">0</div></div>
+        <div class="source-stat" title="Signés parmi les R1 de CE mois (mois du R1), toutes dates de signature confondues — différent de la carte « Signés » du haut, qui compte par date de signature."><div class="s-label">Signés (R1 du mois)</div><div class="s-value green">0</div></div>
         <div class="source-stat"><div class="s-label">Closing</div><div class="s-value">0%</div></div>
         <div class="source-stat"><div class="s-label">Show Rate</div><div class="s-value">50%</div></div>
         <div class="source-stat"><div class="s-label">No Show</div><div class="s-value red">50%</div></div>
@@ -1236,7 +1239,7 @@ select.form-input { cursor: pointer; }
       <div class="source-name"><span class="source-dot" style="background:var(--purple)"></span>Outbound</div>
       <div class="source-stats">
         <div class="source-stat"><div class="s-label">Total RDV</div><div class="s-value">2</div></div>
-        <div class="source-stat"><div class="s-label">Signés</div><div class="s-value green">0</div></div>
+        <div class="source-stat" title="Signés parmi les R1 de CE mois (mois du R1), toutes dates de signature confondues — différent de la carte « Signés » du haut, qui compte par date de signature."><div class="s-label">Signés (R1 du mois)</div><div class="s-value green">0</div></div>
         <div class="source-stat"><div class="s-label">Closing</div><div class="s-value">0%</div></div>
         <div class="source-stat"><div class="s-label">Show Rate</div><div class="s-value green">100%</div></div>
         <div class="source-stat"><div class="s-label">No Show</div><div class="s-value">0%</div></div>
@@ -1247,7 +1250,7 @@ select.form-input { cursor: pointer; }
       <div class="source-name"><span class="source-dot" style="background:var(--orange)"></span>PUB</div>
       <div class="source-stats">
         <div class="source-stat"><div class="s-label">Total RDV</div><div class="s-value">0</div></div>
-        <div class="source-stat"><div class="s-label">Signés</div><div class="s-value green">0</div></div>
+        <div class="source-stat" title="Signés parmi les R1 de CE mois (mois du R1), toutes dates de signature confondues — différent de la carte « Signés » du haut, qui compte par date de signature."><div class="s-label">Signés (R1 du mois)</div><div class="s-value green">0</div></div>
         <div class="source-stat"><div class="s-label">Closing</div><div class="s-value">0%</div></div>
         <div class="source-stat"><div class="s-label">Show Rate</div><div class="s-value">0%</div></div>
         <div class="source-stat"><div class="s-label">No Show</div><div class="s-value">0%</div></div>
@@ -1699,7 +1702,7 @@ select.form-input { cursor: pointer; }
         <div class="pipeline-col-title" style="color:var(--text3);">⬜ Non traités</div>
         <span class="pipeline-badge" id="pipe-badge-untreated">0</span>
       </div>
-      <div style="font-size:11px;color:var(--text3);margin-bottom:10px;">RDV sans retour</div>
+      <div style="font-size:11px;color:var(--text3);margin-bottom:10px;" title="R1 passés sans présence ni résultat renseignés. Les RDV à venir ne sont pas ici.">R1 passés sans présence ni résultat</div>
       <div class="pipeline-cards" id="pipe-col-untreated" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="pipelineDrop(event,this,'pipe-col-untreated')"></div>
     </div>
 
@@ -1822,7 +1825,7 @@ select.form-input { cursor: pointer; }
   <!-- Onglets Non traités / R1 / R2 / Outbound -->
   <div style="display:flex;gap:4px;margin-bottom:14px;border-bottom:1px solid var(--border);">
     <button id="rdv-tab-untreated" class="rdv-tab-btn" onclick="switchRdvTab('untreated')" style="padding:8px 18px;border:none;background:none;cursor:pointer;font-family:var(--font);font-size:13px;font-weight:500;color:var(--text3);border-bottom:2px solid transparent;margin-bottom:-1px;">
-      ⚠️ Non traités <span id="rdv-tab-untreated-count" style="background:var(--surface2);color:var(--text3);font-size:11px;padding:1px 7px;border-radius:99px;margin-left:4px;font-weight:700;">0</span>
+      <span title="Lignes du mois affiché sans présence renseignée (RDV passés). Le Pipeline compte tous les mois : les deux chiffres peuvent différer.">⚠️ Non traités</span> <span id="rdv-tab-untreated-count" style="background:var(--surface2);color:var(--text3);font-size:11px;padding:1px 7px;border-radius:99px;margin-left:4px;font-weight:700;">0</span>
     </button>
     <button id="rdv-tab-r1" class="rdv-tab-btn" onclick="switchRdvTab('r1')" style="padding:8px 18px;border:none;background:none;cursor:pointer;font-family:var(--font);font-size:13px;font-weight:600;color:var(--accent);border-bottom:2px solid var(--accent);margin-bottom:-1px;">
       📅 R1 <span id="rdv-tab-r1-count" style="background:var(--accent-bg);color:var(--accent);font-size:11px;padding:1px 7px;border-radius:99px;margin-left:4px;font-weight:700;">0</span>
@@ -3565,7 +3568,7 @@ function fcRendreDernierContact(j) {
     return '<div class="ech' + (i >= 2 ? ' plus' : '') + '" id="fc-ech-' + i + '"><div class="ech-t"><span>' + (ICO[e.type] || '📞') + ' ' + escapeHtml(e.date || '') + ' · ' + (LIB[e.type] || 'appel') + (e.par ? ' · <b>' + escapeHtml(e.par) + '</b>' : ' · toi') + '</span><span class="preuves">' + preuves.join('') + '</span></div><ul>' + e.lignes.map(function(l) { return '<li>' + escapeHtml(l) + '</li>'; }).join('') + '</ul><div class="ech-plus"></div></div>';
   });
   el.innerHTML = titre + fcHtmlCles(j)
-    + (blocs.length ? '<div class="echs">' + blocs.join('') + (blocs.length > 2 ? '<a class="voirplus" onclick="this.parentNode.classList.add(\'ouvert\');this.remove()">voir les ' + (blocs.length - 2) + ' échanges plus anciens</a>' : '') + '</div>' : '<div class="fc-muted" style="margin-top:6px;">Rien d\'exploitable dans Close (pas de note, pas d\'enregistrement, pas de compte rendu).</div>')
+    + (blocs.length ? '<a class="voirplus" onclick="var e=this.nextElementSibling;var o=e.style.display!==\'none\';e.style.display=o?\'none\':\'\';this.textContent=o?\'Voir les ' + blocs.length + ' échanges ▸\':\'Masquer les échanges ▾\'">Voir les ' + blocs.length + ' échanges ▸</a><div class="echs ouvert" style="display:none;">' + blocs.join('') + '</div>' : '<div class="fc-muted" style="margin-top:6px;">Rien d\'exploitable dans Close (pas de note, pas d\'enregistrement, pas de compte rendu).</div>')
     + (j.prochaine ? '<div class="ech-next">➡ ' + escapeHtml(j.prochaine) + '</div>' : '')
     + (faits.length ? '<div class="faits">' + faits.map(escapeHtml).join(' · ') + '</div>' : '');
 }
@@ -8395,6 +8398,8 @@ function renderDaily() {
       blue:   { bg:'rgba(29,78,216,.06)', border:'2px solid rgba(29,78,216,.25)', color:'var(--accent)', pulse:'' }
     };
     if (!_sdDonneesPretes) { situation = 'blue'; icon = '⏳'; phrase = 'Chargement de tes données…'; sub = 'Le verdict du mois s\'affiche dès que la sauvegarde est lue.'; }
+    // Jour non travaillé (week-end, férié) : pas d'injonction — un point de situation calme
+    else { var _dj = new Date(), _dow = _dj.getDay(), _isoJ = _dj.getFullYear() + '-' + String(_dj.getMonth() + 1).padStart(2, '0') + '-' + String(_dj.getDate()).padStart(2, '0'); if (_dow === 0 || _dow === 6 || (typeof rlFerie === 'function' && rlFerie(_isoJ))) { situation = 'blue'; icon = '☕'; phrase = 'Jour off.'; sub = (typeof valRdvK !== 'undefined' && caTotal != null ? 'Mois en cours : ' + Math.round(comm).toLocaleString('fr-FR') + ' € réalisés' + (objAjuste ? ' sur ' + Math.round(objAjuste).toLocaleString('fr-FR') + ' € visés' : '') + '. ' : '') + 'On reprend au prochain jour ouvré.'; } }
     var st = styles[situation] || styles.blue;
 
     if (strip) {
@@ -9305,7 +9310,7 @@ function mjCockpitCorps(items, todayIso) {
     return '<div style="display:flex;gap:10px;align-items:flex-start;padding:7px 0;border-top:1px dashed var(--border);font-size:13px;">'
       + '<span style="width:22px;text-align:center;" title="' + (LIB[it.col] || '') + '">' + (ICO[it.col] || '📞') + '</span>'
       + '<span style="flex:1;min-width:0;"><div><b style="cursor:pointer;" onclick="ouvrirFicheClient(' + nomJs + ',' + emailJs + ')">' + escapeHtml(it.nom) + '</b> <span style="color:var(--text3);font-size:12px;">· ' + (LIB[it.col] || '') + (it.date < todayIso ? ' · <span style="color:var(--red);font-weight:700;">retard ' + escapeHtml(it.date.split('-').reverse().slice(0, 2).join('/')) + '</span>' : '') + (nb ? ' · appel ' + nb : '') + (it.t && it.t.texte && !/^follow ?up/i.test(it.t.texte) ? ' · ' + escapeHtml(it.t.texte.slice(0, 60)) : '') + '</span></div><div style="font-size:12px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + cles + '</div>' + rlChipAppels(it, ix) + rlChipRdvPris(it) + '</span>'
-      + '<span style="display:flex;gap:4px;flex-shrink:0;"><button class="btn btn-sm" style="font-size:11px;padding:2px 7px;" title="Avant d\'appeler" onclick="rlAvantAppel(' + nomJs + ',' + emailJs + ')">👁</button><button class="btn btn-sm" style="font-size:11px;padding:2px 7px;" title="Caler un RDV (Calendly pré-rempli)" onclick="rlCalendly(' + JSON.stringify(it.cle).replace(/"/g, '&quot;') + ')">📆</button><button class="btn btn-sm" style="font-size:11px;padding:2px 7px;" title="Pas de réponse" onclick="rlAction(' + JSON.stringify(it.cle).replace(/"/g, '&quot;') + ', \'pas_reponse\', this)">📵</button><button class="btn btn-sm" style="font-size:11px;padding:2px 7px;" title="Joint" onclick="rlAction(' + JSON.stringify(it.cle).replace(/"/g, '&quot;') + ', \'joint\', this)">📞</button><button class="btn btn-sm" style="font-size:11px;padding:2px 7px;" title="RDV pris" onclick="rlAction(' + JSON.stringify(it.cle).replace(/"/g, '&quot;') + ', \'rdv_pris\', this)">📅</button></span></div>';
+      + '<span class="rl-row" style="flex-shrink:0;justify-content:flex-end;max-width:52%;"><button class="btn btn-sm rl-b" onclick="rlAvantAppel(' + nomJs + ',' + emailJs + ')">👁 Avant d\'appeler</button><button class="btn btn-sm rl-b" onclick="rlCalendly(' + JSON.stringify(it.cle).replace(/"/g, '&quot;') + ')">📆 Caler</button><button class="btn btn-sm rl-b" onclick="rlAction(' + JSON.stringify(it.cle).replace(/"/g, '&quot;') + ', \'pas_reponse\', this)">📵 Pas de réponse</button><button class="btn btn-sm rl-b" onclick="rlAction(' + JSON.stringify(it.cle).replace(/"/g, '&quot;') + ', \'joint\', this)">📞 Joint</button><button class="btn btn-sm rl-b" onclick="rlAction(' + JSON.stringify(it.cle).replace(/"/g, '&quot;') + ', \'rdv_pris\', this)">📅 RDV pris</button></span></div>';
   }).join('');
   setTimeout(function() { mjChargerCles(vis); }, 50);
   var retards = dus.filter(function(i) { return i.date < todayIso; }).length;
@@ -9681,7 +9686,7 @@ function renderRelancesPage() {
     var email = (r && r.email) || row.email || '';
     var idJs = r ? JSON.stringify(String(r.id)).replace(/"/g, '&quot;') : '';
     var nomJs = JSON.stringify(it.nom || '').replace(/"/g, '&quot;'), emailJs = JSON.stringify(email).replace(/"/g, '&quot;');
-    var mail = r && r.message ? '<button class="btn btn-sm" style="font-size:11px;padding:2px 7px;" onclick="event.stopPropagation();fcVoirBrouillon(' + JSON.stringify(r.message.objet || '').replace(/"/g, '&quot;') + ',' + JSON.stringify(r.message.corps || '').replace(/"/g, '&quot;') + ',' + emailJs + ',' + JSON.stringify(r.message.origine || '').replace(/"/g, '&quot;') + ',' + nomJs + ')">✉</button>' : (email ? '<a class="btn btn-sm" style="font-size:11px;padding:2px 7px;text-decoration:none;" href="mailto:' + escapeHtml(email) + '" onclick="event.stopPropagation()">✉</a>' : '');
+    var mail = r && r.message ? '<button class="btn btn-sm rl-b" onclick="event.stopPropagation();fcVoirBrouillon(' + JSON.stringify(r.message.objet || '').replace(/"/g, '&quot;') + ',' + JSON.stringify(r.message.corps || '').replace(/"/g, '&quot;') + ',' + emailJs + ',' + JSON.stringify(r.message.origine || '').replace(/"/g, '&quot;') + ',' + nomJs + ')">✉ Brouillon</button>' : (email ? '<a class="btn btn-sm rl-b" style="text-decoration:none;" href="mailto:' + escapeHtml(email) + '" onclick="event.stopPropagation()">✉ Mail</a>' : '');
     var txt = t && t.texte && !/^follow ?up(\s*\(\d+\))?$/i.test(t.texte.trim()) ? t.texte : '';
     var dernier = row.relanceDernier ? ({ joint: 'joint', pas_de_reponse: 'pas de réponse' }[row.relanceDernier] || row.relanceDernier) : '';
     return '<div class="pipeline-card" style="cursor:pointer;padding:8px 10px;' + (retard ? 'border-left:3px solid var(--red);' : auj ? 'border-left:3px solid var(--orange);' : '') + '" onclick="ouvrirFicheClient(' + nomJs + ',' + emailJs + ')">'
@@ -9690,10 +9695,11 @@ function renderRelancesPage() {
       + (txt ? '<div class="pipeline-card-sub" style="color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="' + escapeHtml(txt) + '">' + escapeHtml(txt) + '</div>' : (r && (r.contexte || row.retour) ? '<div class="pipeline-card-sub" style="color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(r.contexte || row.retour) + '</div>' : ''))
       + (dernier ? '<div class="pipeline-card-sub">dernier : ' + escapeHtml(dernier) + '</div>' : '')
       + rlChipAppels(it, ix) + rlChipRdvPris(it)
-      + '<div class="pipeline-card-footer" style="gap:4px;flex-wrap:wrap;margin-top:6px;" onclick="event.stopPropagation()"><span style="display:flex;gap:4px;"><button class="btn btn-sm" style="font-size:11px;padding:2px 7px;" title="Avant d\'appeler : promesse, accroche, état du deal" onclick="rlAvantAppel(' + nomJs + ',' + emailJs + ')">👁</button><button class="btn btn-sm" style="font-size:11px;padding:2px 7px;" title="Caler un RDV : Calendly pré-rempli (' + (it.col === 'r2' ? 'R2 Validation' : 'R1') + ')" onclick="rlCalendly(' + JSON.stringify(it.cle).replace(/"/g, '&quot;') + ')">📆</button>' + mail + '<a class="tag" style="text-decoration:none;" href="' + escapeHtml((t && t.url) || '#') + '" target="_blank" rel="noopener" onclick="' + (t ? '' : 'event.preventDefault();fcOuvrirClose(' + nomJs + ',' + emailJs + ', event)') + '">↗ Close</a></span>'
-      + '<span style="display:flex;gap:4px;align-items:center;">' + choix + (RL_MOTIFS_GERES.indexOf(it.col) >= 0
-        ? (nb ? '<span class="tag" title="Appels sans réponse">appel ' + nb + '</span>' : '') + '<button class="btn btn-sm" style="font-size:11px;padding:2px 7px;" title="Pas de réponse → prochaine tentative selon la cadence, Close mis à jour" onclick="rlAction(' + JSON.stringify(it.cle).replace(/"/g, '&quot;') + ', \'pas_reponse\', this)">📵</button><button class="btn btn-sm" style="font-size:11px;padding:2px 7px;" title="Joint → rappel à la date qu\'il demande" onclick="rlAction(' + JSON.stringify(it.cle).replace(/"/g, '&quot;') + ', \'joint\', this)">📞</button><button class="btn btn-sm" style="font-size:11px;padding:2px 7px;" title="RDV pris" onclick="rlAction(' + JSON.stringify(it.cle).replace(/"/g, '&quot;') + ', \'rdv_pris\', this)">📅</button><button class="btn btn-sm' + (nb >= 3 ? ' btn-primary' : '') + '" style="font-size:11px;padding:2px 7px;" title="Passer à mon manager (note épinglée + tâche dans Close)" onclick="rlAction(' + JSON.stringify(it.cle).replace(/"/g, '&quot;') + ', \'manager\', this)">👔</button><button class="btn btn-sm" style="font-size:11px;padding:2px 7px;" title="Supprimer (tâche Close terminée)" onclick="rlAction(' + JSON.stringify(it.cle).replace(/"/g, '&quot;') + ', \'supprimer\', this)">🗑</button>'
-        : (r ? '<button class="btn btn-sm" style="font-size:11px;padding:2px 7px;" title="Décaler" onclick="relanceResultat(' + idJs + ', this, true)">📅</button><button class="btn btn-sm btn-primary" style="font-size:11px;padding:2px 7px;" onclick="relanceResultat(' + idJs + ', this)">✅</button>' : '<span class="tag" title="Tâche Close seule : se termine dans Close pour l\'instant">dans Close</span>')) + '</span></div></div>';
+      + '<div class="rl-actions" onclick="event.stopPropagation()">'
+      + '<div class="rl-row"><button class="btn btn-sm rl-b" title="Promesse, accroche, état du deal" onclick="rlAvantAppel(' + nomJs + ',' + emailJs + ')">👁 Avant d\'appeler</button><button class="btn btn-sm rl-b" title="Calendly pré-rempli (' + (it.col === 'r2' ? 'R2 Validation' : 'R1') + ')" onclick="rlCalendly(' + JSON.stringify(it.cle).replace(/"/g, '&quot;') + ')">📆 Caler un RDV</button>' + mail + '<a class="tag" style="text-decoration:none;" href="' + escapeHtml((t && t.url) || '#') + '" target="_blank" rel="noopener" onclick="' + (t ? '' : 'event.preventDefault();fcOuvrirClose(' + nomJs + ',' + emailJs + ', event)') + '">↗ Close</a>' + choix + (nb ? '<span class="tag" title="Appels sans réponse">appel ' + nb + '</span>' : '') + '</div>'
+      + '<div class="rl-row">' + (RL_MOTIFS_GERES.indexOf(it.col) >= 0
+        ? '<button class="btn btn-sm rl-b" title="Prochaine tentative selon la cadence, tâche Close déplacée" onclick="rlAction(' + JSON.stringify(it.cle).replace(/"/g, '&quot;') + ', \'pas_reponse\', this)">📵 Pas de réponse</button><button class="btn btn-sm rl-b" title="Rappel à la date qu\'il demande" onclick="rlAction(' + JSON.stringify(it.cle).replace(/"/g, '&quot;') + ', \'joint\', this)">📞 Joint</button><button class="btn btn-sm rl-b" onclick="rlAction(' + JSON.stringify(it.cle).replace(/"/g, '&quot;') + ', \'rdv_pris\', this)">📅 RDV pris</button><button class="btn btn-sm rl-b' + (it.col === 'r2' && nb >= 3 ? ' btn-primary' : '') + '" title="Note épinglée + tâche pour Anthony dans Close" onclick="rlAction(' + JSON.stringify(it.cle).replace(/"/g, '&quot;') + ', \'manager\', this)">👔 Manager</button><button class="btn btn-sm rl-b" title="Tâche Close terminée" onclick="rlAction(' + JSON.stringify(it.cle).replace(/"/g, '&quot;') + ', \'supprimer\', this)">🗑 Supprimer</button>'
+        : (r ? '<button class="btn btn-sm rl-b" onclick="relanceResultat(' + idJs + ', this, true)">📅 Décaler</button><button class="btn btn-sm btn-primary rl-b" onclick="relanceResultat(' + idJs + ', this)">✅ Résultat</button>' : '<span class="tag" title="Tâche Close seule : se termine dans Close pour l\'instant">dans Close</span>')) + '</div></div></div>';
   };
   // onglets jours (+ « En retard » sur la semaine en cours)
   var fmt = function(iso) { var d = new Date(iso + 'T12:00:00'); return d.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' }).replace('.', ''); };
