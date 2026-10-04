@@ -3643,7 +3643,9 @@ function rlDefaire(btn) {
   }).catch(function() { alert('Copilot injoignable.'); });
 }
 function rlAction(ix, action, btn) {
-  var it = (window._rlItems || [])[ix]; if (!it) return;
+  var it = typeof ix === 'string' ? (window._rlItems || []).find(function(x) { return x.cle === ix; }) : (window._rlItems || [])[ix];
+  if (!it && typeof ix === 'string') { try { window._rlItems = rlConstruireItems(rlIso(new Date())).items; it = window._rlItems.find(function(x) { return x.cle === ix; }); } catch (e) {} }
+  if (!it) { alert('Cette carte a changé entre-temps, la page se rafraîchit.'); dessinerRelances(); renderMaJournee(); return; }
   var id = rlIdentite(it), today = rlIso(new Date()), suivi = rlSuivi(it), nb = suivi.tentatives || 0;
   var occupe = function(on) { if (btn) { btn.disabled = on; btn.style.opacity = on ? '.5' : ''; } };
   var fini = function(msg) { occupe(false); if (typeof showCopyToast === 'function') showCopyToast(msg); chargerTachesClose(rlPlus(_rlLundi, -7), rlPlus(_rlLundi, 13), true); setTimeout(dessinerRelances, 400); setTimeout(renderMaJournee, 450); if (typeof majAlerteRelances === 'function') majAlerteRelances(); };
@@ -9041,7 +9043,7 @@ function rlChipAppels(it, ix) {
   var ids = JSON.stringify(apps.map(function(x) { return x.id; })).replace(/"/g, '&quot;');
   return '<div style="margin-top:6px;padding:6px 8px;border-radius:8px;background:' + (joint ? '#eaf7ee' : '#fff4e6') + ';font-size:12px;display:flex;gap:6px;align-items:center;flex-wrap:wrap;" onclick="event.stopPropagation()">'
     + '<span style="flex:1;">☎ <b>' + (joint ? 'Joint' : 'Sans réponse') + '</b> · ' + escapeHtml(a.heure) + (joint ? ' · ' + dur : '') + (apps.length > 1 ? ' · ' + apps.length + ' appels' : '') + ' <span style="color:var(--text3)">(Close)</span></span>'
-    + '<button class="btn btn-sm btn-primary" style="font-size:11px;padding:2px 8px;" onclick="rlValiderAppel(' + ix + ', ' + ids + ', ' + (joint ? 'true' : 'false') + ', this)">' + (joint ? '📞 Joint → rappel le…' : '📵 Pas de réponse') + '</button>'
+    + '<button class="btn btn-sm btn-primary" style="font-size:11px;padding:2px 8px;" onclick="rlValiderAppel(' + JSON.stringify(it.cle).replace(/"/g, '&quot;') + ', ' + ids + ', ' + (joint ? 'true' : 'false') + ', this)">' + (joint ? '📞 Joint → rappel le…' : '📵 Pas de réponse') + '</button>'
     + '<button class="btn btn-sm" style="font-size:11px;padding:2px 8px;" title="Ne pas tenir compte de cet appel" onclick="rlIgnorerAppels(' + ids + ')">ignorer</button></div>';
 }
 function rlValiderAppel(ix, ids, joint, btn) { (ids || []).forEach(rlMarquerAppelVu); rlAction(ix, joint ? 'joint' : 'pas_reponse', btn); }
@@ -9052,6 +9054,9 @@ function mjCockpitHtml(todayIso) {
   if (typeof rlConstruireItems !== 'function') return '';
   if (!_tachesClose && typeof chargerTachesClose === 'function') { if (!_rlLundi) _rlLundi = rlLundiDe(todayIso); chargerTachesClose(rlPlus(_rlLundi, -7), rlPlus(_rlLundi, 13), false); }
   var items; try { items = rlConstruireItems(todayIso).items; } catch (e) { return ''; }
+  window._rlStoreCache = loadStore(); try { return mjCockpitCorps(items, todayIso); } finally { window._rlStoreCache = null; }
+}
+function mjCockpitCorps(items, todayIso) {
   window._rlItems = items;
   var dus = items.filter(function(i) { return (i.date && i.date <= todayIso) || rlAppelsPour(i).length; });
   var ordreCol = { r2: 0, nsin: 1, nsout: 1, rdv: 2, aclasser: 3 };
@@ -9067,7 +9072,7 @@ function mjCockpitHtml(todayIso) {
     return '<div style="display:flex;gap:10px;align-items:flex-start;padding:7px 0;border-top:1px dashed var(--border);font-size:13px;">'
       + '<span style="width:22px;text-align:center;" title="' + (LIB[it.col] || '') + '">' + (ICO[it.col] || '📞') + '</span>'
       + '<span style="flex:1;min-width:0;"><div><b style="cursor:pointer;" onclick="ouvrirFicheClient(' + nomJs + ',' + emailJs + ')">' + escapeHtml(it.nom) + '</b> <span style="color:var(--text3);font-size:12px;">· ' + (LIB[it.col] || '') + (it.date < todayIso ? ' · <span style="color:var(--red);font-weight:700;">retard ' + escapeHtml(it.date.split('-').reverse().slice(0, 2).join('/')) + '</span>' : '') + (nb ? ' · appel ' + nb : '') + (it.t && it.t.texte && !/^follow ?up/i.test(it.t.texte) ? ' · ' + escapeHtml(it.t.texte.slice(0, 60)) : '') + '</span></div><div style="font-size:12px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + cles + '</div>' + rlChipAppels(it, ix) + '</span>'
-      + '<span style="display:flex;gap:4px;flex-shrink:0;"><button class="btn btn-sm" style="font-size:11px;padding:2px 7px;" title="Avant d\'appeler" onclick="rlAvantAppel(' + nomJs + ',' + emailJs + ')">👁</button><button class="btn btn-sm" style="font-size:11px;padding:2px 7px;" title="Pas de réponse" onclick="rlAction(' + ix + ', \'pas_reponse\', this)">📵</button><button class="btn btn-sm" style="font-size:11px;padding:2px 7px;" title="Joint" onclick="rlAction(' + ix + ', \'joint\', this)">📞</button><button class="btn btn-sm" style="font-size:11px;padding:2px 7px;" title="RDV pris" onclick="rlAction(' + ix + ', \'rdv_pris\', this)">📅</button></span></div>';
+      + '<span style="display:flex;gap:4px;flex-shrink:0;"><button class="btn btn-sm" style="font-size:11px;padding:2px 7px;" title="Avant d\'appeler" onclick="rlAvantAppel(' + nomJs + ',' + emailJs + ')">👁</button><button class="btn btn-sm" style="font-size:11px;padding:2px 7px;" title="Pas de réponse" onclick="rlAction(' + JSON.stringify(it.cle).replace(/"/g, '&quot;') + ', \'pas_reponse\', this)">📵</button><button class="btn btn-sm" style="font-size:11px;padding:2px 7px;" title="Joint" onclick="rlAction(' + JSON.stringify(it.cle).replace(/"/g, '&quot;') + ', \'joint\', this)">📞</button><button class="btn btn-sm" style="font-size:11px;padding:2px 7px;" title="RDV pris" onclick="rlAction(' + JSON.stringify(it.cle).replace(/"/g, '&quot;') + ', \'rdv_pris\', this)">📅</button></span></div>';
   }).join('');
   setTimeout(function() { mjChargerCles(vis); }, 50);
   var retards = dus.filter(function(i) { return i.date < todayIso; }).length;
@@ -9354,7 +9359,11 @@ function rlMemePersonne(a, b) {
 function sdRowPourNoms(noms) {
   var store = (window._rlStoreCache || loadStore()), ns = (noms || []).map(fcNormNom).filter(function(n) { return n.length > 3; }), best = null, bd = 0;
   if (!ns.length) return null;
-  Object.keys(store).forEach(function(k) { if (!/^\d{4}-\d{2}$/.test(k) || !Array.isArray(store[k])) return; store[k].forEach(function(x) { if (!x || x.source === 'R2') return; var c = fcNormNom(x.client || ''); if (!c || !ns.some(function(n) { return rlMemePersonne(n, c); })) return; var d = parseDateFR(x.date); if (d && d > bd) { bd = d; best = x; } }); });
+  // index nom normalisé → dernière ligne R1, construit une fois par parse du store (la file en a besoin 150 fois de suite)
+  var idx = store.__rlIndex; if (!idx) { idx = { exact: {}, noms: [] }; Object.keys(store).forEach(function(k) { if (!/^\d{4}-\d{2}$/.test(k) || !Array.isArray(store[k])) return; store[k].forEach(function(x) { if (!x || x.source === 'R2') return; var c = fcNormNom(x.client || ''); if (!c) return; var d = parseDateFR(x.date); if (!d) return; if (!idx.exact[c]) { idx.exact[c] = { row: x, d: d }; idx.noms.push(c); } else if (d > idx.exact[c].d) idx.exact[c] = { row: x, d: d }; }); }); if (store === window._rlStoreCache) Object.defineProperty(store, '__rlIndex', { value: idx, enumerable: false }); }
+  ns.forEach(function(n) { var e = idx.exact[n]; if (e && e.d > bd) { bd = e.d; best = e.row; } });
+  if (best) return best;
+  idx.noms.forEach(function(c) { if (!ns.some(function(n) { return rlMemePersonne(n, c); })) return; var e = idx.exact[c]; if (e.d > bd) { bd = e.d; best = e.row; } });
   return best;
 }
 function rlClasser(taskId, col) {
@@ -9388,6 +9397,7 @@ function rlConstruireItems(today) {
   rels.forEach(function(x) { if (!relsUtilisees[x.r.id]) items.push({ type: 'sd', rel: x, nom: x.nom, date: x.date, col: x.col }); });
   // No-shows récents (lignes SalesDesk) : ils entrent d'eux-mêmes dans la file au jour ouvré suivant, sans relance fantôme — jusqu'à ce que tu agisses (la tâche Close prend alors le relais)
   rlNoShowsAuto(items, today).forEach(function(it) { items.push(it); });
+  items.forEach(function(it) { it.cle = it.t ? 't:' + it.t.id : (it.rel && it.rel.r ? 'r:' + it.rel.r.id : 'n:' + fcNormNom(it.nom) + '|' + (it.date || '')); });
   rlTrierItems(items);
   return { items: items, liste: liste, taches: taches, terminees: terminees };
   } finally { window._rlStoreCache = null; }
@@ -9446,7 +9456,7 @@ function renderRelancesPage() {
       + rlChipAppels(it, ix)
       + '<div class="pipeline-card-footer" style="gap:4px;flex-wrap:wrap;margin-top:6px;" onclick="event.stopPropagation()"><span style="display:flex;gap:4px;"><button class="btn btn-sm" style="font-size:11px;padding:2px 7px;" title="Avant d\'appeler : promesse, accroche, état du deal" onclick="rlAvantAppel(' + nomJs + ',' + emailJs + ')">👁</button>' + mail + '<a class="tag" style="text-decoration:none;" href="' + escapeHtml((t && t.url) || '#') + '" target="_blank" rel="noopener" onclick="' + (t ? '' : 'event.preventDefault();fcOuvrirClose(' + nomJs + ',' + emailJs + ', event)') + '">↗ Close</a></span>'
       + '<span style="display:flex;gap:4px;align-items:center;">' + choix + (RL_MOTIFS_GERES.indexOf(it.col) >= 0
-        ? (nb ? '<span class="tag" title="Appels sans réponse">appel ' + nb + '</span>' : '') + '<button class="btn btn-sm" style="font-size:11px;padding:2px 7px;" title="Pas de réponse → prochaine tentative selon la cadence, Close mis à jour" onclick="rlAction(' + ix + ', \'pas_reponse\', this)">📵</button><button class="btn btn-sm" style="font-size:11px;padding:2px 7px;" title="Joint → rappel à la date qu\'il demande" onclick="rlAction(' + ix + ', \'joint\', this)">📞</button><button class="btn btn-sm" style="font-size:11px;padding:2px 7px;" title="RDV pris" onclick="rlAction(' + ix + ', \'rdv_pris\', this)">📅</button><button class="btn btn-sm' + (nb >= 3 ? ' btn-primary' : '') + '" style="font-size:11px;padding:2px 7px;" title="Passer à mon manager (note épinglée + tâche dans Close)" onclick="rlAction(' + ix + ', \'manager\', this)">👔</button><button class="btn btn-sm" style="font-size:11px;padding:2px 7px;" title="Supprimer (tâche Close terminée)" onclick="rlAction(' + ix + ', \'supprimer\', this)">🗑</button>'
+        ? (nb ? '<span class="tag" title="Appels sans réponse">appel ' + nb + '</span>' : '') + '<button class="btn btn-sm" style="font-size:11px;padding:2px 7px;" title="Pas de réponse → prochaine tentative selon la cadence, Close mis à jour" onclick="rlAction(' + JSON.stringify(it.cle).replace(/"/g, '&quot;') + ', \'pas_reponse\', this)">📵</button><button class="btn btn-sm" style="font-size:11px;padding:2px 7px;" title="Joint → rappel à la date qu\'il demande" onclick="rlAction(' + JSON.stringify(it.cle).replace(/"/g, '&quot;') + ', \'joint\', this)">📞</button><button class="btn btn-sm" style="font-size:11px;padding:2px 7px;" title="RDV pris" onclick="rlAction(' + JSON.stringify(it.cle).replace(/"/g, '&quot;') + ', \'rdv_pris\', this)">📅</button><button class="btn btn-sm' + (nb >= 3 ? ' btn-primary' : '') + '" style="font-size:11px;padding:2px 7px;" title="Passer à mon manager (note épinglée + tâche dans Close)" onclick="rlAction(' + JSON.stringify(it.cle).replace(/"/g, '&quot;') + ', \'manager\', this)">👔</button><button class="btn btn-sm" style="font-size:11px;padding:2px 7px;" title="Supprimer (tâche Close terminée)" onclick="rlAction(' + JSON.stringify(it.cle).replace(/"/g, '&quot;') + ', \'supprimer\', this)">🗑</button>'
         : (r ? '<button class="btn btn-sm" style="font-size:11px;padding:2px 7px;" title="Décaler" onclick="relanceResultat(' + idJs + ', this, true)">📅</button><button class="btn btn-sm btn-primary" style="font-size:11px;padding:2px 7px;" onclick="relanceResultat(' + idJs + ', this)">✅</button>' : '<span class="tag" title="Tâche Close seule : se termine dans Close pour l\'instant">dans Close</span>')) + '</span></div></div>';
   };
   // onglets jours (+ « En retard » sur la semaine en cours)
