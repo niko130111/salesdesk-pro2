@@ -8873,6 +8873,7 @@ function majAlerteRelances() {
   try { renderSansAction(); } catch (e) {}
   try { renderMaJournee(); } catch (e) {}
   var el = document.getElementById('relances-jour'); if (!el) return;
+  el.style.display = 'none'; return; // bandeau retiré (4 oct. 2026) : les appels du jour vivent dans « Mes appels du jour », Close porte les dates
   var today = new Date().toISOString().slice(0, 10);
   var dues = (_relances || []).filter(function(r){ var q = r.relance && r.relance.quand; return q && q <= today; });
   if (!dues.length) { el.style.display = 'none'; return; }
@@ -9349,19 +9350,18 @@ function renderMaJournee() {
   var html = '<div style="display:flex;align-items:baseline;gap:10px;margin-bottom:6px;"><div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;">Ma journée</div><div style="font-size:11px;color:var(--text3);">' + (_mj.at ? 'copilot ' + (_mj.etat ? 'connecté' : 'absent') + ' · ' + new Date(_mj.at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '') + ' <a href="#" onclick="chargerMaJournee(true);return false;" style="color:var(--text3);">↻</a></div></div>';
   html += ligne('📅', rdvJour.length ? '<b>' + rdvJour.length + ' RDV aujourd\'hui</b>' + (prochainRdv ? ' · prochain : ' + escapeHtml(prochainRdv.heure + ' ' + prochainRdv.nom) : ' · tous passés') : 'Aucun RDV aujourd\'hui', rdvJour.length ? 'Mes RDV' : '', "mjAller('Mes RDV')");
   html += ligne('📋', prepas.length ? '<b>' + prepas.length + ' prépa(s) à faire</b> · ' + escapeHtml(prepas.slice(0, 3).map(function(p) { return p.nom + ' (' + p.quand + ' : ' + p.manque + ')'; }).join(' · ')) : (_mj.sdRdvs ? 'Prépas à jour pour aujourd\'hui et demain' : 'Prépas : copilot injoignable'), prepas.length ? 'Préparer' : '', "mjAller('Mes RDV')", prepas.length ? 'var(--orange)' : '');
-  html += ligne('✅', aFinaliser.length ? '<b>' + aFinaliser.length + ' RDV à finaliser</b> (passés sans débrief) · ' + escapeHtml(aFinaliser.slice(0, 3).map(function(d) { return d.nom; }).join(' · ')) : 'Rien à finaliser', aFinaliser.length ? 'Finaliser' : '', "mjAller('Mes RDV')", aFinaliser.length ? 'var(--orange)' : '');
+  // « RDV à finaliser » retiré de Ma journée (incompris, et Mes RDV le montre déjà)
   // (la ligne « relances dues » a disparu : le cockpit « Mes appels du jour » la remplace, Close porte les dates)
   html += mjCompteurJourHtml(todayIso);
   html += mjCockpitHtml(todayIso);
   html += mjMailsFinR1Html();
-  html += ligne('⚠️', sansAction.length ? '<b>' + sansAction.length + ' RDV sans prochaine action</b>' : 'Tous les RDV ont une suite', sansAction.length ? 'Compléter' : '', 'sdClasserEnChaine()', sansAction.length ? 'var(--red)' : '');
+  if (sansAction.length) html += ligne('⚠️', '<b>' + sansAction.length + ' RDV sans prochaine action</b>', 'Compléter', 'sdClasserEnChaine()', 'var(--red)');
   // SMS no-show programmés / prêts (copilot /sms)
   var smsActifs = (_smsList || []).filter(function(x) { return x.statut === 'prevu' || x.statut === 'brouillon'; });
   if (smsActifs.length) html += ligne('💬', '<b>' + smsActifs.length + ' SMS no-show</b> · ' + smsActifs.slice(0, 3).map(function(x) { var q = new Date(x.prevu); return escapeHtml(x.nom) + (x.statut === 'prevu' ? ' <span style="color:var(--text3)">part ' + (q.toDateString() === new Date().toDateString() ? 'à ' : q.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric' }) + ' ') + q.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) + '</span>' : ' <span style="color:var(--orange)">prêt, à envoyer</span>'); }).join(' · '), 'Voir', 'sdPopupSms()', smsActifs.some(function(x) { return x.statut === 'brouillon'; }) ? 'var(--orange)' : '');
   var vc = sdVerifCloseRestants();
   if (_verifClose) html += ligne('🔎', vc.length ? '<b>' + vc.length + ' point(s) où Close dit autre chose</b> · ' + escapeHtml(vc.slice(0, 3).map(function(x) { return x.vente ? 'vente ' + x.client : x.client + ' (' + { type: 'type', source: 'source', client: 'nom' }[x.champ] + ')'; }).join(' · ')) : 'Close et SalesDesk sont d\'accord sur les 7 derniers jours', vc.length ? 'Valider' : 'Détail', 'sdPopupVerifClose()', vc.length ? 'var(--orange)' : 'var(--green)');
-  if (incidents.length) incidents.forEach(function(i) { html += ligne('🔌', '<b>' + escapeHtml(i.t) + '</b> — ' + escapeHtml(i.a), 'État', "mjAller('Objectifs'); showSettingsSection('etat', document.querySelector('.settings-nav-item[data-sec=etat]'))", 'var(--red)'); });
-  else html += ligne('🔌', 'Synchronisations OK (copilot, Supabase, Calendly)', '', '', 'var(--green)');
+  if (incidents.length) incidents.forEach(function(i) { html += ligne('🔌', '<b>' + escapeHtml(i.t) + '</b> — ' + escapeHtml(i.a), 'Contrôle', "mjAller('Contrôle')", 'var(--red)'); }); // OK = rien (c'est dans Contrôle)
   el.innerHTML = html;
 }
 // ── APPELS CLOSE (copilot local → /close/appels) : jour, semaine, par mois ─────────────
