@@ -86,6 +86,30 @@ nav { background: var(--surface); border-bottom: 1px solid var(--border); paddin
 .nav-tab { padding: 6px 14px; border-radius: 7px; cursor: pointer; font-size: 13px; font-weight: 500; color: var(--text2); border: none; background: none; transition: all 0.15s; white-space: nowrap; }
 .nav-tab:hover { background: var(--surface2); color: var(--text); }
 .nav-tab.active { background: var(--accent-bg); color: var(--accent); }
+.nav-more { position: relative; }
+.nav-more-menu { display: none; position: absolute; top: calc(100% + 6px); left: 0; min-width: 250px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 14px 40px rgba(0,0,0,.14); padding: 6px; z-index: 1100; }
+.nav-more.open .nav-more-menu { display: block; }
+.nav-more-menu .nav-tab { display: flex; width: 100%; text-align: left; align-items: baseline; gap: 8px; border-radius: 8px; padding: 7px 10px; }
+.nav-more-menu .nav-tab small { margin-left: auto; font-size: 11px; color: var(--text3); font-weight: 500; }
+.nav-more-grp { font-size: 10.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text3); padding: 8px 10px 3px; }
+.nav-more-btn.sub { background: var(--accent-bg); color: var(--accent); }
+/* Prospects */
+.pr-tools { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 14px; }
+.pr-tools input[type=search] { font-family: var(--font); font-size: 13.5px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); color: var(--text); min-width: 260px; }
+.pr-filtres { display: flex; gap: 6px; flex-wrap: wrap; }
+.pr-f { border: 1px solid var(--border); background: var(--surface); color: var(--text2); font-family: var(--font); font-size: 12.5px; font-weight: 600; padding: 5px 10px; border-radius: 999px; cursor: pointer; }
+.pr-f b { font-weight: 700; color: var(--text3); margin-left: 4px; }
+.pr-f.on { background: var(--accent); border-color: var(--accent); color: #fff; } .pr-f.on b { color: rgba(255,255,255,.8); }
+.pr-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.pr-table th { text-align: left; font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--text3); padding: 8px 10px; border-bottom: 1px solid var(--border); }
+.pr-table td { padding: 10px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+.pr-table tr:hover td { background: var(--surface2); }
+.pr-table .nom { font-weight: 700; cursor: pointer; color: var(--text); }
+.pr-table .sub { font-size: 12px; color: var(--text3); margin-top: 1px; }
+.pr-table .next { font-size: 13px; } .pr-table .next.due { color: var(--red); font-weight: 600; }
+.pr-table .d { font-family: var(--mono); font-size: 12.5px; color: var(--text2); white-space: nowrap; }
+.pr-acts { display: flex; gap: 6px; justify-content: flex-end; }
+.pr-vide { color: var(--text3); font-style: italic; padding: 20px 10px; }
 .nav-right { display: flex; align-items: center; gap: 10px; margin-left: auto; }
 .period-select { display: flex; align-items: center; gap: 6px; }
 .period-select select { font-family: var(--font); font-size: 13px; border: 1px solid var(--border); border-radius: 7px; padding: 5px 10px; background: var(--surface); color: var(--text); cursor: pointer; }
@@ -756,17 +780,25 @@ select.form-input { cursor: pointer; }
     SalesDesk Pro
   </a>
   <div class="nav-tabs">
-    <button class="nav-tab active" onclick="showPage('aujourdhui',this);togglePeriodSelector(false);renderAujourdhui()">Aujourd'hui</button>
-    <button class="nav-tab" onclick="showPage('mesrdv',this);togglePeriodSelector(false);ouvrirCopilot()">🎯 Mes RDV</button>
-    <button class="nav-tab" onclick="showPage('relances',this);togglePeriodSelector(false);renderRelancesPage()">📞 Relances<span id="nav-relances-badge" style="display:none;margin-left:6px;background:var(--red);color:#fff;font-size:10px;padding:1px 6px;border-radius:99px;font-weight:700;"></span></button>
-    <button class="nav-tab" onclick="showPage('daily',this);renderDaily();dailyCalInit();
-  initFromSupabase();togglePeriodSelector(false)">⚡ Quotidien</button>
-    <button class="nav-tab" onclick="showPage('analytics',this);togglePeriodSelector(true);chargerAppelsClose()">📊 Analytics</button>
-    <button class="nav-tab" onclick="showPage('global',this);renderGlobal();togglePeriodSelector(false)">🌐 Global</button>
-    <button class="nav-tab" onclick="showPage('pipeline',this);togglePeriodSelector(false);renderPipeline()">📋 Pipeline</button>
-    <button class="nav-tab" onclick="showPage('rdvtable',this);togglePeriodSelector(true)">📅 RDV Table</button>
-    <button class="nav-tab" onclick="showPage('controle',this);togglePeriodSelector(false);renderControle(true)">🛡 Contrôle<span id="nav-controle-badge" style="display:none;margin-left:6px;background:var(--red);color:#fff;font-size:10px;padding:1px 6px;border-radius:99px;font-weight:700;"></span></button>
-    <button class="nav-tab" onclick="showPage('settings',this);togglePeriodSelector(false)">⚙️ Objectifs & Config<span id="nav-settings-dot" style="display:none;width:7px;height:7px;border-radius:50%;background:var(--red);margin-left:6px;vertical-align:middle;"></span></button>
+    <button class="nav-tab active" data-page="aujourdhui" onclick="showPage('aujourdhui',this);togglePeriodSelector(false);renderAujourdhui()">Aujourd'hui</button>
+    <button class="nav-tab" data-page="prospects" onclick="showPage('prospects',this);togglePeriodSelector(false);renderProspects()">Prospects</button>
+    <button class="nav-tab" data-page="relances" onclick="showPage('relances',this);togglePeriodSelector(false);renderRelancesPage()">Suivi<span id="nav-relances-badge" style="display:none;margin-left:6px;background:var(--red);color:#fff;font-size:10px;padding:1px 6px;border-radius:99px;font-weight:700;"></span></button>
+    <button class="nav-tab" data-page="analytics" onclick="showPage('analytics',this);togglePeriodSelector(true);chargerAppelsClose()">Performance</button>
+    <div class="nav-more" id="nav-more">
+      <button class="nav-tab nav-more-btn" id="nav-more-btn" onclick="navPlus(event)">Plus ▾<span id="nav-more-dot" style="display:none;width:7px;height:7px;border-radius:50%;background:var(--red);margin-left:6px;vertical-align:middle;"></span></button>
+      <div class="nav-more-menu" id="nav-more-menu">
+        <div class="nav-more-grp">Au quotidien</div>
+        <button class="nav-tab" data-page="mesrdv" onclick="showPage('mesrdv',this);togglePeriodSelector(false);ouvrirCopilot()">🎯 Mes RDV <small>agenda + copilot</small></button>
+        <button class="nav-tab" data-page="daily" onclick="showPage('daily',this);renderDaily();dailyCalInit();initFromSupabase();togglePeriodSelector(false)">⚡ Quotidien <small>vue jour détaillée</small></button>
+        <button class="nav-tab" data-page="pipeline" onclick="showPage('pipeline',this);togglePeriodSelector(false);renderPipeline()">📋 Pipeline <small>kanban</small></button>
+        <button class="nav-tab" data-page="rdvtable" onclick="showPage('rdvtable',this);togglePeriodSelector(true)">📅 RDV Table <small>tableau éditable</small></button>
+        <div class="nav-more-grp">Analyse</div>
+        <button class="nav-tab" data-page="global" onclick="showPage('global',this);renderGlobal();togglePeriodSelector(false)">🌐 Global <small>vue annuelle</small></button>
+        <div class="nav-more-grp">Réglages</div>
+        <button class="nav-tab" data-page="controle" onclick="showPage('controle',this);togglePeriodSelector(false);renderControle(true)">🛡 Contrôle<span id="nav-controle-badge" style="display:none;margin-left:6px;background:var(--red);color:#fff;font-size:10px;padding:1px 6px;border-radius:99px;font-weight:700;"></span></button>
+        <button class="nav-tab" data-page="settings" onclick="showPage('settings',this);togglePeriodSelector(false)">⚙️ Objectifs & Config<span id="nav-settings-dot" style="display:none;width:7px;height:7px;border-radius:50%;background:var(--red);margin-left:6px;vertical-align:middle;"></span></button>
+      </div>
+    </div>
   </div>
   <div class="nav-right">
     <div class="fc-search" id="fc-search">
@@ -787,7 +819,7 @@ select.form-input { cursor: pointer; }
     <div class="theme-pick" id="theme-pick" title="Thème"><button data-t="light" onclick="setTheme('light')" title="Clair">☀️</button><button data-t="dark" onclick="setTheme('dark')" title="Bleu nuit">🌙</button><button data-t="system" onclick="setTheme('system')" title="Système">⚙</button></div>
     <span class="sync-status" style="font-size:11px;font-weight:600;margin-left:8px;transition:color .3s;"></span>
     <button class="btn btn-sm btn-primary" onclick="openModal('newRdvModal')">+ Nouveau RDV</button>
-    <div class="avatar" onclick="showPage('settings', document.querySelector('.nav-tab:last-child'))">N</div>
+    <div class="avatar" onclick="showPage('settings', document.querySelector('.nav-tab[data-page=settings]'))">N</div>
   </div>
 </nav>
 
@@ -809,6 +841,17 @@ select.form-input { cursor: pointer; }
         <div class="auj-card"><div class="auj-card-head"><h2>À valider</h2></div><div id="auj-valider"></div></div>
         <div class="auj-card auj-comm"><div class="auj-card-head"><h2>Mes commissions</h2><a onclick="mjAller('Analytics')">Détail ›</a></div><div id="auj-commission"></div></div>
       </aside>
+    </div>
+  </div>
+</div>
+<!-- ===================== PROSPECTS (liste de toutes les fiches, état et prochaine étape) ===================== -->
+<div id="page-prospects" class="page">
+  <div class="auj">
+    <header class="auj-head"><div><h1 class="auj-h1" style="margin:0;">Prospects</h1><div class="auj-resume" id="pr-resume">Tous ceux que tu as vus ou que tu vas voir, avec leur état et la prochaine étape.</div></div>
+      <div class="auj-head-actions"><button class="btn" onclick="mjAller('Pipeline')">Pipeline</button><button class="btn" onclick="mjAller('RDV Table')">RDV Table</button><button class="btn btn-primary" onclick="openModal('newRdvModal')">+ Nouveau RDV</button></div></header>
+    <div class="auj-card">
+      <div class="pr-tools"><input type="search" id="pr-q" placeholder="🔍 Nom, email, réseau…" autocomplete="off" oninput="renderProspects()"><div class="pr-filtres" id="pr-filtres"></div></div>
+      <div id="pr-liste"></div>
     </div>
   </div>
 </div>
@@ -5793,11 +5836,87 @@ function sdValiderMessageCopilot(m) {
 const _saveStoreAvantPont = saveStore;
 saveStore = function (store) { _saveStoreAvantPont(store); sdEnvoyerEtatCopilot(); };
 
+// Menu « Plus » de la nav : vues avancées (secondaires) ; le bouton se colore quand une de ses pages est ouverte
+function navPlus(ev) { if (ev) ev.stopPropagation(); document.getElementById('nav-more').classList.toggle('open'); }
+document.addEventListener('click', function(ev) { var m = document.getElementById('nav-more'); if (m && !m.contains(ev.target)) m.classList.remove('open'); });
+function navMajPlus() {
+  var m = document.getElementById('nav-more'); if (!m) return;
+  var actif = m.querySelector('.nav-more-menu .nav-tab.active'); var b = document.getElementById('nav-more-btn');
+  b.classList.toggle('sub', !!actif); b.childNodes[0].nodeValue = actif ? (actif.childNodes[0].nodeValue || '').trim() + ' ▾' : 'Plus ▾';
+  var dotC = document.getElementById('nav-controle-badge'), dotS = document.getElementById('nav-settings-dot'), dot = document.getElementById('nav-more-dot');
+  if (dot) dot.style.display = ((dotC && dotC.style.display !== 'none' && dotC.textContent) || (dotS && dotS.style.display !== 'none')) ? 'inline-block' : 'none';
+}
+setInterval(navMajPlus, 4000);
+// ── Prospects : une ligne par personne (dernier R1), état + prochaine étape, recherche et filtres ──
+var _prFiltre = 'tous';
+function prSetFiltre(f) { _prFiltre = f; renderProspects(); }
+function prEtatDe(r, today, todayIso, taskIdx) {
+  // → { etat, lib, cls, next, due, k } — k = ordre d'urgence (0 = à traiter maintenant)
+  var pres = String(r.presence || '').trim(), res = String(r.result || '').trim(), d = parseDateFR(r.date);
+  var futur = d && d >= today && !pres;
+  if (futur) return { etat: 'avenir', lib: 'RDV à venir', cls: 'r2', next: (r.source === 'R2' ? 'R2' : 'R1') + ' le ' + r.date + (r.heure ? ' à ' + r.heure : ''), due: false, k: 3 };
+  if (!pres && d && d < today) return { etat: 'atraiter', lib: 'À terminer', cls: 'warn', next: 'RDV du ' + r.date + ' sans présence', due: true, k: 0 };
+  var m = (typeof sdManque === 'function' && d && d >= new Date(2026, 2, 1)) ? sdManque(r) : ''; // comme « RDV à compléter » : seulement depuis mars 2026
+  var cat = classifyRow(r);
+  var dR2 = r.dateR2 && String(r.dateR2).trim() ? parseDateFR(r.dateR2) : null;
+  var t = taskIdx[fcNormNom(r.client)];
+  var rel = r.relanceDate && !r.relanceFait ? r.relanceDate : (t ? t.date : '');
+  if (cat === 'signed') return { etat: 'signe', lib: 'Signé', cls: 'ok', next: r.dateSignature ? 'signé le ' + r.dateSignature : '', due: false, k: 6 };
+  if (m && m !== 'suite') return { etat: 'atraiter', lib: 'À compléter', cls: 'warn', next: 'il manque ' + (SD_MANQUE_LIB[m] || m), due: true, k: 0 };
+  if (dR2 && dR2 >= today) return { etat: 'interesse', lib: 'R2 calé', cls: 'r2', next: 'R2 le ' + r.dateR2 + (r.heureR2 ? ' à ' + r.heureR2 : ''), due: false, k: 3 };
+  if (rel) { var due = rel <= todayIso; return { etat: 'relance', lib: due ? 'Rappel dû' : 'Rappel prévu', cls: due ? 'warn' : '', next: (due ? 'à rappeler depuis le ' : 'rappel le ') + fcFrDepuisIso(rel) + (r.relanceCond ? ' · ' + r.relanceCond : (t && t.texte && !/^follow ?up/i.test(t.texte) ? ' · ' + t.texte : '')), due: due, k: due ? 1 : 4 }; }
+  if (cat === 'interested') return { etat: 'interesse', lib: 'Intéressé', cls: 'warn', next: 'sans suite : R2 ou rappel ?', due: true, k: 1 };
+  if (cat === 'noshow') return { etat: 'noshow', lib: pres || 'No show', cls: 'warn', next: 'aucune relance posée', due: false, k: 5 };
+  if (cat === 'nosigned') { var rn = r.result === 'Promo' ? 'promo' : (r.nosignRaison || ''); var L = { pasinteresse: 'Pas intéressé', pasbudget: 'Pas de budget', promo: 'Si promo', carte: 'Carte de prospection', rent: 'Au RENT', ghost: 'Ghost', relancer: 'À relancer' }; return rn === 'pasinteresse' ? { etat: 'perdu', lib: 'Pas intéressé', cls: '', next: 'dossier clos', due: false, k: 8 } : { etat: 'arelancer', lib: L[rn] || 'Non signé', cls: '', next: rn ? 'à retenter (' + (L[rn] || rn).toLowerCase() + ')' : 'non signé', due: false, k: 7 }; }
+  return { etat: 'autre', lib: pres || '—', cls: '', next: '', due: false, k: 9 };
+}
+function renderProspects() {
+  var page = document.getElementById('page-prospects'); if (!page || !page.classList.contains('active')) return;
+  var q = fcNormNom((document.getElementById('pr-q') || {}).value || '');
+  var store = loadStore(), today = new Date(); today.setHours(0, 0, 0, 0); var todayIso = rlIso(new Date());
+  // index des tâches Close par nom (si chargées)
+  var taskIdx = {}; ((_tachesClose && _tachesClose.taches) || []).forEach(function(t) { [t.contact].concat(t.contacts || []).forEach(function(c) { var n = fcNormNom(c || ''); if (n && (!taskIdx[n] || t.date < taskIdx[n].date)) taskIdx[n] = t; }); });
+  // une entrée par personne : dernier R1 (les R2 enrichissent)
+  var par = {};
+  Object.keys(store).forEach(function(k) {
+    if (!/^\d{4}-\d{2}$/.test(k) || !Array.isArray(store[k])) return;
+    store[k].forEach(function(r, i) {
+      if (!r || !r.client) return; var n = fcNormNom(r.client); var g = par[n] || (par[n] = { nom: r.client, email: '', rows: [], n: 0 });
+      g.n++; if (r.email && !g.email) g.email = String(r.email).toLowerCase().trim();
+      g.rows.push(Object.assign({}, r, { _monthKey: k, _storeKey: i }));
+    });
+  });
+  var liste = Object.keys(par).map(function(n) {
+    var g = par[n]; g.rows.sort(function(a, b) { return (parseDateFR(b.date) || 0) - (parseDateFR(a.date) || 0); });
+    var r1 = g.rows.find(function(x) { return x.source !== 'R2'; }) || g.rows[0], last = g.rows[0];
+    var et = prEtatDe(r1, today, todayIso, taskIdx);
+    if (last !== r1 && last.source === 'R2') { var pres2 = String(last.presence || '').trim(); var d2 = parseDateFR(last.date); if (d2 && d2 >= today && !pres2) et = { etat: 'interesse', lib: 'R2 calé', cls: 'r2', next: 'R2 le ' + last.date + (last.heure ? ' à ' + last.heure : ''), due: false, k: 3 }; else if (last.result === 'Signé') et = { etat: 'signe', lib: 'Signé', cls: 'ok', next: 'au R2 du ' + last.date, due: false, k: 6 }; }
+    return { nom: g.nom, email: g.email, type: r1.type || '', source: r1.source || '', dernier: last.date, dernierD: parseDateFR(last.date) || new Date(0), r2: last.source === 'R2', n: g.n, et: et, r1: r1 };
+  });
+  var compte = {}; liste.forEach(function(x) { compte[x.et.etat] = (compte[x.et.etat] || 0) + 1; });
+  var F = [['tous', 'Tous'], ['atraiter', 'À traiter'], ['interesse', 'Intéressés'], ['relance', 'Rappels'], ['avenir', 'À venir'], ['noshow', 'No-shows'], ['arelancer', 'À retenter'], ['signe', 'Signés'], ['perdu', 'Pas intéressés']];
+  document.getElementById('pr-filtres').innerHTML = F.map(function(f) { var c = f[0] === 'tous' ? liste.length : (compte[f[0]] || 0); if (!c && f[0] !== 'tous') return ''; return '<button class="pr-f' + (_prFiltre === f[0] ? ' on' : '') + '" onclick="prSetFiltre(\'' + f[0] + '\')">' + f[1] + '<b>' + c + '</b></button>'; }).join('');
+  var vis = liste.filter(function(x) { return (_prFiltre === 'tous' || x.et.etat === _prFiltre) && (!q || fcNormNom(x.nom).indexOf(q) >= 0 || (x.email || '').indexOf(q) >= 0 || fcNormNom(x.type).indexOf(q) >= 0); });
+  vis.sort(function(a, b) { return (a.et.k - b.et.k) || (b.dernierD - a.dernierD); });
+  document.getElementById('pr-resume').textContent = liste.length + ' prospects · ' + (compte.atraiter || 0) + ' à traiter · ' + (compte.interesse || 0) + ' intéressés · ' + (compte.relance || 0) + ' rappels · ' + (compte.signe || 0) + ' signés';
+  var max = 150;
+  document.getElementById('pr-liste').innerHTML = !vis.length ? '<div class="pr-vide">Personne ne correspond.</div>'
+    : '<table class="pr-table"><thead><tr><th>Prospect</th><th>Dernier RDV</th><th>État</th><th>Prochaine étape</th><th></th></tr></thead><tbody>' + vis.slice(0, max).map(function(x) {
+      var nomJs = JSON.stringify(x.nom).replace(/"/g, '&quot;'), emailJs = JSON.stringify(x.email || '').replace(/"/g, '&quot;');
+      var act = x.et.etat === 'atraiter' && !String(x.r1.presence || '').trim() ? '<button class="btn btn-sm btn-primary" onclick="sdApresRdv(' + JSON.stringify(x.r1._monthKey).replace(/"/g, '&quot;') + ',' + x.r1._storeKey + ')">Terminer</button>' : '';
+      return '<tr><td><div class="nom" onclick="ouvrirFicheClient(' + nomJs + ',' + emailJs + ')">' + escapeHtml(x.nom) + '</div><div class="sub">' + escapeHtml([x.type, x.source, x.n > 1 ? x.n + ' RDV' : ''].filter(Boolean).join(' · ')) + '</div></td>'
+        + '<td class="d">' + escapeHtml(x.dernier || '') + (x.r2 ? ' <span class="auj-chip r2">R2</span>' : '') + '</td>'
+        + '<td><span class="auj-chip ' + x.et.cls + '">' + escapeHtml(x.et.lib) + '</span></td>'
+        + '<td class="next' + (x.et.due ? ' due' : '') + '">' + escapeHtml(x.et.next) + '</td>'
+        + '<td><div class="pr-acts">' + act + '<button class="btn btn-sm" onclick="ouvrirFicheClient(' + nomJs + ',' + emailJs + ')">Fiche</button></div></td></tr>';
+    }).join('') + '</tbody></table>' + (vis.length > max ? '<div class="pr-vide">' + (vis.length - max) + ' de plus — affine la recherche.</div>' : '');
+}
 function showPage(id, btn) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
   document.getElementById('page-'+id).classList.add('active');
-  if (btn) btn.classList.add('active');
+  if (btn) btn.classList.add('active'); else { var t = document.querySelector('.nav-tab[data-page="' + id + '"]'); if (t) t.classList.add('active'); }
+  try { document.getElementById('nav-more').classList.remove('open'); navMajPlus(); } catch (e) {}
 }
 
 function updatePeriod() {
@@ -9629,7 +9748,7 @@ function sdVerifCloseAppliquer(ignorerAussi) {
   saveStore(store); fermerModalDoublon(); try { refreshAll(); } catch (e) {} renderMaJournee();
   if (typeof showCopyToast === 'function') showCopyToast(n ? '✓ Close : ' + n + ' correction(s) appliquée(s) — ' + msgs.slice(0, 4).join(', ') : 'Rien appliqué');
 }
-function mjAller(page) { var b = [...document.querySelectorAll('.nav-tab')].find(function(x) { return x.textContent.indexOf(page) >= 0; }); if (b) b.click(); }
+function mjAller(page) { var map = { 'Relances': 'relances', 'Suivi': 'relances', 'Analytics': 'analytics', 'Performance': 'analytics', 'Mes RDV': 'mesrdv', 'Contrôle': 'controle', 'Pipeline': 'pipeline', 'RDV Table': 'rdvtable', 'Quotidien': 'daily', 'Prospects': 'prospects' }; var b = (map[page] && document.querySelector('.nav-tab[data-page="' + map[page] + '"]')) || [...document.querySelectorAll('.nav-tab')].find(function(x) { return x.textContent.indexOf(page) >= 0; }); if (b) b.click(); }
 // ── Mail de fin de R1 : « Terminer » → le copilot attend le compte rendu Claap → brouillon dans Close → ici : Envoyer · Modifier · Annuler ──
 var _mailsFinR1 = null, _mailsFinR1At = 0;
 function sdDemanderMailFinR1(row, resultatCopilot, email) {
@@ -11411,8 +11530,9 @@ function closePrepRdv() {
   document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
   document.getElementById('page-daily').classList.add('active');
   // Réactiver l'onglet Quotidien
-  const dailyTab = document.querySelector('.nav-tab');
+  const dailyTab = document.querySelector('.nav-tab[data-page=daily]');
   if (dailyTab) dailyTab.classList.add('active');
+  try { navMajPlus(); } catch (e) {}
   renderDaily();
 }
 
@@ -12018,8 +12138,9 @@ function closePostRdv() {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
   document.getElementById('page-daily').classList.add('active');
-  const dailyTab = document.querySelector('.nav-tab');
+  const dailyTab = document.querySelector('.nav-tab[data-page=daily]');
   if (dailyTab) dailyTab.classList.add('active');
+  try { navMajPlus(); } catch (e) {}
   renderDaily();
 }
 
