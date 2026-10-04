@@ -525,6 +525,26 @@ main { max-width: 100%; margin: 0; padding: 6px 8px; }
 .auj-pilot .pp b { color: var(--text); font-weight: 700; } .auj-pilot .pp.ok b { color: var(--green); }
 .auj-pilot .pp button { width: 18px; height: 18px; border-radius: 5px; border: 1px solid var(--border); background: var(--surface2); color: var(--text); font-size: 12px; line-height: 1; cursor: pointer; padding: 0; }
 .auj-pilot a { color: var(--accent); cursor: pointer; font-weight: 600; }
+/* Finition Aujourd'hui : une action principale par ligne, méta en texte, alerte technique discrète */
+.auj-head { align-items: flex-start; margin-bottom: 22px; }
+.auj-h1 { margin: 0 0 4px; }
+.auj-meta { font-size: 12.5px; color: var(--text2); }
+.auj-rdv .chips { align-items: center; gap: 8px; margin-top: 4px; }
+.auj-rdv .h { font-family: var(--font); font-variant-numeric: tabular-nums; font-weight: 700; font-size: 15px; }
+.auj-rdv .act .btn, .auj-item .btn, .auj-brief .btn { height: 30px; padding: 0 12px; display: inline-flex; align-items: center; font-size: 12.5px; }
+.auj-rdv .act .auj-ico { width: 30px; padding: 0; justify-content: center; color: var(--text2); }
+.auj-brief.vide { background: transparent; border: 0; padding: 0 0 2px; margin: -4px 0 8px; }
+.auj-acts { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
+.auj-hors { margin-top: 12px; padding-top: 10px; border-top: 1px dashed var(--border); }
+.auj-hors .ht { font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--text3); margin-bottom: 6px; }
+.auj-hors .hl { display: flex; gap: 10px; align-items: center; padding: 4px 0; font-size: 13.5px; }
+.auj-hors .hn { font-weight: 600; cursor: pointer; color: var(--text2); } .auj-hors .hn:hover { color: var(--accent); }
+.auj-hors .auj-chip { margin-left: auto; }
+.auj-card-head a { color: var(--text2); } .auj-card-head a:hover { color: var(--accent); }
+.auj-count { background: var(--surface2); color: var(--text2); }
+#controle-alerte-auj { margin: 0 0 8px; padding: 7px 10px; font-size: 12px; border-radius: 10px; gap: 8px; }
+#controle-alerte-auj .btn { height: 24px; padding: 0 8px; font-size: 11.5px; }
+.theme-pick button[data-t="system"] { width: auto; padding: 0 8px; font-size: 11px; font-weight: 600; }
 .auj-nav { display: inline-flex; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
 .auj-nav .btn { border: 0; border-radius: 0; border-right: 1px solid var(--border); } .auj-nav .btn:last-child { border-right: 0; }
 .auj-seg { display: inline-flex; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: var(--surface); }
@@ -556,6 +576,12 @@ main { max-width: 100%; margin: 0; padding: 6px 8px; }
 .auj-sem .e .ep { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; background: var(--text3); } .auj-sem .e .ep.ok { background: var(--green); } .auj-sem .e .ep.warn { background: var(--orange); } .auj-sem .e .ep.r2 { background: var(--purple); }
 .auj-sem .vide { font-size: 12px; color: var(--text3); font-style: italic; }
 @media (max-width: 980px) { .auj-sem { grid-template-columns: repeat(2, minmax(0, 1fr)); } .auj-sem.sept { grid-template-columns: repeat(2, minmax(0, 1fr)); } .auj-rdv { grid-template-columns: 56px minmax(0, 1fr); } .auj-rdv .act, .auj-rdv .tog { grid-column: 2; } .auj-brief { grid-column: 1 / -1; } }
+.auj-sem .j { min-height: 190px; }
+.auj-sem .e { align-items: flex-start; } .auj-sem .e .ep { margin-top: 6px; }
+.auj-sem .e .en { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.3; }
+.auj-sem .e .eh { font-family: var(--font); font-variant-numeric: tabular-nums; padding-top: 1px; }
+.auj-head { flex-wrap: nowrap; } .auj-head > div:first-child { min-width: 0; flex: 1; } .auj-head-actions { flex-shrink: 0; }
+.auj-partiel { font-size: 12px; color: var(--orange); margin-top: 2px; }
 .auj-comm .big { font-size: 24px; font-weight: 800; color: var(--text); letter-spacing: -.01em; }
 .auj-comm .big small { font-size: 14px; font-weight: 500; color: var(--text2); }
 .auj-bar { height: 8px; background: var(--surface2); border-radius: 999px; overflow: hidden; margin: 10px 0 4px; }
@@ -853,13 +879,13 @@ select.form-input { cursor: pointer; }
       <button class="nav-tab nav-more-btn" id="nav-more-btn" onclick="navPlus(event)">Plus ▾<span id="nav-more-dot" style="display:none;width:7px;height:7px;border-radius:50%;background:var(--red);margin-left:6px;vertical-align:middle;"></span></button>
       <div class="nav-more-menu" id="nav-more-menu">
         <div class="nav-more-grp">Mes données</div>
-        <button class="nav-tab" data-page="pipeline" onclick="showPage('pipeline',this);togglePeriodSelector(false);renderPipeline()">📋 Pipeline <small>kanban</small></button>
-        <button class="nav-tab" data-page="rdvtable" onclick="showPage('rdvtable',this);togglePeriodSelector(true)">📅 RDV Table <small>tableau éditable</small></button>
+        <button class="nav-tab" data-page="pipeline" onclick="showPage('pipeline',this);togglePeriodSelector(false);renderPipeline()"><span class="nav-ico">▤</span>Pipeline <small>kanban</small></button>
+        <button class="nav-tab" data-page="rdvtable" onclick="showPage('rdvtable',this);togglePeriodSelector(true)"><span class="nav-ico">▥</span>RDV Table <small>tableau éditable</small></button>
         <div class="nav-more-grp">Analyse</div>
-        <button class="nav-tab" data-page="global" onclick="showPage('global',this);renderGlobal();togglePeriodSelector(false)">🌐 Global <small>vue annuelle</small></button>
+        <button class="nav-tab" data-page="global" onclick="showPage('global',this);renderGlobal();togglePeriodSelector(false)"><span class="nav-ico">◎</span>Global <small>vue annuelle</small></button>
         <div class="nav-more-grp grp-bas">Réglages</div>
-        <button class="nav-tab" data-page="controle" onclick="showPage('controle',this);togglePeriodSelector(false);renderControle(true)">🛡 Contrôle<span id="nav-controle-badge" style="display:none;margin-left:6px;background:var(--red);color:#fff;font-size:10px;padding:1px 6px;border-radius:99px;font-weight:700;"></span></button>
-        <button class="nav-tab" data-page="settings" onclick="showPage('settings',this);togglePeriodSelector(false)">⚙️ Objectifs & Config<span id="nav-settings-dot" style="display:none;width:7px;height:7px;border-radius:50%;background:var(--red);margin-left:6px;vertical-align:middle;"></span></button>
+        <button class="nav-tab" data-page="controle" onclick="showPage('controle',this);togglePeriodSelector(false);renderControle(true)"><span class="nav-ico">⛨</span>Contrôle<span id="nav-controle-badge" style="display:none;margin-left:6px;background:var(--red);color:#fff;font-size:10px;padding:1px 6px;border-radius:99px;font-weight:700;"></span></button>
+        <button class="nav-tab" data-page="settings" onclick="showPage('settings',this);togglePeriodSelector(false)"><span class="nav-ico">⚙</span>Objectifs & Config<span id="nav-settings-dot" style="display:none;width:7px;height:7px;border-radius:50%;background:var(--red);margin-left:6px;vertical-align:middle;"></span></button>
       </div>
     </div>
   </div>
@@ -879,7 +905,7 @@ select.form-input { cursor: pointer; }
         <option>2024</option><option>2025</option><option selected>2026</option>
       </select>
     </div>
-    <div class="theme-pick" id="theme-pick" title="Thème"><button data-t="light" onclick="setTheme('light')" title="Clair">☀️</button><button data-t="dark" onclick="setTheme('dark')" title="Bleu nuit">🌙</button><button data-t="system" onclick="setTheme('system')" title="Système">⚙</button></div>
+    <div class="theme-pick" id="theme-pick" title="Thème"><button data-t="light" onclick="setTheme('light')" title="Clair">☀️</button><button data-t="dark" onclick="setTheme('dark')" title="Bleu nuit">🌙</button><button data-t="system" onclick="setTheme('system')" title="Suit le thème de l'appareil">Auto</button></div>
     <span class="sync-status" style="font-size:11px;font-weight:600;margin-left:8px;transition:color .3s;"></span>
     <button class="btn btn-sm btn-primary" id="nav-nouveau-rdv" style="display:none" onclick="openModal('newRdvModal')">+ Nouveau RDV</button>
     <div class="avatar" onclick="showPage('settings', document.querySelector('.nav-tab[data-page=settings]'))">N</div>
@@ -889,9 +915,8 @@ select.form-input { cursor: pointer; }
 <!-- ===================== AUJOURD'HUI (écran principal, direction RealAdvisor) ===================== -->
 <div id="page-aujourdhui" class="page active">
   <div class="auj">
-    <div id="controle-alerte-auj" class="controle-alerte" style="display:none;"></div>
     <header class="auj-head">
-      <div><h1 class="auj-h1" id="auj-titre">Aujourd'hui</h1><div class="auj-date" id="auj-date">—</div><div class="auj-resume" id="auj-resume">—</div><div class="auj-pilot" id="auj-pilot"></div></div>
+      <div><h1 class="auj-h1" id="auj-titre">Aujourd'hui</h1><div class="auj-date" id="auj-date">—</div><div class="auj-resume" id="auj-resume">—</div><div class="auj-partiel" id="auj-partiel" style="display:none"></div><div class="auj-pilot" id="auj-pilot"></div></div>
       <div class="auj-head-actions">
         <div class="auj-nav"><button class="btn" title="Jour précédent" onclick="aujAller(-1)">‹</button><button class="btn" onclick="aujAller('auj')">Aujourd'hui</button><button class="btn" title="Jour suivant" onclick="aujAller(1)">›</button></div>
         <div class="auj-seg" id="auj-seg"><button class="on" onclick="aujVue('jour')">Jour</button><button onclick="aujVue('semaine')">Semaine</button></div>
@@ -906,6 +931,7 @@ select.form-input { cursor: pointer; }
       </section>
       <aside class="auj-side">
         <div class="auj-card"><div class="auj-card-head"><h2>À faire <span id="auj-afaire-quand">aujourd'hui</span></h2><a onclick="mjAller('Relances')">Voir tout le suivi ›</a></div><div id="auj-suivre"></div></div>
+        <div id="controle-alerte-auj" class="controle-alerte" style="display:none;"></div>
         <div class="auj-sync" id="auj-sync"></div>
       </aside>
     </div>
@@ -5892,7 +5918,7 @@ document.addEventListener('click', function(ev) { var m = document.getElementByI
 function navMajPlus() {
   var m = document.getElementById('nav-more'); if (!m) return;
   var actif = m.querySelector('.nav-more-menu .nav-tab.active'); var b = document.getElementById('nav-more-btn');
-  b.classList.toggle('sub', !!actif); b.childNodes[0].nodeValue = actif ? (actif.childNodes[0].nodeValue || '').trim() + ' ▾' : 'Plus ▾';
+  b.classList.toggle('sub', !!actif); b.childNodes[0].nodeValue = actif ? (actif.textContent || '').replace(/[▤▥◎⛨⚙]/g, '').split('  ')[0].trim().slice(0, 20) + ' ▾' : 'Plus ▾';
   var dotC = document.getElementById('nav-controle-badge'), dotS = document.getElementById('nav-settings-dot'), dot = document.getElementById('nav-more-dot');
   if (dot) dot.style.display = ((dotC && dotC.style.display !== 'none' && dotC.textContent) || (dotS && dotS.style.display !== 'none')) ? 'inline-block' : 'none';
 }
@@ -9843,6 +9869,7 @@ function renderAujourdhui() {
   document.getElementById('auj-titre').textContent = _auj.vue === 'semaine' ? (lundi === rlLundiDe(todayIso) ? 'Cette semaine' : (lundi === rlPlus(rlLundiDe(todayIso), 7) ? 'Semaine prochaine' : 'Semaine')) : (estAuj ? 'Aujourd\'hui' : (jour === rlPlus(todayIso, 1) ? 'Demain' : (jour === rlPlus(todayIso, -1) ? 'Hier' : dJ.toLocaleDateString('fr-FR', { weekday: 'long' }))));
   document.getElementById('auj-date').textContent = _auj.vue === 'semaine' ? 'Semaine du ' + new Date(lundi + 'T12:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' }) + ' au ' + new Date(jours[4] + 'T12:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) : dJ.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
   document.querySelectorAll('#auj-seg button').forEach(function(b, i) { b.classList.toggle('on', (i === 0) === (_auj.vue === 'jour')); });
+  try { var fl = document.querySelectorAll('.auj-nav .btn'); fl[0].title = _auj.vue === 'semaine' ? 'Semaine précédente' : 'Jour précédent'; fl[2].title = _auj.vue === 'semaine' ? 'Semaine suivante' : 'Jour suivant'; } catch (e) {}
   // ── Consignes du jour (calculées par le pilotage, affichées en une ligne) : Outbound du jour, Outbound restants de la semaine, absences ──
   try {
     var T = function(id) { var e = document.getElementById(id); return e ? String(e.textContent || '').trim() : ''; };
@@ -9855,7 +9882,10 @@ function renderAujourdhui() {
       + '<a onclick="mjAller(\'Performance\')">Objectifs du mois ›</a>';
   } catch (e) {}
   // ── Données du jour ──
-  var rdvs = aujRdvsDu(jour);
+  var rdvsTous = aujRdvsDu(jour);
+  var horsJour = rdvsTous.filter(function(r) { var pz = String((r.row || {}).presence || '').trim(); return pz === 'Reprogrammé' || pz === 'Annulé'; }); // plus à l'agenda du jour : listés à part
+  var rdvs = rdvsTous.filter(function(r) { return horsJour.indexOf(r) < 0; });
+  var nomAff = function(n) { var x = String(n || ''); return x.charAt(0).toUpperCase() + x.slice(1); }; // « sonia Lavastre » → « Sonia Lavastre » (affichage seulement)
   var prepDe = function(r) { return r.r2 ? aujPrep(r.nom, jour) : aujPrep(r.nom, jour); };
   var items = []; try { items = rlConstruireItems(todayIso).items; } catch (e) {}
   // les retards se comptent par rapport à aujourd'hui et ne s'affichent que sur aujourd'hui ; un autre jour ne montre que ce qui est dû ce jour-là
@@ -9868,7 +9898,7 @@ function renderAujourdhui() {
     var totalRdv = 0, totalPrep = 0;
     semEl.innerHTML = '<div class="auj-sem' + (tous.length > 5 ? ' sept' : '') + '">' + tous.map(function(d) {
       var l = aujRdvsDu(d); totalRdv += l.length; var dd = new Date(d + 'T12:00:00');
-      var corps = l.length ? l.map(function(r) { var p = r.r2 ? null : aujPrep(r.nom, d); var pres = r.row && String(r.row.presence || '').trim(); if (p && (p.etat === 'rien' || p.etat === 'partiel') && !pres && d >= todayIso) totalPrep++; var cls = r.r2 ? 'r2' : (pres ? (pres === 'Show' ? 'ok' : 'warn') : (p ? (p.etat === 'ok' ? 'ok' : (p.etat === 'inconnu' ? '' : 'warn')) : '')); var titre = r.r2 ? 'R2' : (pres ? pres : (p ? p.lib : '')); return '<div class="e" title="' + escapeHtml(titre) + '" onclick="event.stopPropagation();aujChoisirJour(\'' + d + '\');_auj.ouvert=' + JSON.stringify(fcNormNom(r.nom) + '|' + (r.heure || '')).replace(/"/g, '&quot;') + ';renderAujourdhui()"><span class="ep ' + cls + '"></span><span class="eh">' + escapeHtml(r.heure || '—') + '</span><span class="en">' + escapeHtml(r.nom) + '</span></div>'; }).join('') : '<div class="vide">—</div>';
+      var corps = l.length ? l.map(function(r) { var p = r.r2 ? null : aujPrep(r.nom, d); var pres = r.row && String(r.row.presence || '').trim(); if (p && (p.etat === 'rien' || p.etat === 'partiel') && !pres && d >= todayIso) totalPrep++; var cls = r.r2 ? 'r2' : (pres ? (pres === 'Show' ? 'ok' : 'warn') : (p ? (p.etat === 'ok' ? 'ok' : (p.etat === 'inconnu' ? '' : 'warn')) : '')); var titre = r.r2 ? 'R2' : (pres ? pres : (p ? p.lib : '')); return '<div class="e" title="' + escapeHtml(titre) + '" onclick="event.stopPropagation();aujChoisirJour(\'' + d + '\');_auj.ouvert=' + JSON.stringify(fcNormNom(r.nom) + '|' + (r.heure || '')).replace(/"/g, '&quot;') + ';renderAujourdhui()"><span class="ep ' + cls + '"></span><span class="eh">' + escapeHtml(r.heure || '—') + '</span><span class="en">' + escapeHtml(nomAff(r.nom)) + '</span></div>'; }).join('') : '<div class="vide">—</div>';
       return '<div class="j' + (d === jour ? ' on' : '') + (d === todayIso ? ' auj' : '') + '" onclick="aujChoisirJour(\'' + d + '\')"><div class="jd">' + escapeHtml(dd.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric' })) + '<span>' + (l.length ? l.length + ' RDV' : '') + '</span></div>' + corps + '</div>';
     }).join('') + '</div>';
     semEl.style.display = ''; grid.style.display = 'none';
@@ -9881,6 +9911,8 @@ function renderAujourdhui() {
   // ── Résumé ──
   var nbRel = retard.length + dus.length;
   document.getElementById('auj-resume').textContent = (rdvs.length ? rdvs.length + ' RDV' : 'aucun RDV') + ' · ' + (nbRel ? nbRel + ' relance' + (nbRel > 1 ? 's' : '') : 'aucune relance') + (prepasManquantes.length ? ' · ' + prepasManquantes.length + ' préparation' + (prepasManquantes.length > 1 ? 's' : '') : '');
+  var _part = (function() { var m = []; if (!cleCal) m.push('Calendly non connecté'); else if (_auj.calEtat[lundi] === 'erreur') m.push('Calendly en échec'); if (!_tachesClose) m.push('tâches Close en cours de lecture'); else if (_tachesClose.error) m.push('tâches Close indisponibles'); return m.length ? 'Données partielles : ' + m.join(', ') : ''; })();;
+  var _pe = document.getElementById('auj-partiel'); if (_pe) { _pe.textContent = _part; _pe.style.display = _part ? '' : 'none'; }
   document.getElementById('auj-afaire-quand').textContent = estAuj ? 'aujourd\'hui' : 'le ' + dJ.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
   // ── Mes rendez-vous ──
   document.getElementById('auj-rdv-count').textContent = rdvs.length;
@@ -9901,13 +9933,13 @@ function renderAujourdhui() {
       var p = prepDe(r);
       var statutRdv = pres ? (pres === 'Show' ? (res ? 'Terminé · ' + res : 'Terminé') : pres) : (passe ? 'À terminer' : '');
       var nomJs = JSON.stringify(r.nom).replace(/"/g, '&quot;'), emailJs = JSON.stringify(r.email || '').replace(/"/g, '&quot;'), jourJs = JSON.stringify(jour).replace(/"/g, '&quot;');
-      var chips = '<span class="auj-chip' + (r.r2 ? ' r2' : '') + '">' + (r.r2 ? 'R2' : 'R1') + '</span>' + (row.type ? '<span class="auj-chip">' + escapeHtml(row.type) + '</span>' : '') + (r.source && r.source !== 'R2' ? '<span class="auj-chip">' + escapeHtml(r.source) + '</span>' : '')
+      var chips = '<span class="auj-meta">' + escapeHtml([r.r2 ? 'R2' : 'R1', row.type, (r.source && r.source !== 'R2') ? r.source : ''].filter(Boolean).join(' · ')) + '</span>'
         + (!pres && !passe && p.etat !== 'inconnu' ? '<span class="auj-chip ' + (p.etat === 'ok' ? 'ok' : 'warn') + '" title="' + escapeHtml(p.detail || '') + '">' + escapeHtml(p.lib) + '</span>' : '')
         + (statutRdv ? '<span class="auj-chip ' + (pres === 'Show' ? 'ok' : 'warn') + '">' + escapeHtml(statutRdv) + '</span>' : '');
       var mins = r.start ? Math.round((r.start - now) / 60000) : null, enCours = r.start && r.end && now >= r.start && now <= r.end, bientot = estAuj && mins !== null && mins <= 15 && mins > 0;
       var compte = enCours ? 'en cours' : (bientot ? 'dans ' + mins + ' min' : (estAuj && mins !== null && mins > 15 && idx === prochainIdx ? (mins < 60 ? 'dans ' + mins + ' min' : 'dans ' + Math.floor(mins / 60) + ' h' + (mins % 60 ? String(mins % 60).padStart(2, '0') : '')) : ''));
       var rejoindre = r.join ? '<a class="btn btn-sm' + (enCours || bientot ? ' btn-primary' : '') + '" style="text-decoration:none;" href="' + escapeHtml(r.join) + '" target="_blank" rel="noopener" title="Ouvrir la visio">Rejoindre</a>' : (!passe && !pres && r.start ? '<span class="auj-chip" title="Pas de lien de visio dans l\'événement Calendly">lien visio absent</span>' : '');
-      var assistant = !pres && !passe ? '<button class="btn btn-sm" title="Assistant live dans une fenêtre à part (second écran), sur ce RDV" onclick="sdAssistantFenetre(' + nomJs + ',' + jourJs + ')">⧉ Assistant</button>' : '';
+      var assistant = !pres && !passe ? '<button class="btn btn-sm auj-ico" title="Assistant live dans une fenêtre à part (second écran), sur ce RDV" onclick="sdAssistantFenetre(' + nomJs + ',' + jourJs + ')">⧉</button>' : '';
       var actions = pres ? '<button class="btn btn-sm" onclick="ouvrirFicheClient(' + nomJs + ',' + emailJs + ')">Fiche</button>'
         : passe ? '<button class="btn btn-sm btn-primary" onclick="sdApresRdvPour(' + nomJs + ',' + jourJs + ')">Terminer</button><button class="btn btn-sm" onclick="ouvrirFicheClient(' + nomJs + ',' + emailJs + ')">Fiche</button>'
         : ((enCours || bientot) && r.join ? rejoindre + '<button class="btn btn-sm" onclick="' + cible(r.nom, r.email, jour, 'prepa') + '">' + (p.etat === 'ok' ? 'Voir le brief' : 'Préparer') + '</button>' : '<button class="btn btn-sm' + (p.etat === 'ok' ? '' : ' btn-primary') + '" onclick="' + cible(r.nom, r.email, jour, 'prepa') + '">' + (p.etat === 'ok' ? 'Voir le brief' : 'Préparer') + '</button>' + rejoindre) + assistant;
@@ -9918,13 +9950,14 @@ function renderAujourdhui() {
         if (p.d && !bj) lignes.push('<div class="fc-muted">Lecture du brief…</div>');
         else if (bj && bj.briefing) { var B = bj.briefing; if (B.mission) lignes.push('<div class="bl"><b>Besoin :</b><span>' + escapeHtml(B.mission) + '</span></div>'); if (B.il_a_dit && B.il_a_dit.length) lignes.push('<div class="bl"><b>Il a dit :</b><span>' + escapeHtml(B.il_a_dit[0]) + '</span></div>'); if (B.angle) lignes.push('<div class="bl"><b>Angle :</b><span>' + escapeHtml(B.angle) + '</span></div>'); if (B.questions && B.questions.length) lignes.push('<div class="bl"><b>À vérifier :</b><span>' + escapeHtml(B.questions.slice(0, 2).join(' · ')) + '</span></div>'); if (B.pieges && B.pieges.length) lignes.push('<div class="bl"><b>⚠ Piège :</b><span>' + escapeHtml(B.pieges[0]) + '</span></div>'); }
         else if (bj && bj.notes) lignes.push('<div class="bl"><b>Mes notes :</b><span>' + escapeHtml(String(bj.notes).slice(0, 240)) + '</span></div>');
-        if (!lignes.length) lignes.push('<div class="fc-muted">' + (p.etat === 'inconnu' ? 'Copilot absent : brief indisponible.' : (p.d ? 'Dossier ouvert mais pas encore de brief' + (p.detail ? ' — il manque : ' + escapeHtml(p.detail) : '') + '.' : 'Pas de brief pour ce rendez-vous.')) + '</div>');
-        if (p.etat === 'partiel' && p.detail) lignes.push('<div class="bl"><b>Données manquantes :</b><span>' + escapeHtml(p.detail) + '</span></div>');
-        brief = '<div class="auj-brief"><div class="bt">' + (idx === prochainIdx && estAuj ? 'Prochain rendez-vous' : 'Brief') + '</div>' + lignes.join('') + '<div class="ba">' + (p.etat === 'ok' ? '<button class="btn btn-sm btn-primary" onclick="' + cible(r.nom, r.email, jour, 'prepa') + '">Voir le brief complet</button>' : '<button class="btn btn-sm btn-primary" onclick="' + cible(r.nom, r.email, jour, 'prepa') + '">Préparer</button>') + (r.join ? '<a class="btn btn-sm" style="text-decoration:none;" href="' + escapeHtml(r.join) + '" target="_blank" rel="noopener">Rejoindre</a>' : '') + '<button class="btn btn-sm" onclick="ouvrirFicheClient(' + nomJs + ',' + emailJs + ')">Fiche</button></div></div>';
+        var briefVide = !lignes.length; if (briefVide) lignes.push('<div class="fc-muted">' + (p.etat === 'inconnu' ? 'Copilot absent : brief indisponible.' : 'Brief à préparer' + (p.detail ? ' — il manque : ' + escapeHtml(p.detail) : '') + '.') + '</div>');
+        if (!briefVide && p.etat === 'partiel' && p.detail) lignes.push('<div class="bl"><b>Il manque :</b><span>' + escapeHtml(p.detail) + '</span></div>');
+        brief = (briefVide && _auj.ouvert === null) ? '' : '<div class="auj-brief' + (briefVide ? ' vide' : '') + '">' + (briefVide ? '' : '<div class="bt">' + (idx === prochainIdx && estAuj ? 'Prochain rendez-vous' : 'Brief') + '</div>') + lignes.join('') + (!briefVide && p.etat === 'ok' ? '<div class="ba"><a style="color:var(--accent);cursor:pointer;font-weight:600;font-size:12.5px;" onclick="' + cible(r.nom, r.email, jour, 'prepa') + '">Voir le brief complet ›</a></div>' : '') + '</div>';
       }
-      return '<div class="auj-rdv-wrap' + (ouvert ? ' ouvert' : '') + '"><div class="auj-rdv' + (idx === prochainIdx && estAuj && !passe ? ' prochain' : '') + '"><div class="h' + (passe ? ' passe' : '') + '">' + escapeHtml(r.heure || '—') + (compte ? '<div class="cd">' + escapeHtml(compte) + '</div>' : '') + '</div><div><div class="n" style="cursor:pointer" onclick="ouvrirFicheClient(' + nomJs + ',' + emailJs + ')">' + escapeHtml(r.nom) + '</div>' + (sousTitre(r) ? '<div class="sub">' + escapeHtml(sousTitre(r)) + '</div>' : '') + '<div class="chips">' + chips + '</div></div><div class="act">' + actions + '</div><button class="tog" title="' + (ouvert ? 'Replier' : 'Développer') + '" onclick="aujOuvrir(' + JSON.stringify(cleR).replace(/"/g, '&quot;') + ')">' + (ouvert ? '▴' : '▾') + '</button>' + brief + '</div></div>';
+      return '<div class="auj-rdv-wrap' + (ouvert ? ' ouvert' : '') + '"><div class="auj-rdv' + (idx === prochainIdx && estAuj && !passe ? ' prochain' : '') + '"><div class="h' + (passe ? ' passe' : '') + '">' + escapeHtml(r.heure || '') + (compte ? '<div class="cd">' + escapeHtml(compte) + '</div>' : '') + '</div><div><div class="n" style="cursor:pointer" onclick="ouvrirFicheClient(' + nomJs + ',' + emailJs + ')">' + escapeHtml(nomAff(r.nom)) + '</div>' + (sousTitre(r) ? '<div class="sub">' + escapeHtml(sousTitre(r)) + '</div>' : '') + '<div class="chips">' + chips + '</div></div><div class="act">' + actions + '</div><button class="tog" title="' + (ouvert ? 'Replier' : 'Développer') + '" onclick="aujOuvrir(' + JSON.stringify(cleR).replace(/"/g, '&quot;') + ')">' + (ouvert ? '▴' : '▾') + '</button>' + brief + '</div></div>';
     }).join('');
   }
+  if (horsJour.length) { elR.innerHTML = (rdvs.length ? elR.innerHTML : '<div class="auj-empty"><b>Aucun rendez-vous maintenu ' + (estAuj ? 'aujourd\'hui' : 'ce jour') + '.</b></div>') + '<div class="auj-hors"><div class="ht">Reprogrammés ou annulés</div>' + horsJour.map(function(r) { var nj = JSON.stringify(r.nom).replace(/"/g, '&quot;'), ej = JSON.stringify(r.email || '').replace(/"/g, '&quot;'); return '<div class="hl"><span class="hn" onclick="ouvrirFicheClient(' + nj + ',' + ej + ')">' + escapeHtml(nomAff(r.nom)) + '</span><span class="auj-meta">' + escapeHtml([r.r2 ? 'R2' : 'R1', (r.row || {}).type, r.heure ? 'prévu à ' + r.heure : ''].filter(Boolean).join(' · ')) + '</span><span class="auj-chip warn">' + escapeHtml(String((r.row || {}).presence || '')) + '</span></div>'; }).join('') + '</div>'; }
   // ── Après le RDV : seulement s'il reste du travail (résultat manquant, suite à définir, mail de fin à relire) ──
   var apres = [], vus = {};
   var depuis = rlPlus(todayIso, -10);
@@ -9952,17 +9985,17 @@ function renderAujourdhui() {
     var cleJs = JSON.stringify(i.cle).replace(/"/g, '&quot;'), nomJs = JSON.stringify(i.nom).replace(/"/g, '&quot;');
     var raison = (i.t && i.t.texte && !/^follow ?up/i.test(i.t.texte) ? i.t.texte : '') || (i.rel && i.rel.relance && i.rel.relance.condition) || (i.row && i.row.relanceCond) || LIBC[i.col] || i.col;
     var tent = (function() { try { var s = rlSuivi(i); return s && s.tentatives ? ' · ' + s.tentatives + ' appel(s) sans réponse' : ''; } catch (e) { return ''; } })();
-    return '<div class="auj-item"><span class="auj-dot ' + (enRetard ? 'red' : 'orange') + '"></span><span><div class="t">' + (ACT[i.col] || 'Relancer') + ' ' + escapeHtml(i.nom) + '</div><div class="d">' + escapeHtml(raison + tent) + '</div>' + (enRetard ? '<div style="margin-top:3px;"><span class="auj-badge">En retard · ' + escapeHtml(new Date(i.date + 'T12:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })) + '</span></div>' : (i.heure ? '<div style="margin-top:3px;"><span class="auj-badge bleu">' + escapeHtml(i.heure) + '</span></div>' : '')) + '</span><span class="act2"><button class="btn btn-sm" title="Pas de réponse" onclick="rlAction(' + cleJs + ', \'pas_reponse\', this)">📵</button><button class="btn btn-sm" title="Joint : il demande qu\'on le rappelle le…" onclick="rlAction(' + cleJs + ', \'joint\', this)">📞</button><button class="btn btn-sm" onclick="ouvrirFicheClient(' + nomJs + ')">Ouvrir</button></span></div>';
+    return '<div class="auj-item"><span class="auj-dot ' + (enRetard ? 'red' : 'orange') + '"></span><span><div class="t">' + (ACT[i.col] || 'Relancer') + ' ' + escapeHtml(nomAff(i.nom)) + '</div><div class="d">' + escapeHtml(raison + tent) + '</div>' + (enRetard ? '<div style="margin-top:3px;"><span class="auj-badge">En retard · ' + escapeHtml(new Date(i.date + 'T12:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })) + '</span></div>' : (i.heure ? '<div style="margin-top:3px;"><span class="auj-badge bleu">' + escapeHtml(i.heure) + '</span></div>' : '')) + '<div class="auj-acts"><button class="btn btn-sm" title="Appel sans réponse : loggé dans Close, tâche décalée selon la cadence" onclick="rlAction(' + cleJs + ', \'pas_reponse\', this)">Sans réponse</button><button class="btn btn-sm" title="Je l\'ai eu : il demande qu\'on le rappelle à une date" onclick="rlAction(' + cleJs + ', \'joint\', this)">Joint</button><button class="btn btn-sm" onclick="ouvrirFicheClient(' + nomJs + ')">Ouvrir</button></div></span></div>';
   };
-  var MAXR = 6;
+  var MAXR = 3;
   retard.slice(0, MAXR).forEach(function(i) { suivre += ligneRel(i, true); nb++; });
-  if (retard.length > MAXR) suivre += '<div class="auj-item lien" onclick="_rlJour=\'retard\';mjAller(\'Relances\')"><span class="auj-dot red"></span><span class="t">+ ' + (retard.length - MAXR) + ' autres en retard</span><span class="when">voir le suivi ›</span></div>';
+  if (retard.length > MAXR) suivre += '<div class="auj-item lien" onclick="_rlJour=\'retard\';mjAller(\'Relances\')"><span class="auj-dot red"></span><span class="t">Voir les ' + retard.length + ' en retard</span><span class="when">suivi ›</span></div>';
   if (!estAuj && retardTous.length && jour > todayIso) suivre += '<div class="auj-item lien" onclick="aujAller(\'auj\')"><span class="auj-dot red"></span><span><div class="t">' + retardTous.length + ' relance(s) déjà en retard</div><div class="d">à rattraper avant — visibles sur Aujourd\'hui</div></span><span class="when">voir ›</span></div>';
   var dusH = dus.filter(function(i) { return i.heure; }).sort(function(a, b) { return a.heure.localeCompare(b.heure); }), dusS = dus.filter(function(i) { return !i.heure; });
   dusH.forEach(function(i) { suivre += ligneRel(i, false); nb++; });
-  prepasManquantes.forEach(function(r) { var p = prepDe(r); var nomJs = JSON.stringify(r.nom).replace(/"/g, '&quot;'); suivre += '<div class="auj-item"><span class="auj-dot blue"></span><span><div class="t">Préparer ' + escapeHtml(r.nom) + '</div><div class="d">' + escapeHtml(p.etat === 'partiel' ? 'données incomplètes : ' + (p.detail || '') : 'pas de préparation') + '</div><div style="margin-top:3px;"><span class="auj-badge bleu">Avant ' + escapeHtml(r.heure || 'le RDV') + '</span></div></span><span class="act2"><button class="btn btn-sm btn-primary" onclick="sdOuvrirCopilotSur(' + nomJs + ',' + JSON.stringify(jour).replace(/"/g, '&quot;') + ',\'prepa\')">Préparer</button></span></div>'; nb++; });
-  var MAXD = 8; dusS.slice(0, MAXD).forEach(function(i) { suivre += ligneRel(i, false); nb++; });
-  if (dusS.length > MAXD) suivre += '<div class="auj-item lien" onclick="_rlJour=null;mjAller(\'Relances\')"><span class="auj-dot orange"></span><span class="t">+ ' + (dusS.length - MAXD) + ' autres ' + (estAuj ? 'aujourd\'hui' : 'ce jour') + '</span><span class="when">voir le suivi ›</span></div>';
+  if (prepasManquantes.length) { var pm0 = prepasManquantes[0]; suivre += '<div class="auj-item"><span class="auj-dot blue"></span><span><div class="t">' + prepasManquantes.length + ' RDV à préparer</div><div class="d">' + escapeHtml(prepasManquantes.map(function(r) { return (r.heure ? r.heure + ' ' : '') + nomAff(r.nom); }).join(' · ')) + '</div></span><span class="act2"><button class="btn btn-sm" onclick="sdOuvrirCopilotSur(' + JSON.stringify(pm0.nom).replace(/"/g, '&quot;') + ',' + JSON.stringify(jour).replace(/"/g, '&quot;') + ',\'prepa\')">Commencer</button></span></div>'; nb++; }
+  var MAXD = 4; dusS.slice(0, MAXD).forEach(function(i) { suivre += ligneRel(i, false); nb++; });
+  if (dusS.length > MAXD) suivre += '<div class="auj-item lien" onclick="_rlJour=null;mjAller(\'Relances\')"><span class="auj-dot orange"></span><span class="t">Voir les ' + (retard.length + dus.length) + ' actions</span><span class="when">suivi ›</span></div>';
   if (!nb) suivre = '<div class="auj-empty">' + (_tachesClose && _tachesClose.error ? '<b>Tâches Close indisponibles</b> (copilot absent) — seules les relances SalesDesk sont listées. ' : '') + (nb ? '' : 'Rien à faire ' + (estAuj ? 'aujourd\'hui' : 'ce jour') + '.' + (items.length ? ' Les prochaines relances sont dans le suivi.' : '')) + '</div>';
   else if (_tachesClose && _tachesClose.error) suivre = '<div class="auj-etat" style="color:var(--orange);margin:0 0 6px;">⚠ Tâches Close indisponibles : liste partielle (SalesDesk seul).</div>' + suivre;
   document.getElementById('auj-suivre').innerHTML = suivre;
