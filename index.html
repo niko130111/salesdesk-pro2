@@ -815,6 +815,7 @@ select.form-input { cursor: pointer; }
     </header>
     <div class="auj-grid">
       <section class="auj-main">
+        <div id="auj-bilan"></div>
         <div class="auj-card"><div class="auj-card-head"><h2>Vos rendez-vous du jour <span class="auj-count" id="auj-rdv-count">0</span></h2><a onclick="mjAller('Mes RDV')">Voir l'agenda ›</a></div><div id="auj-rdvs" class="auj-rdvs"></div></div>
         <div id="auj-appels"></div>
       </section>
@@ -3851,7 +3852,7 @@ function rlAction(ix, action, btn) {
   if (!it) { alert('Cette carte a changé entre-temps, la page se rafraîchit.'); dessinerRelances(); renderMaJournee(); return; }
   var id = rlIdentite(it), today = rlIso(new Date()), suivi = rlSuivi(it), nb = suivi.tentatives || 0;
   var occupe = function(on) { if (btn) { btn.disabled = on; btn.style.opacity = on ? '.5' : ''; } };
-  var fini = function(msg) { occupe(false); if (typeof showCopyToast === 'function') showCopyToast(msg); chargerTachesClose(rlPlus(_rlLundi, -7), rlPlus(_rlLundi, 13), true); setTimeout(dessinerRelances, 400); setTimeout(renderMaJournee, 450); if (typeof majAlerteRelances === 'function') majAlerteRelances(); };
+  var fini = function(msg) { occupe(false); if (typeof showCopyToast === 'function') showCopyToast(msg); chargerTachesClose(rlPlus(_rlLundi, -7), rlPlus(_rlLundi, 13), true); setTimeout(dessinerRelances, 400); setTimeout(renderMaJournee, 450); if (typeof renderAujourdhui === 'function') setTimeout(renderAujourdhui, 500); if (typeof majAlerteRelances === 'function') majAlerteRelances(); };
   var echec = function(e) { occupe(false); alert('Close n\'a pas été mis à jour : ' + (e && e.message ? e.message : e)); };
   var tacheClose = function(date, texte, heure) { // déplace la tâche existante, sinon en crée une (sans doublon côté serveur)
     return it.t ? rlPost('/close/taches/' + encodeURIComponent(it.t.id), { action: 'decaler', date: date, heure: heure || '', texte: texte, motif: action }) : rlPost('/close/taches', { lead: id.lead, nom: id.nom, email: id.email, date: date, heure: heure || '', texte: texte, motif: action });
@@ -9803,7 +9804,8 @@ function renderAujourdhui() {
   var LIBC = { r2: 'R2 sans réponse', nosin: 'no-show', nsin: 'no-show inbound', nsout: 'no-show outbound', rdv: 'prise de RDV', aclasser: 'à classer' };
   var suivre = '';
   if (retard.length) suivre += '<div class="auj-item lien" onclick="_rlJour=\'retard\';mjAller(\'Relances\')"><span class="auj-dot red"></span><span><div class="t">' + retard.length + ' relance(s) en retard</div><div class="d">' + escapeHtml(retard.slice(0, 3).map(function(i) { return i.nom; }).join(' · ')) + (retard.length > 3 ? ' · …' : '') + '</div></span><span class="when">à rattraper</span></div>';
-  auj.slice(0, 5).forEach(function(i) { suivre += '<div class="auj-item lien" onclick="_rlJour=null;mjAller(\'Relances\')"><span class="auj-dot orange"></span><span><div class="t">' + escapeHtml(i.nom) + '</div><div class="d">' + escapeHtml(LIBC[i.col] || i.col) + '</div></span><span class="when">aujourd\'hui</span></div>'; });
+  window._rlItems = items; // les boutons rapides ci-dessous s'appuient sur la clé stable de chaque carte
+  auj.slice(0, 5).forEach(function(i) { var cleJs = JSON.stringify(i.cle).replace(/"/g, '&quot;'); suivre += '<div class="auj-item lien" onclick="_rlJour=null;mjAller(\'Relances\')"><span class="auj-dot orange"></span><span><div class="t">' + escapeHtml(i.nom) + '</div><div class="d">' + escapeHtml(LIBC[i.col] || i.col) + '</div></span><span class="when auj-quick" onclick="event.stopPropagation()"><button class="btn btn-sm" title="Pas de réponse : appel loggé dans Close, tâche décalée selon la cadence" onclick="rlAction(' + cleJs + ', \'pas_reponse\', this)">📵</button><button class="btn btn-sm" title="Joint : il demande qu\'on le rappelle le…" onclick="rlAction(' + cleJs + ', \'joint\', this)">📞</button></span></div>'; });
   if (auj.length > 5) suivre += '<div class="auj-item lien" onclick="mjAller(\'Relances\')"><span class="auj-dot orange"></span><span class="t">+ ' + (auj.length - 5) + ' autres aujourd\'hui</span></div>';
   prepas.forEach(function(p) { suivre += '<div class="auj-item lien" onclick="mjAller(\'Mes RDV\')"><span class="auj-dot blue"></span><span><div class="t">' + escapeHtml(p.nom) + '</div><div class="d">' + escapeHtml(p.lib) + '</div></span><span class="when">' + p.quand + '</span></div>'; });
   if (!suivre) suivre = '<div class="auj-empty">Rien à rattraper. ' + (items.length ? 'Les prochaines relances sont dans la file.' : '') + '</div>';
@@ -9825,6 +9827,28 @@ function renderAujourdhui() {
     var pct = obj ? Math.min(100, Math.round(comm / obj * 100)) : 0;
     document.getElementById('auj-commission').innerHTML = '<div class="big">' + comm.toLocaleString('fr-FR') + ' € <small>/ ' + obj.toLocaleString('fr-FR') + ' €</small></div><div class="auj-etat">Objectif du mois · ' + k.signes + ' vente(s)</div><div class="auj-bar"><div style="width:' + pct + '%"></div></div><div class="auj-etat" style="text-align:right;">' + pct + ' %</div>';
   } catch (e) { document.getElementById('auj-commission').innerHTML = '<div class="auj-empty">—</div>'; }
+  // ── Bilan de fin de journée (après 18 h) : ce que la journée a produit, ce qui reste, une phrase ──
+  try {
+    var bil = document.getElementById('auj-bilan'), dow = now.getDay();
+    if (bil) {
+      if (now.getHours() >= 18 && dow !== 0 && dow !== 6) {
+        var compteur = mjCompteurJourHtml(todayIso);
+        var aTerminer = rdvs.filter(function(r) { var row = r.row || rowDe(r.nom) || {}; return r.heure && r.heure < hhmm && !String(row.presence || '').trim(); });
+        var reste = [];
+        if (aTerminer.length) reste.push('<span class="auj-chip warn" style="cursor:pointer" onclick="sdApresRdvPour(' + JSON.stringify(aTerminer[0].nom).replace(/"/g, '&quot;') + ',' + JSON.stringify(todayIso).replace(/"/g, '&quot;') + ')">' + aTerminer.length + ' RDV à terminer : ' + escapeHtml(aTerminer.map(function(r) { return r.nom; }).join(', ')) + '</span>');
+        if (auj.length) reste.push('<span class="auj-chip warn" style="cursor:pointer" onclick="mjAller(\'Relances\')">' + auj.length + ' relance(s) du jour pas faites</span>');
+        if (retard.length) reste.push('<span class="auj-chip" style="cursor:pointer" onclick="_rlJour=\'retard\';mjAller(\'Relances\')">' + retard.length + ' en retard</span>');
+        var st0 = loadStore(), todayFr0 = todayIso.split('-').reverse().join('/'), rows0 = (st0[todayIso.slice(0, 7)] || []).filter(function(r) { return r && r.date === todayFr0 && r.source !== 'R2'; });
+        var signes0 = rows0.filter(function(r) { return r.result === 'Signé'; }).length, shows0 = rows0.filter(function(r) { return r.presence === 'Show'; }).length;
+        var phrase = signes0 >= 2 ? '🔥 ' + signes0 + ' ventes aujourd\'hui. Grosse journée.' : signes0 === 1 ? '💰 Une vente aujourd\'hui. Ça, c\'est fait.' : shows0 >= 3 ? '👏 ' + shows0 + ' rendez-vous tenus. Le pipe se remplit.' : shows0 ? '✅ Journée tenue. On remet ça demain.' : (rdvs.length ? '🧭 Journée sans show : les relances feront la différence.' : '📞 Journée d\'appels. Chaque relance compte.');
+        var coul = signes0 ? 'var(--green)' : (shows0 ? 'var(--accent)' : 'var(--orange)');
+        bil.innerHTML = '<div class="auj-card" style="border-left:4px solid ' + coul + ';"><div class="auj-card-head"><h2>Bilan de la journée</h2><span style="font-size:12px;color:var(--text3);">' + escapeHtml(now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })) + '</span></div>'
+          + '<div style="font-size:24px;font-weight:800;color:' + coul + ';line-height:1.25;margin:2px 0 8px;">' + phrase + '</div>'
+          + (compteur || '<div class="auj-empty">Rien de compté aujourd\'hui (pas d\'appel Close, pas de RDV traité).</div>')
+          + (reste.length ? '<div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;"><span style="font-size:12px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;">Il reste</span>' + reste.join('') + '</div>' : '<div class="auj-etat" style="margin-top:8px;color:var(--green);font-weight:600;">Tout est traité. Bonne soirée.</div>') + '</div>';
+      } else bil.innerHTML = '';
+    }
+  } catch (e) {}
   // ── Résumé en tête + fraîcheur ──
   var parts = []; parts.push(rdvs.length ? rdvs.length + ' rendez-vous' : 'aucun rendez-vous'); var nbRel = retard.length + auj.length; parts.push(nbRel ? nbRel + ' relance' + (nbRel > 1 ? 's' : '') : 'aucune relance'); if (prepas.length) parts.push(prepas.length + ' prépa' + (prepas.length > 1 ? 's' : '') + ' à faire');
   var frais = _mj.at ? 'copilot ' + (_mj.etat ? 'connecté' : 'absent') + ' · synchro ' + new Date(_mj.at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : 'copilot : connexion…';
