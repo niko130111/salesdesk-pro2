@@ -10266,7 +10266,7 @@ function relanceFaite(id, btn) {
     .catch(function(){ if (btn) { btn.disabled = false; btn.textContent = '✓ Fait'; } alert('Le copilot ne répond pas : relance non marquée.'); });
 }
 function dessinerRelances() {
-  try { var _pr = document.getElementById('page-relances'); if (_pr && _pr.classList.contains('active')) renderRelancesPage(); else { var _b = document.getElementById('nav-relances-badge'); if (_b) { var _t = new Date().toISOString().slice(0, 10), _n = (_relances || []).filter(function(r) { return r.relance && r.relance.quand && r.relance.quand <= _t; }).length; _b.style.display = _n ? '' : 'none'; _b.textContent = _n; } } } catch (e) {}
+  try { var _pr = document.getElementById('page-relances'); if (_pr && _pr.classList.contains('active')) renderRelancesPage(); else majBadgeSuivi(); } catch (e) {}
   var liste = _relances || [];
   var conds = {}; liste.forEach(function(r){ var c = (r.relance && r.relance.condition) || ''; if (c) conds[c] = (conds[c]||0) + 1; });
   var filtres = document.getElementById('relances-filtres'); if (!filtres) return;
@@ -10331,6 +10331,12 @@ function chargerTachesClose(depuis, jusqua, force) {
   fetch(COPILOT_URL + '/close/taches?' + new URLSearchParams({ depuis: depuis, jusqua: jusqua, terminees: '1' }) + (force ? '&force=1' : ''), { mode: 'cors', cache: 'no-store', signal: ctrl.signal })
     .then(function(r) { return r.json(); }).then(function(d) { _tachesClose = d; _tachesCloseAt = Date.now(); _tachesCloseCle = cle; window._tachesCloseEnCours = ''; renderRelancesPage(); if (typeof renderMaJournee === 'function') renderMaJournee(); })
     .catch(function() { _tachesClose = { error: 'copilot', taches: [], terminees: [] }; window._tachesCloseEnCours = ''; renderRelancesPage(); if (typeof renderMaJournee === 'function') renderMaJournee(); });
+}
+// Badge « Suivi » : un seul calcul, le même que la page Suivi et qu'Aujourd'hui (file fusionnée Close + SalesDesk, due aujourd'hui ou en retard)
+function majBadgeSuivi(n) {
+  var b = document.getElementById('nav-relances-badge'); if (!b) return;
+  if (typeof n !== 'number') { try { var t = rlIso(new Date()); n = rlConstruireItems(t).items.filter(function(i) { return i.date && i.date <= t; }).length; } catch (e) { return; } }
+  b.style.display = n ? '' : 'none'; b.textContent = n;
 }
 var _rlLundi = null, _rlJour = null;
 function rlIso(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
@@ -10450,7 +10456,7 @@ function renderRelancesPage() {
   bandeau.innerHTML = (orphelines.length && _tachesClose && !_tachesClose.error) ? '<div class="controle-alerte orange" style="margin:0 0 12px;"><span>📞 ' + orphelines.length + ' relance(s) sans tâche Close : ' + escapeHtml(orphelines.slice(0, 4).map(function(i) { return i.nom; }).join(' · ')) + (orphelines.length > 4 ? ' · …' : '') + '</span><span style="flex:1"></span><button class="btn btn-sm btn-primary" onclick="rlConvertirOrphelines(this)">Créer les tâches Close</button><button class="btn btn-sm" onclick="rlSupprimerOrphelines(this)">Supprimer ces relances</button></div>' : '';
   var etatClose = !_tachesClose ? 'tâches Close : chargement…' : (_tachesClose.error ? '⚠ tâches Close indisponibles (copilot éteint ou à relancer)' : (_tachesClose.configure === false ? 'clé Close absente' : taches.length + ' tâche(s) Close ouverte(s)'));
   document.getElementById('rl-resume').innerHTML = '<b>' + nbDues + '</b> à faire aujourd\'hui ou en retard · ' + liste.length + ' relance(s) SalesDesk · ' + etatClose;
-  var badge = document.getElementById('nav-relances-badge'); if (badge) { badge.style.display = nbDues ? '' : 'none'; badge.textContent = nbDues; }
+  majBadgeSuivi(nbDues);
   var COLS = { r2: ['🔁', 'R2 sans réponse', 'var(--purple)'], rdv: ['📅', 'Prise de RDV', 'var(--accent-blue)'], nsin: ['👻', 'No-show Inbound', 'var(--orange)'], nsout: ['👻', 'No-show Outbound', 'var(--red)'] };
   window._rlItems = items;
   var carte = function(it) {
