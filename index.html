@@ -4607,6 +4607,7 @@ function fcRaisonChoisir(monthKey, idx, raison) {
   var store = loadStore(), r = (store[monthKey] || [])[idx]; if (!r) return;
   r.result = 'Non signé'; r.nosignRaison = raison; saveStore(store); fermerModalDoublon(); refreshAll();
   if (raison === 'pasinteresse') sdStatutClose(r, 'pas_interesse');
+  else { try { var _isoR = frVersIsoSd(r.date), _tj = rlIso(new Date()); if (r.source !== 'R2' && String(r.presence || '').trim() === 'Show' && _isoR <= _tj && _isoR >= rlPlus(_tj, -3)) sdDemanderMailFinR1(Object.assign({}, r), 'nosign', r.email || ''); } catch (e) {} }
   if (document.getElementById('fc-overlay').classList.contains('open')) { _fc.rows = fcLignesDuNom(_fc.nom); fcRendre(); }
   sdChaineSuite();
 }
@@ -5706,6 +5707,7 @@ function updateFieldMK(idx, field, value, type, monthKey) {
   if (field === 'commission') value = parseFloat(value) || 0;
   // Conversion spéciale pour oneshot : on stocke 'O'/'N' (un seul caractère)
   if (field === 'oneshot') value = (value === 'Oui') ? 'O' : 'N';
+  const _avant = rows[idx][field];
   rows[idx][field] = value;
   if (field === 'result' && value !== 'Non signé' && value !== 'Promo') delete rows[idx].nosignRaison;
   if (field === 'result' && value === 'Promo') { rows[idx].result = 'Non signé'; rows[idx].nosignRaison = 'promo'; }
@@ -5714,6 +5716,22 @@ function updateFieldMK(idx, field, value, type, monthKey) {
   refreshKpis();
   renderRdvTable();
   if (field === 'result') sdVerifierSuite(monthKey, idx);
+  if ((field === 'presence' || field === 'result') && String(_avant || '') !== String(value || '')) { try { sdSuivreClose(Object.assign({}, rows[idx]), field, value); } catch (e) {} }
+}
+// Présence / résultat modifiés depuis la fiche ou la RDV Table : même suite que depuis « Après le RDV » (statut Close, décision no-show, mail de fin de RDV).
+// Seulement pour un RDV récent (14 jours) : corriger une vieille ligne ne doit pas réécrire l'état actuel de la fiche Close.
+function sdSuivreClose(row, field, value) {
+  if (!row || !row.client || row.source === 'R2') return;
+  var iso = frVersIsoSd(row.date), today = rlIso(new Date()); if (!iso || iso > today || iso < rlPlus(today, -14)) return;
+  if (field === 'presence') {
+    if (!value) return;
+    if (value === 'No Show') sdSignalerNoShow(row); // ouvre « on le relance ? » (demain / à une date / laisser tomber)
+    sdStatutDepuisPresence(row, value);
+  } else if (field === 'result' && String(row.presence || '').trim() === 'Show' && iso >= rlPlus(today, -3)) {
+    // mail de fin de R1 : préparé en brouillon par le copilot, jamais envoyé seul (« Non signé » attend la raison : pas de mail pour un pas intéressé)
+    if (value === 'Signé') sdDemanderMailFinR1(row, 'oneshot', row.email || '');
+    else if (SD_INTERESSE.indexOf(String(value).trim()) >= 0) sdDemanderMailFinR1(row, (row.dateR2 && String(row.dateR2).trim()) ? 'r2' : 'relance', row.email || '');
+  }
 }
 
 // RDV supprimés à la main : mémorisés (client|date) pour que la synchro Calendly ne les recrée pas
