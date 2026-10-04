@@ -450,6 +450,11 @@ main { max-width: 100%; margin: 0; padding: 6px 8px; }
 .ctl-sw span::before { content: ''; position: absolute; width: 18px; height: 18px; left: 2px; top: 2px; background: #fff; border-radius: 50%; transition: .2s; }
 .ctl-sw input:checked + span { background: var(--green); }
 .ctl-sw input:checked + span::before { transform: translateX(16px); }
+.fc-next { margin: 12px 0 4px; padding: 12px 14px; border-radius: 12px; background: var(--surface2); border: 1px solid var(--border); display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+.fc-next .lab { font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--text3); }
+.fc-next .q { font-size: 15px; font-weight: 700; color: var(--text); }
+.fc-next .d { font-size: 12.5px; color: var(--text2); }
+.fc-next .acts { margin-left: auto; display: flex; gap: 6px; flex-wrap: wrap; }
 .fc-dernier { margin: 12px 0 4px; padding: 12px 14px; border-radius: 12px; background: var(--soft-yellow); border: 1px solid var(--soft-yellow-line); font-size: 13.5px; line-height: 1.45; }
 .fc-dernier .t { font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--orange); margin-bottom: 6px; display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
 .fc-dernier .t a { color: var(--orange); font-weight: 600; text-transform: none; letter-spacing: 0; font-size: 11px; cursor: pointer; }
@@ -3560,7 +3565,36 @@ function fcRendreContact() {
   else if (c === undefined) note = 'Close : copilot éteint';
   else if (c && c.leads && c.leads.length > 1) note = c.leads.length + ' fiches Close (' + (c.par === 'nom' ? 'par nom' : 'par email') + '), la première est affichée';
   el.innerHTML = '<div class="fc-chips">' + chips.join('') + '</div>' + (note ? '<div class="fc-muted" style="margin-top:6px;">' + escapeHtml(note) + '</div>' : '') + '<div class="fc-suivi" id="fc-suivi">' + fcHtmlSuivi() + '</div>';
+  try { fcRendreProchaineEtape(); } catch (e) {}
 }
+// Prochaine étape : la réponse à « que dois-je faire maintenant ? » — RDV à venir, R2 calé, tâche Close / relance datée, ou rien (→ à décider)
+function fcRendreProchaineEtape() {
+  var el = document.getElementById('fc-next'); if (!el) return;
+  var last = _fc.rows[0]; if (!last) { el.innerHTML = ''; return; }
+  var today = new Date(); today.setHours(0, 0, 0, 0); var todayIso = rlIso(new Date());
+  var n = fcNormNom(_fc.nom), q = null, lib = '', det = '', acts = [];
+  var nomJs = JSON.stringify(_fc.nom).replace(/"/g, '&quot;'), emailJs = JSON.stringify(_fc.email || '').replace(/"/g, '&quot;');
+  var dRdv = parseDateFR(last.date);
+  var cible = _fc.rows.find(function(r) { return r.source !== 'R2'; }) || last;
+  var suiviArg = JSON.stringify(cible._monthKey).replace(/"/g, '&quot;') + ',' + cible._storeKey;
+  if (dRdv && dRdv >= today && !String(last.presence || '').trim()) { lib = (last.source === 'R2' ? 'R2' : 'Rendez-vous') + ' le ' + last.date + (last.heure ? ' à ' + last.heure : ''); det = 'À préparer, puis à terminer dans Mes RDV'; acts.push('<button class="btn btn-sm btn-primary" onclick="sdOuvrirCopilotSur(' + nomJs + ',' + JSON.stringify(frVersIsoSd(last.date)).replace(/"/g, '&quot;') + ',\'prepa\')">Préparer</button>'); }
+  else if (last.dateR2 && String(last.dateR2).trim() && parseDateFR(last.dateR2) >= today) { lib = 'R2 le ' + last.dateR2 + (last.heureR2 ? ' à ' + last.heureR2 : ''); det = 'Validation & lancement'; acts.push('<button class="btn btn-sm" onclick="sdOuvrirCopilotSur(' + nomJs + ',' + JSON.stringify(frVersIsoSd(last.dateR2)).replace(/"/g, '&quot;') + ',\'prepa\')">Préparer le R2</button>'); }
+  else {
+    // tâche Close / relance datée (suivi), sinon relance SalesDesk
+    var sv = Object.values((loadStore()._tachesCloseSuivi || {})).find(function(x) { return fcNormNom(x.nom || '') === n; });
+    var t = (_tachesClose && _tachesClose.taches || []).find(function(x) { return [x.fiche, x.contact].concat(x.contacts || []).some(function(y) { var yn = fcNormNom(y || ''); return yn && (yn === n || rlMemePersonne(yn, n)); }); });
+    var dateRel = (t && t.date) || (last.relanceDate && !last.relanceFait ? last.relanceDate : '');
+    if (sv && sv.escalade) { lib = 'Passé à ' + (sv.escalade.a || RL_MANAGER); det = 'le ' + fcFrDepuisIso(sv.escalade.date) + ' — en attente de son retour'; }
+    else if (dateRel) { var ret = dateRel < todayIso; lib = (ret ? '⏰ À rappeler depuis le ' : 'À rappeler le ') + fcFrDepuisIso(dateRel); det = (t && t.texte && !/^follow ?up/i.test(t.texte) ? t.texte : (last.relanceCond || '')) + (sv && sv.tentatives ? (det ? ' · ' : '') + sv.tentatives + ' appel(s) sans réponse' : ''); acts.push('<button class="btn btn-sm btn-primary" onclick="fcAppelerDepuisFiche()">Appeler</button>', '<button class="btn btn-sm" onclick="fcPopupSuivi(' + suiviArg + ')">Décaler</button>'); }
+    else if (last.result === 'Signé') { lib = 'Client signé' + (last.dateSignature ? ' le ' + last.dateSignature : ''); det = 'Onboarding et vitrine côté RealAdvisor'; }
+    else if (last.result === 'Non signé' && last.nosignRaison === 'pasinteresse') { lib = 'Pas intéressé'; det = 'Dossier clos'; }
+    else if (['No Show', 'Annulé', 'Reprogrammé'].indexOf(String(last.presence || '').trim()) >= 0) { lib = String(last.presence).trim() + ' le ' + last.date; det = 'Aucune relance posée'; acts.push('<button class="btn btn-sm btn-primary" onclick="fcPopupSuivi(' + suiviArg + ')">Me mettre un rappel</button>'); }
+    else { lib = 'Aucune prochaine étape'; det = SD_INTERESSE.indexOf(String(last.result || '').trim()) >= 0 ? 'Intéressé sans suite : R2 ou rappel ?' : 'À décider'; acts.push('<button class="btn btn-sm btn-primary" onclick="fcPopupSuivi(' + suiviArg + ')">Poser une suite</button>'); }
+  }
+  el.innerHTML = '<div><div class="lab">Prochaine étape</div><div class="q">' + escapeHtml(lib) + '</div>' + (det ? '<div class="d">' + escapeHtml(det) + '</div>' : '') + '</div><div class="acts">' + acts.join('') + '<button class="btn btn-sm" title="Calendly pré-rempli" onclick="fcCalendlyDepuisFiche()">📆 Caler un RDV</button></div>';
+}
+function fcAppelerDepuisFiche() { var a = document.querySelector('#fc-contact a[href^="tel:"]'); if (a) a.click(); else if (typeof showCopyToast === 'function') showCopyToast('Pas de numéro sur la fiche'); }
+function fcCalendlyDepuisFiche() { var last = _fc.rows[0] || {}; var faux = { cle: 'fiche', nom: _fc.nom, col: SD_INTERESSE.indexOf(String(last.result || '').trim()) >= 0 ? 'r2' : 'rdv', rel: null, row: last, t: null }; window._rlItems = (window._rlItems || []).filter(function(x) { return x.cle !== 'fiche'; }).concat([faux]); rlCalendly('fiche'); }
 // Suivi : R2 planifié / relance (locale ou copilot) / rien → à décider
 function fcIsoDepuisFr(d) { var m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(d || ''); return m ? m[3] + '-' + m[2] + '-' + m[1] : ''; }
 function fcFrDepuisIso(d) { return d ? String(d).split('-').reverse().join('/') : ''; }
@@ -3962,8 +3996,18 @@ function fcChargerDossiers() {
     .then(function(r) { return r.json(); }).then(function(j) { if (_fc.cle === cle) { _fc.dossiers = j.dossiers || []; _fc.contact = j.contact || null; fcRendre(); } })
     .catch(function() { if (_fc.cle === cle) { _fc.dossiers = false; if (_fc.tab === 'prepa') fcRendre(); } });
 }
+function fcHtmlOffre() {
+  var r = _fc.rows.find(function(x) { return x.source !== 'R2'; }) || _fc.rows[0]; if (!r) return '';
+  var items = [['Pack', r.pack], ['Fréquence', r.freq], ['Tier', r.tier], ['FMS', r.fms], ['Remise', r.remise], ['One shot', r.oneshot === 'O' ? 'oui' : ''], ['Commission', r.result === 'Signé' && typeof getComm === 'function' ? Math.round(getComm(r)).toLocaleString('fr-FR') + ' €' : '']].filter(function(x) { return x[1]; });
+  if (!items.length) return '';
+  return '<div style="margin-bottom:12px;padding:10px 14px;border-radius:12px;border:1px solid var(--border);background:var(--surface);"><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--text3);margin-bottom:6px;">Offre</div><div style="display:flex;gap:14px;flex-wrap:wrap;font-size:13px;">' + items.map(function(x) { return '<span><span style="color:var(--text3);">' + x[0] + '</span> <b>' + escapeHtml(String(x[1])) + '</b></span>'; }).join('') + '</div></div>';
+}
 function fcHtmlRdv() {
   if (!_fc.rows.length) return '<div class="fc-empty">Aucun RDV enregistré à ce nom.</div>';
+  return fcHtmlOffre() + fcHtmlRdvListe();
+}
+function fcHtmlRdvListe() {
+  if (!_fc.rows.length) return '';
   var cl = fcClients(loadStore())[_fc.cle] || {}, claap = cl.claap || {};
   return _fc.rows.map(function(r) {
     var pres = r.presence || '—', res = r.result === 'Promo' ? 'Non signé · si promo' : (r.result || '—');
@@ -13120,12 +13164,13 @@ window.addEventListener('load', function() {
       <div class="fc-nom"><span id="fc-nom"></span><button class="btn btn-sm" style="font-size:11px;padding:2px 8px;margin-left:10px;" title="Corriger l'orthographe du nom ou fusionner avec une autre fiche" onclick="fcCorrigerNom()">✎ Corriger le nom</button><button class="fc-close" onclick="fermerFicheClient()" title="Fermer">✕</button></div>
       <div class="fc-badges" id="fc-badges"></div>
       <div class="fc-contact" id="fc-contact"></div>
+      <div class="fc-next" id="fc-next"></div>
       <div class="fc-dernier" id="fc-dernier"></div>
     </div>
     <div class="fc-tabs">
-      <button class="fc-tab on" data-tab="rdv" onclick="fcOnglet('rdv')">📅 RDV</button>
-      <button class="fc-tab" data-tab="prepa" onclick="fcOnglet('prepa')">🧠 Copilot (prépa, après-RDV, mail)</button>
-      <button class="fc-tab" data-tab="notes" onclick="fcOnglet('notes')">✍️ Notes client</button>
+      <button class="fc-tab on" data-tab="rdv" onclick="fcOnglet('rdv')">Vue d'ensemble</button>
+      <button class="fc-tab" data-tab="prepa" onclick="fcOnglet('prepa')">Historique</button>
+      <button class="fc-tab" data-tab="notes" onclick="fcOnglet('notes')">Notes</button>
     </div>
     <div class="fc-body" id="fc-body"></div>
   </div>
