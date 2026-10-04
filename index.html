@@ -150,6 +150,8 @@ main { max-width: 100%; margin: 0; padding: 6px 8px; }
 #page-postrdv, #page-preprdv { display: none !important; }
 /* Ancien tableau « Relances » du Pipeline : doublon de Suivi (qui porte la file fusionnée Close + SalesDesk) — retiré de l'affichage */
 #relances-wrap { display: none !important; }
+/* Performance › pilotage : la date du jour n'y sert pas (elle est dans Aujourd'hui) */
+#daily-date-label, #daily-week-label { display: none !important; }
 /* points outbound et donut : retirés de l'affichage */
 #daily-pct-outbound { display: none !important; }
 .page.active { display: block; }
@@ -9850,7 +9852,6 @@ function renderAujourdhui() {
     document.getElementById('auj-pilot').innerHTML = _auj.vue === 'semaine' ? '' :
       '<span class="pp' + (fait ? ' ok' : '') + '" title="RDV Outbound pris aujourd\'hui / objectif du jour">Outbound du jour <b>' + escapeHtml(mj ? mj[1] + ' / ' + mj[2] : '—') + '</b></span>'
       + '<span class="pp" title="Outbound qu\'il reste à prendre cette semaine (objectif ajusté aux absences)">Reste cette semaine <b>' + escapeHtml(/^\d+$/.test(os) ? os : '—') + '</b></span>'
-      + '<span class="pp" title="Jours d\'absence ce mois : ajuste tes objectifs">Absences <button onclick="adjustAbsence(-1);renderAujourdhui()">−</button><b>' + escapeHtml(ab || '0') + '</b><button onclick="adjustAbsence(1);renderAujourdhui()">+</button></span>'
       + '<a onclick="mjAller(\'Performance\')">Objectifs du mois ›</a>';
   } catch (e) {}
   // ── Données du jour ──
