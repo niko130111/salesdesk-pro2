@@ -6141,8 +6141,8 @@ function initHistoChart() {
     data: {
       labels: ['Jan','Fév','Mar','Avr','Mai','Juin','Juil','Août','Sep','Oct','Nov','Déc'],
       datasets: [
-        { label: 'RDV', data: Array(12).fill(0), backgroundColor: 'var(--soft-blue)', borderRadius: 4 },
-        { label: 'Signés', data: Array(12).fill(0), backgroundColor: 'var(--soft-green-line)', borderRadius: 4 }
+        { label: 'RDV', data: Array(12).fill(0), backgroundColor: 'var(--accent-blue)', borderRadius: 4 },
+        { label: 'Signés', data: Array(12).fill(0), backgroundColor: 'var(--green)', borderRadius: 4 }
       ]
     },
     options: {
@@ -6180,15 +6180,15 @@ function switchChartTab(type, btn) {
   const year = state.year;
   const store = loadStore();
   let d1 = Array(12).fill(0), d2 = Array(12).fill(0);
-  let label1 = '', label2 = '', color1 = 'var(--soft-blue)', color2 = 'var(--soft-green-line)';
+  let label1 = '', label2 = '', color1 = 'var(--accent-blue)', color2 = 'var(--green)';
 
   for (let m = 1; m <= 12; m++) {
     const key = `${year}-${String(m).padStart(2,'0')}`;
     const rows = store[key] || [];
     const kpis = computeKpisFromRows(rows);
     if (type === 'rdv') { d1[m-1]=rows.length; d2[m-1]=kpis.signes; label1='RDV'; label2='Signés'; }
-    else if (type === 'closing') { d1[m-1]=kpis.closing; label1='Closing %'; color1='var(--soft-green-line)'; d2=null; }
-    else if (type === 'commission') { d1[m-1]=kpis.commission; label1='Commission €'; color1='var(--soft-orange-line)'; d2=null; }
+    else if (type === 'closing') { d1[m-1]=kpis.closing; label1='Closing %'; color1='var(--green)'; d2=null; }
+    else if (type === 'commission') { d1[m-1]=kpis.commission; label1='Commission €'; color1='var(--orange)'; d2=null; }
     else if (type === 'mrr') { d1[m-1]=kpis.mrr; label1='MRR €'; color1='var(--soft-violet-line)'; d2=null; }
   }
 
@@ -8412,12 +8412,30 @@ function setTheme(pref) {
   try { localStorage.setItem('sd_theme', pref); localStorage.removeItem('sd_dark'); } catch (e) {}
   appliquerTheme();
 }
+// Chart.js dessine dans un canvas : il ne comprend pas « var(--couleur) » (résultat : tout en noir). On traduit les tokens en vraies couleurs
+// à chaque mise à jour d'un graphique, en gardant le token d'origine pour pouvoir retraduire quand le thème change.
+(function() {
+  if (typeof Chart === 'undefined' || window._sdChartTokens) return; window._sdChartTokens = true;
+  var resoudre = function(v, cs) { return String(v).replace(/var\(\s*(--[a-zA-Z0-9-]+)\s*(?:,\s*([^)]+))?\)/g, function(_, nom, defaut) { var x = cs.getPropertyValue(nom).trim(); return x || (defaut || '').trim() || '#888'; }); };
+  var marcher = function(o, cs, prof) {
+    if (!o || typeof o !== 'object' || prof > 6) return;
+    Object.keys(o).forEach(function(k) {
+      if (k.charAt(0) === '_' || k === 'data' && Array.isArray(o[k]) && typeof o[k][0] !== 'object') return;
+      var v = o[k];
+      if (typeof v === 'string') { var src = (o.__tok && o.__tok[k]) || (v.indexOf('var(') >= 0 ? v : null); if (src) { if (!o.__tok) Object.defineProperty(o, '__tok', { value: {}, enumerable: false }); o.__tok[k] = src; o[k] = resoudre(src, cs); } }
+      else if (Array.isArray(v)) { if (v.some(function(x) { return typeof x === 'string' && x.indexOf('var(') >= 0; }) || (o.__tokA && o.__tokA[k])) { if (!o.__tokA) Object.defineProperty(o, '__tokA', { value: {}, enumerable: false }); if (!o.__tokA[k]) o.__tokA[k] = v.slice(); o[k] = o.__tokA[k].map(function(x) { return typeof x === 'string' ? resoudre(x, cs) : x; }); } else v.forEach(function(x) { marcher(x, cs, prof + 1); }); }
+      else if (v && typeof v === 'object' && !(v instanceof HTMLElement)) marcher(v, cs, prof + 1);
+    });
+  };
+  Chart.register({ id: 'sdTokens', beforeUpdate: function(chart) { try { var cs = getComputedStyle(document.documentElement); marcher(chart.config.data, cs, 0); marcher(chart.config.options, cs, 0); } catch (e) {} } });
+})();
 function appliquerTheme() {
   var pref = 'system'; try { pref = localStorage.getItem('sd_theme') || 'system'; } catch (e) {}
   var eff = pref === 'system' ? (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : pref;
   document.documentElement.setAttribute('data-theme', eff); document.documentElement.setAttribute('data-theme-pref', pref);
   document.querySelectorAll('#theme-pick button').forEach(function(b) { b.classList.toggle('on', b.dataset.t === pref); });
   try { if (typeof Chart !== 'undefined' && Chart.defaults) { var cs = getComputedStyle(document.documentElement); Chart.defaults.color = cs.getPropertyValue('--text2').trim(); Chart.defaults.borderColor = cs.getPropertyValue('--border').trim(); } } catch (e) {}
+  try { if (typeof Chart !== 'undefined' && Chart.instances) Object.values(Chart.instances).forEach(function(c) { try { c.options.color = Chart.defaults.color; c.update('none'); } catch (e) {} }); } catch (e) {}
   // le copilot (iframe Mes RDV) suit le même thème
   try { var f = document.getElementById('copilot-frame'); if (f && f.contentWindow) f.contentWindow.postMessage({ sd: 'theme', theme: eff }, '*'); } catch (e) {}
 }
@@ -11166,8 +11184,8 @@ function renderGlobal() {
 
   // 1. Evolution RDV/Shows/Ventes
   mkChart('g-chart-evolution', 'bar', { labels, datasets: [
-    { label:'RDV',    data: filteredMonths.map(m=>m.rdv),    backgroundColor:'var(--soft-blue)', borderRadius:3 },
-    { label:'Shows',  data: filteredMonths.map(m=>m.shows),  backgroundColor:'var(--soft-green-line)', borderRadius:3 },
+    { label:'RDV',    data: filteredMonths.map(m=>m.rdv),    backgroundColor:'var(--accent-blue)', borderRadius:3 },
+    { label:'Shows',  data: filteredMonths.map(m=>m.shows),  backgroundColor:'var(--green)', borderRadius:3 },
     { label:'Ventes', data: filteredMonths.map(m=>m.signes), backgroundColor:'var(--accent)', borderRadius:3 },
   ]}, baseOpts);
 
@@ -11186,7 +11204,7 @@ function renderGlobal() {
   const typeLabels = ['Mandataires','Agences'];
   const typeData   = [mand.length, ag.length];
   const typeColArr = ['var(--orange)','var(--accent)'];
-  mkChart('g-chart-types', 'doughnut', { labels: typeLabels, datasets: [{ data: typeData, backgroundColor: typeColArr, borderWidth:2, borderColor:'#fff' }] },
+  mkChart('g-chart-types', 'doughnut', { labels: typeLabels, datasets: [{ data: typeData, backgroundColor: typeColArr, borderWidth:2, borderColor:'var(--surface)' }] },
     { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } }, cutout:'60%' });
   const typeLegEl = document.getElementById('g-type-legend');
   if (typeLegEl) typeLegEl.innerHTML = typeLabels.map((l,i) => '<div style="display:flex;align-items:center;gap:4px;font-size:11px;"><span style="width:8px;height:8px;border-radius:2px;background:' + typeColArr[i] + ';flex-shrink:0;"></span>' + l + ' (' + typeData[i] + ')</div>').join('');
@@ -11194,7 +11212,7 @@ function renderGlobal() {
   // 5. Doughnut Sources
   const srcData   = allSrcs.map(s => (srcMap[s]||[]).length);
   const srcColArr = allSrcs.map(s => srcColors[s] === 'var(--accent)' ? 'var(--accent)' : srcColors[s] === 'var(--purple)' ? 'var(--purple)' : srcColors[s] === 'var(--orange)' ? 'var(--orange)' : 'var(--text3)');
-  mkChart('g-chart-sources', 'doughnut', { labels: allSrcs, datasets: [{ data: srcData, backgroundColor: srcColArr, borderWidth:2, borderColor:'#fff' }] },
+  mkChart('g-chart-sources', 'doughnut', { labels: allSrcs, datasets: [{ data: srcData, backgroundColor: srcColArr, borderWidth:2, borderColor:'var(--surface)' }] },
     { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } }, cutout:'60%' });
   const srcLegEl = document.getElementById('g-source-legend');
   if (srcLegEl) srcLegEl.innerHTML = allSrcs.map((s,i) => '<div style="display:flex;align-items:center;gap:4px;font-size:11px;"><span style="width:8px;height:8px;border-radius:2px;background:' + srcColArr[i] + ';flex-shrink:0;"></span>' + s + ' (' + srcData[i] + ')</div>').join('');
@@ -11216,7 +11234,7 @@ function renderGlobal() {
   const freqColArr = ['var(--purple)','var(--green)'];
   mkChart('g-chart-freq', 'doughnut', {
     labels: freqLabels,
-    datasets: [{ data: freqDataV, backgroundColor: freqColArr, borderWidth:2, borderColor:'#fff' }]
+    datasets: [{ data: freqDataV, backgroundColor: freqColArr, borderWidth:2, borderColor:'var(--surface)' }]
   }, { responsive:true, maintainAspectRatio:false, plugins:{ legend:{display:false} }, cutout:'60%' });
   const freqLegEl = document.getElementById('g-freq-legend');
   if (freqLegEl) freqLegEl.innerHTML = freqLabels.map((l,i) => '<div style="display:flex;align-items:center;gap:4px;font-size:11px;"><span style="width:8px;height:8px;border-radius:2px;background:' + freqColArr[i] + ';flex-shrink:0;"></span>' + l + ' (' + freqDataV[i] + ')</div>').join('');
