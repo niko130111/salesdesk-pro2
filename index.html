@@ -3446,6 +3446,30 @@ function fcAppeler(ev, tel, closeUrl) {
   else { window.location.href = 'tel:' + String(tel).replace(/\s/g, ''); }
   return false;
 }
+// Corriger le nom d'une personne partout (lignes, fiche, traités, suivi, journal) — et dans le copilot ; proposition = le nom tel qu'il est dans Close
+function fcCorrigerNom() {
+  var ancien = _fc.nom; if (!ancien) return;
+  var suggestion = '';
+  try { var l = (_fc.close && _fc.close.leads || [])[0]; if (l) { var ct = (l.contacts || []).find(function(c) { return (c.emails || []).some(function(e) { return String(e).toLowerCase() === _fc.email; }); }) || (l.contacts || [])[0]; if (ct && ct.nom && fcNormNom(ct.nom) !== fcNormNom(ancien)) suggestion = ct.nom; } } catch (e) {}
+  var nouveau = prompt('Nouveau nom pour « ' + ancien + ' »' + (suggestion ? '\n(dans Close : ' + suggestion + ')' : '') + '\nSi ce nom existe déjà dans SalesDesk, les deux fiches seront fusionnées.', suggestion || ancien);
+  if (!nouveau) return; nouveau = nouveau.trim(); if (!nouveau || nouveau === ancien) return;
+  var store = loadStore(); sdBackupStore(store);
+  var na = fcNormNom(ancien), nn = fcNormNom(nouveau), lignes = 0, fusion = false;
+  Object.keys(store).forEach(function(k) { if (!/^\d{4}-\d{2}$/.test(k) || !Array.isArray(store[k])) return; store[k].forEach(function(r) { if (r && fcNormNom(r.client || '') === nn && na !== nn) fusion = true; }); });
+  Object.keys(store).forEach(function(k) { if (!/^\d{4}-\d{2}$/.test(k) || !Array.isArray(store[k])) return; store[k].forEach(function(r) { if (r && fcNormNom(r.client || '') === na) { r.clientAvant = r.clientAvant || r.client; r.client = nouveau; lignes++; } }); });
+  // fiche client (_clients) : on garde notes / claap / closeUrl, fusionnés si la cible existe
+  var cls = fcClients(store), ka = fcCle(ancien, _fc.email), kn = fcCle(nouveau, _fc.email);
+  if (cls[ka]) { var src = cls[ka]; var dst = cls[kn] || { nom: nouveau, email: _fc.email, notes: '', claap: {} }; dst.nom = nouveau; dst.notes = [dst.notes, src.notes].filter(Boolean).join('\n'); dst.claap = Object.assign({}, src.claap || {}, dst.claap || {}); dst.closeUrl = dst.closeUrl || src.closeUrl; if (kn !== ka) delete cls[ka]; cls[kn] = dst; }
+  // clés nom|date des traités, suivi des tâches, journal des relances
+  ['_processedRdvs', 'salesdesk_processed'].forEach(function(pk) { var P = store[pk]; if (!P) return; Object.keys(P).forEach(function(key) { var parts = key.split('|'); var i = parts.findIndex(function(x) { return fcNormNom(x) === na; }); if (i >= 0) { parts[i] = nouveau; var nk = parts.join('|'); if (!P[nk]) P[nk] = P[key]; if (P[nk] && P[nk].name) P[nk].name = nouveau; if (nk !== key) delete P[key]; } }); });
+  Object.keys(store._tachesCloseSuivi || {}).forEach(function(k) { var x = store._tachesCloseSuivi[k]; if (x && fcNormNom(x.nom || '') === na) x.nom = nouveau; });
+  (store._relancesLog || []).forEach(function(e) { if (fcNormNom(e.nom || '') === na) e.nom = nouveau; });
+  if (!store._renommages) store._renommages = []; store._renommages.push({ ancien: ancien, nouveau: nouveau, at: new Date().toISOString(), lignes: lignes });
+  saveStore(store);
+  if (typeof COPILOT_URL !== 'undefined') fetch(COPILOT_URL + '/contacts/renommer', { method: 'POST', mode: 'cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ancien: ancien, nouveau: nouveau }) }).catch(function() {});
+  if (typeof showCopyToast === 'function') showCopyToast('✎ ' + ancien + ' → ' + nouveau + ' · ' + lignes + ' ligne(s)' + (fusion ? ' · fiches fusionnées' : ''));
+  refreshAll(); fermerFicheClient(); setTimeout(function() { ouvrirFicheClient(nouveau, _fc.email); }, 150);
+}
 function fcRendreContact() {
   var el = document.getElementById('fc-contact'), chips = [], note = '';
   var propre = function(arr) { return (arr || []).map(function(x) { return String(x || '').trim(); }).filter(function(x) { return x && x !== 'null' && x !== 'undefined'; }); };
@@ -12890,7 +12914,7 @@ window.addEventListener('load', function() {
 <div id="fc-overlay" class="fc-overlay" onclick="if(event.target===this)fermerFicheClient()">
   <div class="fc-panel">
     <div class="fc-head">
-      <div class="fc-nom"><span id="fc-nom"></span><button class="fc-close" onclick="fermerFicheClient()" title="Fermer">✕</button></div>
+      <div class="fc-nom"><span id="fc-nom"></span><button class="btn btn-sm" style="font-size:11px;padding:2px 8px;margin-left:10px;" title="Corriger l'orthographe du nom ou fusionner avec une autre fiche" onclick="fcCorrigerNom()">✎ Corriger le nom</button><button class="fc-close" onclick="fermerFicheClient()" title="Fermer">✕</button></div>
       <div class="fc-badges" id="fc-badges"></div>
       <div class="fc-contact" id="fc-contact"></div>
       <div class="fc-dernier" id="fc-dernier"></div>
