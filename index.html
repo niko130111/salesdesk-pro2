@@ -5122,6 +5122,7 @@ function sdAppliquerCopilot(m) {
     if (!row.presence) row.presence = 'Show';
   }
   store[mk] = rows; saveStore(store);
+  if (m.sc === 'rdv_terminer' && row.source !== 'R2') sdDemanderMailFinR1(row, m.result, m.email || '');
   // No Show / Annulé depuis le copilot : traité tout de suite, comme un clic dans le Quotidien
   const pres = c.presence;
   if (m.sc === 'rdv_set' && (pres === 'No Show' || pres === 'Annulé')) {
@@ -8767,7 +8768,7 @@ function chargerMaJournee(force) {
     fetch(COPILOT_URL + '/etat', { mode: 'cors', cache: 'no-store', signal: ctrl.signal }).then(function(r) { return r.json(); }).catch(function() { return null; }),
     fetch('http://127.0.0.1:3016/api/status', { mode: 'cors', cache: 'no-store', signal: ctrl.signal }).then(function(r) { return r.json(); }).catch(function() { return false; })
   ]).then(function(r) { _mj.copilot = r[0] && r[0].rdvs ? r[0].rdvs : null; _mj.sdRdvs = r[1] && r[1].rdvs ? r[1].rdvs : null; _mj.etat = r[2]; _mj.rappels = r[3]; fin(); }).catch(fin);
-  try { chargerVerifClose(false); } catch (e) {} try { chargerSms(false); } catch (e) {} try { chargerControle(false); setInterval(function() { chargerControle(true); }, 5 * 60000); } catch (e) {} try { chargerAppelsJour(false); setInterval(function() { chargerAppelsJour(true); }, 2 * 60000); } catch (e) {}
+  try { chargerVerifClose(false); } catch (e) {} try { chargerSms(false); } catch (e) {} try { chargerControle(false); setInterval(function() { chargerControle(true); }, 5 * 60000); } catch (e) {} try { chargerAppelsJour(false); setInterval(function() { chargerAppelsJour(true); }, 2 * 60000); } catch (e) {} try { chargerMailsFinR1(false); setInterval(function() { chargerMailsFinR1(true); }, 2 * 60000); } catch (e) {}
 }
 // ── Contrôle : organe de contrôle (copilot /controle + état SalesDesk), alertes en bandeau dans Quotidien et Mes RDV ──
 var _ctl = null, _ctlAt = 0;
@@ -8952,6 +8953,55 @@ function sdVerifCloseAppliquer(ignorerAussi) {
   if (typeof showCopyToast === 'function') showCopyToast(n ? '✓ Close : ' + n + ' correction(s) appliquée(s) — ' + msgs.slice(0, 4).join(', ') : 'Rien appliqué');
 }
 function mjAller(page) { var b = [...document.querySelectorAll('.nav-tab')].find(function(x) { return x.textContent.indexOf(page) >= 0; }); if (b) b.click(); }
+// ── Mail de fin de R1 : « Terminer » → le copilot attend le compte rendu Claap → brouillon dans Close → ici : Envoyer · Modifier · Annuler ──
+var _mailsFinR1 = null, _mailsFinR1At = 0;
+function sdDemanderMailFinR1(row, resultatCopilot, email) {
+  if (typeof COPILOT_URL === 'undefined' || !row || !row.client) return;
+  var iso = frVersIsoSd(row.date); if (!iso) return;
+  var map = { oneshot: 'signe', nosign: 'plus_tard', r2: 'r2', relance: 'interesse' }; var resultat = map[resultatCopilot] || 'interesse';
+  if (resultatCopilot === 'nosign' && row.nosignRaison === 'pasinteresse') return; // pas intéressé : pas de mail
+  var r2 = ''; if (row.dateR2) { var d = parseDateFR(row.dateR2); if (d) r2 = d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }) + (row.heureR2 ? ' à ' + String(row.heureR2).replace(':', 'h') : ''); }
+  var rappel = row.relanceDate ? fcFrDepuisIso(row.relanceDate) : '';
+  fetch(COPILOT_URL + '/mails-fin-r1/preparer', { method: 'POST', mode: 'cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nom: row.client, date: iso, email: email || row.email || '', resultat: resultat, r2: r2, rappel: rappel, tier: (row.tier || '').toString().replace(/\D/g, '') || null }) })
+    .then(function(r) { return r.json(); }).then(function(j) { if (j && j.ok) { if (typeof showCopyToast === 'function') showCopyToast('✉ Mail de fin de RDV : prêt dès que le compte rendu Claap arrive dans Close'); _mailsFinR1At = 0; chargerMailsFinR1(true); } }).catch(function() {});
+}
+function chargerMailsFinR1(force) {
+  if (typeof COPILOT_URL === 'undefined') return;
+  if (_mailsFinR1 && Date.now() - _mailsFinR1At < 60000 && !force) return;
+  fetch(COPILOT_URL + '/mails-fin-r1', { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).then(function(j) { _mailsFinR1 = j.mails || []; _mailsFinR1At = Date.now(); renderMaJournee(); }).catch(function() {});
+}
+function mjMailsFinR1Html() {
+  var l = (_mailsFinR1 || []).filter(function(m) { return ['attente_cr', 'brouillon', 'sans_cr', 'sans_fiche', 'sans_email'].indexOf(m.statut) >= 0 || (m.statut === 'envoye' && Date.now() - Date.parse(m.envoye) < 6 * 3600000); });
+  if (!l.length) return '';
+  var LIB = { attente_cr: '⏳ en attente du compte rendu Claap', brouillon: '✉ <b>prêt</b> — brouillon dans Close', envoye: '✓ envoyé', sans_cr: '⚠ pas de compte rendu après 36 h', sans_fiche: '⚠ pas de fiche Close', sans_email: '⚠ pas d\'e-mail sur la fiche' };
+  return '<div style="margin-top:10px;padding:10px 12px;border-radius:12px;background:var(--surface2);border:1px solid var(--border);"><div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:4px;">✉ Mails de fin de RDV</div>'
+    + l.map(function(m) { var cleJs = JSON.stringify(m.cle).replace(/"/g, '&quot;'); return '<div style="display:flex;gap:10px;align-items:center;padding:6px 0;border-top:1px dashed var(--border);font-size:13px;"><span style="flex:1;"><b>' + escapeHtml(m.nom) + '</b> <span style="color:var(--text3);">· RDV ' + escapeHtml(m.date.split('-').reverse().join('/')) + '</span><div style="font-size:12px;color:' + (m.statut === 'brouillon' ? 'var(--orange)' : m.statut.indexOf('sans') === 0 ? 'var(--red)' : 'var(--text2)') + ';">' + (LIB[m.statut] || m.statut) + (m.motif && m.statut !== 'brouillon' ? ' · ' + escapeHtml(m.motif) : '') + '</div></span>'
+      + (m.statut === 'brouillon' ? '<button class="btn btn-sm btn-primary" style="font-size:11px;padding:2px 8px;" onclick="sdVoirMailFinR1(' + cleJs + ')">Voir / Envoyer</button>' : '') + (m.statut !== 'envoye' ? '<button class="btn btn-sm" style="font-size:11px;padding:2px 8px;" onclick="sdActionMailFinR1(' + cleJs + ', \'annuler\', this)">✕</button>' : '') + '</div>'; }).join('') + '</div>';
+}
+function sdVoirMailFinR1(cle) {
+  fetch(COPILOT_URL + '/mails-fin-r1/e/' + encodeURIComponent(cle), { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).then(function(j) {
+    var m = j.entree; if (!m) return;
+    var ov = document.getElementById('fc-dup-overlay');
+    if (!ov) { ov = document.createElement('div'); ov.id = 'fc-dup-overlay'; ov.className = 'modal-overlay'; ov.style.zIndex = '1300'; ov.innerHTML = '<div class="modal" id="fc-dup-modal"></div>'; document.body.appendChild(ov); }
+    ov.onclick = function(ev) { if (ev.target === ov) fermerModalDoublon(); };
+    var cleJs = JSON.stringify(cle).replace(/"/g, '&quot;');
+    document.getElementById('fc-dup-modal').innerHTML = '<div class="fc-dup" style="max-width:720px;"><div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline;margin-bottom:6px;"><div style="font-size:15px;font-weight:700;">✉ ' + escapeHtml(m.nom) + ' <span style="font-weight:500;color:var(--text3);">→ ' + escapeHtml(m.to || '') + '</span></div><a class="tag" href="' + escapeHtml(m.url || '#') + '" target="_blank" rel="noopener">↗ Close</a></div>'
+      + '<label style="font-size:12px;font-weight:600;">Objet</label><input class="input" id="mfr-objet" value="' + escapeHtml(m.objet || '') + '" style="width:100%;margin:4px 0 10px;">'
+      + '<div style="font-size:12px;font-weight:600;margin-bottom:4px;">Aperçu (modifiable directement)</div><div id="mfr-html" contenteditable="true" style="border:1px solid var(--border);border-radius:10px;padding:14px;background:#fff;color:#1f2937;max-height:52vh;overflow:auto;">' + (m.html || '') + '</div>'
+      + '<div style="display:flex;gap:8px;align-items:center;margin-top:12px;flex-wrap:wrap;"><select id="mfr-res" class="input" style="font-size:12px;"><option value="">Changer la suite…</option><option value="r2">R2 calé</option><option value="interesse">Intéressé, décision à venir</option><option value="decideur">Décideur absent</option><option value="plus_tard">Pas maintenant</option><option value="signe">Signé</option></select><input class="input" id="mfr-r2" placeholder="date du R2 / rappel (texte)" style="font-size:12px;width:200px;"><button class="btn btn-sm" onclick="sdActionMailFinR1(' + cleJs + ', \'regenerer\', this)">Régénérer</button><span style="flex:1"></span><button class="btn btn-sm" onclick="sdActionMailFinR1(' + cleJs + ', \'annuler\', this)">✕ Annuler</button><button class="btn btn-sm" onclick="fermerModalDoublon()">Fermer</button><button class="btn btn-sm btn-primary" onclick="sdActionMailFinR1(' + cleJs + ', \'envoyer\', this)">Envoyer</button></div></div>';
+    ov.classList.add('open');
+  }).catch(function() { alert('Copilot injoignable.'); });
+}
+function sdActionMailFinR1(cle, action, btn) {
+  if (action === 'annuler' && !confirm('Annuler ce mail de fin de RDV ? Le brouillon est supprimé dans Close.')) return;
+  if (btn) { btn.disabled = true; }
+  var corps = {};
+  if (action === 'envoyer') { var h = document.getElementById('mfr-html'), o = document.getElementById('mfr-objet'); if (h) { corps.html = h.innerHTML; corps.texte = h.innerText; } if (o) corps.objet = o.value; if (!confirm('Envoyer ce mail maintenant depuis ta boîte (via Close) ?')) { if (btn) btn.disabled = false; return; } }
+  if (action === 'regenerer') { var r = (document.getElementById('mfr-res') || {}).value, d = (document.getElementById('mfr-r2') || {}).value; if (r) corps.resultat = r; if (d) { if (r === 'r2') corps.r2 = d; else corps.rappel = d; } }
+  fetch(COPILOT_URL + '/mails-fin-r1/e/' + encodeURIComponent(cle) + '/' + action, { method: 'POST', mode: 'cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corps) }).then(function(r) { return r.json(); })
+    .then(function(j) { if (j.ok === false) throw new Error(j.error || 'refus'); if (typeof showCopyToast === 'function') showCopyToast(action === 'envoyer' ? '✓ Mail envoyé' : action === 'annuler' ? '✕ Mail annulé' : '↻ Brouillon régénéré'); _mailsFinR1At = 0; chargerMailsFinR1(true); if (action === 'regenerer') { setTimeout(function() { sdVoirMailFinR1(cle); }, 400); } else fermerModalDoublon(); })
+    .catch(function(e) { if (btn) btn.disabled = false; alert('Mail : ' + e.message); });
+}
 // ── Retour des appels Close : les appels passés aujourd'hui remontent sur les cartes, « joint » ou « pas de réponse » pré-rempli, tu valides ──
 var _appelsJour = null, _appelsJourAt = 0;
 function chargerAppelsJour(force) {
@@ -9068,6 +9118,7 @@ function renderMaJournee() {
   html += ligne('✅', aFinaliser.length ? '<b>' + aFinaliser.length + ' RDV à finaliser</b> (passés sans débrief) · ' + escapeHtml(aFinaliser.slice(0, 3).map(function(d) { return d.nom; }).join(' · ')) : 'Rien à finaliser', aFinaliser.length ? 'Finaliser' : '', "mjAller('Mes RDV')", aFinaliser.length ? 'var(--orange)' : '');
   html += ligne('📞', dues.length ? '<b>' + dues.length + ' relance(s) due(s)</b>' + (retard ? ' dont ' + retard + ' en retard' : '') + ' · ' + escapeHtml(dues.slice(0, 3).map(function(r) { return r.nom; }).join(' · ')) : 'Aucune relance due', dues.length ? 'Relancer' : '', "_rlFiltre='dues';mjAller('Relances')", retard ? 'var(--red)' : (dues.length ? 'var(--orange)' : ''));
   html += mjCockpitHtml(todayIso);
+  html += mjMailsFinR1Html();
   html += ligne('⚠️', sansAction.length ? '<b>' + sansAction.length + ' RDV sans prochaine action</b>' : 'Tous les RDV ont une suite', sansAction.length ? 'Compléter' : '', 'sdClasserEnChaine()', sansAction.length ? 'var(--red)' : '');
   // SMS no-show programmés / prêts (copilot /sms)
   var smsActifs = (_smsList || []).filter(function(x) { return x.statut === 'prevu' || x.statut === 'brouillon'; });
@@ -12490,6 +12541,7 @@ function confirmTerminerRdvDirect() {
       processedFrom: isR2Card ? 'terminer-r2' : 'terminer-r1'
     });
   }
+  if (!isR2Card && typeof sdDemanderMailFinR1 === 'function') { try { sdDemanderMailFinR1({ client: card.dataset.name || '', date: rdvDate, email: card.dataset.email || '', tier: (typeof lireTierCarte === 'function' ? lireTierCarte(card) : '') }, typeRes === 'oneshot' ? 'oneshot' : typeRes === 'nosign' ? 'nosign' : typeRes === 'r2' ? 'r2' : 'relance', card.dataset.email || ''); } catch (e) {} }
 
   // Re-render le quotidien pour appliquer le masquage
   if (typeof refreshAll === 'function') {
