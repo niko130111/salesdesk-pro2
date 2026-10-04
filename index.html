@@ -4117,6 +4117,7 @@ function fcPopupRaison(monthKey, idx) {
 function fcRaisonChoisir(monthKey, idx, raison) {
   var store = loadStore(), r = (store[monthKey] || [])[idx]; if (!r) return;
   r.result = 'Non signé'; r.nosignRaison = raison; saveStore(store); fermerModalDoublon(); refreshAll();
+  if (raison === 'pasinteresse') sdStatutClose(r, 'pas_interesse');
   if (document.getElementById('fc-overlay').classList.contains('open')) { _fc.rows = fcLignesDuNom(_fc.nom); fcRendre(); }
   sdChaineSuite();
 }
@@ -5100,6 +5101,19 @@ function sdEnvoyerEtatCopilot() {
 }
 // Applique une modification venue du copilot sur la ligne « client + date » du bon mois
 // No-show confirmé → le copilot prépare le message de reprogrammation et cale un rappel (automatisation « no_show », aucun envoi)
+// Statuts Close pilotés depuis SalesDesk : présence / pas intéressé / mail envoyé / laisser tomber → opportunité (+ lead), jamais sur un R2, jamais Won/Customer, rien créé
+var _sdStatutDernier = {};
+function sdStatutClose(row, evenement) {
+  if (typeof COPILOT_URL === 'undefined' || !row || !row.client || row.source === 'R2') return;
+  var cle = fcNormNom(row.client) + '|' + evenement; if (_sdStatutDernier[cle] && Date.now() - _sdStatutDernier[cle] < 5000) return; _sdStatutDernier[cle] = Date.now();
+  fetch(COPILOT_URL + '/close/statut', { method: 'POST', mode: 'cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nom: row.client, email: row.email || '', evenement: evenement }) })
+    .then(function(r) { return r.json(); }).then(function(j) {
+      if (!j || typeof showCopyToast !== 'function') return;
+      if (j.sansFiche) { showCopyToast('Close : pas de fiche pour ' + row.client + ' (statut non modifié)'); return; }
+      if (j.ok && j.fait) { var f = j.fait; var txt = [f.opp && /→/.test(f.opp) ? 'opportunité ' + f.opp : '', f.lead && /→/.test(f.lead) ? 'lead ' + f.lead : ''].filter(Boolean).join(' · '); if (txt) showCopyToast('🧭 Close : ' + txt); else if (f.opp && /aucune opportunité/.test(f.opp)) showCopyToast('Close : ' + row.client + ' n\'a pas d\'opportunité, statut non modifié'); }
+    }).catch(function() {});
+}
+function sdStatutDepuisPresence(row, presence) { var ev = { 'No Show': 'no_show', 'Annulé': 'annule', 'Reprogrammé': 'reprogramme', 'Show': 'show' }[String(presence || '').trim()]; if (ev) sdStatutClose(row, ev); }
 // Après un no-show : Nicolas décide — relancer (tâche Close demain / autre jour) ou laisser tomber. Rien n'entre dans la file sans ce choix.
 function sdDeciderNoShow(row) {
   if (!row || !row.client) return; window._nsRow = row;
@@ -5111,7 +5125,7 @@ function sdDeciderNoShow(row) {
   document.getElementById('fc-dup-modal').innerHTML = '<div class="fc-dup"><div style="font-size:15px;font-weight:700;margin-bottom:4px;">👻 ' + escapeHtml(row.client) + ' — no-show</div><div class="fc-muted" style="margin-bottom:12px;">On le relance ? Si oui, une tâche est posée dans Close et il entre dans ta file (cadence +1, +1, +2, +3, +5, +5).</div>'
     + '<div style="display:grid;gap:8px;"><button class="btn btn-primary" onclick="sdNoShowRelancer(' + nomJs + ',' + emailJs + ',' + srcJs + ',\'' + demain + '\')">📞 Relancer demain (' + escapeHtml(fcFrDepuisIso(demain)) + ')</button>'
     + '<div style="display:flex;gap:8px;align-items:center;"><input type="date" id="ns-autre" class="input" value="' + demain + '" style="flex:1;"><button class="btn" onclick="sdNoShowRelancer(' + nomJs + ',' + emailJs + ',' + srcJs + ', document.getElementById(\'ns-autre\').value)">📅 Relancer à cette date</button></div>'
-    + '<button class="btn" onclick="fermerModalDoublon();if(typeof showCopyToast===\'function\')showCopyToast(\'✋ ' + escapeHtml(row.client).replace(/'/g, '') + ' : pas de relance\')">✋ Laisser tomber</button></div></div>';
+    + '<button class="btn" onclick="fermerModalDoublon();sdStatutClose(window._nsRow, \'laisser_tomber\');if(typeof showCopyToast===\'function\')showCopyToast(\'✋ ' + escapeHtml(row.client).replace(/'/g, '') + ' : pas de relance\')">✋ Laisser tomber (Lost - Cancelled)</button></div></div>';
   ov.classList.add('open');
 }
 function sdNoShowRelancer(nom, email, source, date, dateRdvFr, heure) {
@@ -5142,11 +5156,12 @@ function sdAppliquerCopilot(m) {
   const c = m.champs || {};
   ['presence', 'type', 'pack', 'freq', 'tier', 'fms', 'contactId'].forEach(k => { if (c[k] !== undefined && c[k] !== null) row[k] = String(c[k]); });
   if (c.presence === 'No Show') sdSignalerNoShow(row);
+  if (c.presence) sdStatutDepuisPresence(row, c.presence);
   if (c.nosignRaison && row.result === 'Non signé') row.nosignRaison = String(c.nosignRaison);
   if (m.sc === 'rdv_terminer') {
     const isR2 = row.source === 'R2';
     if (m.result === 'oneshot') { row.result = 'Signé'; row.oneshot = isR2 ? 'N' : 'O'; if (!row.dateSignature) row.dateSignature = new Date().toLocaleDateString('fr-FR'); }
-    else if (m.result === 'nosign') { row.result = 'Non signé'; row.oneshot = 'N'; if (c.nosignRaison) row.nosignRaison = String(c.nosignRaison); }
+    else if (m.result === 'nosign') { row.result = 'Non signé'; row.oneshot = 'N'; if (c.nosignRaison) row.nosignRaison = String(c.nosignRaison); if (String(c.nosignRaison || '') === 'pasinteresse') sdStatutClose(row, 'pas_interesse'); }
     else if (m.result === 'r2') { row.result = 'Intéressé'; row.oneshot = 'N'; row.r2Attendu = new Date().toISOString().slice(0, 10); } // intéressé, R2 à venir : la date est reprise de l'agenda
     else if (m.result === 'relance') { row.result = 'Intéressé'; row.oneshot = 'N'; } // à relancer = intéressé sans R2 : même résultat que « Intéressé » à la main, compté partout pareil
     if (!row.presence) row.presence = 'Show';
@@ -6889,6 +6904,7 @@ function dailyCalAddOne(btn) {
     if (p.length === 3) { targetMonth = MONTHS_FR[parseInt(p[1])-1]; targetYear = p[2]; }
   }
   if (presNorm === 'No Show') sdSignalerNoShow({ client: name, date: rdvDate, email: card.dataset.email || '', source: card.dataset.source || '' });
+  if (presNorm) sdStatutDepuisPresence({ client: name, date: rdvDate, email: card.dataset.email || '', source: card.dataset.source || '' }, presNorm);
   addRdvToStore(targetMonth, targetYear, {
     date: rdvDate || new Date().toLocaleDateString('fr-FR'),
     datePrise: card.dataset.created || '',
@@ -9038,7 +9054,8 @@ function sdActionMailFinR1(cle, action, btn) {
   if (action === 'envoyer') { var h = document.getElementById('mfr-html'), o = document.getElementById('mfr-objet'); if (h) { corps.html = h.innerHTML; corps.texte = h.innerText; } if (o) corps.objet = o.value; if (!confirm('Envoyer ce mail maintenant depuis ta boîte (via Close) ?')) { if (btn) btn.disabled = false; return; } }
   if (action === 'regenerer') { var r = (document.getElementById('mfr-res') || {}).value, d = (document.getElementById('mfr-r2') || {}).value; if (r) corps.resultat = r; if (d) { if (r === 'r2') corps.r2 = d; else corps.rappel = d; } }
   fetch(COPILOT_URL + '/mails-fin-r1/e/' + encodeURIComponent(cle) + '/' + action, { method: 'POST', mode: 'cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corps) }).then(function(r) { return r.json(); })
-    .then(function(j) { if (j.ok === false) throw new Error(j.error || 'refus'); if (typeof showCopyToast === 'function') showCopyToast(action === 'envoyer' ? '✓ Mail envoyé' : action === 'annuler' ? '✕ Mail annulé' : action === 'manuel' ? '✍️ Noté : fait à la main' : '↻ Brouillon régénéré'); _mailsFinR1At = 0; chargerMailsFinR1(true); if (action === 'regenerer') { setTimeout(function() { sdVoirMailFinR1(cle); }, 400); } else fermerModalDoublon(); })
+    .then(function(j) { if (j.ok === false) throw new Error(j.error || 'refus'); if (typeof showCopyToast === 'function') showCopyToast(action === 'envoyer' ? '✓ Mail envoyé' : action === 'annuler' ? '✕ Mail annulé' : action === 'manuel' ? '✍️ Noté : fait à la main' : '↻ Brouillon régénéré');
+      if ((action === 'envoyer' || action === 'manuel') && j.entree) sdStatutClose({ client: j.entree.nom, email: j.entree.email || j.entree.to || '' }, 'mail_envoye'); else if (action === 'manuel') { var em = (_mailsFinR1 || []).find(function(m) { return m.cle === cle; }); if (em) sdStatutClose({ client: em.nom, email: em.email || em.to || '' }, 'mail_envoye'); } _mailsFinR1At = 0; chargerMailsFinR1(true); if (action === 'regenerer') { setTimeout(function() { sdVoirMailFinR1(cle); }, 400); } else fermerModalDoublon(); })
     .catch(function(e) { if (btn) btn.disabled = false; alert('Mail : ' + e.message); });
 }
 // ── Retour des appels Close : les appels passés aujourd'hui remontent sur les cartes, « joint » ou « pas de réponse » pré-rempli, tu valides ──
@@ -10493,7 +10510,7 @@ function majTraite(rdvId, champ, valeur) {
   const rows = mk ? (store[mk] || []) : [];
   let row = rows.find(x => x && (x.client || '').toLowerCase().trim() === String(e.name || '').toLowerCase().trim() && x.date === e.rdvDate);
   if (!row && mk) { row = { date: e.rdvDate, datePrise: '', client: e.name, presence: e.presence || '', result: '', source: e.source || 'Inbound', type: e.type || 'Mandataire', pack: '', freq: '', tier: '', fms: '', oneshot: 'N', commission: 0 }; rows.push(row); store[mk] = rows; }
-  if (champ === 'presence') { e.presence = valeur; if (row) row.presence = valeur; if (valeur === 'No Show' && row) sdSignalerNoShow(row); }
+  if (champ === 'presence') { e.presence = valeur; if (row) row.presence = valeur; if (valeur === 'No Show' && row) sdSignalerNoShow(row); if (row) sdStatutDepuisPresence(row, valeur); }
   else if (champ === 'type') { e.type = valeur; if (row) row.type = valeur; }
   else if (champ === 'result') {
     e.result = valeur === 'En attente' ? 'À relancer' : valeur;
