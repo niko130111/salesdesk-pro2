@@ -391,6 +391,49 @@ main { max-width: 100%; margin: 0; padding: 6px 8px; }
 .fc-chip.accent { background: var(--accent-bg); color: var(--accent); border-color: transparent; }
 .fc-chip .k { font-size: 11px; font-weight: 500; color: var(--text3); }
 .fc-suivi { margin-top: 12px; display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* ── Aujourd'hui ── */
+.auj { max-width: 1240px; margin: 0 auto; padding: 18px 20px 40px; }
+.auj-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; margin-bottom: 18px; }
+.auj-date { font-size: 13px; color: var(--text2); text-transform: capitalize; }
+.auj-h1 { font-size: 28px; font-weight: 800; letter-spacing: -.02em; margin: 2px 0 2px; color: var(--text); }
+.auj-resume { font-size: 14px; color: var(--text2); }
+.auj-head-actions { display: flex; gap: 8px; }
+.auj-grid { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 16px; align-items: start; }
+@media (max-width: 1000px) { .auj-grid { grid-template-columns: 1fr; } }
+.auj-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 16px 18px; margin-bottom: 14px; box-shadow: var(--shadow); }
+.auj-card-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; }
+.auj-card-head h2 { font-size: 16px; font-weight: 700; margin: 0; color: var(--text); display: flex; align-items: center; gap: 8px; }
+.auj-card-head a { font-size: 12.5px; color: var(--accent); cursor: pointer; font-weight: 600; }
+.auj-count { background: var(--accent-soft); color: var(--accent); font-size: 12px; font-weight: 700; padding: 1px 8px; border-radius: 999px; }
+.auj-rdv { display: grid; grid-template-columns: 64px minmax(0, 1fr) auto; gap: 14px; align-items: center; padding: 12px 0; border-top: 1px solid var(--border); }
+.auj-rdv:first-child { border-top: 0; }
+.auj-rdv .h { font-family: var(--mono); font-size: 15px; font-weight: 600; color: var(--text); }
+.auj-rdv .h.passe { color: var(--text3); }
+.auj-rdv .n { font-weight: 700; font-size: 15px; color: var(--text); }
+.auj-rdv .sub { font-size: 13px; color: var(--text2); margin-top: 2px; }
+.auj-rdv .chips { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+.auj-chip { font-size: 11.5px; font-weight: 600; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--border); color: var(--text2); background: var(--surface2); }
+.auj-chip.r2 { border-color: var(--soft-violet-line); color: var(--purple); background: var(--soft-violet); }
+.auj-chip.ok { border-color: var(--soft-green-line); color: var(--green); background: var(--soft-green); }
+.auj-chip.warn { border-color: var(--soft-orange-line); color: var(--orange); background: var(--soft-orange); }
+.auj-rdv .act { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.auj-empty { padding: 18px 0; color: var(--text2); font-size: 14px; }
+.auj-empty b { color: var(--text); }
+.auj-item { display: flex; gap: 10px; align-items: flex-start; padding: 9px 0; border-top: 1px solid var(--border); font-size: 13.5px; }
+.auj-item:first-child { border-top: 0; }
+.auj-dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 7px; flex-shrink: 0; background: var(--text3); }
+.auj-dot.red { background: var(--red); } .auj-dot.orange { background: var(--orange); } .auj-dot.blue { background: var(--accent-blue); } .auj-dot.green { background: var(--green); }
+.auj-item .t { font-weight: 600; color: var(--text); }
+.auj-item .d { font-size: 12px; color: var(--text2); }
+.auj-item .when { margin-left: auto; font-size: 12px; color: var(--text3); white-space: nowrap; }
+.auj-item.lien { cursor: pointer; } .auj-item.lien:hover .t { color: var(--accent); }
+.auj-comm .big { font-size: 24px; font-weight: 800; color: var(--text); letter-spacing: -.01em; }
+.auj-comm .big small { font-size: 14px; font-weight: 500; color: var(--text2); }
+.auj-bar { height: 8px; background: var(--surface2); border-radius: 999px; overflow: hidden; margin: 10px 0 4px; }
+.auj-bar > div { height: 100%; background: var(--primary); border-radius: 999px; }
+.auj-etat { font-size: 12px; color: var(--text3); margin-top: 6px; }
+
 .rl-actions { margin-top: 8px; display: grid; gap: 4px; }
 .rl-row { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; }
 .rl-b { font-size: 11px !important; padding: 3px 8px !important; white-space: nowrap; }
@@ -650,9 +693,10 @@ select.form-input { cursor: pointer; }
     SalesDesk Pro
   </a>
   <div class="nav-tabs">
+    <button class="nav-tab active" onclick="showPage('aujourdhui',this);togglePeriodSelector(false);renderAujourdhui()">Aujourd'hui</button>
     <button class="nav-tab" onclick="showPage('mesrdv',this);togglePeriodSelector(false);ouvrirCopilot()">🎯 Mes RDV</button>
     <button class="nav-tab" onclick="showPage('relances',this);togglePeriodSelector(false);renderRelancesPage()">📞 Relances<span id="nav-relances-badge" style="display:none;margin-left:6px;background:var(--red);color:#fff;font-size:10px;padding:1px 6px;border-radius:99px;font-weight:700;"></span></button>
-    <button class="nav-tab active" onclick="showPage('daily',this);renderDaily();dailyCalInit();
+    <button class="nav-tab" onclick="showPage('daily',this);renderDaily();dailyCalInit();
   initFromSupabase();togglePeriodSelector(false)">⚡ Quotidien</button>
     <button class="nav-tab" onclick="showPage('analytics',this);togglePeriodSelector(true);chargerAppelsClose()">📊 Analytics</button>
     <button class="nav-tab" onclick="showPage('global',this);renderGlobal();togglePeriodSelector(false)">🌐 Global</button>
@@ -684,6 +728,27 @@ select.form-input { cursor: pointer; }
   </div>
 </nav>
 
+<!-- ===================== AUJOURD'HUI (écran principal, direction RealAdvisor) ===================== -->
+<div id="page-aujourdhui" class="page active">
+  <div class="auj">
+    <div id="controle-alerte-auj" class="controle-alerte" style="display:none;"></div>
+    <header class="auj-head">
+      <div><div class="auj-date" id="auj-date">—</div><h1 class="auj-h1">Bonjour Nicolas</h1><div class="auj-resume" id="auj-resume">Votre journée, en un coup d'œil.</div></div>
+      <div class="auj-head-actions"><button class="btn" onclick="mjAller('Mes RDV')">Voir l'agenda</button><button class="btn btn-primary" onclick="openModal('newRdvModal')">+ Nouveau RDV</button></div>
+    </header>
+    <div class="auj-grid">
+      <section class="auj-main">
+        <div class="auj-card"><div class="auj-card-head"><h2>Vos rendez-vous du jour <span class="auj-count" id="auj-rdv-count">0</span></h2><a onclick="mjAller('Mes RDV')">Voir l'agenda ›</a></div><div id="auj-rdvs" class="auj-rdvs"></div></div>
+        <div id="auj-appels"></div>
+      </section>
+      <aside class="auj-side">
+        <div class="auj-card"><div class="auj-card-head"><h2>À suivre</h2><a onclick="mjAller('Relances')">Relances ›</a></div><div id="auj-suivre"></div></div>
+        <div class="auj-card"><div class="auj-card-head"><h2>À valider</h2></div><div id="auj-valider"></div></div>
+        <div class="auj-card auj-comm"><div class="auj-card-head"><h2>Mes commissions</h2><a onclick="mjAller('Analytics')">Détail ›</a></div><div id="auj-commission"></div></div>
+      </aside>
+    </div>
+  </div>
+</div>
 <!-- ===================== DAILY PAGE ===================== -->
 <div id="page-mesrdv" class="page">
   <div id="controle-alerte-mesrdv" class="controle-alerte" style="display:none;"></div>
@@ -695,7 +760,7 @@ select.form-input { cursor: pointer; }
   </div>
   <iframe id="copilot-frame" title="Sales Copilot" allow="clipboard-write; clipboard-read"></iframe>
 </div>
-<div id="page-daily" class="page active">
+<div id="page-daily" class="page">
 <main>
 <div id="controle-alerte-daily" class="controle-alerte" style="display:none;"></div>
 
@@ -6788,6 +6853,7 @@ async function dailyCalFetch() {
     // Persister les events Calendly dans le store local (pour qu'ils restent visibles
     // dans RDV Table > Non traités même si supprimés de Calendly plus tard)
     try { persistCalendlyEventsToStore(_dailyCalWeekEvents); } catch(e) { console.warn('persistCalendly err', e); }
+    try { renderAujourdhui(); } catch(e) {}
     if (statusEl) { statusEl.textContent = '✓ Synchronisé'; statusEl.style.background='var(--green-bg)'; statusEl.style.color='var(--green)'; }
   } catch(err) {
     if (statusEl) { statusEl.textContent = '⚠ Erreur'; statusEl.style.background='var(--orange-bg)'; statusEl.style.color='var(--orange)'; }
@@ -7254,6 +7320,7 @@ window.addEventListener('load', async () => {
   }
 
   initFromSupabase();
+  try { renderAujourdhui(); } catch (e) {}
 });
 
 
@@ -8986,7 +9053,7 @@ function ctlTousProblemes() {
 function dessinerAlertesControle() {
   var p = ctlTousProblemes(), rouges = p.filter(function(x) { return x.niveau === 'rouge'; });
   var badge = document.getElementById('nav-controle-badge'); if (badge) { badge.style.display = p.length ? '' : 'none'; badge.textContent = p.length; badge.style.background = rouges.length ? 'var(--red)' : 'var(--orange)'; }
-  ['controle-alerte-daily', 'controle-alerte-mesrdv'].forEach(function(id) {
+  ['controle-alerte-daily', 'controle-alerte-mesrdv', 'controle-alerte-auj'].forEach(function(id) {
     var el = document.getElementById(id); if (!el) return;
     if (!p.length) { el.style.display = 'none'; return; }
     el.className = 'controle-alerte' + (rouges.length ? '' : ' orange'); el.style.display = '';
@@ -9266,6 +9333,79 @@ function rlChipAppels(it, ix) {
 }
 function rlValiderAppel(ix, ids, joint, btn) { (ids || []).forEach(rlMarquerAppelVu); rlAction(ix, joint ? 'joint' : 'pas_reponse', btn); }
 function rlIgnorerAppels(ids) { (ids || []).forEach(rlMarquerAppelVu); dessinerRelances(); renderMaJournee(); }
+// ── Aujourd'hui : écran principal — la journée, les prospects, la prochaine action. Les stats restent dans Analytics. ──
+var _aujTimer = null;
+function renderAujourdhui() {
+  var page = document.getElementById('page-aujourdhui'); if (!page || !page.classList.contains('active')) return;
+  var now = new Date(), todayKey = now.toLocaleDateString('fr-FR'), todayIso = rlIso(now), hhmm = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+  document.getElementById('auj-date').textContent = now.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+  // données : copilot (prépas), tâches Close (file), appels, mails ; on déclenche les chargements si besoin
+  try { if (!_mj.at) chargerMaJournee(false); } catch (e) {}
+  try { if (!_tachesClose) { if (!_rlLundi) _rlLundi = rlLundiDe(todayIso); chargerTachesClose(rlPlus(_rlLundi, -7), rlPlus(_rlLundi, 13), false); } } catch (e) {}
+  // ── RDV du jour : Calendly (semaine chargée) sinon lignes du store ──
+  var cleCal = (state.calendly && state.calendly.apiKey) || localStorage.getItem('calendly_key');
+  var evs = (typeof _dailyCalWeekEvents !== 'undefined' && _dailyCalWeekEvents[todayKey]) || null;
+  var rdvs = [];
+  if (evs && evs.length) rdvs = evs.map(function(e) { return { nom: e.name, email: e.email || '', heure: e.start.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }), source: e.source, r2: !!e.isR2, uri: e.uri }; });
+  else { var rows = (loadStore()[todayIso.slice(0, 7)] || []).filter(function(r) { return r && r.date === todayKey; }); rdvs = rows.map(function(r) { return { nom: r.client, email: r.email || '', heure: r.heure || '', source: r.source, r2: r.source === 'R2', row: r }; }); }
+  rdvs.sort(function(a, b) { return (a.heure || '').localeCompare(b.heure || ''); });
+  var st = loadStore(), moisRows = st[todayIso.slice(0, 7)] || [];
+  var rowDe = function(nom) { var n = fcNormNom(nom); return moisRows.find(function(r) { return r && r.date === todayKey && fcNormNom(r.client) === n; }) || null; };
+  var prepDe = function(nom) { var n = fcNormNom(nom); var sd = (_mj.sdRdvs || []).find(function(r) { return r.date === todayIso && fcNormNom(r.client) === n; }); if (!sd) return null; if (!sd.dossierId) return { etat: 'rien', lib: 'À préparer' }; var d = (_mj.copilot || []).find(function(x) { return x.id === sd.dossierId; }); if (d && d.manque && d.manque.length) return { etat: 'partiel', lib: 'Prépa incomplète : ' + d.manque.join(', ') }; return { etat: 'ok', lib: 'Préparé' }; };
+  document.getElementById('auj-rdv-count').textContent = rdvs.length;
+  var elR = document.getElementById('auj-rdvs');
+  if (!cleCal && !rdvs.length) elR.innerHTML = '<div class="auj-empty"><b>Calendly n\'est pas connecté sur cet appareil.</b> Les rendez-vous du jour ne peuvent pas être affichés — <a style="color:var(--accent);cursor:pointer;" onclick="mjAller(\'Objectifs\')">coller la clé Calendly</a>.</div>';
+  else if (!rdvs.length) elR.innerHTML = '<div class="auj-empty">' + (evs === null && cleCal ? 'Chargement de l\'agenda…' : '<b>Aucun rendez-vous aujourd\'hui.</b> Journée relances.') + '</div>';
+  else elR.innerHTML = rdvs.map(function(r) {
+    var row = r.row || rowDe(r.nom) || {}, prep = r.r2 ? null : prepDe(r.nom), passe = r.heure && r.heure < hhmm;
+    var pres = String(row.presence || '').trim(), res = String(row.result || '').trim();
+    var etat = pres ? (pres === 'Show' ? (res ? res : 'Fait') : pres) : (passe ? 'À traiter' : '');
+    var nomJs = JSON.stringify(r.nom).replace(/"/g, '&quot;'), emailJs = JSON.stringify(r.email || '').replace(/"/g, '&quot;');
+    var chips = '<span class="auj-chip' + (r.r2 ? ' r2' : '') + '">' + (r.r2 ? 'R2' : 'R1') + '</span>' + (row.type ? '<span class="auj-chip">' + escapeHtml(row.type) + '</span>' : '') + (r.source && r.source !== 'R2' ? '<span class="auj-chip">' + escapeHtml(r.source) + '</span>' : '') + (prep ? '<span class="auj-chip ' + (prep.etat === 'ok' ? 'ok' : 'warn') + '">' + escapeHtml(prep.lib) + '</span>' : '') + (etat ? '<span class="auj-chip ' + (pres === 'Show' ? 'ok' : pres ? 'warn' : '') + '">' + escapeHtml(etat) + '</span>' : '');
+    var actions = pres ? '<button class="btn btn-sm" onclick="ouvrirFicheClient(' + nomJs + ',' + emailJs + ')">Fiche</button>'
+      : '<button class="btn btn-sm" onclick="ouvrirFicheClient(' + nomJs + ',' + emailJs + ')">Fiche</button><button class="btn btn-sm" onclick="mjAller(\'Mes RDV\')">' + (passe ? 'Terminer' : 'Préparer') + '</button><button class="btn btn-sm btn-primary" onclick="mjAller(\'Mes RDV\')">Rejoindre</button>';
+    return '<div class="auj-rdv"><div class="h' + (passe ? ' passe' : '') + '">' + escapeHtml(r.heure || '—') + '</div><div><div class="n" style="cursor:pointer" onclick="ouvrirFicheClient(' + nomJs + ',' + emailJs + ')">' + escapeHtml(r.nom) + '</div><div class="sub">' + escapeHtml([row.retour ? '' : '', r.email].filter(Boolean).join(' · ')) + '</div><div class="chips">' + chips + '</div></div><div class="act">' + actions + '</div></div>';
+  }).join('');
+  // ── Cockpit d'appels (réutilisé) ──
+  try { document.getElementById('auj-appels').innerHTML = (typeof mjCockpitHtml === 'function' ? mjCockpitHtml(todayIso) : '').replace('margin-top:10px;padding:10px 12px;border-radius:12px;background:var(--surface2);border:1px solid var(--border);', 'padding:14px 18px;border-radius:var(--radius-lg);background:var(--surface);border:1px solid var(--border);box-shadow:var(--shadow);'); } catch (e) { document.getElementById('auj-appels').innerHTML = ''; }
+  // ── À suivre : en retard, aujourd'hui, prépas manquantes ──
+  var items = []; try { items = rlConstruireItems(todayIso).items; } catch (e) {}
+  var retard = items.filter(function(i) { return i.date && i.date < todayIso; }), auj = items.filter(function(i) { return i.date === todayIso; });
+  var prepas = [];
+  (_mj.sdRdvs || []).forEach(function(r) { var demainIso = rlPlus(todayIso, 1); if (r.date !== todayIso && r.date !== demainIso) return; var p = prepDe(r.client) || (r.date === demainIso ? (function() { if (!r.dossierId) return { etat: 'rien', lib: 'À préparer' }; var d = (_mj.copilot || []).find(function(x) { return x.id === r.dossierId; }); return d && d.manque && d.manque.length ? { etat: 'partiel', lib: 'Prépa incomplète' } : null; })() : null); if (p && p.etat !== 'ok') prepas.push({ nom: r.client, quand: r.date === todayIso ? 'aujourd\'hui' : 'demain', lib: p.lib }); });
+  var LIBC = { r2: 'R2 sans réponse', nosin: 'no-show', nsin: 'no-show inbound', nsout: 'no-show outbound', rdv: 'prise de RDV', aclasser: 'à classer' };
+  var suivre = '';
+  if (retard.length) suivre += '<div class="auj-item lien" onclick="_rlJour=\'retard\';mjAller(\'Relances\')"><span class="auj-dot red"></span><span><div class="t">' + retard.length + ' relance(s) en retard</div><div class="d">' + escapeHtml(retard.slice(0, 3).map(function(i) { return i.nom; }).join(' · ')) + (retard.length > 3 ? ' · …' : '') + '</div></span><span class="when">à rattraper</span></div>';
+  auj.slice(0, 5).forEach(function(i) { suivre += '<div class="auj-item lien" onclick="_rlJour=null;mjAller(\'Relances\')"><span class="auj-dot orange"></span><span><div class="t">' + escapeHtml(i.nom) + '</div><div class="d">' + escapeHtml(LIBC[i.col] || i.col) + '</div></span><span class="when">aujourd\'hui</span></div>'; });
+  if (auj.length > 5) suivre += '<div class="auj-item lien" onclick="mjAller(\'Relances\')"><span class="auj-dot orange"></span><span class="t">+ ' + (auj.length - 5) + ' autres aujourd\'hui</span></div>';
+  prepas.forEach(function(p) { suivre += '<div class="auj-item lien" onclick="mjAller(\'Mes RDV\')"><span class="auj-dot blue"></span><span><div class="t">' + escapeHtml(p.nom) + '</div><div class="d">' + escapeHtml(p.lib) + '</div></span><span class="when">' + p.quand + '</span></div>'; });
+  if (!suivre) suivre = '<div class="auj-empty">Rien à rattraper. ' + (items.length ? 'Les prochaines relances sont dans la file.' : '') + '</div>';
+  document.getElementById('auj-suivre').innerHTML = suivre;
+  // ── À valider : mails de fin de RDV prêts, appels Close à valider, SMS prêts, écarts Close ──
+  var val = '';
+  (_mailsFinR1 || []).filter(function(m) { return m.statut === 'brouillon'; }).forEach(function(m) { val += '<div class="auj-item lien" onclick="sdVoirMailFinR1(' + JSON.stringify(m.cle).replace(/"/g, '&quot;') + ')"><span class="auj-dot green"></span><span><div class="t">Mail de fin de RDV — ' + escapeHtml(m.nom) + '</div><div class="d">brouillon prêt dans Close</div></span><span class="when">Voir / Envoyer</span></div>'; });
+  (_mailsFinR1 || []).filter(function(m) { return m.statut === 'sans_cr'; }).forEach(function(m) { val += '<div class="auj-item"><span class="auj-dot orange"></span><span><div class="t">' + escapeHtml(m.nom) + ' : pas de compte rendu Claap</div><div class="d">mail de fin de RDV à écrire à la main</div></span></div>'; });
+  var aConstater = items.filter(function(i) { return typeof rlAppelsPour === 'function' && rlAppelsPour(i).length; }).length;
+  if (aConstater) val += '<div class="auj-item lien" onclick="mjAller(\'Relances\')"><span class="auj-dot blue"></span><span><div class="t">' + aConstater + ' appel(s) Close à valider</div><div class="d">joint / sans réponse pré-rempli sur la carte</div></span></div>';
+  (_smsList || []).filter(function(x) { return x.statut === 'brouillon'; }).forEach(function(x) { val += '<div class="auj-item lien" onclick="sdPopupSms()"><span class="auj-dot orange"></span><span><div class="t">SMS prêt — ' + escapeHtml(x.nom) + '</div><div class="d">à envoyer à la main</div></span></div>'; });
+  var vc = (typeof sdVerifCloseRestants === 'function') ? sdVerifCloseRestants() : [];
+  if (vc.length) val += '<div class="auj-item lien" onclick="sdPopupVerifClose()"><span class="auj-dot orange"></span><span><div class="t">' + vc.length + ' point(s) où Close dit autre chose</div><div class="d">type, source, nom, vente</div></span><span class="when">Corriger</span></div>';
+  document.getElementById('auj-valider').innerHTML = val || '<div class="auj-empty">Rien en attente.</div>';
+  // ── Commission : réalisé / objectif, barre discrète ──
+  try {
+    var MOIS = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+    var k = computeKpis(MOIS[now.getMonth()], String(now.getFullYear())), obj = (state.targets && state.targets.ca) || 0, comm = Math.round(k.commission || 0);
+    var pct = obj ? Math.min(100, Math.round(comm / obj * 100)) : 0;
+    document.getElementById('auj-commission').innerHTML = '<div class="big">' + comm.toLocaleString('fr-FR') + ' € <small>/ ' + obj.toLocaleString('fr-FR') + ' €</small></div><div class="auj-etat">Objectif du mois · ' + k.signes + ' vente(s)</div><div class="auj-bar"><div style="width:' + pct + '%"></div></div><div class="auj-etat" style="text-align:right;">' + pct + ' %</div>';
+  } catch (e) { document.getElementById('auj-commission').innerHTML = '<div class="auj-empty">—</div>'; }
+  // ── Résumé en tête + fraîcheur ──
+  var parts = []; parts.push(rdvs.length + ' rendez-vous'); var nbRel = retard.length + auj.length; parts.push(nbRel + ' relance' + (nbRel > 1 ? 's' : '')); if (prepas.length) parts.push(prepas.length + ' prépa' + (prepas.length > 1 ? 's' : '') + ' à faire');
+  var frais = _mj.at ? 'copilot ' + (_mj.etat ? 'connecté' : 'absent') + ' · synchro ' + new Date(_mj.at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : 'copilot : connexion…';
+  document.getElementById('auj-resume').textContent = parts.join(' · ') + ' — ' + frais;
+  // bandeau d'alerte commun
+  var al = document.getElementById('controle-alerte-auj'), src = document.getElementById('controle-alerte-daily'); if (al && src) { al.className = src.className; al.style.display = src.style.display; al.innerHTML = src.innerHTML; }
+  clearTimeout(_aujTimer); _aujTimer = setTimeout(renderAujourdhui, 60000);
+}
 // Compteur du jour : ce que la journée a produit (appels Close, résultats posés dans SalesDesk, RDV tenus, mails de fin de RDV)
 function mjCompteurJourHtml(todayIso) {
   var st = loadStore(), todayFr = todayIso.split('-').reverse().join('/');
@@ -9339,6 +9479,7 @@ function mjChargerCles(vis) {
   });
 }
 function renderMaJournee() {
+  try { if (document.getElementById('page-aujourdhui') && document.getElementById('page-aujourdhui').classList.contains('active')) setTimeout(renderAujourdhui, 0); } catch (e) {}
   var el = document.getElementById('ma-journee'); if (!el) return;
   var now = new Date(), todayKey = now.toLocaleDateString('fr-FR'), todayIso = now.toISOString().slice(0, 10);
   var demain = new Date(now); demain.setDate(demain.getDate() + 1); var demainIso = demain.toISOString().slice(0, 10);
