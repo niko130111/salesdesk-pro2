@@ -3753,6 +3753,40 @@ function rlEscalader(it, id, suivi) {
     };
   });
 }
+// 📆 Caler un RDV depuis une carte : Calendly pré-rempli (nom, e-mail, téléphone, code postal) sur le bon événement — R2 « Validation » pour la colonne R2, sinon le R1 outbound
+var CALENDLY_R1 = 'https://calendly.com/nicolas-lapeyre-realadvisor/30min';            // q1 = téléphone, q2 = code postal
+var CALENDLY_R2 = 'https://calendly.com/nicolas-lapeyre-realadvisor/validation-lancement-realadvisor'; // q1 = téléphone
+function rlCalendly(cle) {
+  var it = (window._rlItems || []).find(function(x) { return x.cle === cle; }); if (!it) return;
+  var id = rlIdentite(it), row = (it.rel && it.rel.row) || it.row || {}, estR2 = it.col === 'r2';
+  var fen = window.open('about:blank', '_blank'); // ouvert tout de suite (anti-popup), rempli dès que Close a répondu
+  var ouvrir = function(tel, cp, email) {
+    var q = new URLSearchParams(); if (it.nom) q.set('name', it.nom); if (email) q.set('email', email);
+    if (tel) q.set('a1', tel.replace(/\s/g, '')); if (!estR2 && cp) q.set('a2', cp);
+    var url = (estR2 ? CALENDLY_R2 : CALENDLY_R1) + '?' + q.toString();
+    if (fen) fen.location.href = url; else window.open(url, '_blank');
+    if (typeof showCopyToast === 'function') showCopyToast('📆 Calendly ' + (estR2 ? 'R2 (Validation)' : 'R1') + ' pré-rempli' + (tel ? ' · tél ✓' : ' · tél manquant') + (!estR2 ? (cp ? ' · CP ✓' : ' · CP manquant') : ''));
+  };
+  if (typeof COPILOT_URL === 'undefined') { ouvrir('', '', id.email); return; }
+  fetch(COPILOT_URL + '/close/contact?' + new URLSearchParams({ email: id.email || '', nom: id.nom }), { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).then(function(j) {
+    var l = (j.leads || [])[0] || {}, tel = '', email = id.email || '', ct = null;
+    (l.contacts || []).some(function(c) { if (!email && (c.emails || [])[0]) email = c.emails[0]; tel = (c.tels || [])[0] || ''; if (tel) ct = c; return !!tel; });
+    // carte au nom de l'agence → on met le nom de la personne dans Calendly
+    if (ct && ct.nom && fcNormNom(it.nom) === fcNormNom(l.nom || '')) it = Object.assign({}, it, { nom: ct.nom });
+    ouvrir(tel, (l.fiche && l.fiche.cp) || '', email);
+  }).catch(function() { ouvrir('', '', id.email); });
+}
+// RDV repris détecté : un RDV Calendly à venir pour cette personne (R1 futur, ou dateR2 future) → chip « 📆 RDV pris le … · Valider »
+function rlChipRdvPris(it) {
+  var row = (it.rel && it.rel.row) || it.row; if (!row) return '';
+  var today = new Date(); today.setHours(0, 0, 0, 0); var d = null, lib = '';
+  if (it.col === 'r2' && row.dateR2) { var d2 = parseDateFR(row.dateR2); if (d2 && d2 >= today) { d = d2; lib = 'R2 le ' + row.dateR2 + (row.heureR2 ? ' ' + row.heureR2 : ''); } }
+  else { var d1 = parseDateFR(row.date); if (d1 && d1 >= today && !row.presence) { d = d1; lib = 'RDV le ' + row.date + (row.heure ? ' ' + row.heure : ''); } }
+  if (!d) return '';
+  var sv = rlSuivi(it); if (sv.dernier === 'rdv_pris') return '';
+  return '<div style="margin-top:6px;padding:6px 8px;border-radius:8px;background:#eaf7ee;font-size:12px;display:flex;gap:6px;align-items:center;flex-wrap:wrap;" onclick="event.stopPropagation()"><span style="flex:1;">📆 <b>' + escapeHtml(lib) + '</b> <span style="color:var(--text3)">(Calendly)</span></span><button class="btn btn-sm btn-primary" style="font-size:11px;padding:2px 8px;" onclick="rlValiderRdvPris(' + JSON.stringify(it.cle).replace(/"/g, '&quot;') + ', this)">✓ RDV pris</button></div>';
+}
+function rlValiderRdvPris(cle, btn) { var it = (window._rlItems || []).find(function(x) { return x.cle === cle; }); if (!it) return; rlAction(cle, 'rdv_pris', btn); }
 // Depuis une carte Relances : les 3 lignes closer sans ouvrir la fiche
 function rlAvantAppel(nom, email) {
   var ov = document.getElementById('fc-dup-overlay');
@@ -9209,8 +9243,8 @@ function mjCockpitCorps(items, todayIso) {
     var cles = c === undefined ? '<span style="color:var(--text3);">…</span>' : (c && (c.promesse || c.deal || c.accroche) ? [c.promesse ? '🤝 ' + escapeHtml(c.promesse) : '', c.deal ? '💶 ' + escapeHtml(c.deal) : '', c.accroche ? '💬 ' + escapeHtml(c.accroche) : ''].filter(Boolean).join(' · ') : '<span style="color:var(--text3);">pas d\'historique Close</span>');
     return '<div style="display:flex;gap:10px;align-items:flex-start;padding:7px 0;border-top:1px dashed var(--border);font-size:13px;">'
       + '<span style="width:22px;text-align:center;" title="' + (LIB[it.col] || '') + '">' + (ICO[it.col] || '📞') + '</span>'
-      + '<span style="flex:1;min-width:0;"><div><b style="cursor:pointer;" onclick="ouvrirFicheClient(' + nomJs + ',' + emailJs + ')">' + escapeHtml(it.nom) + '</b> <span style="color:var(--text3);font-size:12px;">· ' + (LIB[it.col] || '') + (it.date < todayIso ? ' · <span style="color:var(--red);font-weight:700;">retard ' + escapeHtml(it.date.split('-').reverse().slice(0, 2).join('/')) + '</span>' : '') + (nb ? ' · appel ' + nb : '') + (it.t && it.t.texte && !/^follow ?up/i.test(it.t.texte) ? ' · ' + escapeHtml(it.t.texte.slice(0, 60)) : '') + '</span></div><div style="font-size:12px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + cles + '</div>' + rlChipAppels(it, ix) + '</span>'
-      + '<span style="display:flex;gap:4px;flex-shrink:0;"><button class="btn btn-sm" style="font-size:11px;padding:2px 7px;" title="Avant d\'appeler" onclick="rlAvantAppel(' + nomJs + ',' + emailJs + ')">👁</button><button class="btn btn-sm" style="font-size:11px;padding:2px 7px;" title="Pas de réponse" onclick="rlAction(' + JSON.stringify(it.cle).replace(/"/g, '&quot;') + ', \'pas_reponse\', this)">📵</button><button class="btn btn-sm" style="font-size:11px;padding:2px 7px;" title="Joint" onclick="rlAction(' + JSON.stringify(it.cle).replace(/"/g, '&quot;') + ', \'joint\', this)">📞</button><button class="btn btn-sm" style="font-size:11px;padding:2px 7px;" title="RDV pris" onclick="rlAction(' + JSON.stringify(it.cle).replace(/"/g, '&quot;') + ', \'rdv_pris\', this)">📅</button></span></div>';
+      + '<span style="flex:1;min-width:0;"><div><b style="cursor:pointer;" onclick="ouvrirFicheClient(' + nomJs + ',' + emailJs + ')">' + escapeHtml(it.nom) + '</b> <span style="color:var(--text3);font-size:12px;">· ' + (LIB[it.col] || '') + (it.date < todayIso ? ' · <span style="color:var(--red);font-weight:700;">retard ' + escapeHtml(it.date.split('-').reverse().slice(0, 2).join('/')) + '</span>' : '') + (nb ? ' · appel ' + nb : '') + (it.t && it.t.texte && !/^follow ?up/i.test(it.t.texte) ? ' · ' + escapeHtml(it.t.texte.slice(0, 60)) : '') + '</span></div><div style="font-size:12px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + cles + '</div>' + rlChipAppels(it, ix) + rlChipRdvPris(it) + '</span>'
+      + '<span style="display:flex;gap:4px;flex-shrink:0;"><button class="btn btn-sm" style="font-size:11px;padding:2px 7px;" title="Avant d\'appeler" onclick="rlAvantAppel(' + nomJs + ',' + emailJs + ')">👁</button><button class="btn btn-sm" style="font-size:11px;padding:2px 7px;" title="Caler un RDV (Calendly pré-rempli)" onclick="rlCalendly(' + JSON.stringify(it.cle).replace(/"/g, '&quot;') + ')">📆</button><button class="btn btn-sm" style="font-size:11px;padding:2px 7px;" title="Pas de réponse" onclick="rlAction(' + JSON.stringify(it.cle).replace(/"/g, '&quot;') + ', \'pas_reponse\', this)">📵</button><button class="btn btn-sm" style="font-size:11px;padding:2px 7px;" title="Joint" onclick="rlAction(' + JSON.stringify(it.cle).replace(/"/g, '&quot;') + ', \'joint\', this)">📞</button><button class="btn btn-sm" style="font-size:11px;padding:2px 7px;" title="RDV pris" onclick="rlAction(' + JSON.stringify(it.cle).replace(/"/g, '&quot;') + ', \'rdv_pris\', this)">📅</button></span></div>';
   }).join('');
   setTimeout(function() { mjChargerCles(vis); }, 50);
   var retards = dus.filter(function(i) { return i.date < todayIso; }).length;
@@ -9591,8 +9625,8 @@ function renderRelancesPage() {
       + '<div class="pipeline-card-sub">' + (it.type === 'sd-noshow' ? '👻 No-show du ' + escapeHtml(row.date || '') + ' · à relancer' : '') + (it.col === 'r2' && !(row.dateR2 && String(row.dateR2).trim()) ? '📞 rappel promis · ' : '') + (t ? '📌 Close' + (t.heure ? ' ' + t.heure : '') : '') + (t && r ? ' · ' : '') + (r ? '📞 SalesDesk' + ((rel.r.relance && rel.r.relance.condition) ? ' · ' + escapeHtml(rel.r.relance.condition) : '') : '') + (row.source || row.type ? ' · ' + escapeHtml([row.type, row.source].filter(Boolean).join(' ')) : '') + '</div>'
       + (txt ? '<div class="pipeline-card-sub" style="color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="' + escapeHtml(txt) + '">' + escapeHtml(txt) + '</div>' : (r && (r.contexte || row.retour) ? '<div class="pipeline-card-sub" style="color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(r.contexte || row.retour) + '</div>' : ''))
       + (dernier ? '<div class="pipeline-card-sub">dernier : ' + escapeHtml(dernier) + '</div>' : '')
-      + rlChipAppels(it, ix)
-      + '<div class="pipeline-card-footer" style="gap:4px;flex-wrap:wrap;margin-top:6px;" onclick="event.stopPropagation()"><span style="display:flex;gap:4px;"><button class="btn btn-sm" style="font-size:11px;padding:2px 7px;" title="Avant d\'appeler : promesse, accroche, état du deal" onclick="rlAvantAppel(' + nomJs + ',' + emailJs + ')">👁</button>' + mail + '<a class="tag" style="text-decoration:none;" href="' + escapeHtml((t && t.url) || '#') + '" target="_blank" rel="noopener" onclick="' + (t ? '' : 'event.preventDefault();fcOuvrirClose(' + nomJs + ',' + emailJs + ', event)') + '">↗ Close</a></span>'
+      + rlChipAppels(it, ix) + rlChipRdvPris(it)
+      + '<div class="pipeline-card-footer" style="gap:4px;flex-wrap:wrap;margin-top:6px;" onclick="event.stopPropagation()"><span style="display:flex;gap:4px;"><button class="btn btn-sm" style="font-size:11px;padding:2px 7px;" title="Avant d\'appeler : promesse, accroche, état du deal" onclick="rlAvantAppel(' + nomJs + ',' + emailJs + ')">👁</button><button class="btn btn-sm" style="font-size:11px;padding:2px 7px;" title="Caler un RDV : Calendly pré-rempli (' + (it.col === 'r2' ? 'R2 Validation' : 'R1') + ')" onclick="rlCalendly(' + JSON.stringify(it.cle).replace(/"/g, '&quot;') + ')">📆</button>' + mail + '<a class="tag" style="text-decoration:none;" href="' + escapeHtml((t && t.url) || '#') + '" target="_blank" rel="noopener" onclick="' + (t ? '' : 'event.preventDefault();fcOuvrirClose(' + nomJs + ',' + emailJs + ', event)') + '">↗ Close</a></span>'
       + '<span style="display:flex;gap:4px;align-items:center;">' + choix + (RL_MOTIFS_GERES.indexOf(it.col) >= 0
         ? (nb ? '<span class="tag" title="Appels sans réponse">appel ' + nb + '</span>' : '') + '<button class="btn btn-sm" style="font-size:11px;padding:2px 7px;" title="Pas de réponse → prochaine tentative selon la cadence, Close mis à jour" onclick="rlAction(' + JSON.stringify(it.cle).replace(/"/g, '&quot;') + ', \'pas_reponse\', this)">📵</button><button class="btn btn-sm" style="font-size:11px;padding:2px 7px;" title="Joint → rappel à la date qu\'il demande" onclick="rlAction(' + JSON.stringify(it.cle).replace(/"/g, '&quot;') + ', \'joint\', this)">📞</button><button class="btn btn-sm" style="font-size:11px;padding:2px 7px;" title="RDV pris" onclick="rlAction(' + JSON.stringify(it.cle).replace(/"/g, '&quot;') + ', \'rdv_pris\', this)">📅</button><button class="btn btn-sm' + (nb >= 3 ? ' btn-primary' : '') + '" style="font-size:11px;padding:2px 7px;" title="Passer à mon manager (note épinglée + tâche dans Close)" onclick="rlAction(' + JSON.stringify(it.cle).replace(/"/g, '&quot;') + ', \'manager\', this)">👔</button><button class="btn btn-sm" style="font-size:11px;padding:2px 7px;" title="Supprimer (tâche Close terminée)" onclick="rlAction(' + JSON.stringify(it.cle).replace(/"/g, '&quot;') + ', \'supprimer\', this)">🗑</button>'
         : (r ? '<button class="btn btn-sm" style="font-size:11px;padding:2px 7px;" title="Décaler" onclick="relanceResultat(' + idJs + ', this, true)">📅</button><button class="btn btn-sm btn-primary" style="font-size:11px;padding:2px 7px;" onclick="relanceResultat(' + idJs + ', this)">✅</button>' : '<span class="tag" title="Tâche Close seule : se termine dans Close pour l\'instant">dans Close</span>')) + '</span></div></div>';
