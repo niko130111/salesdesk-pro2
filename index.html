@@ -4837,7 +4837,7 @@ function arRendreC2() {
     var veutSuite = a.result === 'Intéressé' || (a.result === 'Non signé' && ['pasbudget', 'promo', 'carte', 'rent', 'relancer'].indexOf(a.raison) >= 0);
     if (veutSuite) {
       out += '<div class="ar-lab">Suite</div><div class="ar-pills">' + (a.estR2 ? '' : arPill('suite', 'r2', '📅 R2 calé', '')) + arPill('suite', 'rel', '📞 Me rappeler', '') + (a.result === 'Intéressé' ? '' : arPill('suite', '', 'Rien pour l\'instant', '')) + '</div>';
-      if (a.suite === 'r2') out += '<div class="ar-row"><input type="date" value="' + escapeHtml(a.r2Date) + '" onchange="arChamp(\'r2Date\', this.value)"><input type="time" value="' + escapeHtml(a.r2Heure) + '" onchange="arChamp(\'r2Heure\', this.value)"><button class="btn btn-sm" onclick="arCalendlyR2()" title="Calendly « Validation & lancement » pré-rempli ; la date se posera toute seule">📆 Caler dans Calendly</button></div><div class="fc-muted" style="margin-top:4px;">Sans date : je guette ton agenda et je la pose dès que le RDV « Validation » est pris.</div>';
+      if (a.suite === 'r2') out += arBlocR2(a);
       if (a.suite === 'rel') out += '<div class="ar-row"><input type="date" value="' + escapeHtml(a.relDate) + '" onchange="arChamp(\'relDate\', this.value)"><input type="text" placeholder="Condition / ce qu\'il a dit (optionnel)" value="' + escapeHtml(a.relCond) + '" oninput="arChamp(\'relCond\', this.value)"></div><div class="fc-muted" style="margin-top:4px;">Une tâche Close à cette date, et il entre dans ta file.</div>';
     }
   }
@@ -4852,6 +4852,39 @@ function arRendreC2() {
     else out += '<div class="fc-muted" style="margin-top:8px;">R2 manqué : la relance « R2 sans réponse » se gère depuis Relances.</div>';
   }
   el.innerHTML = out;
+}
+// R2 calé depuis SalesDesk : tu choisis le jour, tes créneaux libres « Validation & lancement » s'affichent, un clic réserve dans Calendly (agenda Google + invitation au prospect). Sans copilot : saisie à la main + page Calendly.
+function arBlocR2(a) {
+  var auto = typeof COPILOT_URL !== 'undefined', lienCal = '<button class="btn btn-sm" onclick="arCalendlyR2()" title="Page Calendly « Validation & lancement » pré-remplie">Ouvrir Calendly ↗</button>';
+  if (a.r2Reserve) return '<div class="ar-row" style="color:var(--green);font-weight:700;">✓ R2 réservé dans Calendly : ' + escapeHtml(new Date(a.r2Date + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })) + ' à ' + escapeHtml(a.r2Heure) + '</div><div class="fc-muted" style="margin-top:4px;">Il est dans ton agenda Google et le prospect a reçu l\'invitation. Pour le changer : « Déplacer / annuler » sur la ligne du RDV.</div>';
+  var h = '<div class="ar-row"><input type="date" min="' + rlIso(new Date()) + '" value="' + escapeHtml(a.r2Date) + '" onchange="arR2Date(this.value)">' + (auto ? '' : '<input type="time" value="' + escapeHtml(a.r2Heure) + '" onchange="arChamp(\'r2Heure\', this.value)">') + lienCal + '</div>';
+  if (auto && a.r2Date) {
+    if (a.r2Creneaux === undefined) { setTimeout(function() { arR2Date(a.r2Date, true); }, 0); h += '<div class="fc-muted" style="margin-top:6px;">Lecture de tes créneaux libres…</div>'; }
+    else if (a.r2Creneaux === null) h += '<div class="fc-muted" style="margin-top:6px;">Lecture de tes créneaux libres…</div>';
+    else if (a.r2Creneaux === false) h += '<div class="ar-row"><input type="time" value="' + escapeHtml(a.r2Heure) + '" onchange="arChamp(\'r2Heure\', this.value)"></div><div style="margin-top:4px;font-size:12.5px;color:var(--red);">' + escapeHtml(a.r2Err || 'Créneaux illisibles') + ' — note l\'heure à la main et réserve sur la page Calendly.</div>';
+    else if (!a.r2Creneaux.length) h += '<div class="fc-muted" style="margin-top:6px;">Aucun créneau libre ce jour-là.</div>';
+    else h += '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;">' + a.r2Creneaux.map(function(c) { var on = a.r2Debut === c.debut; return '<button class="btn btn-sm' + (on ? ' btn-primary' : '') + '"' + (a.r2EnCours ? ' disabled' : '') + ' onclick="arR2Choisir(\'' + c.debut + '\',\'' + c.heure + '\')">' + c.heure + '</button>'; }).join('') + '</div>';
+    if (a.r2Debut) h += '<div style="margin-top:8px;"><button class="btn btn-primary"' + (a.r2EnCours ? ' disabled' : '') + ' onclick="arR2Reserver()">' + (a.r2EnCours ? 'Réservation…' : 'Réserver le R2 à ' + escapeHtml(a.r2Heure) + ' dans Calendly') + '</button></div>';
+    if (a.r2Err && a.r2Creneaux) h += '<div style="margin-top:6px;font-size:12.5px;color:var(--red);">' + escapeHtml(a.r2Err) + '</div>';
+  }
+  return h + '<div class="fc-muted" style="margin-top:4px;">' + (auto ? 'Je réserve dans Calendly : il arrive dans ton agenda Google et le prospect reçoit l\'invitation. ' : '') + 'Sans date : je guette ton agenda et je la pose dès que le RDV « Validation » est pris.</div>';
+}
+function arR2Date(v, garde) {
+  var a = _ar; if (!a) return; a.r2Date = v; if (!garde) { a.r2Heure = ''; } a.r2Debut = ''; a.r2Err = ''; a.r2Creneaux = v ? null : undefined; arRendreC2(); arRendreEcrit();
+  if (!v || typeof COPILOT_URL === 'undefined') return;
+  fetch(COPILOT_URL + '/calendly/creneaux?' + new URLSearchParams({ type: 'r2', date: v }), { mode: 'cors', cache: 'no-store' }).then(function(x) { return x.json(); })
+    .then(function(j) { if (_ar !== a || a.r2Date !== v) return; if (j.ok === false) { a.r2Creneaux = false; a.r2Err = j.error || ''; } else a.r2Creneaux = j.creneaux || []; arRendreC2(); })
+    .catch(function() { if (_ar !== a || a.r2Date !== v) return; a.r2Creneaux = false; a.r2Err = 'Copilot injoignable'; arRendreC2(); });
+}
+function arR2Choisir(debut, heure) { var a = _ar; if (!a || a.r2EnCours) return; a.r2Debut = debut; a.r2Heure = heure; a.r2Err = ''; arRendreC2(); arRendreEcrit(); }
+function arR2Reserver() {
+  var a = _ar; if (!a || !a.r2Debut || a.r2EnCours) return; var r = a.row; a.r2EnCours = true; a.r2Err = ''; arRendreC2();
+  rlPost('/calendly/reserver', { type: 'r2', debut: a.r2Debut, nom: r.client, email: r.email || '' }).then(function(j) {
+    if (_ar !== a) return; a.r2EnCours = false; a.r2Reserve = true; a.r2Date = j.date; a.r2Heure = j.heure;
+    // la date du R2 est notée tout de suite sur la ligne, même si tu fermes sans valider le reste
+    try { var st = loadStore(), row = (st[a.monthKey] || [])[a.idx]; if (row) { row.dateR2 = fcFrDepuisIso(j.date); row.heureR2 = j.heure; if (!row.presenceR2) row.presenceR2 = 'Programmé'; delete row.r2Attendu; saveStore(st); } } catch (e) {}
+    arRendreC2(); arRendreEcrit(); if (typeof showCopyToast === 'function') showCopyToast('✓ R2 réservé dans Calendly : invitation envoyée');
+  }).catch(function(e) { if (_ar !== a) return; a.r2EnCours = false; a.r2Err = e.message; arRendreC2(); });
 }
 function arCalendlyR2() {
   var a = _ar; if (!a) return; var r = a.row;
@@ -4887,6 +4920,7 @@ function arPlan() {
     if (a.result === 'Non signé' && !a.raison) M.push('la raison');
     if (a.result === 'Signé') { if (!a.pack) M.push('le pack'); if (!a.freq) M.push('la fréquence'); if (!a.type) M.push('le type'); sd.push([a.pack, a.freq, a.oneshot ? 'one shot' : ''].filter(Boolean).join(' ') + (r.dateSignature ? '' : ' · signé le ' + new Date().toLocaleDateString('fr-FR'))); }
     if (a.result === 'Intéressé' && !a.suite) M.push('la suite (R2 ou rappel)');
+    if (a.suite === 'r2' && a.r2Debut && !a.r2Reserve) M.push('réserver le R2 (bouton vert sous les créneaux)');
     if (a.suite === 'r2') sd.push('R2 ' + (a.r2Date ? 'le ' + fcFrDepuisIso(a.r2Date) + (a.r2Heure ? ' à ' + a.r2Heure : '') : 'attendu dans Calendly'));
     if (a.suite === 'rel') { if (!a.relDate) M.push('la date de rappel'); else sd.push('rappel le ' + fcFrDepuisIso(a.relDate)); }
   }
