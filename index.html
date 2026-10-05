@@ -1029,6 +1029,7 @@ select.form-input { cursor: pointer; }
         <div id="auj-apres"></div>
       </section>
       <aside class="auj-side">
+        <div id="auj-nouv"></div>
         <div class="auj-card"><div class="auj-card-head"><h2>À faire <span id="auj-afaire-quand">aujourd'hui</span></h2><a onclick="mjAller('Relances')">Voir tout le suivi ›</a></div><div id="auj-suivre"></div></div>
         <div id="controle-alerte-auj" class="controle-alerte" style="display:none;"></div>
         <div class="auj-sync" id="auj-sync"></div>
@@ -9725,8 +9726,8 @@ function chargerMaJournee(force) {
     fetch(COPILOT_URL + '/etat', { mode: 'cors', cache: 'no-store', signal: ctrl.signal }).then(function(r) { return r.json(); }).catch(function() { return null; }),
     fetch('http://127.0.0.1:3016/api/status', { mode: 'cors', cache: 'no-store', signal: ctrl.signal }).then(function(r) { return r.json(); }).catch(function() { return false; })
   ]).then(function(r) { _mj.copilot = r[0] && r[0].rdvs ? r[0].rdvs : null; _mj.sdRdvs = r[1] && r[1].rdvs ? r[1].rdvs : null; _mj.etat = r[2]; _mj.rappels = r[3]; fin(); }).catch(fin);
-  try { chargerVerifClose(false); } catch (e) {} try { chargerSms(false); } catch (e) {} try { chargerControle(false); } catch (e) {} try { chargerAppelsJour(false); } catch (e) {} try { chargerMailsFinR1(false); } catch (e) {}
-  if (!window._mjMinuteurs) { window._mjMinuteurs = true; setInterval(function() { try { chargerControle(true); } catch (e) {} }, 5 * 60000); setInterval(function() { try { chargerAppelsJour(true); chargerMailsFinR1(true); } catch (e) {} }, 2 * 60000); } // posés une seule fois (ils s'empilaient à chaque lecture)
+  try { chargerVerifClose(false); } catch (e) {} try { chargerSms(false); } catch (e) {} try { chargerControle(false); } catch (e) {} try { chargerAppelsJour(false); } catch (e) {} try { chargerMailsFinR1(false); } catch (e) {} try { chargerNouveautes(false); } catch (e) {}
+  if (!window._mjMinuteurs) { window._mjMinuteurs = true; setInterval(function() { try { chargerControle(true); } catch (e) {} }, 5 * 60000); setInterval(function() { try { chargerAppelsJour(true); chargerMailsFinR1(true); chargerNouveautes(true); } catch (e) {} }, 2 * 60000); } // posés une seule fois (ils s'empilaient à chaque lecture)
 }
 // ── Contrôle : organe de contrôle (copilot /controle + état SalesDesk), alertes en bandeau dans Quotidien et Mes RDV ──
 var _ctl = null, _ctlAt = 0;
@@ -10183,6 +10184,37 @@ function aujChargerSemaine(lundiIso) {
 }
 // ── Annulations vues toutes seules : Calendly dit qui a annulé (ou déplacé) un RDV à venir ; SalesDesk note « Annulé » / « Reprogrammé » sur la ligne encore sans présence, pose le statut Close et te le dit dans À faire ──
 var _annulEnCours = false, _annulAt = 0;
+// ── Nouveautés du tableau de bord : RDV pris ou déplacés récemment (Calendly) et mails reçus de prospects (Close), lus par le copilot. « Vu » les retire ; ils restent dans la fiche. ──
+var _nouv = { data: null, at: 0, enCours: false };
+function chargerNouveautes(force) {
+  if (typeof COPILOT_URL === 'undefined' || _nouv.enCours || (!force && _nouv.data && Date.now() - _nouv.at < 110000)) return; _nouv.enCours = true;
+  fetch(COPILOT_URL + '/nouveautes', { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).then(function(j) {
+    _nouv.enCours = false; if (!j || j.ok === false) return;
+    var vus = loadStore()._nouvVus || {}, avant = {}; ((_nouv.data || {}).rdv || []).concat((_nouv.data || {}).mails || []).forEach(function(x) { avant[x.id] = 1; });
+    var neufs = _nouv.data ? (j.rdv || []).concat(j.mails || []).filter(function(x) { return !avant[x.id] && !vus[x.id]; }) : [];
+    _nouv.data = j; _nouv.at = Date.now(); renderNouveautes();
+    if (neufs.length && typeof showCopyToast === 'function') showCopyToast('🔔 ' + neufs.map(function(x) { return x.sujet !== undefined ? 'Mail de ' + x.de : (x.deplace ? x.nom + ' a déplacé son RDV' : 'Nouveau RDV : ' + x.nom); }).slice(0, 3).join(' · '));
+  }).catch(function() { _nouv.enCours = false; });
+}
+function nouvVu(id) { var st = loadStore(); if (!st._nouvVus) st._nouvVus = {}; st._nouvVus[id] = rlIso(new Date()); var lim = rlIso(new Date(Date.now() - 12 * 86400000)); Object.keys(st._nouvVus).forEach(function(k) { if (st._nouvVus[k] < lim) delete st._nouvVus[k]; }); saveStore(st); renderNouveautes(); }
+function nouvToutVu() { var j = _nouv.data; if (!j) return; var st = loadStore(); if (!st._nouvVus) st._nouvVus = {}; (j.rdv || []).concat(j.mails || []).forEach(function(x) { st._nouvVus[x.id] = rlIso(new Date()); }); saveStore(st); renderNouveautes(); }
+function nouvLireMail(nom, adresse, id) { ouvrirFicheClient(nom, adresse); setTimeout(function() { try { fcOnglet('mails'); } catch (e) {} }, 150); }
+function renderNouveautes() {
+  var el = document.getElementById('auj-nouv'); if (!el) return; var j = _nouv.data; if (!j) { el.innerHTML = ''; return; }
+  var vus = loadStore()._nouvVus || {}, auj = rlIso(new Date()), q = function(v) { return JSON.stringify(v).replace(/"/g, '&quot;'); };
+  var quandFr = function(iso, heure) { return (iso === auj ? 'aujourd\'hui' : iso === rlPlus(auj, 1) ? 'demain' : new Date(iso + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })) + ' à ' + heure; };
+  var hm = function(d) { var x = new Date(d); return (rlIso(x) === auj ? '' : x.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' }) + ' ') + x.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }); };
+  var an = loadStore()._annulations || {}, parProspect = {}; Object.keys(an).forEach(function(u) { if (an[u].deplace && an[u].par === 'prospect') parProspect[fcNormNom(an[u].nom)] = an[u]; });
+  // un RDV déplacé n'est une nouveauté que si c'est le prospect qui l'a déplacé (tes propres déplacements, tu les connais) ; un mail auquel tu as déjà répondu n'en est plus une
+  var rdv = (j.rdv || []).filter(function(x) { return !vus[x.id] && (!x.deplace || parProspect[fcNormNom(x.nom)]); }), tousMails = (j.mails || []).filter(function(x) { return !vus[x.id]; }), mails = tousMails.filter(function(x) { return !x.repondu; }), repondus = tousMails.length - mails.length;
+  var net = function(t) { return String(t || '').replace(/<tel:[^>]*>/g, '').replace(/\[cid:[^\]]*\]?/g, '').replace(/\s+/g, ' ').trim(); };
+  if (!rdv.length && !mails.length) { el.innerHTML = ''; return; }
+  var h = '<div class="auj-card" style="border-color:var(--accent);"><div class="auj-card-head"><h2>Nouveautés <span class="auj-count">' + (rdv.length + mails.length) + '</span></h2><a onclick="nouvToutVu()">Tout marquer vu</a></div>';
+  h += mails.map(function(m) { return '<div class="auj-item"><span class="auj-dot ' + (m.repondu ? 'blue' : 'red') + '"></span><span><div class="t">✉ ' + escapeHtml(m.de) + ' <span class="fc-muted">· ' + (m.repondu ? 'mail reçu, tu as répondu' : 'mail reçu, sans réponse') + ' · ' + hm(m.at) + '</span></div><div class="d"><b>' + escapeHtml(m.sujet) + '</b>' + (m.extrait ? ' — ' + escapeHtml(net(m.extrait).slice(0, 110)) + (net(m.extrait).length > 110 ? '…' : '') : '') + (m.nomLead ? '<br><span class="fc-muted">Fiche : ' + escapeHtml(m.nomLead) + '</span>' : '') + '</div></span><span class="act2"><button class="btn btn-sm' + (m.repondu ? '' : ' btn-primary') + '" onclick="nouvLireMail(' + q((m.nomLead || m.de).split('|')[0].trim()) + ',' + q(m.adresse) + ')">Lire</button><button class="btn btn-sm" onclick="nouvVu(' + q(m.id) + ')">Vu</button></span></div>'; }).join('');
+  h += rdv.map(function(r) { return '<div class="auj-item"><span class="auj-dot ' + (r.deplace ? 'orange' : 'green') + '"></span><span><div class="t">📅 ' + escapeHtml(r.nom) + ' <span class="fc-muted">· ' + (r.deplace ? 'RDV déplacé' : 'nouveau RDV pris') + ' · ' + hm(r.pris) + '</span></div><div class="d">' + escapeHtml((r.deplace ? 'Il a déplacé son ' + r.sorte + (parProspect[fcNormNom(r.nom)] ? ' du ' + fcFrDepuisIso(parProspect[fcNormNom(r.nom)].date) + ' à ' + parProspect[fcNormNom(r.nom)].heure : '') + ' → ' : r.sorte + ' ') + quandFr(r.date, r.heure)) + (r.deplace ? '' : ' · via ' + escapeHtml(r.canal)) + '</div></span><span class="act2"><button class="btn btn-sm" onclick="ouvrirFicheClient(' + q(r.nom) + ',' + q(r.email || '') + ')">Fiche</button><button class="btn btn-sm" onclick="nouvVu(' + q(r.id) + ')">Vu</button></span></div>'; }).join('');
+  if (repondus) h += '<div class="auj-etat">' + repondus + ' autre' + (repondus > 1 ? 's' : '') + ' mail' + (repondus > 1 ? 's' : '') + ' reçu' + (repondus > 1 ? 's' : '') + ', déjà répondu' + (repondus > 1 ? 's' : '') + '</div>';
+  el.innerHTML = h + '</div>';
+}
 function sdDetecterAnnulations() {
   var cle = (state.calendly && state.calendly.apiKey) || localStorage.getItem('calendly_key'), user = state.calendly && state.calendly.userUri;
   if (!cle || _annulEnCours || Date.now() - _annulAt < 110000) return; _annulEnCours = true;
@@ -10570,8 +10602,8 @@ function renderAujourdhui() {
   var ACT = { r2: 'Rappeler', nsin: 'Relancer', nsout: 'Relancer', rdv: 'Rappeler', aclasser: 'Classer' };
   window._rlItems = items;
   var suivre = '', nb = 0;
-  try { var _an = loadStore()._annulations || {}; Object.keys(_an).forEach(function(u) { var x = _an[u]; if (x.vu) return; nb++;
-    suivre += '<div class="auj-item"><span class="auj-dot red"></span><span><div class="t">' + escapeHtml(x.nom) + ' <span class="fc-muted">· ' + (x.deplace ? 'a déplacé son RDV' : 'a annulé son RDV') + '</span></div><div class="d">' + escapeHtml((x.date === todayIso ? 'aujourd\'hui' : fcFrDepuisIso(x.date)) + ' à ' + x.heure + ' · ' + (x.deplace ? 'déplacé' : 'annulé') + ' à ' + new Date(x.at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) + (x.raison ? ' · raison : « ' + x.raison + ' »' : '') + (x.note ? ' · noté ' + x.note + ' dans SalesDesk et Close' : '')) + '</div></span><span class="act2"><button class="btn btn-sm" onclick="ouvrirFicheClient(' + JSON.stringify(x.nom).replace(/"/g, '&quot;') + ',\'\')">Fiche</button>' + (x.deplace ? '<button class="btn btn-sm btn-primary" onclick="sdAnnulVu(' + JSON.stringify(u).replace(/"/g, '&quot;') + ')">Vu</button>' : '<button class="btn btn-sm btn-primary" onclick="sdAnnulQuoiFaire(' + JSON.stringify(u).replace(/"/g, '&quot;') + ')">Que faire ?</button>') + '</span></div>'; }); } catch (e) {}
+  try { var _an = loadStore()._annulations || {}; Object.keys(_an).forEach(function(u) { var x = _an[u]; if (x.vu || x.deplace) return; nb++; // un RDV déplacé par le prospect s'affiche dans Nouveautés, avec son nouveau créneau
+    suivre += '<div class="auj-item"><span class="auj-dot red"></span><span><div class="t">' + escapeHtml(x.nom) + ' <span class="fc-muted">· ' + (x.deplace ? 'a déplacé son RDV' : 'a annulé son RDV') + '</span></div><div class="d">' + escapeHtml((x.date === todayIso ? 'aujourd\'hui' : fcFrDepuisIso(x.date)) + ' à ' + x.heure + ' · ' + (x.deplace ? 'déplacé' : 'annulé') + ' à ' + new Date(x.at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) + (x.raison ? ' · raison : « ' + x.raison + ' »' : '') + (x.deplace ? (function() { var n = ((_nouv.data || {}).rdv || []).find(function(r) { return r.deplace && fcNormNom(r.nom) === fcNormNom(x.nom); }); return n ? ' · nouveau créneau : ' + fcFrDepuisIso(n.date) + ' à ' + n.heure : ''; })() : '') + (x.note ? ' · noté ' + x.note + ' dans SalesDesk et Close' : '')) + '</div></span><span class="act2"><button class="btn btn-sm" onclick="ouvrirFicheClient(' + JSON.stringify(x.nom).replace(/"/g, '&quot;') + ',\'\')">Fiche</button>' + (x.deplace ? '<button class="btn btn-sm btn-primary" onclick="sdAnnulVu(' + JSON.stringify(u).replace(/"/g, '&quot;') + ')">Vu</button>' : '<button class="btn btn-sm btn-primary" onclick="sdAnnulQuoiFaire(' + JSON.stringify(u).replace(/"/g, '&quot;') + ')">Que faire ?</button>') + '</span></div>'; }); } catch (e) {}
   try {
     var demainRdvs = estAuj ? sdRdvsDeDemain() : [];
     if (demainRdvs.length && now.getHours() >= 13 && !sdVerifDemainFaite()) {
@@ -10599,6 +10631,7 @@ function renderAujourdhui() {
   if (!nb) suivre = '<div class="auj-empty">' + (_tachesClose && _tachesClose.error ? '<b>Tâches Close indisponibles</b> (copilot absent) — seules les relances SalesDesk sont listées. ' : '') + (nb ? '' : 'Rien à faire ' + (estAuj ? 'aujourd\'hui' : 'ce jour') + '.' + (items.length ? ' Les prochaines relances sont dans le suivi.' : '')) + '</div>';
   else if (_tachesClose && _tachesClose.error) suivre = '<div class="auj-etat" style="color:var(--orange);margin:0 0 6px;">⚠ Tâches Close indisponibles : liste partielle (SalesDesk seul).</div>' + suivre;
   document.getElementById('auj-suivre').innerHTML = suivre;
+  try { renderNouveautes(); } catch (e) {}
   aujRendreSync(lundi);
   // bandeau d'alerte commun
   var al = document.getElementById('controle-alerte-auj'), src = document.getElementById('controle-alerte-daily'); if (al && src) { al.className = src.className; al.style.display = src.style.display; al.innerHTML = src.innerHTML; }
