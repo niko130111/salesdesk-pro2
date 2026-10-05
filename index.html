@@ -10215,7 +10215,7 @@ function sdPopupVerifDemain() {
   var html = '<div class="fc-dup" style="width:min(560px,84vw);max-width:100%;box-sizing:border-box;"><div style="font-size:17px;font-weight:800;margin-bottom:2px;">Vérifie les RDV de ' + escapeHtml(rdvs.every(function(r) { return r.jour === rdvs[0].jour; }) ? jour : 'ces prochains jours') + '</div>'
     + '<div class="fc-muted" style="margin-bottom:12px;">Coche ceux qui ont répondu OUI au SMS de ce matin. Les autres recevront ta relance.</div>'
     + rdvs.map(function(r, i) { var row = r.row || {}, deja = !!row.relanceVeilleAt; return '<label style="display:flex;gap:12px;align-items:center;padding:9px 0;border-top:1px solid var(--border);cursor:pointer;"><input type="checkbox" class="vd-ck" data-i="' + i + '"' + (row.confirme ? ' checked' : '') + (r.row ? '' : ' disabled') + ' onchange="sdVerifDemainMaj()" style="width:18px;height:18px;accent-color:var(--primary);"><span style="font-weight:700;font-variant-numeric:tabular-nums;min-width:48px;">' + escapeHtml(r.heure || '—') + '</span><span style="flex:1;min-width:0;"><b>' + escapeHtml(r.nom) + '</b><span class="auj-meta"> · ' + escapeHtml([r.r2 ? 'R2' : 'R1', row.type, r.source !== 'R2' ? r.source : ''].filter(Boolean).join(' · ')) + '</span>' + (deja ? '<div class="fc-muted">relance déjà préparée</div>' : '') + (r.row ? '' : '<div class="fc-muted">pas encore de ligne SalesDesk</div>') + '</span></label>'; }).join('')
-    + '<div style="display:flex;gap:8px;justify-content:flex-end;align-items:center;margin-top:14px;flex-wrap:wrap;"><span class="fc-muted" id="vd-note" style="margin-right:auto;"></span><button class="btn" onclick="fermerModalDoublon()">Plus tard</button><button class="btn btn-primary" id="vd-ok" onclick="sdVerifDemainValider()">Valider</button></div></div>';
+    + '<div style="display:flex;gap:8px;justify-content:flex-end;align-items:center;margin-top:14px;flex-wrap:wrap;"><span class="fc-muted" id="vd-note" style="margin-right:auto;"></span><button class="btn" onclick="fermerModalDoublon()">Plus tard</button><button class="btn" id="vd-sans" onclick="sdVerifDemainValider(true)">Enregistrer sans relancer</button><button class="btn btn-primary" id="vd-ok" onclick="sdVerifDemainValider()">Valider</button></div></div>';
   window._vdRdvs = rdvs;
   var ov = document.getElementById('fc-dup-overlay');
   if (!ov) { ov = document.createElement('div'); ov.id = 'fc-dup-overlay'; ov.className = 'modal-overlay'; ov.style.zIndex = '1300'; ov.innerHTML = '<div class="modal" id="fc-dup-modal"></div>'; document.body.appendChild(ov); }
@@ -10226,13 +10226,16 @@ function sdVerifDemainMaj() {
   var rdvs = window._vdRdvs || [], aRelancer = 0, conf = 0;
   document.querySelectorAll('.vd-ck').forEach(function(c) { var r = rdvs[+c.dataset.i]; if (!r || !r.row) return; if (c.checked) conf++; else if (!r.row.relanceVeilleAt) aRelancer++; });
   var b = document.getElementById('vd-ok'), n = document.getElementById('vd-note');
-  if (b) b.textContent = aRelancer ? 'Valider et relancer ' + aRelancer + ' non confirmé' + (aRelancer > 1 ? 's' : '') : 'Valider';
-  if (n) n.textContent = conf + ' confirmé' + (conf > 1 ? 's' : '') + ' sur ' + rdvs.length;
+  var tot = new Date().getHours() < 13, s2 = document.getElementById('vd-sans'); // avant 13 h, le SMS du matin vient de partir : on note les coches, on ne relance pas
+  if (b) { b.textContent = aRelancer ? 'Valider et relancer ' + aRelancer + ' non confirmé' + (aRelancer > 1 ? 's' : '') : 'Valider'; b.style.display = (tot && aRelancer) ? 'none' : ''; }
+  if (s2) { s2.style.display = aRelancer ? '' : 'none'; s2.className = (tot && aRelancer) ? 'btn btn-primary' : 'btn'; }
+  if (n) n.textContent = conf + ' confirmé' + (conf > 1 ? 's' : '') + ' sur ' + rdvs.length + ((tot && aRelancer) ? ' · relances possibles à partir de 13 h' : '');
 }
-function sdVerifDemainValider() {
-  var rdvs = window._vdRdvs || [], st = loadStore(), aRelancer = [];
+function sdVerifDemainValider(sansRelance) { // sansRelance : on enregistre seulement les coches ; l'alerte de 13 h reviendra
+  var rdvs = window._vdRdvs || [], st = loadStore(), aRelancer = []; if (new Date().getHours() < 13) sansRelance = true;
   document.querySelectorAll('.vd-ck').forEach(function(c) { var r = rdvs[+c.dataset.i]; if (!r || !r.row) return; var row = (st[r.row._monthKey] || [])[r.row._storeKey]; if (!row) return;
     if (c.checked) { row.confirme = true; row.confirmeAt = row.confirmeAt || new Date().toISOString(); } else { delete row.confirme; delete row.confirmeAt; if (!row.relanceVeilleAt) aRelancer.push({ r: r, row: row }); } });
+  if (sansRelance && aRelancer.length) { saveStore(st); fermerModalDoublon(); renderAujourdhui(); if (typeof showCopyToast === 'function') showCopyToast('✓ Coches enregistrées, aucune relance'); return; }
   if (!st._verifDemain) st._verifDemain = {}; st._verifDemain[rlIso(new Date())] = { at: new Date().toISOString(), relances: aRelancer.length };
   Object.keys(st._verifDemain).sort().slice(0, -30).forEach(function(k) { delete st._verifDemain[k]; });
   saveStore(st); fermerModalDoublon(); renderAujourdhui();
