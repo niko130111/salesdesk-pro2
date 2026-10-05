@@ -3827,7 +3827,7 @@ function fcRendre() {
   if (last.tier) badges.push('<span class="fc-badge">' + escapeHtml(last.tier) + '</span>');
   if (cat === 'signed') badges.push('<span class="fc-badge won">✅ Signé</span>');
   else if (cat === 'nosigned') { var rn = last.result === 'Promo' ? 'promo' : (last.nosignRaison || ''); var lib = { relancer: '🔁 Ancien RDV à relancer', pasinteresse: '✗ Pas intéressé', pasbudget: '💸 Pas de budget', promo: '💡 À relancer si promo', carte: '🗺️ À relancer carte de prospection', rent: '🏢 À relancer au RENT', ghost: '🫥 Ghost' }[rn] || '✗ Non signé'; badges.push('<span class="fc-badge lost">' + lib + '</span>'); }
-  else if (cat === 'interested') badges.push('<span class="fc-badge hot">🔥 Intéressé</span>');
+  else if (cat === 'interested') badges.push('<span class="fc-badge hot">' + (last.attenteSignature ? '✍️ Attente de signature' : '🔥 Intéressé') + '</span>');
   else if (cat === 'noshow') badges.push('<span class="fc-badge">👻 No Show</span>');
   badges.push('<span class="fc-badge">' + _fc.rows.length + ' RDV</span>');
   document.getElementById('fc-badges').innerHTML = badges.join('');
@@ -4816,7 +4816,7 @@ function sdApresRdv(monthKey, idx) {
   var store = loadStore(), r = (store[monthKey] || [])[idx]; if (!r) return;
   var pres = String(r.presence || '').trim(), res = r.result === 'Promo' ? 'Non signé' : String(r.result || '').trim();
   _ar = { monthKey: monthKey, idx: idx, row: r, estR2: r.source === 'R2',
-    presence: pres, result: res, raison: r.nosignRaison || (r.result === 'Promo' ? 'promo' : ''), pack: r.pack || '', freq: r.freq || '', oneshot: r.oneshot === 'O', type: r.type || '',
+    presence: pres, result: (res === 'Intéressé' && r.attenteSignature) ? 'Attente' : res, raison: r.nosignRaison || (r.result === 'Promo' ? 'promo' : ''), pack: r.pack || '', freq: r.freq || '', oneshot: r.oneshot === 'O', type: r.type || '',
     suite: (r.dateR2 && String(r.dateR2).trim()) ? 'r2' : ((r.relanceDate && !r.relanceFait) ? 'rel' : ''), r2Date: fcIsoDepuisFr(r.dateR2 || ''), r2Heure: r.heureR2 || '', relDate: r.relanceDate || '', relCond: r.relanceCond || '',
     nsChoix: '', nsDate: rlJourOuvre(rlIso(new Date()), 1), note: r.retour || '',
     dossier: null, dernier: undefined, mail: null, presenceAvant: pres, resultAvant: res, raisonAvant: r.nosignRaison || '' };
@@ -4862,10 +4862,11 @@ function arRendreC1() {
   el.innerHTML = out;
 }
 function arPill(groupe, val, lib, cls) { var a = _ar, on = a[groupe] === val; return '<button class="ar-pill' + (on ? ' on ' + (cls || '') : '') + '" onclick="arSet(\'' + groupe + '\',' + JSON.stringify(val).replace(/"/g, '&quot;') + ')">' + lib + '</button>'; }
+function arInt(a) { return a.result === 'Intéressé' || a.result === 'Attente'; } // « Attente de signature » = intéressé, avec le drapeau attenteSignature sur la ligne
 function arSet(groupe, val) {
   var a = _ar; if (!a) return; a[groupe] = (a[groupe] === val && groupe !== 'presence') ? '' : val;
   if (groupe === 'presence' && val !== 'Show') { a.result = ''; a.raison = ''; a.suite = ''; }
-  if (groupe === 'result') { if (val !== 'Non signé') a.raison = ''; if (val === 'Signé') a.suite = ''; if (val === 'Intéressé' && !a.suite) a.suite = a.r2Date ? 'r2' : (a.relDate ? 'rel' : ''); }
+  if (groupe === 'result') { if (val !== 'Non signé') a.raison = ''; if (val === 'Signé') a.suite = ''; if (val === 'Intéressé' && !a.suite) a.suite = a.r2Date ? 'r2' : (a.relDate ? 'rel' : ''); if (val === 'Attente' && a.result === 'Attente') { a.suite = 'rel'; if (!a.relDate) a.relDate = rlJourOuvre(rlIso(new Date()), 2); if (!a.relCond) a.relCond = 'En attente de signature'; } }
   if (groupe === 'raison' && ['pasbudget', 'promo', 'carte', 'rent', 'relancer'].indexOf(val) >= 0 && !a.suite) a.suite = 'rel';
   if (groupe === 'raison' && (val === 'pasinteresse' || val === 'ghost')) a.suite = '';
   arRendreC2(); arRendreC3(); arRendreEcrit();
@@ -4876,7 +4877,8 @@ function arRendreC2() {
   var a = _ar; if (!a) return; var el = document.getElementById('ar-c2'), out = '<h4><span class="n">2</span>Résultat & suite</h4>';
   out += '<div class="ar-lab">Présence</div><div class="ar-pills">' + arPill('presence', 'Show', '✅ Show', 'ok') + arPill('presence', 'No Show', '👻 No Show', 'ko') + arPill('presence', 'Annulé', 'Annulé', 'warn') + arPill('presence', 'Reprogrammé', 'Reprogrammé', 'warn') + '</div>';
   if (a.presence === 'Show') {
-    out += '<div class="ar-lab">Résultat</div><div class="ar-pills">' + arPill('result', 'Signé', '💰 Signé', 'ok') + (a.estR2 ? '' : arPill('result', 'Intéressé', '🔥 Intéressé', '')) + arPill('result', 'Non signé', '❌ Non signé', 'ko') + '</div>';
+    out += '<div class="ar-lab">Résultat</div><div class="ar-pills">' + arPill('result', 'Signé', '💰 Signé', 'ok') + (a.estR2 ? '' : arPill('result', 'Intéressé', '🔥 Intéressé', '')) + arPill('result', 'Attente', '✍️ Attente de signature', '') + arPill('result', 'Non signé', '❌ Non signé', 'ko') + '</div>'
+      + (a.result === 'Attente' ? '<div class="fc-muted" style="margin-top:6px;">Ni signé ni perdu : il a dit oui, tu attends sa signature ou son paiement. Compté comme une affaire en cours, pas comme une vente.</div>' : '');
     if (a.result === 'Signé') {
       var sel = function(champ, opts, val) { return '<select onchange="arChamp(\'' + champ + '\', this.value)">' + opts.map(function(o) { return '<option value="' + escapeHtml(o[0]) + '"' + (o[0] === val ? ' selected' : '') + '>' + escapeHtml(o[1]) + '</option>'; }).join('') + '</select>'; };
       out += '<div class="ar-lab">Offre signée</div><div class="ar-row">' + sel('pack', [['', 'Pack ?'], ['Start+', 'Start+'], ['Pro+', 'Pro+'], ['Expert+', 'Expert+']], a.pack) + sel('freq', [['', 'Fréquence ?'], ['Annuelle', 'Annuelle'], ['Mensuelle', 'Mensuelle']], a.freq) + (a.type ? '' : sel('type', [['', 'Type ?'], ['Mandataire', 'Mandataire'], ['Agences', 'Agences']], a.type)) + '<label style="font-size:12.5px;display:flex;gap:5px;align-items:center;"><input type="checkbox"' + (a.oneshot ? ' checked' : '') + ' onchange="arChamp(\'oneshot\', this.checked)">One shot</label></div>';
@@ -4885,9 +4887,9 @@ function arRendreC2() {
     if (a.result === 'Non signé') {
       out += '<div class="ar-lab">Pourquoi</div><div class="ar-pills">' + arPill('raison', 'pasinteresse', '✗ Pas intéressé', 'ko') + arPill('raison', 'pasbudget', '💸 Pas de budget', 'warn') + arPill('raison', 'promo', '💡 Si promo', '') + arPill('raison', 'carte', '🗺️ Carte de prospection', '') + arPill('raison', 'rent', '🏢 Au RENT', '') + arPill('raison', 'ghost', '🫥 Ghost', 'warn') + '</div>';
     }
-    var veutSuite = a.result === 'Intéressé' || (a.result === 'Non signé' && ['pasbudget', 'promo', 'carte', 'rent', 'relancer'].indexOf(a.raison) >= 0);
+    var veutSuite = arInt(a) || (a.result === 'Non signé' && ['pasbudget', 'promo', 'carte', 'rent', 'relancer'].indexOf(a.raison) >= 0);
     if (veutSuite) {
-      out += '<div class="ar-lab">Suite</div><div class="ar-pills">' + (a.estR2 ? '' : arPill('suite', 'r2', '📅 R2 calé', '')) + arPill('suite', 'rel', '📞 Me rappeler', '') + (a.result === 'Intéressé' ? '' : arPill('suite', '', 'Rien pour l\'instant', '')) + '</div>';
+      out += '<div class="ar-lab">Suite</div><div class="ar-pills">' + ((a.estR2 || a.result === 'Attente') ? '' : arPill('suite', 'r2', '📅 R2 calé', '')) + arPill('suite', 'rel', '📞 Me rappeler', '') + (arInt(a) ? '' : arPill('suite', '', 'Rien pour l\'instant', '')) + '</div>';
       if (a.suite === 'r2') out += arBlocR2(a);
       if (a.suite === 'rel') out += '<div class="ar-row"><input type="date" value="' + escapeHtml(a.relDate) + '" onchange="arChamp(\'relDate\', this.value)"><input type="text" placeholder="Condition / ce qu\'il a dit (optionnel)" value="' + escapeHtml(a.relCond) + '" oninput="arChamp(\'relCond\', this.value)"></div><div class="fc-muted" style="margin-top:4px;">Une tâche Close à cette date, et il entre dans ta file.</div>';
     }
@@ -4969,10 +4971,10 @@ function arPlan() {
   var sd = ['présence ' + a.presence];
   if (a.presence === 'Show') {
     if (!a.result) M.push('le résultat');
-    else { sd.push('résultat ' + a.result + (a.raison ? ' · ' + ({ pasinteresse: 'pas intéressé', pasbudget: 'pas de budget', promo: 'si promo', carte: 'carte de prospection', rent: 'au RENT', ghost: 'ghost', relancer: 'à relancer' }[a.raison] || a.raison) : '')); }
+    else { sd.push('résultat ' + (a.result === 'Attente' ? 'en attente de signature' : a.result) + (a.raison ? ' · ' + ({ pasinteresse: 'pas intéressé', pasbudget: 'pas de budget', promo: 'si promo', carte: 'carte de prospection', rent: 'au RENT', ghost: 'ghost', relancer: 'à relancer' }[a.raison] || a.raison) : '')); }
     if (a.result === 'Non signé' && !a.raison) M.push('la raison');
     if (a.result === 'Signé') { if (!a.pack) M.push('le pack'); if (!a.freq) M.push('la fréquence'); if (!a.type) M.push('le type'); sd.push([a.pack, a.freq, a.oneshot ? 'one shot' : ''].filter(Boolean).join(' ') + (r.dateSignature ? '' : ' · signé le ' + new Date().toLocaleDateString('fr-FR'))); }
-    if (a.result === 'Intéressé' && !a.suite) M.push('la suite (R2 ou rappel)');
+    if (arInt(a) && !a.suite) M.push(a.result === 'Attente' ? 'la date à laquelle tu le relances' : 'la suite (R2 ou rappel)');
     if (a.suite === 'r2' && a.r2Debut && !a.r2Reserve) M.push('réserver le R2 (bouton vert sous les créneaux)');
     if (a.suite === 'r2') sd.push('R2 ' + (a.r2Date ? 'le ' + fcFrDepuisIso(a.r2Date) + (a.r2Heure ? ' à ' + a.r2Heure : '') : 'attendu dans Calendly'));
     if (a.suite === 'rel') { if (!a.relDate) M.push('la date de rappel'); else sd.push('rappel le ' + fcFrDepuisIso(a.relDate)); }
@@ -4980,12 +4982,14 @@ function arPlan() {
   if (a.presence === 'No Show' && !a.estR2 && !a.nsChoix) M.push('relancer ou laisser tomber');
   if (a.note !== (r.retour || '')) sd.push('ma note');
   L.push('SalesDesk : ' + sd.join(' · '));
+  if (a.estR2 && a.presence === 'Show' && a.result === 'Attente') { L.push('Close : opportunité → Contract Sent / Offer Sent'); if (a.relDate) L.push('Close : tâche « Relancer : en attente de signature » le ' + fcFrDepuisIso(a.relDate)); }
   if (!a.estR2) {
     var ev = { 'No Show': 'Demo No Show', 'Annulé': 'Demo Cancelled', 'Reprogrammé': 'Demo Rescheduled', 'Show': 'Demo Completed' }[a.presence];
     if (a.presence === 'Show' && a.result === 'Non signé' && a.raison === 'pasinteresse') ev = 'Lost - No Longer Interested · lead Not interested';
     if (a.presence === 'No Show' && a.nsChoix === 'stop') ev = 'Lost - Cancelled';
+    if (a.presence === 'Show' && a.result === 'Attente') ev = 'Contract Sent / Offer Sent';
     if (ev && !(a.presence === 'Show' && a.result === 'Signé')) L.push('Close : opportunité → ' + ev);
-    if (a.presence === 'Show' && a.suite === 'rel' && a.relDate) L.push('Close : tâche « ' + (a.result === 'Intéressé' ? 'R2 sans réponse' : 'Prise de RDV') + ' » le ' + fcFrDepuisIso(a.relDate));
+    if (a.presence === 'Show' && a.suite === 'rel' && a.relDate) L.push('Close : tâche « ' + (a.result === 'Attente' ? 'Relancer : en attente de signature' : arInt(a) ? 'R2 sans réponse' : 'Prise de RDV') + ' » le ' + fcFrDepuisIso(a.relDate));
     if (a.presence === 'No Show' && (a.nsChoix === 'demain' || a.nsChoix === 'date')) L.push('Close : tâche no-show le ' + fcFrDepuisIso(a.nsChoix === 'demain' ? rlJourOuvre(rlIso(new Date()), 1) : a.nsDate) + ' · file de relance');
     if (a.presence === 'Show' && !(a.result === 'Non signé' && a.raison === 'pasinteresse') && a.result) L.push('Copilot : mail de fin de RDV à préparer');
   }
@@ -5003,7 +5007,7 @@ function arValiderSuivi() {
   sdBackupStore(store);
   r.presence = a.presence;
   if (a.presence === 'Show') {
-    r.result = a.result;
+    r.result = a.result === 'Attente' ? 'Intéressé' : a.result; if (a.result === 'Attente') { r.attenteSignature = true; r.attenteDepuis = r.attenteDepuis || new Date().toISOString().slice(0, 10); } else delete r.attenteSignature;
     if (a.result === 'Non signé') r.nosignRaison = a.raison; else delete r.nosignRaison;
     if (a.result === 'Signé') { r.pack = a.pack; r.freq = a.freq; r.oneshot = a.oneshot ? 'O' : 'N'; if (a.type) r.type = a.type; if (!r.dateSignature) r.dateSignature = new Date().toLocaleDateString('fr-FR'); }
     if (a.suite === 'r2') { if (a.r2Date) { r.dateR2 = fcFrDepuisIso(a.r2Date); if (a.r2Heure) r.heureR2 = a.r2Heure; if (!r.presenceR2) r.presenceR2 = 'Programmé'; } else r.r2Attendu = true; }
@@ -5017,7 +5021,8 @@ function arValiderSuivi() {
   saveStore(store);
   var copie = Object.assign({}, r);
   // Close : statut
-  if (!a.estR2) {
+  if (a.presence === 'Show' && a.result === 'Attente') sdStatutClose({ client: r.client, email: r.email || '', closeLead: r.closeLead || '' }, 'mail_envoye'); // en attente de signature (R1 comme R2) : opportunité → Contract Sent / Offer Sent
+  else if (!a.estR2) {
     if (a.presence === 'Show' && a.result === 'Non signé' && a.raison === 'pasinteresse') sdStatutClose(copie, 'pas_interesse');
     else if (a.presence === 'No Show' && a.nsChoix === 'stop') sdStatutClose(copie, 'laisser_tomber');
     else if (!(a.presence === 'Show' && a.result === 'Signé')) sdStatutDepuisPresence(copie, a.presence);
@@ -5025,9 +5030,9 @@ function arValiderSuivi() {
   }
   // Close : tâche de rappel (+ SMS « rappel promis » préparé si automatisation allumée)
   if (a.presence === 'Show' && a.suite === 'rel' && a.relDate && typeof rlPost === 'function') {
-    var colR = a.result === 'Intéressé' ? 'r2' : 'rdv';
-    rlPost('/close/taches', { nom: r.client, email: r.email || '', date: a.relDate, texte: (RL_LIBELLES[colR] || 'Relance') + (a.relCond ? ' · ' + a.relCond : '') + ' · SalesDesk', motif: 'rappel' }).then(function(j) { var st = loadStore(); if (!st._tachesCloseSuivi) st._tachesCloseSuivi = {}; var k = (j.tache && j.tache.lead) ? j.tache.lead : 'n:' + fcNormNom(r.client); st._tachesCloseSuivi[k] = Object.assign({}, st._tachesCloseSuivi[k] || {}, { nom: r.client, col: colR, tentatives: 0, dernier: 'rappel', prochaine: a.relDate, at: new Date().toISOString() }); saveStore(st); }).catch(function(e) { if (typeof showCopyToast === 'function') showCopyToast('Tâche Close non créée : ' + e.message); });
-    try { sdSmsRappelPromis(copie, a.result === 'Intéressé' ? a.relDate : ''); } catch (e) {}
+    var colR = arInt(a) ? 'r2' : 'rdv';
+    rlPost('/close/taches', { nom: r.client, email: r.email || '', date: a.relDate, texte: (a.result === 'Attente' ? 'Relancer : en attente de signature' + ((a.relCond && a.relCond !== 'En attente de signature') ? ' · ' + a.relCond : '') : (RL_LIBELLES[colR] || 'Relance') + (a.relCond ? ' · ' + a.relCond : '')) + ' · SalesDesk', motif: 'rappel' }).then(function(j) { var st = loadStore(); if (!st._tachesCloseSuivi) st._tachesCloseSuivi = {}; var k = (j.tache && j.tache.lead) ? j.tache.lead : 'n:' + fcNormNom(r.client); st._tachesCloseSuivi[k] = Object.assign({}, st._tachesCloseSuivi[k] || {}, { nom: r.client, col: colR, tentatives: 0, dernier: 'rappel', prochaine: a.relDate, at: new Date().toISOString() }); saveStore(st); }).catch(function(e) { if (typeof showCopyToast === 'function') showCopyToast('Tâche Close non créée : ' + e.message); });
+    try { sdSmsRappelPromis(copie, arInt(a) ? a.relDate : ''); } catch (e) {}
   }
   // No-show : relance (tâche + file + brouillon SMS) ou rien
   if (a.presence === 'No Show' && !a.estR2 && (a.nsChoix === 'demain' || a.nsChoix === 'date')) { window._nsRow = copie; try { sdNoShowRelancer(r.client, r.email || '', r.source || '', a.nsChoix === 'demain' ? rlJourOuvre(rlIso(new Date()), 1) : a.nsDate, r.date, r.heure || ''); } catch (e) {} }
@@ -10512,7 +10517,7 @@ function renderAujourdhui() {
       var replanifie = pres === 'Reprogrammé' && jour >= todayIso; if (replanifie) pres = '';
       var passe = jour < todayIso || (estAuj && r.heure && r.heure < hhmm && !(r.end && r.end > now));
       var p = prepDe(r);
-      var statutRdv = pres ? (pres === 'Show' ? (res ? 'Terminé · ' + res : 'Terminé') : pres) : (passe ? 'À terminer' : '');
+      var statutRdv = pres ? (pres === 'Show' ? (res ? 'Terminé · ' + ((row.attenteSignature && res === 'Intéressé') ? 'Attente de signature' : res) : 'Terminé') : pres) : (passe ? 'À terminer' : '');
       var nomJs = JSON.stringify(r.nom).replace(/"/g, '&quot;'), emailJs = JSON.stringify(r.email || '').replace(/"/g, '&quot;'), jourJs = JSON.stringify(jour).replace(/"/g, '&quot;');
       var chips = (r.r2 ? '<span class="auj-chip r2">R2</span>' : '') + '<span class="auj-meta">' + escapeHtml([r.r2 ? 'Validation & lancement' : 'R1', row.type, (r.source && r.source !== 'R2') ? r.source : '', replanifie ? 'reprogrammé à ce jour' : ''].filter(Boolean).join(' · ')) + '</span>'
         + (!pres && !passe && !r.r2 && p.etat !== 'inconnu' ? '<span class="auj-chip ' + (p.etat === 'ok' ? 'ok' : 'warn') + '" title="' + escapeHtml(p.detail || '') + '">' + escapeHtml(p.lib) + '</span>' : '')
