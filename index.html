@@ -9733,7 +9733,7 @@ function renderAutomatisations(force) {
     html += '</div>';
   });
   // tâches internes
-  var A = (_au.autos || []).filter(function(a) { return ['mail_r1', 'mail_r2_jour', 'sms_r2_veille', 'sms_r1_veille', 'mail_r1_jour', 'no_show'].indexOf(a.id) < 0; });
+  var A = (_au.autos || []).filter(function(a) { return ['mail_r1', 'mail_r2_jour', 'sms_r2_veille', 'sms_r1_veille', 'mail_r1_jour', 'sms_r1_pub', 'no_show'].indexOf(a.id) < 0; });
   var heure = function(a) { var m = /(\d{2}:\d{2})/.exec(a.declencheur || ''); return m ? (/vendredi/i.test(a.declencheur) ? 'ven. ' : '') + m[1] : 'sur événement'; };
   A.sort(function(x, y) { var hx = heure(x), hy = heure(y); return (/^\d/.test(hx) ? hx : 'z' + hx).localeCompare(/^\d/.test(hy) ? hy : 'z' + hy); });
   if (A.length) html += '<div class="au-etape"><h2>Ce que le copilot fait seul</h2><span>aucun message au prospect</span></div><div class="au-int">' + A.map(function(a) { return '<div class="l"><span class="q">' + escapeHtml(heure(a)) + '</span><span><b>' + escapeHtml(a.nom) + '</b><small>' + escapeHtml(a.description || '') + '</small></span>' + sw(a.id, a.actif !== false, 'auTache(\'' + a.id + '\', this.checked, this)') + '</div>'; }).join('') + '</div>';
