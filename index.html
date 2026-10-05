@@ -9824,7 +9824,7 @@ function sdPopupSms() {
   if (!ov) { ov = document.createElement('div'); ov.id = 'fc-dup-overlay'; ov.className = 'modal-overlay'; ov.style.zIndex = '1300'; ov.innerHTML = '<div class="modal" id="fc-dup-modal"></div>'; document.body.appendChild(ov); }
   ov.onclick = function(ev) { if (ev.target === ov) fermerModalDoublon(); };
   var mode = _smsMode || {};
-  var html = '<div class="fc-dup"><div style="font-size:16px;font-weight:700;">💬 SMS no-show</div><div class="fc-muted" style="margin:2px 0 10px;">' + (mode.mode === 'auto' && mode.configure ? 'Envoi automatique par SMS Gate à l\'heure prévue. Tu peux annuler ou modifier avant.' : 'SMS Gate n\'est pas branché : à l\'heure prévue, le SMS passe en « prêt » et tu l\'envoies d\'un clic (Messages) ou tu le copies.') + '</div>';
+  var html = '<div class="fc-dup"><div style="font-size:16px;font-weight:700;">💬 SMS prêts à envoyer</div><div class="fc-muted" style="margin:2px 0 10px;">' + (mode.mode === 'auto' && mode.configure ? 'Envoi automatique par SMS Gate à l\'heure prévue. Tu peux annuler ou modifier avant.' : 'SMS Gate n\'est pas branché : à l\'heure prévue, le SMS passe en « prêt » et tu l\'envoies d\'un clic (Messages) ou tu le copies.') + '</div>';
   if (!l.length) html += '<div class="fc-muted">Aucun SMS en attente.</div>';
   l.forEach(function(x) {
     var q = new Date(x.prevu), quand = q.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' }) + ' ' + q.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
@@ -10114,6 +10114,54 @@ function aujBrief(d) { // brief complet d'un dossier (chargé une fois)
   if (!_auj.briefsEnCours[d.id] && typeof COPILOT_URL !== 'undefined') { _auj.briefsEnCours[d.id] = true; fetch(COPILOT_URL + '/rdvs/' + encodeURIComponent(d.id), { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).then(function(j) { _auj.briefs[d.id] = (j && j.rdv) || { vide: true }; renderAujourdhui(); }).catch(function() { _auj.briefs[d.id] = { erreur: true }; renderAujourdhui(); }); }
   return null;
 }
+// ── Confirmation des RDV du lendemain : à partir de 13 h, une alerte te fait cocher ceux qui ont répondu OUI au SMS de la veille ; les autres reçoivent ta relance (2ᵉ SMS) quand tu valides ──
+function sdRdvsDeDemain() { // RDV du prochain jour ouvré (et du week-end entre les deux), pas encore tenus ni annulés
+  var today = rlIso(new Date()), fin = rlJourOuvre(today, 1), out = [];
+  for (var d = rlPlus(today, 1); d <= fin; d = rlPlus(d, 1)) aujRdvsDu(d).forEach(function(r) { var p = String((r.row || {}).presence || '').trim(); if (p && p !== 'Reprogrammé') return; if (p === 'Annulé') return; out.push(Object.assign({ jour: d }, r)); });
+  return out;
+}
+function sdVerifDemainFaite() { var st = loadStore(); return !!((st._verifDemain || {})[rlIso(new Date())]); }
+function sdConfirmer(monthKey, idx, on) { var st = loadStore(), r = (st[monthKey] || [])[idx]; if (!r) return; if (on) { r.confirme = true; r.confirmeAt = new Date().toISOString(); } else { delete r.confirme; delete r.confirmeAt; } saveStore(st); }
+function sdBasculerConfirme(monthKey, idx) { var st = loadStore(), r = (st[monthKey] || [])[idx]; if (!r) return; sdConfirmer(monthKey, idx, !r.confirme); renderAujourdhui(); }
+function sdPopupVerifDemain() {
+  var rdvs = sdRdvsDeDemain(); if (!rdvs.length) { if (typeof showCopyToast === 'function') showCopyToast('Aucun rendez-vous demain'); return; }
+  var jour = new Date(rdvs[0].jour + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+  var html = '<div class="fc-dup" style="width:min(560px,84vw);max-width:100%;box-sizing:border-box;"><div style="font-size:17px;font-weight:800;margin-bottom:2px;">Vérifie les RDV de ' + escapeHtml(rdvs.every(function(r) { return r.jour === rdvs[0].jour; }) ? jour : 'ces prochains jours') + '</div>'
+    + '<div class="fc-muted" style="margin-bottom:12px;">Coche ceux qui ont répondu OUI au SMS de ce matin. Les autres recevront ta relance.</div>'
+    + rdvs.map(function(r, i) { var row = r.row || {}, deja = !!row.relanceVeilleAt; return '<label style="display:flex;gap:12px;align-items:center;padding:9px 0;border-top:1px solid var(--border);cursor:pointer;"><input type="checkbox" class="vd-ck" data-i="' + i + '"' + (row.confirme ? ' checked' : '') + (r.row ? '' : ' disabled') + ' onchange="sdVerifDemainMaj()" style="width:18px;height:18px;accent-color:var(--primary);"><span style="font-weight:700;font-variant-numeric:tabular-nums;min-width:48px;">' + escapeHtml(r.heure || '—') + '</span><span style="flex:1;min-width:0;"><b>' + escapeHtml(r.nom) + '</b><span class="auj-meta"> · ' + escapeHtml([r.r2 ? 'R2' : 'R1', row.type, r.source !== 'R2' ? r.source : ''].filter(Boolean).join(' · ')) + '</span>' + (deja ? '<div class="fc-muted">relance déjà préparée</div>' : '') + (r.row ? '' : '<div class="fc-muted">pas encore de ligne SalesDesk</div>') + '</span></label>'; }).join('')
+    + '<div style="display:flex;gap:8px;justify-content:flex-end;align-items:center;margin-top:14px;flex-wrap:wrap;"><span class="fc-muted" id="vd-note" style="margin-right:auto;"></span><button class="btn" onclick="fermerModalDoublon()">Plus tard</button><button class="btn btn-primary" id="vd-ok" onclick="sdVerifDemainValider()">Valider</button></div></div>';
+  window._vdRdvs = rdvs;
+  var ov = document.getElementById('fc-dup-overlay');
+  if (!ov) { ov = document.createElement('div'); ov.id = 'fc-dup-overlay'; ov.className = 'modal-overlay'; ov.style.zIndex = '1300'; ov.innerHTML = '<div class="modal" id="fc-dup-modal"></div>'; document.body.appendChild(ov); }
+  ov.onclick = function(ev) { if (ev.target === ov) fermerModalDoublon(); };
+  document.getElementById('fc-dup-modal').innerHTML = html; ov.classList.add('open'); sdVerifDemainMaj();
+}
+function sdVerifDemainMaj() {
+  var rdvs = window._vdRdvs || [], aRelancer = 0, conf = 0;
+  document.querySelectorAll('.vd-ck').forEach(function(c) { var r = rdvs[+c.dataset.i]; if (!r || !r.row) return; if (c.checked) conf++; else if (!r.row.relanceVeilleAt) aRelancer++; });
+  var b = document.getElementById('vd-ok'), n = document.getElementById('vd-note');
+  if (b) b.textContent = aRelancer ? 'Valider et relancer ' + aRelancer + ' non confirmé' + (aRelancer > 1 ? 's' : '') : 'Valider';
+  if (n) n.textContent = conf + ' confirmé' + (conf > 1 ? 's' : '') + ' sur ' + rdvs.length;
+}
+function sdVerifDemainValider() {
+  var rdvs = window._vdRdvs || [], st = loadStore(), aRelancer = [];
+  document.querySelectorAll('.vd-ck').forEach(function(c) { var r = rdvs[+c.dataset.i]; if (!r || !r.row) return; var row = (st[r.row._monthKey] || [])[r.row._storeKey]; if (!row) return;
+    if (c.checked) { row.confirme = true; row.confirmeAt = row.confirmeAt || new Date().toISOString(); } else { delete row.confirme; delete row.confirmeAt; if (!row.relanceVeilleAt) aRelancer.push({ r: r, row: row }); } });
+  if (!st._verifDemain) st._verifDemain = {}; st._verifDemain[rlIso(new Date())] = { at: new Date().toISOString(), relances: aRelancer.length };
+  Object.keys(st._verifDemain).sort().slice(0, -30).forEach(function(k) { delete st._verifDemain[k]; });
+  saveStore(st); fermerModalDoublon(); renderAujourdhui();
+  if (!aRelancer.length) { if (typeof showCopyToast === 'function') showCopyToast('✓ RDV de demain vérifiés'); return; }
+  if (typeof COPILOT_URL === 'undefined') return;
+  fetch(COPILOT_URL + '/sms/relance-veille', { method: 'POST', mode: 'cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ rdvs: aRelancer.map(function(x) { return { nom: x.r.nom, email: x.r.email || '', date: x.r.jour, heure: x.r.heure || '', lead: x.row.closeLead || '' }; }) }) })
+    .then(function(r) { return r.json(); }).then(function(j) {
+      if (!j.ok) throw new Error(j.error || 'refus');
+      var st2 = loadStore(); aRelancer.forEach(function(x) { var row = (st2[x.r.row._monthKey] || [])[x.r.row._storeKey]; if (row) row.relanceVeilleAt = new Date().toISOString(); }); saveStore(st2);
+      var n = (j.prepares || []).length, sans = (j.sansNumero || []).length;
+      if (typeof showCopyToast === 'function') showCopyToast(j.envoiAuto ? '💬 ' + n + ' relance' + (n > 1 ? 's' : '') + ' en cours d\'envoi' + (sans ? ' · ' + sans + ' sans numéro' : '') : '💬 ' + (n + sans) + ' relance' + (n + sans > 1 ? 's' : '') + ' prête' + (n + sans > 1 ? 's' : '') + ' : à envoyer depuis ton téléphone');
+      try { chargerSms(true); } catch (e) {} if (!j.envoiAuto) setTimeout(function() { try { sdPopupSms(); } catch (e) {} }, 1200);
+      renderAujourdhui();
+    }).catch(function(e) { alert('Relances non préparées : ' + e.message + '\nLes coches sont enregistrées ; rouvre « Vérifie les RDV de demain » pour réessayer.'); });
+}
 function renderAujourdhui() {
   var page = document.getElementById('page-aujourdhui'); if (!page || !page.classList.contains('active')) return;
   var now = new Date(), todayIso = rlIso(now), hhmm = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
@@ -10140,6 +10188,7 @@ function renderAujourdhui() {
       '<span class="pp' + (fait ? ' ok' : '') + '" title="RDV Outbound pris aujourd\'hui / objectif du jour">Outbound du jour <b>' + escapeHtml(mj ? mj[1] + ' / ' + mj[2] : '—') + '</b></span>'
       + '<span class="pp" title="Outbound qu\'il reste à prendre cette semaine (objectif ajusté aux absences)">Reste cette semaine <b>' + escapeHtml(/^\d+$/.test(os) ? os : '—') + '</b></span>'
       + (function() { var ap = (typeof _appelsJour !== 'undefined' && _appelsJour) ? _appelsJour : null; if (!ap) return ''; var jn = ap.filter(function(a) { return a.joint; }).length; return '<span class="pp" title="Appels passés aujourd\'hui dans Close · dont ceux où tu as eu la personne">Appels du jour <b>' + ap.length + '</b>' + (ap.length ? ' · ' + jn + ' joint' + (jn > 1 ? 's' : '') : '') + '</span>'; })()
+      + (function() { try { var dr = sdRdvsDeDemain(); if (!dr.length) return ''; var c = dr.filter(function(r) { return r.row && r.row.confirme; }).length; return '<span class="pp' + (c === dr.length ? ' ok' : '') + '" style="cursor:pointer" title="Cocher ceux qui ont confirmé, relancer les autres" onclick="sdPopupVerifDemain()">RDV de demain <b>' + c + ' / ' + dr.length + '</b> confirmés</span>'; } catch (e) { return ''; } })()
       + '<a onclick="mjAller(\'Performance\')">Objectifs du mois ›</a>';
   } catch (e) {}
   // ── Données du jour ──
@@ -10200,7 +10249,8 @@ function renderAujourdhui() {
       var nomJs = JSON.stringify(r.nom).replace(/"/g, '&quot;'), emailJs = JSON.stringify(r.email || '').replace(/"/g, '&quot;'), jourJs = JSON.stringify(jour).replace(/"/g, '&quot;');
       var chips = (r.r2 ? '<span class="auj-chip r2">R2</span>' : '') + '<span class="auj-meta">' + escapeHtml([r.r2 ? 'Validation & lancement' : 'R1', row.type, (r.source && r.source !== 'R2') ? r.source : '', replanifie ? 'reprogrammé à ce jour' : ''].filter(Boolean).join(' · ')) + '</span>'
         + (!pres && !passe && !r.r2 && p.etat !== 'inconnu' ? '<span class="auj-chip ' + (p.etat === 'ok' ? 'ok' : 'warn') + '" title="' + escapeHtml(p.detail || '') + '">' + escapeHtml(p.lib) + '</span>' : '')
-        + (statutRdv ? '<span class="auj-chip ' + (pres === 'Show' ? 'ok' : 'warn') + '">' + escapeHtml(statutRdv) + '</span>' : '');
+        + (statutRdv ? '<span class="auj-chip ' + (pres === 'Show' ? 'ok' : 'warn') + '">' + escapeHtml(statutRdv) + '</span>' : '')
+        + ((!pres && !passe && r.row && jour >= todayIso && (row.confirme || row.relanceVeilleAt)) ? '<span class="auj-chip ' + (row.confirme ? 'ok' : 'warn') + '" style="cursor:pointer" title="Clique pour ' + (row.confirme ? 'retirer la confirmation' : 'noter qu\'il a confirmé') + '" onclick="sdBasculerConfirme(' + JSON.stringify(row._monthKey).replace(/"/g, '&quot;') + ',' + row._storeKey + ')">' + (row.confirme ? '✓ Confirmé' : 'Relancé, sans réponse') + '</span>' : '');
       var mins = r.start ? Math.round((r.start - now) / 60000) : null, enCours = r.start && r.end && now >= r.start && now <= r.end, bientot = estAuj && mins !== null && mins <= 15 && mins > 0;
       var compte = enCours ? 'en cours' : (bientot ? 'dans ' + mins + ' min' : (estAuj && mins !== null && mins > 15 && idx === prochainIdx ? (mins < 60 ? 'dans ' + mins + ' min' : 'dans ' + Math.floor(mins / 60) + ' h' + (mins % 60 ? String(mins % 60).padStart(2, '0') : '')) : ''));
       var rejoindre = r.join ? '<a class="btn btn-sm' + (enCours || bientot ? ' btn-primary' : '') + '" style="text-decoration:none;" href="' + escapeHtml(r.join) + '" target="_blank" rel="noopener" title="Ouvrir la visio">Rejoindre</a>' : (!passe && !pres && r.start ? '<span class="auj-chip" title="Pas de lien de visio dans l\'événement Calendly">lien visio absent</span>' : '');
@@ -10247,6 +10297,15 @@ function renderAujourdhui() {
   var ACT = { r2: 'Rappeler', nsin: 'Relancer', nsout: 'Relancer', rdv: 'Rappeler', aclasser: 'Classer' };
   window._rlItems = items;
   var suivre = '', nb = 0;
+  try {
+    var demainRdvs = estAuj ? sdRdvsDeDemain() : [];
+    if (demainRdvs.length && now.getHours() >= 13 && !sdVerifDemainFaite()) {
+      var nonConf = demainRdvs.filter(function(r) { return !(r.row && r.row.confirme); }).length;
+      suivre += '<div class="auj-item"><span class="auj-dot red"></span><span><div class="t">Vérifie les RDV de demain</div><div class="d">' + demainRdvs.length + ' rendez-vous · ' + nonConf + ' sans confirmation. Coche ceux qui ont répondu OUI, les autres seront relancés.</div></span><span class="act2"><button class="btn btn-sm btn-primary" onclick="sdPopupVerifDemain()">Vérifier</button></span></div>'; nb++;
+      var cleJ = 'sd_verif_demain_' + todayIso, vu = ''; try { vu = localStorage.getItem(cleJ) || ''; } catch (e) {}
+      if (!vu && !document.querySelector('.modal-overlay.open, .fc-overlay.open, .ar-overlay.open, .cp-overlay.open')) { try { localStorage.setItem(cleJ, '1'); } catch (e) {} setTimeout(sdPopupVerifDemain, 400); } // la fenêtre s'ouvre une fois ; ensuite l'alerte reste dans « À faire »
+    }
+  } catch (e) {}
   var ligneRel = function(i, enRetard) {
     var cleJs = JSON.stringify(i.cle).replace(/"/g, '&quot;'), nomJs = JSON.stringify(i.nom).replace(/"/g, '&quot;');
     var raison = (i.t && i.t.texte && !/^follow ?up/i.test(i.t.texte) ? i.t.texte : '') || (i.rel && i.rel.relance && i.rel.relance.condition) || (i.row && i.row.relanceCond) || LIBC[i.col] || i.col;
