@@ -10479,8 +10479,26 @@ function rlCategorieTache(t, rel, row) {
   var fixe = ((window._rlStoreCache || loadStore())._tachesCloseCol || {})[t.id]; if (fixe) return fixe; // motif choisi à la main
   var c = rlCategorieBrute(t, rel, row);
   // Un no-show outbound de plus de 2 mois n'est plus un no-show à rattraper : c'est de la prise de RDV (règle de Nicolas, 5 oct. 2026)
-  if (c === 'nsout') { var r0 = (rel && rel.row) || row, d = r0 ? parseDateFR(r0.date) : null, lim = new Date(); lim.setMonth(lim.getMonth() - 2); if (d && d < lim) return 'rdv'; }
+  // Même règle pour un no-show inbound, SAUF si le SDR avait pris ce RDV avec Nicolas (dans son agenda Close) : celui-là reste un no-show inbound quelle que soit son ancienneté.
+  if (c === 'nsout' || c === 'nsin') {
+    var r0 = (rel && rel.row) || row, d = r0 ? parseDateFR(r0.date) : null, lim = new Date(); lim.setMonth(lim.getMonth() - 2);
+    if (d && d < lim) { if (c === 'nsout') return 'rdv'; if (r0.rdvAvecMoi === false) return 'rdv'; if (r0.rdvAvecMoi === undefined) rlVerifierAMoi(r0, t); }
+  }
   return c;
+}
+// Le RDV d'un vieux no-show inbound était-il dans l'agenda de Nicolas ? Lu une fois dans Close, noté sur la ligne (rdvAvecMoi), puis la file se reclasse.
+var _rlAMoi = {};
+function rlVerifierAMoi(row, t) {
+  if (typeof COPILOT_URL === 'undefined' || !row || !row.client) return; var iso = frVersIsoSd(row.date), cle = fcNormNom(row.client) + '|' + iso; if (!iso || _rlAMoi[cle]) return; _rlAMoi[cle] = 1;
+  var q = { nom: row.client, email: row.email || '', date: iso }, l = (t && t.lead) || row.closeLead; if (l) q.lead = l;
+  fetch(COPILOT_URL + '/close/heure-rdv?' + new URLSearchParams(q), { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).then(function(j) {
+    if (!j || !j.ok) { delete _rlAMoi[cle]; return; }
+    if (!j.trouve) return; // pas de RDV Close ce jour-là : on ne sait pas, il reste en no-show inbound
+    var st = loadStore(), x = (st[iso.slice(0, 7)] || []).find(function(r) { return r && r.date === row.date && fcNormNom(r.client) === fcNormNom(row.client); });
+    if (!x || x.rdvAvecMoi !== undefined) return;
+    x.rdvAvecMoi = !!j.avecMoi; if (!j.avecMoi && j.avec) x.rdvAvec = j.avec; if (j.lead && !x.closeLead) x.closeLead = j.lead;
+    saveStore(st); clearTimeout(window._rlAMoiT); window._rlAMoiT = setTimeout(function() { try { renderRelancesPage(); } catch (e) {} }, 600);
+  }).catch(function() { delete _rlAMoi[cle]; });
 }
 function rlCategorieBrute(t, rel, row) {
   if (rel) return rel.col;
