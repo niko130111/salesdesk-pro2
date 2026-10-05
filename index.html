@@ -10477,6 +10477,12 @@ function rlNomFiche(fiche, contact) { // « Prénom Nom | Réseau » ou « Agenc
 }
 function rlCategorieTache(t, rel, row) {
   var fixe = ((window._rlStoreCache || loadStore())._tachesCloseCol || {})[t.id]; if (fixe) return fixe; // motif choisi à la main
+  var c = rlCategorieBrute(t, rel, row);
+  // Un no-show outbound de plus de 2 mois n'est plus un no-show à rattraper : c'est de la prise de RDV (règle de Nicolas, 5 oct. 2026)
+  if (c === 'nsout') { var r0 = (rel && rel.row) || row, d = r0 ? parseDateFR(r0.date) : null, lim = new Date(); lim.setMonth(lim.getMonth() - 2); if (d && d < lim) return 'rdv'; }
+  return c;
+}
+function rlCategorieBrute(t, rel, row) {
   if (rel) return rel.col;
   var x = (t.texte || '').toLowerCase(), src = row ? String(row.source || '') : '';
   if (/no ?show|pas venu|absent/.test(x)) return src === 'Outbound' ? 'nsout' : 'nsin';
