@@ -10122,8 +10122,41 @@ function aujChargerSemaine(lundiIso) {
   Promise.resolve().then(function() { return dailyCalFetch(); }).then(function() {
     if (_dailyCalWeekOffset !== offset) return; // une autre semaine a été chargée entre-temps
     _auj.cal[lundiIso] = Object.assign({}, _dailyCalWeekEvents); _auj.calEtat[lundiIso] = 'ok'; _auj.calAt[lundiIso] = Date.now(); renderAujourdhui();
+    if (lundiIso === lundiAuj) { try { sdDetecterAnnulations(); } catch (e) {} }
   }).catch(function() { _auj.calEtat[lundiIso] = 'erreur'; renderAujourdhui(); });
 }
+// ── Annulations vues toutes seules : Calendly dit qui a annulé (ou déplacé) un RDV à venir ; SalesDesk note « Annulé » / « Reprogrammé » sur la ligne encore sans présence, pose le statut Close et te le dit dans À faire ──
+var _annulEnCours = false, _annulAt = 0;
+function sdDetecterAnnulations() {
+  var cle = (state.calendly && state.calendly.apiKey) || localStorage.getItem('calendly_key'), user = state.calendly && state.calendly.userUri;
+  if (!cle || _annulEnCours || Date.now() - _annulAt < 110000) return; _annulEnCours = true;
+  var H = { Authorization: 'Bearer ' + cle }, debut = new Date(); debut.setHours(0, 0, 0, 0); var fin = new Date(+debut + 8 * 86400000);
+  var G = function(u) { return fetch(u, { headers: H }).then(function(x) { if (!x.ok) throw new Error('Calendly ' + x.status); return x.json(); }); };
+  (user ? Promise.resolve(user) : G('https://api.calendly.com/users/me').then(function(j) { return j.resource.uri; })).then(function(u) {
+    return G('https://api.calendly.com/scheduled_events?' + new URLSearchParams({ user: u, status: 'canceled', min_start_time: debut.toISOString(), max_start_time: fin.toISOString(), count: '50', sort: 'start_time:asc' }));
+  }).then(function(j) {
+    var st0 = loadStore(), vus = st0._annulations || {};
+    var aLire = (j.collection || []).filter(function(e) { return !vus[e.uri]; });
+    return Promise.all(aLire.map(function(e) { return G(e.uri + '/invitees?count=10').then(function(k) { return { e: e, i: (k.collection || [])[0] || {} }; }).catch(function() { return null; }); }));
+  }).then(function(l) {
+    l = (l || []).filter(Boolean); if (!l.length) return;
+    var st = loadStore(), nouveaux = []; if (!st._annulations) st._annulations = {};
+    l.forEach(function(x) {
+      var e = x.e, i = x.i, d = new Date(e.start_time), iso = rlIso(d), fr = iso.split('-').reverse().join('/'), heure = d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+      var can = e.cancellation || {}, deplace = !!i.rescheduled, nom = i.name || '', em = String(i.email || '').toLowerCase();
+      var a = { nom: nom, date: iso, heure: heure, par: can.canceler_type === 'invitee' ? 'prospect' : 'moi', deplace: deplace, raison: String(can.reason || '').trim().slice(0, 200), at: can.created_at || e.updated_at || new Date().toISOString(), note: '' };
+      // la ligne SalesDesk de ce RDV, seulement si elle n'a pas encore de présence (sinon tu l'as déjà traitée)
+      var rows = st[iso.slice(0, 7)] || [], row = rows.find(function(r) { return r && r.date === fr && !String(r.presence || '').trim() && (fcNormNom(r.client || '') === fcNormNom(nom) || (em && String(r.email || '').toLowerCase() === em)) && (!r.heure || r.heure === heure); });
+      if (row) { row.presence = deplace ? 'Reprogrammé' : 'Annulé'; row.result = ''; row.annulePar = a.par; if (a.raison) row.annuleRaison = a.raison; a.note = row.presence; try { sdStatutClose(Object.assign({}, row), deplace ? 'reprogramme' : 'annule'); } catch (err) {} }
+      // on ne te prévient que de ce que tu n'as pas fait toi-même : annulation ou déplacement par le prospect
+      a.vu = a.par !== 'prospect'; st._annulations[e.uri] = a; if (!a.vu) nouveaux.push(a);
+    });
+    Object.keys(st._annulations).forEach(function(k) { if (st._annulations[k].date < rlIso(new Date(Date.now() - 20 * 86400000))) delete st._annulations[k]; });
+    saveStore(st); try { refreshAll(); } catch (err) {} renderAujourdhui();
+    if (nouveaux.length && typeof showCopyToast === 'function') showCopyToast('⚠ ' + nouveaux.map(function(a) { return a.nom + (a.deplace ? ' a déplacé' : ' a annulé') + ' son RDV de ' + a.heure; }).join(' · '));
+  }).catch(function(err) { console.warn('[annulations]', err && err.message); }).then(function() { _annulEnCours = false; _annulAt = Date.now(); });
+}
+function sdAnnulVu(uri) { var st = loadStore(); if (st._annulations && st._annulations[uri]) { st._annulations[uri].vu = true; saveStore(st); } renderAujourdhui(); }
 // Les RDV d'un jour : lignes du store (base) enrichies par Calendly (heure exacte, lien visio, début/fin) ; événements Calendly sans ligne ajoutés
 function aujRdvsDu(iso) {
   var st = loadStore(), fr = iso.split('-').reverse().join('/'), lundi = rlLundiDe(iso), cal = (_auj.cal[lundi] || {})[fr] || [];
@@ -10437,6 +10470,8 @@ function renderAujourdhui() {
   var ACT = { r2: 'Rappeler', nsin: 'Relancer', nsout: 'Relancer', rdv: 'Rappeler', aclasser: 'Classer' };
   window._rlItems = items;
   var suivre = '', nb = 0;
+  try { var _an = loadStore()._annulations || {}; Object.keys(_an).forEach(function(u) { var x = _an[u]; if (x.vu) return; nb++;
+    suivre += '<div class="auj-item"><span class="auj-dot red"></span><span><div class="t">' + escapeHtml(x.nom) + ' <span class="fc-muted">· ' + (x.deplace ? 'a déplacé son RDV' : 'a annulé son RDV') + '</span></div><div class="d">' + escapeHtml((x.date === todayIso ? 'aujourd\'hui' : fcFrDepuisIso(x.date)) + ' à ' + x.heure + ' · ' + (x.deplace ? 'déplacé' : 'annulé') + ' à ' + new Date(x.at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) + (x.raison ? ' · raison : « ' + x.raison + ' »' : '') + (x.note ? ' · noté ' + x.note + ' dans SalesDesk et Close' : '')) + '</div></span><span class="act2"><button class="btn btn-sm" onclick="ouvrirFicheClient(' + JSON.stringify(x.nom).replace(/"/g, '&quot;') + ',\'\')">Fiche</button><button class="btn btn-sm btn-primary" onclick="sdAnnulVu(' + JSON.stringify(u).replace(/"/g, '&quot;') + ')">Vu</button></span></div>'; }); } catch (e) {}
   try {
     var demainRdvs = estAuj ? sdRdvsDeDemain() : [];
     if (demainRdvs.length && now.getHours() >= 13 && !sdVerifDemainFaite()) {
