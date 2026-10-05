@@ -4987,14 +4987,19 @@ function fcDetecterDoublonsPipeline(cols) {
     var k = fcCle(r.client, String(r.email || '').toLowerCase().trim());
     (par[k] = par[k] || []).push(r);
   }); });
-  var groupes = [];
+  var groupes = [], autoMasques = 0;
   Object.keys(par).forEach(function(k) {
     var l = par[k]; if (l.length < 2) return;
     l.sort(function(a, b) { return (parseDateFR(b.date) || 0) - (parseDateFR(a.date) || 0); });
     var cleVu = k + '|' + l.map(function(r) { return r.date; }).join(',');
     if (vus[cleVu]) return;
-    groupes.push({ k: k, cleVu: cleVu, recent: l[0], anciens: l.slice(1) });
+    // RDV simplement décalé (ancien « Reprogrammé », un plus récent existe) : sa carte sort du Pipeline toute seule, sans question ; la ligne reste dans RDV Table et la fiche
+    var decales = l.slice(1).filter(function(a) { return a.presence === 'Reprogrammé'; }), reste = l.slice(1).filter(function(a) { return a.presence !== 'Reprogrammé'; });
+    decales.forEach(function(a) { (store[a._monthKey] || []).forEach(function(r) { if (r && r.client === a.client && r.date === a.date && r.source === a.source && !r.pipelineMasque) { r.pipelineMasque = true; autoMasques++; } }); });
+    if (!reste.length) return;
+    groupes.push({ k: k, cleVu: cleVu, recent: l[0], anciens: reste });
   });
+  if (autoMasques) { saveStore(store); setTimeout(function() { try { refreshAll(); } catch (e) {} }, 0); }
   if (!groupes.length) return;
   _fcDoublonsPopupFait = true;
   var html = '<div class="fc-dup"><div style="font-size:15px;font-weight:700;margin-bottom:4px;">⚠️ ' + groupes.length + ' client(s) avec deux RDV dans le Pipeline</div>'
@@ -10168,7 +10173,7 @@ function sdDpDeplacer() { // le copilot réserve le nouveau créneau puis annule
   rlPost('/calendly/deplacer', { event: d.r.uri, debut: d.choix, nom: d.r.nom }).then(function(j) {
     if (_dp !== d) return; var r = d.r, st = loadStore(), row = r.row ? (st[r.row._monthKey] || [])[r.row._storeKey] : null, fr = j.date.split('-').reverse().join('/');
     if (row && r.r2) { // un R2 garde sa ligne : elle suit la nouvelle date, et le R1 d'origine aussi
-      try { localStorage.setItem('salesdesk_rdvs_backup_' + Date.now(), JSON.stringify(st)); } catch (e) {}
+      sdBackupStore(st);
       var avant = row.date, mk = j.date.slice(0, 7); row.date = fr; row.heure = j.heure; delete row.confirme; delete row.confirmeAt; delete row.relanceVeilleAt;
       Object.keys(st).forEach(function(k) { if (/^\d{4}-\d{2}$/.test(k)) (st[k] || []).forEach(function(x) { if (x && x.source !== 'R2' && x.dateR2 === avant && fcNormNom(x.client || '') === fcNormNom(row.client || '')) x.dateR2 = fr; }); });
       if (mk !== r.row._monthKey) { st[r.row._monthKey].splice(r.row._storeKey, 1); (st[mk] = st[mk] || []).push(row); }
