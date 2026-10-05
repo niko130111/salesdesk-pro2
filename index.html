@@ -536,6 +536,36 @@ main { max-width: 100%; margin: 0; padding: 6px 8px; }
 .sv-ech { margin-top: 8px; font-size: 13px; } .sv-ech .et { font-weight: 700; color: var(--text2); font-size: 12.5px; } .sv-ech ul { margin: 3px 0 0; padding-left: 16px; } .sv-ech li { margin: 1px 0; }
 .sv-vide { padding: 30px 18px; color: var(--text3); text-align: center; font-size: 14px; }
 @media (max-width: 1100px) { .sv-grid { grid-template-columns: 1fr; } .sv-liste, .sv-pan { max-height: none; position: static; } }
+/* Onglet Automatisations : les messages par étape du parcours, texte modifiable et interrupteur */
+.au-modes { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; margin-bottom: 18px; }
+.au-mode { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 12px 14px; display: flex; gap: 12px; align-items: flex-start; }
+.au-mode .x b { display: block; font-size: 14px; } .au-mode .x span { font-size: 12.5px; color: var(--text2); }
+.au-etape { margin: 22px 0 8px; display: flex; align-items: baseline; gap: 10px; }
+.au-etape h2 { font-size: 17px; font-weight: 800; margin: 0; color: var(--text); } .au-etape span { font-size: 12.5px; color: var(--text3); }
+.au-grille { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: start; }
+.au-msg { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 14px 16px; min-width: 0; }
+.au-msg.large { grid-column: 1 / -1; }
+.au-msg .tete { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.au-msg .tete h3 { font-size: 14.5px; font-weight: 700; margin: 0; color: var(--text); }
+.au-msg .tete .droite { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+.au-canal { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 6px; background: var(--surface2); color: var(--text2); }
+.au-canal.sms { background: var(--soft-blue); color: var(--accent-blue); } .au-canal.mail { background: var(--accent-bg); color: var(--accent); }
+.au-etat { font-size: 11.5px; font-weight: 700; padding: 2px 9px; border-radius: 999px; background: var(--surface2); color: var(--text2); }
+.au-etat.on { background: var(--soft-green); color: var(--green); } .au-etat.man { background: var(--accent-bg); color: var(--accent); } .au-etat.mod { background: var(--soft-orange); color: var(--orange); }
+.au-quand { font-size: 12.5px; color: var(--text2); margin: 6px 0 8px; } .au-quand b { color: var(--text); font-weight: 600; }
+.au-msg input.au-sujet, .au-msg textarea { width: 100%; box-sizing: border-box; font-family: var(--font); font-size: 13.5px; line-height: 1.5; padding: 8px 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); color: var(--text); }
+.au-msg input.au-sujet { font-weight: 600; margin-bottom: 6px; } .au-msg textarea { resize: vertical; min-height: 80px; }
+.au-msg input.au-sujet:focus, .au-msg textarea:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+.au-vars { display: flex; gap: 5px; flex-wrap: wrap; margin: 6px 0 0; align-items: center; font-size: 11.5px; color: var(--text3); }
+.au-var { border: 1px solid var(--border); background: var(--surface2); color: var(--accent); font-family: var(--font); font-size: 11.5px; font-weight: 600; padding: 1px 7px; border-radius: 6px; cursor: pointer; }
+.au-pied { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 8px; } .au-pied .cpt { font-size: 11.5px; color: var(--text3); margin-right: auto; } .au-pied .cpt.long { color: var(--orange); font-weight: 600; }
+.au-sw { position: relative; width: 38px; height: 22px; flex-shrink: 0; } .au-sw input { opacity: 0; width: 100%; height: 100%; position: absolute; margin: 0; cursor: pointer; z-index: 1; }
+.au-sw i { position: absolute; inset: 0; border-radius: 999px; background: var(--border2, var(--border)); transition: background .15s; } .au-sw i::after { content: ""; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: #fff; transition: transform .15s; }
+.au-sw input:checked + i { background: var(--primary); } .au-sw input:checked + i::after { transform: translateX(16px); } .au-sw input:focus-visible + i { outline: 2px solid var(--accent); outline-offset: 2px; }
+.au-int { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 4px 16px; }
+.au-int .l { display: grid; grid-template-columns: 110px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 9px 0; border-top: 1px solid var(--border); font-size: 13.5px; } .au-int .l:first-child { border-top: 0; }
+.au-int .l .q { font-weight: 700; font-variant-numeric: tabular-nums; font-size: 12.5px; } .au-int .l small { display: block; color: var(--text2); font-size: 12.5px; }
+@media (max-width: 1000px) { .au-grille { grid-template-columns: 1fr; } .au-int .l { grid-template-columns: 1fr auto; } .au-int .l .q { grid-column: 1 / -1; } }
 .fc-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.25); z-index: 1200; }
 .fc-overlay.open { display: block; }
 .fc-panel { position: absolute; top: 0; right: 0; bottom: 0; width: 760px; max-width: 96vw; background: var(--bg); box-shadow: -12px 0 40px rgba(0,0,0,0.18); display: flex; flex-direction: column; }
@@ -952,6 +982,7 @@ select.form-input { cursor: pointer; }
         <div class="nav-more-grp">Analyse</div>
         <button class="nav-tab" data-page="global" onclick="showPage('global',this);renderGlobal();togglePeriodSelector(false)"><span class="nav-ico">◎</span>Global <small>vue annuelle</small></button>
         <div class="nav-more-grp grp-bas">Réglages</div>
+        <button class="nav-tab" data-page="automatisations" onclick="showPage('automatisations',this);togglePeriodSelector(false);renderAutomatisations(true)"><span class="nav-ico">↻</span>Automatisations</button>
         <button class="nav-tab" data-page="controle" onclick="showPage('controle',this);togglePeriodSelector(false);renderControle(true)"><span class="nav-ico">⛨</span>Contrôle<span id="nav-controle-badge" style="display:none;margin-left:6px;background:var(--red);color:#fff;font-size:10px;padding:1px 6px;border-radius:99px;font-weight:700;"></span></button>
         <button class="nav-tab" data-page="settings" onclick="showPage('settings',this);togglePeriodSelector(false)"><span class="nav-ico">⚙</span>Objectifs & Config<span id="nav-settings-dot" style="display:none;width:7px;height:7px;border-radius:50%;background:var(--red);margin-left:6px;vertical-align:middle;"></span></button>
       </div>
@@ -1970,6 +2001,13 @@ select.form-input { cursor: pointer; }
 <!-- ===================== PIPELINE PAGE ===================== -->
 <!-- ════ PAGE RELANCES : une seule file, 4 colonnes ════ -->
 <!-- ════ PAGE CONTRÔLE : ce qui marche, ce qui ne marche pas, ce qui est parti ════ -->
+<div id="page-automatisations" class="page">
+  <div class="auj">
+    <header class="auj-head"><div><h1 class="pf-h1" style="margin:0;">Automatisations</h1><div class="auj-resume">Chaque message envoyé à un prospect, dans l'ordre où il le reçoit. Tu modifies le texte, tu allumes ou tu éteins. Rien ne part tant que c'est éteint.</div></div>
+      <div class="auj-head-actions"><button class="btn" onclick="renderAutomatisations(true)">↻ Relire</button><button class="btn" onclick="mjAller('Contrôle')">Contrôle ›</button></div></header>
+    <div id="au-corps"></div>
+  </div>
+</div>
 <div id="page-controle" class="page">
   <div class="section-header" style="margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
     <div><div class="section-title">🛡 Contrôle</div><div style="font-size:12px;color:var(--text3);margin-top:2px;">Connexions testées pour de vrai, envois (SMS, mails), automatisations, écritures dans Close. Si quelque chose casse, tu le vois ici — et en bandeau dans Quotidien et Mes RDV.</div></div>
@@ -6004,7 +6042,7 @@ document.addEventListener('click', function(ev) { var m = document.getElementByI
 function navMajPlus() {
   var m = document.getElementById('nav-more'); if (!m) return;
   var actif = m.querySelector('.nav-more-menu .nav-tab.active'); var b = document.getElementById('nav-more-btn');
-  b.classList.toggle('sub', !!actif); b.childNodes[0].nodeValue = actif ? (actif.textContent || '').replace(/[▤▥◎⛨⚙]/g, '').split('  ')[0].trim().slice(0, 20) + ' ▾' : 'Plus ▾';
+  b.classList.toggle('sub', !!actif); b.childNodes[0].nodeValue = actif ? (actif.textContent || '').replace(/[▤▥◎⛨⚙↻]/g, '').split('  ')[0].trim().slice(0, 20) + ' ▾' : 'Plus ▾';
   var dotC = document.getElementById('nav-controle-badge'), dotS = document.getElementById('nav-settings-dot'), dot = document.getElementById('nav-more-dot');
   if (dot) dot.style.display = ((dotC && dotC.style.display !== 'none' && dotC.textContent) || (dotS && dotS.style.display !== 'none')) ? 'inline-block' : 'none';
 }
@@ -9555,7 +9593,6 @@ function renderEtatSysteme(force) {
     html += ligne(!!sw.close_ecriture, 'Écriture dans Close depuis SalesDesk (tâches, appels, escalade)', sw.close_ecriture ? 'active · manager : ' + escapeHtml(sw.close_manager || '') : 'inactive (clé Close absente)', 'CLOSE_MANAGER=Prénom Nom pour changer le destinataire des escalades.');
     html += ligne(sw.sms_no_show ? true : null, 'SMS no-show à H+1', sw.sms_no_show ? ('ALLUMÉ · ' + (sw.sms_mode === 'auto' && sw.sms_gate ? 'envoi automatique par SMS Gate' : 'mode brouillon (tu envoies à la main)')) : 'éteint (préparé)', 'SMS_NO_SHOW=on pour allumer ; SMS_MODE=auto + SMS_GATE_USERNAME/PASSWORD/DEVICE_ID pour l\'envoi réel.');
     html += ligne(sw.sms_r2_veille ? true : null, 'SMS de la veille pour les R2', sw.sms_r2_veille ? 'ALLUMÉ' : 'éteint (préparé)', 'SMS_R2_VEILLE=on pour allumer.');
-    html += ligne(sw.sms_rappel_promis ? true : null, 'SMS du matin pour un rappel promis', sw.sms_rappel_promis ? 'ALLUMÉ' : 'éteint (préparé)', 'SMS_RAPPEL_PROMIS=on pour allumer.');
     html += ligne(sw.mail_r2_jour ? true : null, 'Mail du jour J pour les R2 (via Close)', sw.mail_r2_jour ? 'ALLUMÉ' : 'éteint (préparé)', 'MAIL_R2_JOUR=on pour allumer.');
     html += ligne(sw.mail_r1_inbound ? true : null, 'Mail R1 pris par un SDR (via Close)', sw.mail_r1_inbound ? 'ALLUMÉ' : 'éteint (préparé)', 'MAIL_R1_INBOUND=on pour allumer.');
     html += ligne(sw.mail_r1 ? true : null, 'Mail de confirmation R1 (via Close)', sw.mail_r1 ? ('ALLUMÉ · ' + (sw.mail_r1_mode === 'outbox' ? 'envoi réel depuis ta boîte' : 'brouillon dans Close')) : 'éteint (préparé)', 'MAIL_R1=on pour allumer ; MAIL_R1_MODE=outbox pour l\'envoi réel.');
@@ -9629,6 +9666,80 @@ function dessinerAlertesControle() {
   });
   if (document.getElementById('page-controle') && document.getElementById('page-controle').classList.contains('active')) renderControle(false);
 }
+// ── Onglet Automatisations : les messages (copilot /modeles) par étape du parcours, texte modifiable, interrupteur ; puis les tâches internes (/automations) ──
+var _au = { data: null, autos: null, at: 0, erreur: '' };
+function chargerAutomatisations(force) {
+  if (typeof COPILOT_URL === 'undefined') return;
+  if (_au.data && Date.now() - _au.at < 60000 && !force) return;
+  Promise.all([
+    fetch(COPILOT_URL + '/modeles', { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }),
+    fetch(COPILOT_URL + '/automations', { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).catch(function() { return { automations: [] }; })
+  ]).then(function(r) { if (!r[0] || !r[0].ok) throw new Error('copilot'); _au.data = r[0]; _au.autos = r[1].automations || []; _au.at = Date.now(); _au.erreur = ''; rlAppliquerModeles(); renderAutomatisations(false); })
+    .catch(function() { _au.erreur = 'Le copilot ne répond pas : lance-le (ou redémarre-le) pour voir et modifier les messages.'; renderAutomatisations(false); });
+}
+// les SMS de relance proposés dans Suivi prennent le texte modifié ici
+function rlAppliquerModeles() { try { var M = {}; ((_au.data && _au.data.modeles) || []).forEach(function(m) { M[m.id] = m.texte; }); [['nsin', 'appel2', 'relance_nsin_2'], ['nsin', 'appel4', 'relance_nsin_4'], ['nsin', 'dernier', 'relance_nsin_fin'], ['nsout', 'appel2', 'relance_nsout_2'], ['nsout', 'appel4', 'relance_nsout_4'], ['nsout', 'dernier', 'relance_nsout_fin']].forEach(function(x) { if (M[x[2]] && RL_SMS[x[0]]) RL_SMS[x[0]][x[1]] = M[x[2]]; }); } catch (e) {} }
+function auBasculer(cle, valeur, el) {
+  var danger = cle === 'MAIL_MODE_OUTBOX' || cle === 'SMS_MODE_AUTO', make = cle === 'SMS_R1_VEILLE' || cle === 'MAIL_R1_JOUR';
+  if (valeur && danger && !confirm(cle === 'MAIL_MODE_OUTBOX' ? 'Les mails allumés partiront RÉELLEMENT depuis ta boîte, sans relecture. Confirmer ?' : 'Les SMS allumés partiront RÉELLEMENT par SMS Gate, sans relecture. Confirmer ?')) { el.checked = false; return; }
+  if (valeur && make && !confirm('Ce message est aujourd\'hui envoyé par Make. Si Make tourne encore, le prospect le recevra en double. As-tu coupé ce scénario dans Make ?')) { el.checked = false; return; }
+  fetch(COPILOT_URL + '/reglages', { method: 'PUT', mode: 'cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ interrupteur: cle, valeur: !!valeur }) }).then(function(r) { return r.json(); })
+    .then(function(j) { if (!j.ok) throw new Error('refus'); if (_au.data) _au.data.interrupteurs = j.interrupteurs; if (typeof showCopyToast === 'function') showCopyToast(valeur ? '🟢 Allumé' : '⚪ Éteint'); renderAutomatisations(false); })
+    .catch(function() { el.checked = !valeur; alert('Le copilot n\'a pas pris le réglage.'); });
+}
+function auTache(id, actif, el) { fetch(COPILOT_URL + '/automations/' + encodeURIComponent(id), { method: 'PUT', mode: 'cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ actif: !!actif }) }).then(function(r) { return r.json(); }).then(function(j) { if (!j.ok) throw new Error('refus'); _au.autos = j.automations || _au.autos; if (typeof showCopyToast === 'function') showCopyToast(actif ? '🟢 Allumé' : '⚪ Éteint'); }).catch(function() { el.checked = !actif; alert('Le copilot n\'a pas pris le réglage.'); }); }
+function auInserer(id, v) { var t = document.getElementById('au-t-' + id); if (!t) return; var a = t.selectionStart || 0, b = t.selectionEnd || 0; t.value = t.value.slice(0, a) + '{' + v + '}' + t.value.slice(b); t.focus(); t.selectionStart = t.selectionEnd = a + v.length + 2; auSaisie(id); }
+function auSaisie(id) {
+  var m = ((_au.data && _au.data.modeles) || []).find(function(x) { return x.id === id; }); if (!m) return;
+  var t = document.getElementById('au-t-' + id), su = document.getElementById('au-s-' + id), change = t.value.replace(/\r/g, '') !== m.texte || (su && su.value !== m.sujet);
+  var b = document.getElementById('au-b-' + id); if (b) { b.disabled = !change; b.style.opacity = change ? '1' : '.5'; }
+  var c = document.getElementById('au-c-' + id); if (c && m.canal === 'sms') { var n = t.value.length, accents = /[^\x00-\x7F€]/.test(t.value.replace(/[àèéùìòÇØøÅåΔ_ΦΓΛΩΠΨΣΘΞÆæßÉÄÖÑÜ§¿äöñü\n]/g, '')), seg = accents ? Math.ceil(n / 67) || 1 : (n <= 160 ? 1 : Math.ceil(n / 153)); c.textContent = n + ' caractères, hors variables · environ ' + seg + ' SMS' + (accents ? ' (emoji ou accent spécial : SMS plus courts)' : ''); c.classList.toggle('long', seg > 2); }
+  var inconnues = (t.value.match(/\{[a-z_0-9]+\}/g) || []).filter(function(x) { return m.variables.indexOf(x.slice(1, -1)) < 0; }), w = document.getElementById('au-w-' + id); if (w) w.textContent = inconnues.length ? '⚠ variable inconnue : ' + inconnues.join(', ') + ' (elle sortira vide)' : '';
+}
+function auEnregistrer(id, origine) {
+  var t = document.getElementById('au-t-' + id), su = document.getElementById('au-s-' + id);
+  if (origine && !confirm('Revenir au texte d\'origine ? Ta version sera perdue.')) return;
+  fetch(COPILOT_URL + '/modeles/' + encodeURIComponent(id), { method: 'PUT', mode: 'cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(origine ? { origine: true } : { texte: t.value, sujet: su ? su.value : '' }) }).then(function(r) { return r.json(); })
+    .then(function(j) { if (!j.ok) throw new Error(j.error || 'refus'); var m = _au.data.modeles.find(function(x) { return x.id === id; }); m.texte = j.texte; m.sujet = j.sujet; m.modifie = j.modifie; rlAppliquerModeles(); if (typeof showCopyToast === 'function') showCopyToast(origine ? '↺ Texte d\'origine remis' : '✓ Message enregistré'); renderAutomatisations(false); })
+    .catch(function(e) { alert('Non enregistré : ' + e.message); });
+}
+function renderAutomatisations(force) {
+  var el = document.getElementById('au-corps'); if (!el) return;
+  if (force || !_au.data) chargerAutomatisations(!!force);
+  if (!_au.data) { el.innerHTML = '<div class="auj-card"><div class="auj-empty">' + escapeHtml(_au.erreur || 'Lecture des messages…') + '</div></div>'; return; }
+  var I = _au.data.interrupteurs || {}, M = _au.data.modeles || [];
+  var sw = function(cle, on, fn) { return '<label class="au-sw" title="' + (on ? 'Allumé' : 'Éteint') + '"><input type="checkbox"' + (on ? ' checked' : '') + ' onchange="' + fn + '"><i></i></label>'; };
+  var html = '<div class="au-modes">'
+    + '<div class="au-mode">' + sw('MAIL_MODE_OUTBOX', I.MAIL_MODE_OUTBOX, 'auBasculer(\'MAIL_MODE_OUTBOX\', this.checked, this)') + '<div class="x"><b>Mails : envoi réel</b><span>' + (I.MAIL_MODE_OUTBOX ? 'Les mails allumés partent de ta boîte Close sans relecture.' : 'Éteint : les mails allumés sont créés en brouillon dans Close, tu les envoies toi-même.') + '</span></div></div>'
+    + '<div class="au-mode">' + sw('SMS_MODE_AUTO', I.SMS_MODE_AUTO, 'auBasculer(\'SMS_MODE_AUTO\', this.checked, this)') + '<div class="x"><b>SMS : envoi automatique</b><span>' + (I.SMS_MODE_AUTO ? 'Les SMS allumés partent par SMS Gate.' : 'Éteint : les SMS allumés sont préparés, tu les envoies depuis ton téléphone. L\'envoi automatique demande SMS Gate, pas encore branché.') + '</span></div></div></div>';
+  var ETAPES = [['prise', 'Il prend un R1', 'juste après la prise du rendez-vous'], ['avant', 'Avant le R1', 'J-3, la veille, le jour J'], ['fin', 'Après le R1', 'le mail de fin de rendez-vous, que tu relis toujours'], ['r2', 'Autour du R2', 'la veille et le jour J'], ['noshow', 'Il n\'est pas venu', 'une heure après, si tu as choisi de relancer'], ['relance', 'Pendant les relances', 'des SMS que tu envoies toi-même']];
+  ETAPES.forEach(function(E) {
+    var liste = M.filter(function(m) { return m.etape === E[0]; }); if (!liste.length) return;
+    html += '<div class="au-etape"><h2>' + E[1] + '</h2><span>' + E[2] + '</span></div><div class="au-grille">';
+    liste.forEach(function(m) {
+      var on = m.interrupteur ? !!I[m.interrupteur] : null, long = m.canal === 'mail' && m.texte.length > 500;
+      var etat = on === null ? '<span class="au-etat man">Tu valides</span>' : (on ? '<span class="au-etat on">Allumé</span>' : '<span class="au-etat">Éteint</span>');
+      var idJs = '\'' + m.id + '\'';
+      html += '<div class="au-msg' + (long ? ' large' : '') + '"><div class="tete"><h3>' + escapeHtml(m.titre) + '</h3><span class="au-canal ' + m.canal + '">' + (m.canal === 'sms' ? 'SMS' : 'Mail') + '</span>' + (m.modifie ? '<span class="au-etat mod">Modifié par toi</span>' : '')
+        + '<span class="droite">' + etat + (m.interrupteur ? sw(m.interrupteur, on, 'auBasculer(\'' + m.interrupteur + '\', this.checked, this)') : '') + '</span></div>'
+        + '<div class="au-quand"><b>' + escapeHtml(m.quand) + '.</b> ' + escapeHtml(m.condition) + '.</div>'
+        + (m.canal === 'mail' && m.sujetOrigine ? '<input class="au-sujet" id="au-s-' + m.id + '" value="' + escapeHtml(m.sujet) + '" aria-label="Objet du mail" oninput="auSaisie(' + idJs + ')">' : '')
+        + '<textarea id="au-t-' + m.id + '" rows="' + Math.min(18, Math.max(3, Math.ceil(m.texte.length / (long ? 110 : 62)) + (m.texte.match(/\n/g) || []).length)) + '" aria-label="Texte du message" oninput="auSaisie(' + idJs + ')">' + escapeHtml(m.texte) + '</textarea>'
+        + (m.variables.length ? '<div class="au-vars">Insérer : ' + m.variables.map(function(v) { return '<button class="au-var" onclick="auInserer(' + idJs + ',\'' + v + '\')">{' + v + '}</button>'; }).join('') + '</div>' : '')
+        + '<div class="au-pied"><span class="cpt" id="au-c-' + m.id + '"></span><span id="au-w-' + m.id + '" style="font-size:11.5px;color:var(--orange);"></span>' + (m.modifie ? '<button class="btn btn-sm" onclick="auEnregistrer(' + idJs + ', true)">Revenir au texte d\'origine</button>' : '') + '<button class="btn btn-sm btn-primary" id="au-b-' + m.id + '" disabled style="opacity:.5" onclick="auEnregistrer(' + idJs + ')">Enregistrer</button></div>'
+        + (m.canal === 'mail' && m.etape !== 'fin' ? '<div class="fc-muted" style="margin-top:6px;">' + (m.modifie ? 'Ta version part en mise en page simple (paragraphes, **gras**, liens), avec ta signature Close.' : 'Texte d\'origine : il part avec sa mise en page (encadré du rendez-vous, bouton pour décaler). Si tu le modifies, il part en mise en page simple, avec ta signature Close.') + '</div>' : '')
+        + '</div>';
+    });
+    html += '</div>';
+  });
+  // tâches internes
+  var A = (_au.autos || []).filter(function(a) { return ['mail_r1', 'mail_r2_jour', 'sms_r2_veille', 'sms_r1_veille', 'mail_r1_jour', 'no_show'].indexOf(a.id) < 0; });
+  var heure = function(a) { var m = /(\d{2}:\d{2})/.exec(a.declencheur || ''); return m ? (/vendredi/i.test(a.declencheur) ? 'ven. ' : '') + m[1] : 'sur événement'; };
+  A.sort(function(x, y) { var hx = heure(x), hy = heure(y); return (/^\d/.test(hx) ? hx : 'z' + hx).localeCompare(/^\d/.test(hy) ? hy : 'z' + hy); });
+  if (A.length) html += '<div class="au-etape"><h2>Ce que le copilot fait seul</h2><span>aucun message au prospect</span></div><div class="au-int">' + A.map(function(a) { return '<div class="l"><span class="q">' + escapeHtml(heure(a)) + '</span><span><b>' + escapeHtml(a.nom) + '</b><small>' + escapeHtml(a.description || '') + '</small></span>' + sw(a.id, a.actif !== false, 'auTache(\'' + a.id + '\', this.checked, this)') + '</div>'; }).join('') + '</div>';
+  el.innerHTML = html;
+  M.forEach(function(m) { try { auSaisie(m.id); } catch (e) {} });
+}
 function ctlBasculer(cle, valeur, el, danger) {
   if (danger && valeur && !confirm(cle === 'MAIL_MODE_OUTBOX' ? 'Les mails allumés partiront RÉELLEMENT depuis ta boîte, sans relecture. Confirmer ?' : 'Les SMS allumés partiront RÉELLEMENT par SMS Gate, sans relecture. Confirmer ?')) { el.checked = false; return; }
   fetch(COPILOT_URL + '/reglages', { method: 'PUT', mode: 'cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ interrupteur: cle, valeur: !!valeur }) }).then(function(r) { return r.json(); })
@@ -9671,7 +9782,6 @@ function renderControle(recharger, retester) {
     + T('MAIL_R2_JOUR', 'Mail du jour J pour les R2 (lien de connexion)', 'via Close à 08:20 · ' + modeMail, !!sw.mail_r2_jour)
     + T('SMS_NO_SHOW', 'SMS no-show à H+1 (si tu choisis « Relancer »)', modeSms, !!sw.sms_no_show)
     + T('SMS_R2_VEILLE', 'SMS de la veille pour les R2 (pris > 48 h avant)', '08:45 la veille · ' + modeSms, !!sw.sms_r2_veille)
-    + T('SMS_RAPPEL_PROMIS', 'SMS du matin « je vous appelle aujourd\'hui » (rappel promis)', '08:45 le jour dit · ' + modeSms, !!sw.sms_rappel_promis)
     + '<div style="margin:10px 0 4px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);">Modes d\'envoi</div>'
     + T('MAIL_MODE_OUTBOX', '<b>Mails : envoi réel</b> (sinon brouillon dans Close)', 'à allumer seulement après avoir validé quelques brouillons', sw.mail_r1_mode === 'outbox', true)
     + T('SMS_MODE_AUTO', '<b>SMS : envoi automatique</b> par SMS Gate (sinon brouillon)', sw.sms_gate ? 'SMS Gate branché' : 'SMS Gate pas branché : identifiants à mettre dans le .env', sw.sms_mode === 'auto', true)
@@ -9701,11 +9811,8 @@ function renderControle(recharger, retester) {
 // ── SMS no-show (copilot /sms) : programmés à H+1 par le copilot ; ici on voit, on annule, on envoie (ou on copie / ouvre Messages si SMS Gate n'est pas branché) ──
 var _smsList = null, _smsAt = 0, _smsMode = null;
 // Rappel promis (intéressé, un jour sans créneau) : SMS du matin programmé par le copilot ; date vide = annulation
-function sdSmsRappelPromis(row, dateIso) {
-  if (typeof COPILOT_URL === 'undefined' || !row || !row.client) return;
-  var url = dateIso ? '/sms/rappel-promis' : '/sms/rappel-promis/annuler';
-  fetch(COPILOT_URL + url, { method: 'POST', mode: 'cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nom: row.client, email: row.email || '', date: dateIso || '', raison: 'rappel modifié' }) }).then(function(r) { return r.json(); }).then(function(j) { if (j && j.sms && typeof showCopyToast === 'function') showCopyToast('💬 SMS « je vous appelle aujourd\'hui » programmé le ' + fcFrDepuisIso(dateIso) + ' 08:45'); }).catch(function() {});
-}
+function sdSmsRappelPromis(row, dateIso) { /* retiré le 5 oct. 2026 : Nicolas ne veut pas de SMS avant un rappel téléphonique */ }
+
 function chargerSms(force) {
   if (typeof COPILOT_URL === 'undefined') return;
   if (_smsList && Date.now() - _smsAt < 60000 && !force) return;
@@ -9821,7 +9928,7 @@ function sdVerifCloseAppliquer(ignorerAussi) {
   saveStore(store); fermerModalDoublon(); try { refreshAll(); } catch (e) {} renderMaJournee();
   if (typeof showCopyToast === 'function') showCopyToast(n ? '✓ Close : ' + n + ' correction(s) appliquée(s) — ' + msgs.slice(0, 4).join(', ') : 'Rien appliqué');
 }
-function mjAller(page) { if (page === 'Mes RDV') { showPage('mesrdv', null); togglePeriodSelector(false); ouvrirCopilot(); return; } if (page === 'Quotidien') page = 'Aujourd'; var map = { 'Aujourd': 'aujourdhui', 'Relances': 'relances', 'Suivi': 'relances', 'Analytics': 'analytics', 'Performance': 'analytics', 'Mes RDV': 'mesrdv', 'Contrôle': 'controle', 'Pipeline': 'pipeline', 'RDV Table': 'rdvtable', 'Quotidien': 'daily' }; var b = (map[page] && document.querySelector('.nav-tab[data-page="' + map[page] + '"]')) || [...document.querySelectorAll('.nav-tab')].find(function(x) { return x.textContent.indexOf(page) >= 0; }); if (b) b.click(); }
+function mjAller(page) { if (page === 'Mes RDV') { showPage('mesrdv', null); togglePeriodSelector(false); ouvrirCopilot(); return; } if (page === 'Quotidien') page = 'Aujourd'; var map = { 'Aujourd': 'aujourdhui', 'Automatisations': 'automatisations', 'Relances': 'relances', 'Suivi': 'relances', 'Analytics': 'analytics', 'Performance': 'analytics', 'Mes RDV': 'mesrdv', 'Contrôle': 'controle', 'Pipeline': 'pipeline', 'RDV Table': 'rdvtable', 'Quotidien': 'daily' }; var b = (map[page] && document.querySelector('.nav-tab[data-page="' + map[page] + '"]')) || [...document.querySelectorAll('.nav-tab')].find(function(x) { return x.textContent.indexOf(page) >= 0; }); if (b) b.click(); }
 // ── Mail de fin de R1 : « Terminer » → le copilot attend le compte rendu Claap → brouillon dans Close → ici : Envoyer · Modifier · Annuler ──
 var _mailsFinR1 = null, _mailsFinR1At = 0;
 function sdDemanderMailFinR1(row, resultatCopilot, email) {
@@ -10720,6 +10827,7 @@ function renderRelancesPage() {
   // navigation par jour : on choisit le jour, et dessous les 4 colonnes par motif
   var jourRef = _rlJour === 'retard' ? today : _rlJour;
   var _bascule = '<div class="auj-seg" style="margin-right:6px;"><button class="' + (_sv.vue === 'file' ? 'on' : '') + '" onclick="svVue(\'file\')">File</button><button class="' + (_sv.vue === 'colonnes' ? 'on' : '') + '" onclick="svVue(\'colonnes\')">Colonnes</button></div>';
+  if (!_au.data && !_au.demande) { _au.demande = true; try { chargerAutomatisations(false); } catch (e) {} } // textes de relance modifiés dans l'onglet Automatisations
   if (_sv.vue === 'file') {
     document.getElementById('rl-filtres').innerHTML = _bascule + '<button class="btn btn-sm" title="Relire les tâches Close" onclick="chargerTachesClose(rlPlus(_rlLundi,-7), rlPlus(_rlLundi,13), true)">↻</button><button class="btn btn-sm" title="Défaire la dernière action faite dans Close depuis SalesDesk" onclick="rlDefaire(this)">↶ Défaire</button>';
     window._rlItems = items;
