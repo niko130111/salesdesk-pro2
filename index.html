@@ -172,6 +172,12 @@ main { max-width: 100%; margin: 0; padding: 6px 8px; }
 .kpi-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 10px; margin-bottom: 20px; }
 .kpi-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; position: relative; transition: border-color 0.15s; }
 .kpi-card:hover { border-color: var(--border2); }
+/* KPI regroupés par sujet : rendez-vous · ventes · rythme et suivi */
+.kpi-grid.kpi-groupes { grid-template-columns: 3fr 2fr 4fr; gap: 14px; align-items: start; }
+.kpi-grp-t { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text3); margin: 0 0 6px 2px; }
+.kpi-grp-c { display: grid; grid-template-columns: repeat(var(--n), minmax(0, 1fr)); gap: 8px; }
+@media (max-width: 1250px) { .kpi-grid.kpi-groupes { grid-template-columns: 1fr; } }
+
 
 /* Tooltip détail No Show au hover */
 .noshow-tooltip { position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%); background: var(--text); color: white; padding: 10px 14px; border-radius: 8px; font-size: 12px; line-height: 1.6; min-width: 220px; box-shadow: 0 4px 12px rgba(0,0,0,.18); opacity: 0; pointer-events: none; transition: opacity .15s; z-index: 100; white-space: nowrap; }
@@ -1299,7 +1305,7 @@ select.form-input { cursor: pointer; }
 
   <div class="section-header" style="margin-bottom:14px;">
     <div style="font-size:12px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.07em;">
-      KPIs — <span id="period-label">Avril 2026</span> — Nicolas
+      Détail du mois — <span id="period-label">Avril 2026</span>
     </div>
     <div class="flex gap-8">
       <span style="font-size:11px;color:var(--text3);">Comparaison : moyenne de tes 3 derniers mois finis</span>
@@ -1310,7 +1316,8 @@ select.form-input { cursor: pointer; }
   <div id="close-appels-analytics" style="display:none;margin-bottom:16px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px 20px;"></div>
 
   <!-- KPI CARDS -->
-  <div class="kpi-grid">
+  <div class="kpi-grid kpi-groupes">
+    <div class="kpi-grp"><div class="kpi-grp-t">Rendez-vous</div><div class="kpi-grp-c" style="--n:3">
     <div class="kpi-card">
       <div class="kpi-label">Total RDV</div>
       <div class="kpi-value" id="kpi-rdv">6</div>
@@ -1335,6 +1342,8 @@ select.form-input { cursor: pointer; }
         <div class="noshow-tooltip-row"><span class="noshow-tooltip-label">🔄 Reprogrammés</span><span class="noshow-tooltip-value" id="tt-ana-re">—</span></div>
       </div>
     </div>
+    </div></div>
+    <div class="kpi-grp"><div class="kpi-grp-t">Ventes</div><div class="kpi-grp-c" style="--n:2">
     <div class="kpi-card">
       <div class="kpi-label">Signés</div>
       <div class="kpi-value" id="kpi-signes">2</div>
@@ -1347,17 +1356,24 @@ select.form-input { cursor: pointer; }
       <div class="kpi-sub" title="Signés du mois / Shows du mois. Avec un cycle de 2 à 4 semaines, les deux ne portent pas sur les mêmes prospects — voir la carte « Closing cohorte ».">Signés / Shows du mois</div>
       <div class="kpi-vs"><span id="bench-closing">—</span></div>
     </div>
-    <div class="kpi-card" id="kpi-suivi-card" title="Relances : part des relances du mois faites au plus tard le jour prévu (journal des relances). Sans suite : RDV passés sans action, aujourd'hui.">
-      <div class="kpi-label">Suivi</div>
-      <div class="kpi-value blue" id="kpi-suivi">—</div>
-      <div class="kpi-sub" id="kpi-suivi-sub">relances à temps</div>
-      <div class="kpi-sub" id="kpi-suivi-sans" style="color:var(--orange);"></div>
-    </div>
     <div class="kpi-card" id="kpi-oneshot-card">
       <div class="kpi-label">One Shot</div>
       <div class="kpi-value blue" id="kpi-oneshot">1</div>
       <div class="kpi-sub">deals one shot</div>
       <div class="kpi-sub" id="kpi-oneshot-warn" style="display:none;color:var(--orange);font-size:10.5px;"></div>
+    </div>
+    <div class="kpi-card kpi-masquee" title="Des shows de ce mois, combien ont fini par signer à ce jour. Contrairement au closing mensuel, numérateur et dénominateur portent sur les mêmes prospects.">
+      <div class="kpi-label">Closing cohorte</div>
+      <div class="kpi-value green" id="kpi-closing-cohorte">—</div>
+      <div class="kpi-sub" id="kpi-closing-cohorte-sub">shows du mois ayant signé</div>
+    </div>
+    </div></div>
+    <div class="kpi-grp"><div class="kpi-grp-t">Rythme et suivi</div><div class="kpi-grp-c" style="--n:4">
+    <div class="kpi-card" id="kpi-suivi-card" title="Relances : part des relances du mois faites au plus tard le jour prévu (journal des relances). Sans suite : RDV passés sans action, aujourd'hui.">
+      <div class="kpi-label">Suivi</div>
+      <div class="kpi-value blue" id="kpi-suivi">—</div>
+      <div class="kpi-sub" id="kpi-suivi-sub">relances à temps</div>
+      <div class="kpi-sub" id="kpi-suivi-sans" style="color:var(--orange);"></div>
     </div>
     <div class="kpi-card" id="kpi-delai-card" title="Temps moyen entre le R1 et la signature">
       <div class="kpi-label">Cycle de vente</div>
@@ -1375,11 +1391,7 @@ select.form-input { cursor: pointer; }
       <div class="kpi-value" id="kpi-delai-prise">—</div>
       <div class="kpi-sub" id="kpi-delai-prise-sub">prise → RDV</div>
     </div>
-    <div class="kpi-card kpi-masquee" title="Des shows de ce mois, combien ont fini par signer à ce jour. Contrairement au closing mensuel, numérateur et dénominateur portent sur les mêmes prospects.">
-      <div class="kpi-label">Closing cohorte</div>
-      <div class="kpi-value green" id="kpi-closing-cohorte">—</div>
-      <div class="kpi-sub" id="kpi-closing-cohorte-sub">shows du mois ayant signé</div>
-    </div>
+    </div></div>
   </div>
 
   <!-- ALERT BANNER -->
@@ -8410,7 +8422,7 @@ function renderPerfTop() {
     + '<div class="pf-card pf-comm"><div><div class="pf-lab">Commission du mois</div><div class="big">' + eur(comm) + ' <small>/ ' + eur(obj) + '</small></div><div class="pf-bar"><div style="width:' + pct + '%"></div></div><div class="pf-note"><b>' + pct + ' %</b> de l\'objectif' + (courant && obj !== OBJ ? ' ajusté aux absences (' + eur(OBJ) + ' sans absence)' : '') + '</div></div>'
       + '<div class="pf-faits"><div class="f"><span>' + (courant ? 'Reste à atteindre' : (reste ? 'Il manquait' : 'Objectif')) + '</span><b>' + (reste ? eur(reste) : 'atteint' + (comm > obj ? ' (+' + eur(comm - obj) + ')' : '')) + '</b></div><div class="f"><span>Ventes signées</span><b>' + (k.signes || 0) + '</b></div><div class="f"><span>Prime palier</span><b>' + (prime ? eur(prime) : 'pas encore') + '</b></div>' + (proch && (courant || futur) ? '<div class="f"><span>Prochaine prime</span><b>' + proch + '</b></div>' : '') + '</div></div>'
     + '<div class="pf-3">' + carte('RDV tenus ou attendus', k.total || 0, rdvNec) + carte('Shows', k.shows || 0, shNec) + carte('Ventes', k.signes || 0, vNec) + '</div>'
-    + '<div class="pf-2"><div class="pf-card"><div class="pf-lab">Activité outbound</div>' + outb + '</div><div class="pf-card"><div class="pf-lab">Conversion</div>' + conv + '</div></div>';
+    + '<div class="pf-card" style="margin-bottom:22px;"><div class="pf-lab">' + (courant ? 'Activité outbound' : 'RDV par source') + '</div>' + outb + '</div>';
 }
 // Sélecteur d'année : toujours jusqu'à l'année prochaine (il s'arrêtait à 2026)
 (function() { try { var sel = document.getElementById('yearSelect'); if (!sel) return; var max = new Date().getFullYear() + 1, a = [].map.call(sel.options, function(o) { return +o.textContent; }); for (var y = Math.max.apply(null, a) + 1; y <= max; y++) { var o = document.createElement('option'); o.textContent = String(y); sel.appendChild(o); } } catch (e) {} })();
