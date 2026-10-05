@@ -481,6 +481,27 @@ main { max-width: 100%; margin: 0; padding: 6px 8px; }
 .fc-rl .m { color: var(--text2); font-size: 12.5px; } .fc-rl .x { color: var(--text3); font-size: 12.5px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .fc-rl .c { font-size: 12px; color: var(--accent); text-decoration: none; } .fc-rl .v { font-size: 12px; color: var(--text3); } .fc-rl[open] .v { color: var(--accent); }
 .fc-rl-corps { padding: 4px 14px 12px; background: var(--surface2); }
+/* Performance : la commission au centre, puis ce qui permet de l'atteindre */
+.pf-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; margin: 6px 0 16px; }
+.pf-h1 { font-size: 28px; font-weight: 800; letter-spacing: -.02em; margin: 0 0 2px; color: var(--text); }
+.pf-sub { font-size: 13px; color: var(--text2); display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.pf-sub button { width: 20px; height: 20px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; padding: 0; line-height: 1; }
+.pf-mois { display: inline-flex; align-items: center; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: var(--surface); }
+.pf-mois button { border: 0; background: transparent; padding: 8px 12px; cursor: pointer; color: var(--text2); font-size: 14px; } .pf-mois button:hover { background: var(--surface2); }
+.pf-mois span { padding: 0 12px; font-weight: 700; font-size: 14px; min-width: 130px; text-align: center; }
+.pf-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 18px 20px; box-shadow: var(--shadow); }
+.pf-lab { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text3); }
+.pf-comm { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 24px; align-items: center; margin-bottom: 12px; }
+.pf-comm .big { font-size: 40px; font-weight: 800; letter-spacing: -.02em; line-height: 1.1; color: var(--text); margin-top: 4px; } .pf-comm .big small { font-size: 18px; font-weight: 500; color: var(--text3); }
+.pf-bar { height: 10px; background: var(--surface2); border-radius: 999px; overflow: hidden; margin: 12px 0 6px; } .pf-bar > div { height: 100%; border-radius: 999px; background: var(--primary); }
+.pf-bar.fin { height: 6px; margin: 10px 0 6px; }
+.pf-note { font-size: 12.5px; color: var(--text2); } .pf-note b { color: var(--text); }
+.pf-faits { display: grid; gap: 10px; } .pf-faits .f { display: flex; justify-content: space-between; gap: 10px; font-size: 13.5px; color: var(--text2); border-bottom: 1px solid var(--border); padding-bottom: 8px; } .pf-faits .f:last-child { border-bottom: 0; padding-bottom: 0; } .pf-faits .f b { color: var(--text); font-weight: 700; }
+.pf-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 12px; }
+.pf-3 .v { font-size: 26px; font-weight: 800; margin-top: 4px; color: var(--text); } .pf-3 .v small { font-size: 14px; font-weight: 500; color: var(--text3); }
+.pf-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-bottom: 22px; }
+.pf-kv { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 14px; margin-top: 10px; } .pf-kv .v { font-size: 20px; font-weight: 800; color: var(--text); } .pf-kv .l { font-size: 12px; color: var(--text2); }
+@media (max-width: 980px) { .pf-comm, .pf-3, .pf-2 { grid-template-columns: 1fr; } }
 .fc-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.25); z-index: 1200; }
 .fc-overlay.open { display: block; }
 .fc-panel { position: absolute; top: 0; right: 0; bottom: 0; width: 760px; max-width: 96vw; background: var(--bg); box-shadow: -12px 0 40px rgba(0,0,0,0.18); display: flex; flex-direction: column; }
@@ -887,7 +908,7 @@ select.form-input { cursor: pointer; }
   <div class="nav-tabs">
     <button class="nav-tab active" data-page="aujourdhui" onclick="showPage('aujourdhui',this);togglePeriodSelector(false);renderAujourdhui()"><span class="nav-ico">▦</span>Aujourd'hui</button>
     <button class="nav-tab" data-page="relances" onclick="showPage('relances',this);togglePeriodSelector(false);renderRelancesPage()"><span class="nav-ico">☎</span>Suivi<span id="nav-relances-badge" style="display:none;margin-left:6px;background:var(--red);color:#fff;font-size:10px;padding:1px 6px;border-radius:99px;font-weight:700;"></span></button>
-    <button class="nav-tab" data-page="analytics" onclick="showPage('analytics',this);togglePeriodSelector(true);chargerAppelsClose();renderDaily()"><span class="nav-ico">◔</span>Performance</button>
+    <button class="nav-tab" data-page="analytics" onclick="showPage('analytics',this);togglePeriodSelector(false);chargerAppelsClose();renderDaily();setTimeout(function(){try{refreshKpis();renderPerfTop();}catch(e){}},60)"><span class="nav-ico">◔</span>Performance</button>
     <div class="nav-more" id="nav-more">
       <button class="nav-tab nav-more-btn" id="nav-more-btn" onclick="navPlus(event)">Plus ▾<span id="nav-more-dot" style="display:none;width:7px;height:7px;border-radius:50%;background:var(--red);margin-left:6px;vertical-align:middle;"></span></button>
       <div class="nav-more-menu" id="nav-more-menu">
@@ -1125,7 +1146,8 @@ select.form-input { cursor: pointer; }
 <main>
 
   <!-- Pilotage du mois en cours (venu de l'ancien Quotidien) : objectif, objectif ajusté aux absences, commission, ce qui reste à faire -->
-  <div id="perf-pilotage" style="margin-bottom:22px;">
+  <div id="perf-top"></div>
+  <div id="perf-pilotage" style="display:none;">
   <div style="font-size:12px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:10px;">Pilotage — mois en cours</div>
 <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:24px 28px;margin-bottom:16px;">
 
@@ -1361,7 +1383,7 @@ select.form-input { cursor: pointer; }
   </div>
 
   <!-- ALERT BANNER -->
-  <div class="alert-banner orange" id="alert-banner">
+  <div class="alert-banner orange" id="alert-banner" style="display:none !important;">
     <div class="alert-dot orange"></div>
     <div class="alert-text orange" id="alert-status">À ACCÉLÉRER</div>
     <div class="progress-wrap">
@@ -5964,6 +5986,7 @@ function updatePeriod() {
   try { dessinerAppelsClose(); } catch (e) {}
   document.getElementById('rdvtable-period').textContent = label;
   refreshAll();
+  setTimeout(function() { try { renderPerfTop(); } catch (e) {} }, 50);
 }
 
 // ====== MODALS ======
@@ -8341,6 +8364,54 @@ function setTheme(pref) {
   };
   Chart.register({ id: 'sdTokens', beforeUpdate: function(chart) { try { var cs = getComputedStyle(document.documentElement); marcher(chart.config.data, cs, 0); marcher(chart.config.options, cs, 0); } catch (e) {} } });
 })();
+// ── Performance, haut de page : tout suit le mois choisi. Commission réalisée / objectif au centre, puis RDV · Shows · Ventes, puis l'activité outbound.
+// Mois en cours : objectif ajusté aux absences, reste à faire et rythme par jour. Mois passé : simple bilan réalisé / cible.
+function pfMois(d) {
+  var M = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+  var ms = document.getElementById('monthSelect'), ys = document.getElementById('yearSelect'); var i = M.indexOf(ms.value) + d, y = parseInt(ys.value, 10);
+  if (i < 0) { i = 11; y--; } if (i > 11) { i = 0; y++; }
+  if (![].some.call(ys.options, function(o) { return +o.textContent === y; })) return;
+  ms.value = M[i]; ys.value = String(y); updatePeriod();
+}
+function renderPerfTop() {
+  var el = document.getElementById('perf-top'); if (!el) return;
+  var M = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+  var now = new Date(), mIdx = M.indexOf(state.month), yr = parseInt(state.year, 10), courant = mIdx === now.getMonth() && yr === now.getFullYear(), futur = yr > now.getFullYear() || (yr === now.getFullYear() && mIdx > now.getMonth());
+  var k = computeKpis(state.month, state.year), eur = function(n) { return Math.round(n || 0).toLocaleString('fr-FR') + ' €'; };
+  // commission : le total de la carte « Commission du mois » (primes comprises) quand il est affiché, sinon le calcul
+  var comm = k.commission || 0; try { var t = (document.getElementById('commission-total') || {}).textContent || ''; var v = parseInt(t.replace(/[^\d]/g, ''), 10); if (!isNaN(v) && t.indexOf('€') >= 0) comm = v; } catch (e) {}
+  // jours ouvrés du mois (fériés exclus), absences du mois en cours
+  var jOuv = (typeof getJoursOuvres === 'function') ? getJoursOuvres(state.month, state.year) : 22;
+  var abs = courant ? (_dailyAbsence || 0) : 0, jTrav = Math.max(1, jOuv - abs);
+  var OBJ = (state.targets && state.targets.ca) || 8000, obj = courant ? Math.round(OBJ * jTrav / Math.max(1, jOuv)) : OBJ;
+  var jRest = 0; if (courant) { var dIM = new Date(yr, mIdx + 1, 0).getDate(); for (var d = now.getDate(); d <= dIM; d++) { var dd = new Date(yr, mIdx, d), iso = rlIso(dd); if (dd.getDay() !== 0 && dd.getDay() !== 6 && !(typeof rlFerie === 'function' && rlFerie(iso))) jRest++; } var absPass = Math.min(abs, Math.max(0, jOuv - jRest)); jRest = Math.max(1, jRest - Math.max(0, abs - absPass)); }
+  // cibles : combien de ventes, de shows et de RDV il faut pour l'objectif, d'après tes 3 derniers mois finis
+  var s3 = (typeof getLast3FinishedMonthsStats === 'function') ? getLast3FinishedMonthsStats() : { commAvg: 0, closingRate: 0, showRate: 0 };
+  var vNec = s3.commAvg > 0 ? Math.ceil(obj / s3.commAvg) : 0, shNec = s3.closingRate > 0 ? Math.ceil(vNec / (s3.closingRate / 100)) : 0, rdvNec = s3.showRate > 0 ? Math.ceil(shNec / (s3.showRate / 100)) : 0;
+  var pct = obj ? Math.min(100, Math.round(comm / obj * 100)) : 0, reste = Math.max(0, obj - comm);
+  // prochain palier de prime
+  var prime = (typeof primePalier === 'function') ? primePalier(k.signes || 0, yr, mIdx) : 0, proch = '';
+  if (typeof primePalier === 'function') { for (var n = (k.signes || 0) + 1; n <= (k.signes || 0) + 12; n++) { var pn = primePalier(n, yr, mIdx); if (pn > prime) { proch = 'à ' + n + ' ventes (+' + eur(pn - prime) + ')'; break; } } }
+  var carte = function(lib, fait, cible, unite) {
+    var p = cible ? Math.min(100, Math.round(fait / cible * 100)) : 0, r = Math.max(0, cible - fait);
+    var note = !cible ? 'pas encore de repère (3 mois finis nécessaires)' : courant ? (r ? 'reste <b>' + r + '</b> · ' + (r / jRest).toFixed(1).replace('.', ',') + ' par jour sur ' + jRest + ' j' : '<b>cible atteinte</b>') : (r ? 'il en manquait <b>' + r + '</b>' : '<b>cible atteinte</b>' + (fait > cible ? ' (+' + (fait - cible) + ')' : ''));
+    return '<div class="pf-card"><div class="pf-lab">' + lib + '</div><div class="v">' + fait + (cible ? ' <small>/ ' + cible + '</small>' : '') + '</div><div class="pf-bar fin"><div style="width:' + p + '%;' + (p >= 100 ? '' : 'background:var(--accent);') + '"></div></div><div class="pf-note">' + note + '</div></div>';
+  };
+  var nbSrc = function(x) { return Array.isArray(x) ? x.length : (x && typeof x === 'object' ? (x.total || x.rdv || 0) : (x || 0)); };
+  var T = function(id) { var e = document.getElementById(id); return e ? String(e.textContent || '').trim() : ''; };
+  var appels = (typeof _appelsJour !== 'undefined' && _appelsJour) ? _appelsJour : [];
+  var outb = courant
+    ? '<div class="pf-kv"><div><div class="v">' + escapeHtml((/^(\d+\s*\/\s*\d+)/.exec(T('daily-outbound-today-count')) || ['', '—'])[1]) + '</div><div class="l">pris aujourd\'hui</div></div><div><div class="v">' + escapeHtml(/^\d+$/.test(T('daily-outbound-reste')) ? T('daily-outbound-reste') : '—') + '</div><div class="l">restent cette semaine</div></div><div><div class="v">' + nbSrc(k.outbound) + '</div><div class="l">RDV outbound ce mois</div></div><div><div class="v">' + appels.length + '</div><div class="l">appels aujourd\'hui · ' + appels.filter(function(a) { return a.joint; }).length + ' joints</div></div></div>'
+    : '<div class="pf-kv"><div><div class="v">' + nbSrc(k.outbound) + '</div><div class="l">RDV outbound</div></div><div><div class="v">' + nbSrc(k.inbound) + '</div><div class="l">RDV inbound</div></div><div><div class="v">' + nbSrc(k.pub) + '</div><div class="l">RDV pub</div></div></div>';
+  var conv = '<div class="pf-kv"><div><div class="v">' + sdPct(k.shows, k.total) + '</div><div class="l">show rate · ' + (k.shows || 0) + ' sur ' + (k.total || 0) + '</div></div><div><div class="v">' + sdPct(k.signes, k.shows) + '</div><div class="l">closing · ' + (k.signes || 0) + ' sur ' + (k.shows || 0) + ' shows</div></div><div><div class="v">' + (k.signes ? eur(comm / k.signes) : '—') + '</div><div class="l">par vente, primes comprises</div></div></div>';
+  el.innerHTML = '<div class="pf-head"><div><h1 class="pf-h1">Performance</h1><div class="pf-sub">'
+      + (courant ? '<span>' + jRest + ' jour' + (jRest > 1 ? 's' : '') + ' de travail restant' + (jRest > 1 ? 's' : '') + '</span><span>·</span><span>Absences</span><button onclick="adjustAbsence(-1)">−</button><b>' + abs + '</b><button onclick="adjustAbsence(1)">+</button>' : (futur ? '<span>Mois à venir</span>' : '<span>Mois terminé · ' + jOuv + ' jours ouvrés</span>')) + '</div></div>'
+      + '<div class="pf-mois"><button title="Mois précédent" onclick="pfMois(-1)">‹</button><span>' + escapeHtml(state.month + ' ' + state.year) + '</span><button title="Mois suivant" onclick="pfMois(1)">›</button></div></div>'
+    + '<div class="pf-card pf-comm"><div><div class="pf-lab">Commission du mois</div><div class="big">' + eur(comm) + ' <small>/ ' + eur(obj) + '</small></div><div class="pf-bar"><div style="width:' + pct + '%"></div></div><div class="pf-note"><b>' + pct + ' %</b> de l\'objectif' + (courant && obj !== OBJ ? ' ajusté aux absences (' + eur(OBJ) + ' sans absence)' : '') + '</div></div>'
+      + '<div class="pf-faits"><div class="f"><span>' + (courant ? 'Reste à atteindre' : (reste ? 'Il manquait' : 'Objectif')) + '</span><b>' + (reste ? eur(reste) : 'atteint' + (comm > obj ? ' (+' + eur(comm - obj) + ')' : '')) + '</b></div><div class="f"><span>Ventes signées</span><b>' + (k.signes || 0) + '</b></div><div class="f"><span>Prime palier</span><b>' + (prime ? eur(prime) : 'pas encore') + '</b></div>' + (proch && (courant || futur) ? '<div class="f"><span>Prochaine prime</span><b>' + proch + '</b></div>' : '') + '</div></div>'
+    + '<div class="pf-3">' + carte('RDV tenus ou attendus', k.total || 0, rdvNec) + carte('Shows', k.shows || 0, shNec) + carte('Ventes', k.signes || 0, vNec) + '</div>'
+    + '<div class="pf-2"><div class="pf-card"><div class="pf-lab">Activité outbound</div>' + outb + '</div><div class="pf-card"><div class="pf-lab">Conversion</div>' + conv + '</div></div>';
+}
 // Sélecteur d'année : toujours jusqu'à l'année prochaine (il s'arrêtait à 2026)
 (function() { try { var sel = document.getElementById('yearSelect'); if (!sel) return; var max = new Date().getFullYear() + 1, a = [].map.call(sel.options, function(o) { return +o.textContent; }); for (var y = Math.max.apply(null, a) + 1; y <= max; y++) { var o = document.createElement('option'); o.textContent = String(y); sel.appendChild(o); } } catch (e) {} })();
 function appliquerTheme() {
@@ -8364,6 +8435,7 @@ function adjustAbsence(delta) {
   _dailyAbsence = Math.max(0, Math.min(25, _dailyAbsence + delta));
   try { localStorage.setItem('sd_abs_' + new Date().getMonth() + '_' + new Date().getFullYear(), _dailyAbsence); } catch(e) {}
   renderDaily();
+  try { renderPerfTop(); } catch (e) {}
 }
 
 function renderDaily() {
@@ -9916,6 +9988,7 @@ function renderAujourdhui() {
     document.getElementById('auj-pilot').innerHTML = _auj.vue === 'semaine' ? '' :
       '<span class="pp' + (fait ? ' ok' : '') + '" title="RDV Outbound pris aujourd\'hui / objectif du jour">Outbound du jour <b>' + escapeHtml(mj ? mj[1] + ' / ' + mj[2] : '—') + '</b></span>'
       + '<span class="pp" title="Outbound qu\'il reste à prendre cette semaine (objectif ajusté aux absences)">Reste cette semaine <b>' + escapeHtml(/^\d+$/.test(os) ? os : '—') + '</b></span>'
+      + (function() { var ap = (typeof _appelsJour !== 'undefined' && _appelsJour) ? _appelsJour : null; if (!ap) return ''; var jn = ap.filter(function(a) { return a.joint; }).length; return '<span class="pp" title="Appels passés aujourd\'hui dans Close · dont ceux où tu as eu la personne">Appels du jour <b>' + ap.length + '</b>' + (ap.length ? ' · ' + jn + ' joint' + (jn > 1 ? 's' : '') : '') + '</span>'; })()
       + '<a onclick="mjAller(\'Performance\')">Objectifs du mois ›</a>';
   } catch (e) {}
   // ── Données du jour ──
