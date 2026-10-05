@@ -508,6 +508,34 @@ main { max-width: 100%; margin: 0; padding: 6px 8px; }
 .pf-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-bottom: 22px; }
 .pf-kv { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 14px; margin-top: 10px; } .pf-kv .v { font-size: 20px; font-weight: 800; color: var(--text); } .pf-kv .l { font-size: 12px; color: var(--text2); }
 @media (max-width: 980px) { .pf-comm, .pf-3, .pf-2 { grid-template-columns: 1fr; } }
+/* Suivi : file d'appels (liste à gauche, contexte et actions à droite) */
+.sv-bar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 4px 0 12px; }
+.sv-chip { border: 1px solid var(--border); background: var(--surface); color: var(--text2); font-family: var(--font); font-size: 12.5px; font-weight: 600; padding: 6px 11px; border-radius: 999px; cursor: pointer; }
+.sv-chip b { color: var(--text3); margin-left: 5px; font-weight: 700; } .sv-chip.on { background: var(--accent-bg); border-color: var(--accent); color: var(--accent); } .sv-chip.on b { color: var(--accent); }
+.sv-sep { width: 1px; height: 20px; background: var(--border); margin: 0 4px; }
+.sv-grid { display: grid; grid-template-columns: minmax(300px, 400px) minmax(0, 1fr); gap: 14px; align-items: start; }
+.sv-liste { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: auto; max-height: calc(100vh - 190px); }
+.sv-grp { position: sticky; top: 0; z-index: 1; background: var(--surface2); font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--text2); padding: 7px 14px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; }
+.sv-l { padding: 10px 14px; border-bottom: 1px solid var(--border); cursor: pointer; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 10px; }
+.sv-l:hover { background: var(--surface2); } .sv-l.on { background: var(--accent-bg); box-shadow: inset 3px 0 0 var(--accent); }
+.sv-l .n { font-weight: 700; font-size: 14px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sv-l .q { font-size: 11.5px; font-weight: 700; white-space: nowrap; color: var(--text3); } .sv-l .q.ret { color: var(--red); } .sv-l .q.h { color: var(--accent); }
+.sv-l .r { grid-column: 1 / -1; font-size: 12.5px; color: var(--text2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sv-ck { width: 15px; height: 15px; margin: 0 8px 0 0; vertical-align: -2px; accent-color: var(--accent); cursor: pointer; }
+.sv-tete { padding: 7px 14px; border-bottom: 1px solid var(--border); font-size: 12px; color: var(--text2); } .sv-tete label { cursor: pointer; }
+.sv-selbar { position: sticky; top: 0; z-index: 3; gap: 8px; align-items: center; flex-wrap: wrap; padding: 8px 14px; background: var(--accent-bg); border-bottom: 1px solid var(--accent); font-size: 13px; color: var(--accent); }
+.sv-pan { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 18px 20px; position: sticky; top: 12px; max-height: calc(100vh - 190px); overflow: auto; }
+.sv-pan h2 { font-size: 20px; font-weight: 800; margin: 0; color: var(--text); cursor: pointer; } .sv-pan h2:hover { color: var(--accent); }
+.sv-pan .meta { font-size: 13px; color: var(--text2); margin-top: 2px; }
+.sv-acts { display: flex; gap: 8px; flex-wrap: wrap; margin: 14px 0 6px; } .sv-acts .btn { height: 34px; padding: 0 14px; display: inline-flex; align-items: center; font-size: 13px; }
+.sv-acts2 { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; } .sv-acts2 .btn { height: 28px; padding: 0 10px; display: inline-flex; align-items: center; font-size: 12px; }
+.sv-sec { border-top: 1px solid var(--border); padding-top: 12px; margin-top: 12px; }
+.sv-sec .t { font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--text3); margin-bottom: 6px; }
+.sv-cle { font-size: 14px; margin: 3px 0; } .sv-cle.p { font-weight: 700; font-size: 15px; }
+.sv-sl { display: grid; grid-template-columns: 150px 1fr; gap: 10px; padding: 2px 0; font-size: 13.5px; } .sv-sl b { color: var(--text2); font-weight: 600; }
+.sv-ech { margin-top: 8px; font-size: 13px; } .sv-ech .et { font-weight: 700; color: var(--text2); font-size: 12.5px; } .sv-ech ul { margin: 3px 0 0; padding-left: 16px; } .sv-ech li { margin: 1px 0; }
+.sv-vide { padding: 30px 18px; color: var(--text3); text-align: center; font-size: 14px; }
+@media (max-width: 1100px) { .sv-grid { grid-template-columns: 1fr; } .sv-liste, .sv-pan { max-height: none; position: static; } }
 .fc-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.25); z-index: 1200; }
 .fc-overlay.open { display: block; }
 .fc-panel { position: absolute; top: 0; right: 0; bottom: 0; width: 760px; max-width: 96vw; background: var(--bg); box-shadow: -12px 0 40px rgba(0,0,0,0.18); display: flex; flex-direction: column; }
@@ -1961,10 +1989,11 @@ select.form-input { cursor: pointer; }
 </div>
 <div id="page-relances" class="page">
   <div class="section-header" style="margin-bottom:6px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
-    <div><div class="section-title">📞 Relances</div><div style="font-size:12px;color:var(--text3);margin-top:2px;">Tout ce que tu dois rappeler, au même endroit. Les colonnes disent pourquoi, la date dit quand.</div></div>
+    <div><h1 class="pf-h1" style="margin:0;">Suivi</h1><div style="font-size:13px;color:var(--text2);margin-top:2px;">Tes tâches Close, dans l'ordre où les appeler. Tout ce que tu fais ici est écrit dans Close.</div></div>
     <div id="rl-filtres" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
   </div>
   <div id="rl-resume" style="font-size:12px;color:var(--text3);margin-bottom:12px;"></div>
+  <div id="sv-file"></div>
   <div id="rl-semaine"></div>
   <div class="pipeline-grid" id="rl-colonnes" style="display:grid;overflow-x:auto;grid-template-columns:repeat(5,minmax(200px,1fr));gap:12px;align-items:start;">
     <div class="pipeline-col" style="background:var(--soft-violet);"><div class="pipeline-col-header"><div class="pipeline-col-title" style="color:var(--purple);">🔁 R2 sans réponse</div><span class="pipeline-badge" id="rl-badge-r2">0</span></div><div style="font-size:11px;color:var(--purple);margin-bottom:10px;">R1 fait, intéressé, pas de nouvelles sur le R2</div><div class="pipeline-cards" id="rl-col-r2"></div></div>
@@ -3897,8 +3926,10 @@ function fcChargerDernierContact(force, leadId) {
     .catch(function() { if (_fc.cle === cle) { _fc.dernier = { error: 'copilot sans réponse' }; if (_fc.tab === 'prepa') fcRendre(); } if (_fc.cle === cle) el.innerHTML = '<div class="t"><span>🗣 Avant d\'appeler</span><a onclick="fcChargerDernierContact(true)">↻ réessayer</a></div><div class="fc-muted">Le copilot n\'a pas répondu à temps (appels longs à transcrire ?) — réessaie dans quelques secondes.</div>'; });
 }
 // Les 3 lignes closer (promesse datée · accroche · état du deal) + alertes, puis le détail par échange avec la preuve (audio, mots exacts, Claap)
+// le modèle écrit parfois « vide » / « rien » au lieu de laisser la clé vide : on ne l'affiche pas
+function sdClesPropres(c) { var o = {}; Object.keys(c || {}).forEach(function(k) { var v = String(c[k] == null ? '' : c[k]).trim(); o[k] = /^(vide|rien|aucun[e]?|n\/?a|—|-)\.?$/i.test(v) ? '' : v; }); return o; }
 function fcHtmlCles(j) {
-  var c = j.cles || {}, out = [];
+  var c = sdClesPropres(j.cles), out = [];
   if (c.promesse) out.push('<div class="cle promesse">🤝 ' + escapeHtml(c.promesse) + '</div>');
   if (c.accroche) out.push('<div class="cle">💬 <b>Pour ouvrir :</b> ' + escapeHtml(c.accroche) + '</div>');
   if (c.deal) out.push('<div class="cle">💶 <b>Le deal :</b> ' + escapeHtml(c.deal) + '</div>');
@@ -10527,6 +10558,130 @@ function rlTrierItems(items) {
   items.forEach(function(it, i) { it._i = i; it._rang = rang(it); });
   items.sort(function(a, b) { return a._rang - b._rang || ((b.t && b.t.cree) || '').localeCompare((a.t && a.t.cree) || '') || a._i - b._i; });
 }
+// ── Suivi, vue « File » : une liste dans l'ordre d'appel (heure fixée → R2 sans réponse → no-shows → prise de RDV), le contexte et les actions à droite.
+// Mêmes éléments et mêmes actions que la vue Colonnes (rlConstruireItems, rlAction) : tout s'écrit dans Close.
+var _sv = { vue: 'file', quand: 'atraiter', motif: '', sel: '', ctx: {}, tel: {} };
+try { _sv.vue = localStorage.getItem('sd_suivi_vue') === 'colonnes' ? 'colonnes' : 'file'; } catch (e) {}
+function svVue(v) { _sv.vue = v; try { localStorage.setItem('sd_suivi_vue', v); } catch (e) {} renderRelancesPage(); }
+function svSet(k, v) { _sv[k] = v; renderRelancesPage(); }
+function svChoisir(cle) { _sv.sel = cle; renderRelancesPage(); }
+function svRaison(it) { var t = it.t, r = it.rel && it.rel.r, row = (it.rel && it.rel.row) || it.row || {}; return (t && t.texte && !/^follow ?up(\s*\(\d+\))?$/i.test(t.texte.trim()) ? t.texte : '') || (r && r.relance && r.relance.condition) || row.relanceCond || (r && r.contexte) || row.retour || ''; }
+function svCharger(it) { // contexte Close du prospect choisi (une fois par prospect) + son téléphone
+  var cle = it.cle; if (_sv.ctx[cle] !== undefined || typeof COPILOT_URL === 'undefined') return;
+  _sv.ctx[cle] = null;
+  var row = (it.rel && it.rel.row) || it.row || {}, email = (it.rel && it.rel.r && it.rel.r.email) || row.email || '';
+  var q = { nom: it.nom, email: email, force: '0' }; var lead = (it.t && it.t.lead) || row.closeLead || sdLeadPour(it.nom, email); if (lead) q.lead = lead;
+  var ctrl = new AbortController(); setTimeout(function() { ctrl.abort(); }, 120000);
+  fetch(COPILOT_URL + '/close/dernier-contact?' + new URLSearchParams(q), { mode: 'cors', cache: 'no-store', signal: ctrl.signal }).then(function(r) { return r.json(); })
+    .then(function(j) { _sv.ctx[cle] = j || { error: 'vide' }; if (_sv.sel === cle) renderRelancesPage(); }).catch(function() { _sv.ctx[cle] = { error: 'le copilot n\'a pas répondu' }; if (_sv.sel === cle) renderRelancesPage(); });
+  fetch(COPILOT_URL + '/close/contact?' + new URLSearchParams({ email: email, nom: it.nom }), { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); })
+    .then(function(j) { var l = (j.leads || []).find(function(x) { return !lead || x.id === lead; }) || (j.leads || [])[0]; var tel = ''; if (l) (l.contacts || []).some(function(c) { tel = ((c.tels || [])[0]) || ''; return !!tel; }); _sv.tel[cle] = { tel: tel, url: l ? l.url : '' }; if (_sv.sel === cle) renderRelancesPage(); }).catch(function() {});
+}
+function svAppeler(ev, cle) { var x = _sv.tel[cle] || {}, it = (window._rlItems || []).find(function(i) { return i.cle === cle; }); var url = x.url || (it && it.t && it.t.lead ? 'https://app.close.com/lead/' + it.t.lead + '/' : ''); if (!url) { if (typeof showCopyToast === 'function') showCopyToast('Fiche Close introuvable pour cet appel'); return; } fcAppeler(ev, x.tel || '', url); }
+// Déplacer (le « snooze » de Close) : une tâche ou toutes celles cochées, au jour choisi. Rien d'autre ne change (texte, cadence, compteur d'appels). L'heure d'une tâche est gardée.
+function svDeplacerVers(cles, date, heure) {
+  var its = cles.map(function(c) { return (window._rlItems || []).find(function(i) { return i.cle === c; }); }).filter(function(i) { return i && i.t; });
+  if (!its.length) { if (typeof showCopyToast === 'function') showCopyToast('Aucune tâche Close à déplacer dans la sélection'); return; }
+  var ok = 0, ko = [], file = its.slice();
+  var suite = function() {
+    var it = file.shift();
+    if (!it) { _sv.coches = {}; if (typeof showCopyToast === 'function') showCopyToast('⏭ ' + ok + ' tâche' + (ok > 1 ? 's' : '') + ' déplacée' + (ok > 1 ? 's' : '') + ' au ' + fcFrDepuisIso(date) + (ko.length ? ' · ' + ko.length + ' en échec' : '')); if (ko.length) alert('Non déplacées : ' + ko.join(', ')); chargerTachesClose(rlPlus(_rlLundi, -7), rlPlus(_rlLundi, 13), true); return; }
+    rlPost('/close/taches/' + it.t.id, { action: 'decaler', date: date, heure: heure || it.t.heure || '', motif: 'déplacée' }).then(function() { ok++; suite(); }).catch(function(e) { ko.push(it.nom); suite(); });
+  };
+  suite();
+}
+function svDemain(cle) { svDeplacerVers([cle], rlJourOuvre(rlIso(new Date()), 1), ''); }
+function svDeplacer(cle) { var it = (window._rlItems || []).find(function(i) { return i.cle === cle; }); if (!it) return; rlDateModal('Déplacer ' + it.nom, 'La tâche Close passe à cette date. Rien d\'autre ne change.', rlJourOuvre(rlIso(new Date()), 1), function(d, h) { svDeplacerVers([cle], d, h); }, true); }
+function svCocher(cle, on) { _sv.coches = _sv.coches || {}; if (on) _sv.coches[cle] = 1; else delete _sv.coches[cle]; svMajSelection(); }
+function svCochees() { return Object.keys(_sv.coches || {}); }
+function svToutCocher(on) { _sv.coches = {}; if (on) (_sv.visibles || []).forEach(function(c) { _sv.coches[c] = 1; }); renderRelancesPage(); }
+function svMajSelection() { // met à jour la barre sans redessiner la liste (on garde la position de défilement)
+  var n = svCochees().length, b = document.getElementById('sv-selbar'); if (!b) return;
+  b.style.display = n ? 'flex' : 'none'; var t = document.getElementById('sv-selbar-n'); if (t) t.textContent = n + ' tâche' + (n > 1 ? 's' : '') + ' cochée' + (n > 1 ? 's' : '');
+}
+function svDeplacerCochees(quand) {
+  var cles = svCochees(); if (!cles.length) return;
+  if (quand === 'demain') return svDeplacerVers(cles, rlJourOuvre(rlIso(new Date()), 1), '');
+  rlDateModal('Déplacer ' + cles.length + ' tâche' + (cles.length > 1 ? 's' : ''), 'Elles passent toutes à cette date dans Close. Celles qui ont une heure la gardent.', rlJourOuvre(rlIso(new Date()), 1), function(d) { svDeplacerVers(cles, d, ''); }, false);
+}
+function svRendreFile(items, today) {
+  var el = document.getElementById('sv-file'); if (!el) return;
+  var demain = rlJourOuvre(today, 1), fin = rlPlus(today, 7);
+  var dansQuand = function(it, q) { if (!it.date) return false; if (q === 'atraiter') return it.date <= today; if (q === 'demain') return it.date === demain; return it.date > today && it.date <= fin; };
+  var nQ = function(q) { return items.filter(function(it) { return dansQuand(it, q); }).length; };
+  var base = items.filter(function(it) { return dansQuand(it, _sv.quand); });
+  var M = [['r2', 'R2 sans réponse'], ['nsin', 'No-show inbound'], ['nsout', 'No-show outbound'], ['rdv', 'Prise de RDV'], ['aclasser', 'À classer']];
+  var vis = base.filter(function(it) { return !_sv.motif || it.col === _sv.motif || (_sv.motif === 'aclasser' && !M.some(function(m) { return m[0] === it.col; })); });
+  // ordre d'appel : heure fixée d'abord (dans l'ordre des heures), puis par motif ; dans un motif, l'ordre de la vue Colonnes
+  var rangM = function(it) { var i = M.findIndex(function(m) { return m[0] === it.col; }); return i < 0 ? 9 : i; };
+  var ordre = vis.slice().sort(function(a, b) { var ha = (a.t && a.t.heure && a.date === today) ? a.t.heure : '', hb = (b.t && b.t.heure && b.date === today) ? b.t.heure : ''; if (ha || hb) return ha && hb ? ha.localeCompare(hb) : (ha ? -1 : 1); return rangM(a) - rangM(b) || vis.indexOf(a) - vis.indexOf(b); });
+  if (!ordre.some(function(it) { return it.cle === _sv.sel; })) _sv.sel = ordre.length ? ordre[Math.min(_sv.idx || 0, ordre.length - 1)].cle : '';
+  _sv.idx = Math.max(0, ordre.findIndex(function(it) { return it.cle === _sv.sel; }));
+  var sel = ordre.find(function(it) { return it.cle === _sv.sel; }) || null;
+  // barre : quand · motif
+  var bar = '<div class="sv-bar">' + [['atraiter', 'À traiter'], ['demain', 'Demain'], ['semaine', '7 jours']].map(function(q) { return '<button class="sv-chip' + (_sv.quand === q[0] ? ' on' : '') + '" onclick="svSet(\'quand\',\'' + q[0] + '\')">' + q[1] + '<b>' + nQ(q[0]) + '</b></button>'; }).join('')
+    + '<span class="sv-sep"></span><button class="sv-chip' + (!_sv.motif ? ' on' : '') + '" onclick="svSet(\'motif\',\'\')">Tous<b>' + base.length + '</b></button>'
+    + M.map(function(m) { var n = base.filter(function(it) { return it.col === m[0] || (m[0] === 'aclasser' && !M.some(function(x) { return x[0] === it.col; })); }).length; return n ? '<button class="sv-chip' + (_sv.motif === m[0] ? ' on' : '') + '" onclick="svSet(\'motif\',\'' + m[0] + '\')">' + m[1] + '<b>' + n + '</b></button>' : ''; }).join('') + '</div>';
+  if (!ordre.length) { el.innerHTML = bar + '<div class="sv-liste"><div class="sv-vide">' + (!_tachesClose ? 'Lecture des tâches Close…' : (_tachesClose.error ? 'Tâches Close indisponibles : le copilot ne répond pas.' : 'Rien ' + (_sv.quand === 'atraiter' ? 'à traiter. File vide.' : 'sur cette période.'))) + '</div></div>'; return; }
+  // liste
+  var liste = '', grp = null;
+  ordre.forEach(function(it) {
+    var aHeure = it.t && it.t.heure && it.date === today, g = aHeure ? 'À heure fixée' : ((M.find(function(m) { return m[0] === it.col; }) || [0, 'À classer'])[1]);
+    if (g !== grp) { grp = g; liste += '<div class="sv-grp"><span>' + g + '</span><span>' + ordre.filter(function(x) { var ax = x.t && x.t.heure && x.date === today; return (ax ? 'À heure fixée' : ((M.find(function(m) { return m[0] === x.col; }) || [0, 'À classer'])[1])) === g; }).length + '</span></div>'; }
+    var nb = (rlSuivi(it).tentatives || 0), ret = it.date < today;
+    var quand = aHeure ? it.t.heure : (ret ? 'depuis le ' + it.date.split('-').reverse().slice(0, 2).join('/') : (it.date === today ? '' : it.date.split('-').reverse().slice(0, 2).join('/')));
+    var raison = [svRaison(it), nb ? nb + ' appel' + (nb > 1 ? 's' : '') + ' sans réponse' : ''].filter(Boolean).join(' · ');
+    liste += '<div class="sv-l' + (it.cle === _sv.sel ? ' on' : '') + '" onclick="svChoisir(' + JSON.stringify(it.cle).replace(/"/g, '&quot;') + ')"><span class="n">' + (it.t ? '<input type="checkbox" class="sv-ck" title="Cocher pour déplacer"' + ((_sv.coches || {})[it.cle] ? ' checked' : '') + ' onclick="event.stopPropagation();svCocher(' + JSON.stringify(it.cle).replace(/"/g, '&quot;') + ', this.checked)">' : '') + escapeHtml(it.nom) + '</span><span class="q' + (aHeure ? ' h' : (ret ? ' ret' : '')) + '">' + escapeHtml(quand) + '</span>' + (raison ? '<span class="r">' + escapeHtml(raison) + '</span>' : '') + '</div>';
+  });
+  // panneau du prospect choisi
+  var pan = '';
+  if (sel) {
+    svCharger(sel);
+    var cleJs = JSON.stringify(sel.cle).replace(/"/g, '&quot;'), row = (sel.rel && sel.rel.row) || sel.row || {}, t = sel.t, email = (sel.rel && sel.rel.r && sel.rel.r.email) || row.email || '';
+    var nomJs = JSON.stringify(sel.nom).replace(/"/g, '&quot;'), emailJs = JSON.stringify(email).replace(/"/g, '&quot;');
+    var sv = rlSuivi(sel), nbT = sv.tentatives || 0, gere = RL_MOTIFS_GERES.indexOf(sel.col) >= 0, tel = (_sv.tel[sel.cle] || {}).tel || '';
+    var motifLib = (M.find(function(m) { return m[0] === sel.col; }) || [0, 'À classer'])[1];
+    var ech = sel.date < today ? 'en retard depuis le ' + fcFrDepuisIso(sel.date) : (sel.date === today ? 'à faire aujourd\'hui' + (t && t.heure ? ' à ' + t.heure : '') : 'prévu le ' + fcFrDepuisIso(sel.date));
+    pan = '<h2 onclick="ouvrirFicheClient(' + nomJs + ',' + emailJs + ')" title="Ouvrir la fiche">' + escapeHtml(sel.nom) + '</h2>'
+      + '<div class="meta">' + escapeHtml([motifLib, row.type, row.source, ech, nbT ? nbT + ' appel' + (nbT > 1 ? 's' : '') + ' sans réponse' : ''].filter(Boolean).join(' · ')) + '</div>'
+      + (svRaison(sel) ? '<div class="meta" style="color:var(--text);margin-top:6px;">📌 ' + escapeHtml(svRaison(sel)) + '</div>' : '')
+      + '<div class="sv-acts"><button class="btn btn-primary" title="Ouvre la fiche dans l\'application Close, numéro copié : l\'appel y est enregistré" onclick="svAppeler(event,' + cleJs + ')">📞 Appeler' + (tel ? ' ' + escapeHtml(tel) : '') + '</button>'
+      + (gere ? '<button class="btn" title="Appel loggé dans Close, tâche décalée selon la cadence" onclick="rlAction(' + cleJs + ', \'pas_reponse\', this)">Sans réponse</button><button class="btn" title="Tu l\'as eu : il demande qu\'on le rappelle à une date" onclick="rlAction(' + cleJs + ', \'joint\', this)">Joint</button><button class="btn" title="Un RDV a été pris : la tâche est terminée" onclick="rlAction(' + cleJs + ', \'rdv_pris\', this)">RDV pris</button>'
+        : (sel.rel && sel.rel.r ? '<button class="btn" onclick="relanceResultat(' + JSON.stringify(String(sel.rel.r.id)).replace(/"/g, '&quot;') + ', this)">Résultat</button>' : '')) + '</div>'
+      + '<div class="sv-acts2">' + (t ? '<button class="btn" title="Déplacer au prochain jour ouvré, sans rien changer d\'autre" onclick="svDemain(' + cleJs + ')">Déplacer à demain</button><button class="btn" title="Déplacer à la date de ton choix" onclick="svDeplacer(' + cleJs + ')">Déplacer au…</button>' : '')
+      + '<button class="btn" title="Calendly pré-rempli (' + (sel.col === 'r2' ? 'R2 Validation' : 'R1') + ')" onclick="rlCalendly(' + cleJs + ')">Planifier un RDV</button>'
+      + (gere ? '<button class="btn' + (sel.col === 'r2' && nbT >= 3 ? ' btn-primary' : '') + '" title="Note épinglée + tâche pour ' + RL_MANAGER + ' dans Close" onclick="rlAction(' + cleJs + ', \'manager\', this)">Passer au manager</button><button class="btn" title="La tâche Close est terminée, la relance s\'arrête" onclick="rlAction(' + cleJs + ', \'supprimer\', this)">Clôturer la tâche</button>' : '')
+      + (email ? '<a class="btn" style="text-decoration:none;" href="mailto:' + escapeHtml(email) + '">Mail</a>' : '')
+      + (t ? '<select title="Changer le motif" onchange="rlClasser(' + JSON.stringify(t.id).replace(/"/g, '&quot;') + ', this.value)" style="height:28px;font-size:12px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text2);"><option value="">Motif : ' + escapeHtml(motifLib) + '</option><option value="r2">R2 sans réponse</option><option value="rdv">Prise de RDV</option><option value="nsin">No-show inbound</option><option value="nsout">No-show outbound</option></select>' : '') + '</div>'
+      + rlChipAppels(sel, items.indexOf(sel)) + rlChipRdvPris(sel);
+    var j = _sv.ctx[sel.cle];
+    pan += '<div class="sv-sec"><div class="t">Avant d\'appeler</div>';
+    if (j === null || j === undefined) pan += '<div class="fc-muted">Lecture de Close… (30 à 60 s la première fois pour un long RDV)</div>';
+    else if (j.error || j.trouve === false || j.configure === false) pan += '<div class="fc-muted">' + (j.error ? 'Close : ' + escapeHtml(j.error) : 'Aucune fiche Close trouvée pour ce nom.') + '</div>';
+    else {
+      var c = sdClesPropres(j.cles);
+      if (c.promesse) pan += '<div class="sv-cle p">🤝 ' + escapeHtml(c.promesse) + '</div>';
+      if (c.accroche) pan += '<div class="sv-cle">💬 <b>Pour ouvrir :</b> ' + escapeHtml(c.accroche) + '</div>';
+      if (c.deal) pan += '<div class="sv-cle">💶 <b>Le deal :</b> ' + escapeHtml(c.deal) + '</div>';
+      if (c.promesse_sdr) pan += '<div class="sv-cle" style="color:var(--red);">⚠ <b>Promis par un collègue :</b> ' + escapeHtml(c.promesse_sdr) + '</div>';
+      if (j.tentativesDepuis >= 2) pan += '<div class="sv-cle" style="color:var(--red);">📵 ' + j.tentativesDepuis + ' appels sans réponse' + (j.derniereConversation ? ' depuis le ' + escapeHtml(j.derniereConversation.date) : '') + '</div>';
+      if (!c.promesse && !c.accroche && !c.deal && !(j.synthese || []).length && !(j.echanges || []).length) pan += '<div class="fc-muted">Rien d\'exploitable dans Close (pas de note, pas d\'enregistrement).</div>';
+      pan += '</div>';
+      if ((j.synthese || []).length) pan += '<div class="sv-sec"><div class="t">Le dossier en bref</div>' + j.synthese.map(function(l) { var m = /^([^:]{2,40}) :\s*(.*)$/.exec(l); return '<div class="sv-sl">' + (m ? '<b>' + escapeHtml(m[1]) + '</b><span>' + escapeHtml(m[2]) + '</span>' : '<span style="grid-column:1/-1">' + escapeHtml(l) + '</span>') + '</div>'; }).join('') + '</div>';
+      if ((j.echanges || []).length) pan += '<div class="sv-sec"><div class="t">Derniers échanges</div>' + j.echanges.slice(0, 3).map(function(e) { return '<div class="sv-ech"><div class="et">' + escapeHtml((e.date || '') + ' · ' + ({ appel: 'appel', rdv: 'RDV', mail: 'mail', sms: 'SMS', note: 'note' }[e.type] || 'échange') + (e.par ? ' · ' + e.par : '')) + '</div><ul>' + (e.lignes || []).slice(0, 8).map(function(l) { var m = /^([^:]{2,40}) :\s*(.*)$/.exec(l); return '<li>' + (m ? '<b>' + escapeHtml(m[1]) + ' :</b> ' + escapeHtml(m[2]) : escapeHtml(l)) + '</li>'; }).join('') + '</ul></div>'; }).join('');
+    }
+    pan += '</div><div style="margin-top:12px;font-size:12px;"><a style="color:var(--accent);cursor:pointer;font-weight:600;" onclick="ouvrirFicheClient(' + nomJs + ',' + emailJs + ')">Ouvrir la fiche complète ›</a>' + (t && t.url ? ' · <a style="color:var(--text3);" href="' + escapeHtml(t.url) + '" target="_blank" rel="noopener">voir dans Close ↗</a>' : '') + '</div>';
+  }
+  _sv.visibles = ordre.filter(function(it) { return it.t; }).map(function(it) { return it.cle; });
+  _sv.coches = _sv.coches || {}; Object.keys(_sv.coches).forEach(function(c) { if (_sv.visibles.indexOf(c) < 0) delete _sv.coches[c]; });
+  var nC = svCochees().length;
+  var selbar = '<div class="sv-selbar" id="sv-selbar" style="display:' + (nC ? 'flex' : 'none') + ';"><b id="sv-selbar-n">' + nC + ' tâche' + (nC > 1 ? 's' : '') + ' cochée' + (nC > 1 ? 's' : '') + '</b><button class="btn btn-sm btn-primary" onclick="svDeplacerCochees(\'demain\')">Déplacer à demain</button><button class="btn btn-sm" onclick="svDeplacerCochees(\'date\')">Déplacer au…</button><button class="btn btn-sm" onclick="svToutCocher(false)">Décocher</button></div>';
+  var tete = '<div class="sv-tete"><label><input type="checkbox" class="sv-ck"' + (nC && nC === _sv.visibles.length ? ' checked' : '') + ' onclick="svToutCocher(this.checked)"> Tout cocher (' + _sv.visibles.length + ')</label></div>';
+  var posListe = (document.getElementById('sv-liste') || {}).scrollTop || 0;
+  el.innerHTML = bar + '<div class="sv-grid"><div><div class="sv-liste" id="sv-liste">' + tete + selbar + liste + '</div></div><div class="sv-pan">' + pan + '</div></div>';
+  try { document.getElementById('sv-liste').scrollTop = posListe; } catch (e) {}
+  try { var on = el.querySelector('.sv-l.on'), box = document.getElementById('sv-liste'); if (on && box && (on.offsetTop < box.scrollTop + 30 || on.offsetTop > box.scrollTop + box.clientHeight - 60)) box.scrollTop = Math.max(0, on.offsetTop - 80); } catch (e) {}
+}
 function renderRelancesPage() {
   var page = document.getElementById('page-relances'); if (!page) return;
   if (_relances === null) { try { chargerRelancesPourQuotidien(); } catch (e) {} setTimeout(function() { if (page.classList.contains('active')) renderRelancesPage(); }, 1500); }
@@ -10539,7 +10694,22 @@ function renderRelancesPage() {
   var nbDues = items.filter(function(i) { return i.date && i.date <= today; }).length;
   // navigation par jour : on choisit le jour, et dessous les 4 colonnes par motif
   var jourRef = _rlJour === 'retard' ? today : _rlJour;
-  document.getElementById('rl-filtres').innerHTML = '<button class="btn btn-sm" onclick="_rlJour=rlPlus(' + JSON.stringify(jourRef).replace(/"/g, '&quot;') + ',-1);renderRelancesPage()">← Jour préc.</button>'
+  var _bascule = '<div class="auj-seg" style="margin-right:6px;"><button class="' + (_sv.vue === 'file' ? 'on' : '') + '" onclick="svVue(\'file\')">File</button><button class="' + (_sv.vue === 'colonnes' ? 'on' : '') + '" onclick="svVue(\'colonnes\')">Colonnes</button></div>';
+  if (_sv.vue === 'file') {
+    document.getElementById('rl-filtres').innerHTML = _bascule + '<button class="btn btn-sm" title="Relire les tâches Close" onclick="chargerTachesClose(rlPlus(_rlLundi,-7), rlPlus(_rlLundi,13), true)">↻</button><button class="btn btn-sm" title="Défaire la dernière action faite dans Close depuis SalesDesk" onclick="rlDefaire(this)">↶ Défaire</button>';
+    window._rlItems = items;
+    var _et = !_tachesClose ? 'lecture des tâches Close…' : (_tachesClose.error ? '⚠ tâches Close indisponibles (copilot éteint ou à relancer)' : taches.length + ' tâches Close ouvertes');
+    document.getElementById('rl-resume').innerHTML = '<b>' + nbDues + '</b> à traiter · ' + _et + ' · ce soir à 23:00, ce qui reste est déplacé à demain';
+    majBadgeSuivi(nbDues);
+    document.getElementById('rl-semaine').style.display = 'none'; document.getElementById('rl-colonnes').style.display = 'none'; document.getElementById('sv-file').style.display = '';
+    var _ob = document.getElementById('rl-orphelines'); if (_ob) _ob.innerHTML = '';
+    svRendreFile(items, today);
+    var _sans = (typeof sdRdvsSansAction === 'function') ? sdRdvsSansAction() : [];
+    document.getElementById('rl-sans-date').innerHTML = _sans.length ? '⚠️ ' + _sans.length + ' RDV sans prochaine action (ni R2, ni relance datée) — <a href="#" onclick="sdClasserEnChaine();return false;">les traiter</a>' : '';
+    return;
+  }
+  document.getElementById('sv-file').style.display = 'none';
+  document.getElementById('rl-filtres').innerHTML = _bascule + '<button class="btn btn-sm" onclick="_rlJour=rlPlus(' + JSON.stringify(jourRef).replace(/"/g, '&quot;') + ',-1);renderRelancesPage()">← Jour préc.</button>'
     + (_rlJour !== today ? '<button class="btn btn-sm" onclick="_rlJour=null;renderRelancesPage()">Aujourd\'hui</button>' : '')
     + '<button class="btn btn-sm" onclick="_rlJour=rlPlus(' + JSON.stringify(jourRef).replace(/"/g, '&quot;') + ',1);renderRelancesPage()">Jour suiv. →</button>'
     + '<button class="btn btn-sm" style="margin-left:10px;" title="Relire les tâches Close" onclick="chargerTachesClose(rlPlus(_rlLundi,-7), rlPlus(_rlLundi,13), true)">↻</button>'
