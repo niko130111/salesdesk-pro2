@@ -10114,6 +10114,50 @@ function aujBrief(d) { // brief complet d'un dossier (chargé une fois)
   if (!_auj.briefsEnCours[d.id] && typeof COPILOT_URL !== 'undefined') { _auj.briefsEnCours[d.id] = true; fetch(COPILOT_URL + '/rdvs/' + encodeURIComponent(d.id), { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).then(function(j) { _auj.briefs[d.id] = (j && j.rdv) || { vide: true }; renderAujourdhui(); }).catch(function() { _auj.briefs[d.id] = { erreur: true }; renderAujourdhui(); }); }
   return null;
 }
+// ── Déplacer ou annuler un RDV depuis Aujourd'hui. C'est Calendly qui fait foi : il met à jour Google Agenda et prévient le prospect ; Close suit ton agenda. SalesDesk note le résultat et pose le statut Close. ──
+var _dp = null;
+function sdDeplacerAnnuler(nom, jourIso, heure) {
+  var r = aujRdvsDu(jourIso).find(function(x) { return fcNormNom(x.nom) === fcNormNom(nom) && (!heure || (x.heure || '') === heure); }); if (!r) return;
+  _dp = { r: r, jour: jourIso, invite: null, erreur: '' };
+  var ov = document.getElementById('fc-dup-overlay');
+  if (!ov) { ov = document.createElement('div'); ov.id = 'fc-dup-overlay'; ov.className = 'modal-overlay'; ov.style.zIndex = '1300'; ov.innerHTML = '<div class="modal" id="fc-dup-modal"></div>'; document.body.appendChild(ov); }
+  ov.onclick = function(ev) { if (ev.target === ov) fermerModalDoublon(); }; ov.classList.add('open');
+  sdDpRendre();
+  var cle = (state.calendly && state.calendly.apiKey) || localStorage.getItem('calendly_key');
+  if (r.uri && cle) fetch(r.uri + '/invitees?count=20', { headers: { Authorization: 'Bearer ' + cle } }).then(function(x) { if (!x.ok) throw new Error('Calendly ' + x.status); return x.json(); })
+    .then(function(j) { var l = (j.collection || []).filter(function(i) { return i.status === 'active'; }); var i = l.find(function(i) { return fcNormNom(i.name || '') === fcNormNom(r.nom) || (r.email && String(i.email || '').toLowerCase() === r.email); }) || l[0]; if (!_dp || _dp.r !== r) return; _dp.invite = i || false; sdDpRendre(); })
+    .catch(function(e) { if (_dp && _dp.r === r) { _dp.erreur = e.message; _dp.invite = false; sdDpRendre(); } });
+}
+function sdDpRendre() {
+  var d = _dp; if (!d) return; var r = d.r, row = r.row || {}, calendly = !!r.uri;
+  var quand = new Date(d.jour + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }) + (r.heure ? ' à ' + r.heure : '');
+  var html = '<div class="fc-dup" style="width:min(520px,84vw);max-width:100%;box-sizing:border-box;"><div style="font-size:17px;font-weight:800;">' + escapeHtml(r.nom) + '</div><div class="fc-muted" style="margin-bottom:14px;">' + escapeHtml((r.r2 ? 'R2' : 'R1') + ' · ' + quand) + '</div>';
+  if (calendly) {
+    html += '<div style="border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:10px;"><div style="font-weight:700;margin-bottom:2px;">Déplacer</div><div class="fc-muted" style="margin-bottom:8px;">Tu choisis le nouveau créneau sur la page Calendly de ce rendez-vous. Calendly déplace l\'événement dans ton agenda Google et prévient le prospect ; Close suit ton agenda.</div>'
+      + (d.invite === null ? '<span class="fc-muted">Recherche du lien…</span>' : (d.invite && d.invite.reschedule_url ? '<a class="btn btn-primary" style="text-decoration:none;" target="_blank" rel="noopener" href="' + escapeHtml(d.invite.reschedule_url) + '" onclick="_dp.ouvert=true;setTimeout(sdDpRendre,300)">Choisir le nouveau créneau ↗</a>' + (d.ouvert ? ' <button class="btn" onclick="sdDpFait(\'Reprogrammé\')">C\'est déplacé</button>' : '') : '<span class="fc-muted">Lien introuvable' + (d.erreur ? ' (' + escapeHtml(d.erreur) + ')' : '') + ' : utilise « Reprogrammer » dans l\'invitation Calendly.</span>')) + '</div>'
+      + '<div style="border:1px solid var(--border);border-radius:12px;padding:12px 14px;"><div style="font-weight:700;margin-bottom:2px;">Annuler</div><div class="fc-muted" style="margin-bottom:8px;">L\'événement est annulé dans Calendly et retiré de ton agenda Google. Le prospect reçoit le mail d\'annulation de Calendly, avec ton message.</div><input type="text" id="dp-raison" placeholder="Message pour le prospect (facultatif)" style="width:100%;box-sizing:border-box;font-family:var(--font);font-size:13.5px;padding:8px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg);color:var(--text);margin-bottom:8px;">'
+      + '<label style="display:flex;gap:8px;align-items:center;font-size:13px;margin-bottom:8px;cursor:pointer;"><input type="checkbox" id="dp-sur" onchange="document.getElementById(\'dp-annuler\').disabled=!this.checked"> Oui, annuler ce rendez-vous et prévenir le prospect</label><button class="btn" id="dp-annuler" disabled style="color:var(--red);border-color:var(--red);" onclick="sdDpAnnuler(this)">Annuler le rendez-vous</button></div>';
+  } else {
+    html += '<div style="border:1px solid var(--border);border-radius:12px;padding:12px 14px;"><div style="font-weight:700;margin-bottom:2px;">Ce rendez-vous n\'a pas été pris par Calendly</div><div class="fc-muted" style="margin-bottom:10px;">Je ne peux pas le déplacer ni l\'annuler dans ton agenda Google depuis ici : fais-le dans Google Agenda (Close suivra), puis note-le ci-dessous pour SalesDesk et le statut Close.</div><div style="display:flex;gap:8px;flex-wrap:wrap;"><button class="btn" onclick="sdDpFait(\'Reprogrammé\')">Je l\'ai déplacé</button><button class="btn" onclick="sdDpFait(\'Annulé\')">Je l\'ai annulé</button></div></div>';
+  }
+  html += '<div style="text-align:right;margin-top:12px;"><button class="btn" onclick="fermerModalDoublon()">Fermer</button></div></div>';
+  document.getElementById('fc-dup-modal').innerHTML = html;
+}
+function sdDpAnnuler(btn) {
+  var d = _dp; if (!d || !d.r.uri) return; var cle = (state.calendly && state.calendly.apiKey) || localStorage.getItem('calendly_key'); if (!cle) { alert('Clé Calendly absente sur cet appareil.'); return; }
+  btn.disabled = true; btn.textContent = 'Annulation…';
+  fetch(d.r.uri + '/cancellation', { method: 'POST', headers: { Authorization: 'Bearer ' + cle, 'Content-Type': 'application/json' }, body: JSON.stringify({ reason: (document.getElementById('dp-raison').value || '').trim().slice(0, 500) }) })
+    .then(function(x) { if (!x.ok) return x.json().catch(function() { return {}; }).then(function(j) { throw new Error(j.message || ('Calendly ' + x.status)); }); return x.json().catch(function() { return {}; }); })
+    .then(function() { sdDpFait('Annulé', true); })
+    .catch(function(e) { btn.disabled = false; btn.textContent = 'Annuler le rendez-vous'; alert('Annulation refusée par Calendly : ' + e.message + '\nRien n\'a été modifié.'); });
+}
+function sdDpFait(presence, parCalendly) { // SalesDesk note le résultat sur la ligne, Close reçoit le statut ; l'agenda est relu
+  var d = _dp; if (!d) return; var r = d.r, st = loadStore(), row = r.row ? (st[r.row._monthKey] || [])[r.row._storeKey] : null;
+  if (row) { row.presence = presence; if (presence !== 'Show') row.result = ''; saveStore(st); try { sdStatutClose(Object.assign({}, row), presence === 'Annulé' ? 'annule' : 'reprogramme'); } catch (e) {} }
+  fermerModalDoublon(); _dp = null;
+  if (typeof showCopyToast === 'function') showCopyToast(presence === 'Annulé' ? '✓ Rendez-vous annulé' + (parCalendly ? ' dans Calendly et ton agenda' : ' (noté)') : '✓ Rendez-vous déplacé : le nouveau créneau arrive de Calendly');
+  try { _auj.calEtat = {}; _auj.cal = {}; } catch (e) {} try { refreshAll(); } catch (e) {} renderAujourdhui();
+}
 // ── Confirmation des RDV du lendemain : à partir de 13 h, une alerte te fait cocher ceux qui ont répondu OUI au SMS de la veille ; les autres reçoivent ta relance (2ᵉ SMS) quand tu valides ──
 function sdRdvsDeDemain() { // RDV du prochain jour ouvré (et du week-end entre les deux), pas encore tenus ni annulés
   var today = rlIso(new Date()), fin = rlJourOuvre(today, 1), out = [];
@@ -10258,7 +10302,9 @@ function renderAujourdhui() {
       var actions = pres ? '<button class="btn btn-sm" onclick="ouvrirFicheClient(' + nomJs + ',' + emailJs + ')">Fiche</button>'
         : passe ? '<button class="btn btn-sm btn-primary" onclick="sdApresRdvPour(' + nomJs + ',' + jourJs + ')">Terminer</button><button class="btn btn-sm" onclick="ouvrirFicheClient(' + nomJs + ',' + emailJs + ')">Fiche</button>'
         : ((enCours || bientot) && r.join ? rejoindre + '<button class="btn btn-sm" onclick="' + cible(r.nom, r.email, jour, 'prepa') + '">' + (p.etat === 'ok' ? 'Voir le brief' : 'Préparer') + '</button>' : '<button class="btn btn-sm' + (p.etat === 'ok' ? '' : ' btn-primary') + '" onclick="' + cible(r.nom, r.email, jour, 'prepa') + '">' + (p.etat === 'ok' ? 'Voir le brief' : 'Préparer') + '</button>' + rejoindre) + assistant;
-      if (r.r2 && !pres && !passe) actions = (r.join ? '<a class="btn btn-sm btn-primary" style="text-decoration:none;" href="' + escapeHtml(r.join) + '" target="_blank" rel="noopener">Rejoindre</a>' : '') + '<button class="btn btn-sm' + (r.join ? '' : ' btn-primary') + '" title="Tout ce qui s\'est dit au R1 et depuis" onclick="ouvrirFicheClient(' + nomJs + ',' + emailJs + ')">Revoir le dossier</button>' + assistant; // un R2 ne se prépare pas : on relit le dossier
+      var deplacer = (!pres && !passe) ? '<button class="btn btn-sm" title="Déplacer ou annuler ce rendez-vous" onclick="sdDeplacerAnnuler(' + nomJs + ',' + jourJs + ',' + JSON.stringify(r.heure || '').replace(/"/g, '&quot;') + ')">Déplacer / annuler</button>' : '';
+      if (deplacer) actions += deplacer;
+      if (r.r2 && !pres && !passe) actions = (r.join ? '<a class="btn btn-sm btn-primary" style="text-decoration:none;" href="' + escapeHtml(r.join) + '" target="_blank" rel="noopener">Rejoindre</a>' : '') + '<button class="btn btn-sm' + (r.join ? '' : ' btn-primary') + '" title="Tout ce qui s\'est dit au R1 et depuis" onclick="ouvrirFicheClient(' + nomJs + ',' + emailJs + ')">Revoir le dossier</button>' + assistant + deplacer; // un R2 ne se prépare pas : on relit le dossier
       // brief compact du RDV ouvert
       var brief = '';
       if (ouvert && !pres && !r.r2) {
