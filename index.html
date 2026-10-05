@@ -4480,8 +4480,8 @@ function fcHtmlDossier(d, compact) {
     var res = a && a.resume ? '<div class="s" style="margin-top:4px;">' + escapeHtml(a.resume) + '</div>' : '';
     var pa = a && a.prochaine_action && a.prochaine_action.quoi ? '<div class="s">➡ ' + escapeHtml(a.prochaine_action.quoi) + (a.prochaine_action.echeance ? ' · ' + escapeHtml(a.prochaine_action.echeance.split('-').reverse().join('/')) : '') + '</div>' : '';
     var nb = [b && b.mission && 'mission', b && b.il_a_dit && b.il_a_dit.length && 'il a dit', b && b.questions && b.questions.length && 'questions', b && b.pieges && b.pieges.length && 'pièges', d.notes && 'mes notes', a && a.engagements && a.engagements.length && 'engagements', a && a.mail && (a.mail.objet || a.mail.corps) && 'brouillon de mail', d.debrief && 'coach'].filter(Boolean);
-    var p = d.prep || {}, faits = [p.tier && ('Tier ' + p.tier), p.nb_biens && (/^\d+$/.test(String(p.nb_biens)) ? p.nb_biens + ' biens' : String(p.nb_biens)), p.ventes_recentes && (/^\d+$/.test(String(p.ventes_recentes)) ? p.ventes_recentes + ' ventes' : String(p.ventes_recentes)), p.site && String(p.site).replace(/^https?:\/\/(www\.)?/, '').split('/')[0]].filter(Boolean);
-    var etat = '<div class="s">🧭 Copilot · ' + escapeHtml(({ a_preparer: 'prépa à faire', pret: 'prépa prête', en_cours: 'en cours', termine: 'terminé', annule: 'annulé' }[d.statut] || d.statut || 'dossier') + (faits.length ? ' · ' + faits.join(' · ') : '')) + '</div>';
+    var p = d.prep || {}, faits = [p.tier && ('Tier ' + p.tier), p.nb_biens && (/^\d+$/.test(String(p.nb_biens)) ? p.nb_biens + ' biens' : String(p.nb_biens)), p.ventes_recentes && (/^\d+$/.test(String(p.ventes_recentes)) ? p.ventes_recentes + ' ventes' : String(p.ventes_recentes))].filter(Boolean).map(escapeHtml).concat(p.site ? [sdLienSite(p.site)] : []);
+    var etat = '<div class="s">🧭 Copilot · ' + escapeHtml(({ a_preparer: 'prépa à faire', pret: 'prépa prête', en_cours: 'en cours', termine: 'terminé', annule: 'annulé' }[d.statut] || d.statut || 'dossier')) + (faits.length ? ' · ' + faits.join(' · ') : '') + '</div>';
     return etat + res + pa + (nb.length ? '<details><summary>Prépa & après-RDV du copilot (' + escapeHtml(nb.join(', ')) + ')</summary>' + fcHtmlDossierCorps(d) + '</details>' : '');
   }
   h = '<div class="fc-rdv"><div class="fc-rdv-date">' + escapeHtml((d.date || '').split('-').reverse().join('/')) + '<small>' + escapeHtml((d.heure ? d.heure + ' · ' : '') + (d.statut || '')) + '</small></div><div><div class="fc-rdv-t"><span>' + escapeHtml([d.reseau, d.secteur].filter(Boolean).join(' · ')) + '</span></div>';
@@ -4492,8 +4492,8 @@ function fcHtmlDossierCorps(d) {
   var b = d.briefing, h = '';
 
     var b = d.briefing, h = '<div class="fc-rdv"><div class="fc-rdv-date">' + escapeHtml((d.date || '').split('-').reverse().join('/')) + '<small>' + escapeHtml((d.heure ? d.heure + ' · ' : '') + (d.statut || '')) + '</small></div><div><div class="fc-rdv-t"><span>' + escapeHtml([d.reseau, d.secteur].filter(Boolean).join(' · ')) + '</span></div>';
-    var p = d.prep || {}, faits = [p.tier && ('Tier ' + p.tier), p.nb_biens && (/^\d+$/.test(String(p.nb_biens)) ? p.nb_biens + ' biens' : String(p.nb_biens)), p.ventes_recentes && (/^\d+$/.test(String(p.ventes_recentes)) ? p.ventes_recentes + ' ventes' : String(p.ventes_recentes)), p.site && String(p.site).replace(/^https?:\/\/(www\.)?/, '').split('/')[0]].filter(Boolean);
-    if (faits.length) h += '<div class="fc-rdv-s">' + escapeHtml(faits.join(' · ')) + '</div>';
+    var p = d.prep || {}, faits = [p.tier && ('Tier ' + p.tier), p.nb_biens && (/^\d+$/.test(String(p.nb_biens)) ? p.nb_biens + ' biens' : String(p.nb_biens)), p.ventes_recentes && (/^\d+$/.test(String(p.ventes_recentes)) ? p.ventes_recentes + ' ventes' : String(p.ventes_recentes))].filter(Boolean).map(escapeHtml).concat(p.site ? [sdLienSite(p.site)] : []);
+    if (faits.length) h += '<div class="fc-rdv-s">' + faits.join(' · ') + '</div>';
     if (d.notes) h += '<div class="fc-sec" style="margin-top:8px;"><div class="fc-sec-t">✍️ Mes notes</div><div class="fc-pre">' + escapeHtml(d.notes) + '</div></div>';
     if (b) {
       if (b.mission) h += '<div class="fc-sec"><div class="fc-sec-t">🎯 Mission</div>' + escapeHtml(b.mission) + '</div>';
@@ -4953,6 +4953,8 @@ function arValiderSuivi() {
   try { refreshAll(); } catch (e) {}
   if (document.getElementById('fc-overlay').classList.contains('open') && _fc && fcNormNom(_fc.nom) === fcNormNom(r.client)) { _fc.rows = fcLignesDuNom(_fc.nom); fcRendre(); }
 }
+// Site de l'agence, cliquable (nouvel onglet) ; on n'ouvre que du http(s)
+function sdLienSite(site) { var v = String(site || '').trim(); if (!v) return ''; var url = /^https?:\/\//i.test(v) ? v : 'https://' + v.replace(/^\/+/, ''); return '<a href="' + escapeHtml(url) + '" target="_blank" rel="noopener" style="color:var(--accent);font-weight:600;" onclick="event.stopPropagation()">' + escapeHtml(v.replace(/^https?:\/\/(www\.)?/i, '').split('/')[0]) + ' ↗</a>'; }
 // Relances locales (lignes Intéressé avec relanceDate) fusionnées avec celles du copilot
 function relancesLocales() {
   var store = loadStore(), out = [];
