@@ -10118,7 +10118,7 @@ function aujBrief(d) { // brief complet d'un dossier (chargé une fois)
 var _dp = null;
 function sdDeplacerAnnuler(nom, jourIso, heure) {
   var r = aujRdvsDu(jourIso).find(function(x) { return fcNormNom(x.nom) === fcNormNom(nom) && (!heure || (x.heure || '') === heure); }); if (!r) return;
-  _dp = { r: r, jour: jourIso, invite: null, erreur: '' };
+  _dp = { r: r, jour: jourIso, invite: null, erreur: '', date: '', creneaux: null, choix: '', choixH: '', cErr: '' };
   var ov = document.getElementById('fc-dup-overlay');
   if (!ov) { ov = document.createElement('div'); ov.id = 'fc-dup-overlay'; ov.className = 'modal-overlay'; ov.style.zIndex = '1300'; ov.innerHTML = '<div class="modal" id="fc-dup-modal"></div>'; document.body.appendChild(ov); }
   ov.onclick = function(ev) { if (ev.target === ov) fermerModalDoublon(); }; ov.classList.add('open');
@@ -10133,8 +10133,22 @@ function sdDpRendre() {
   var quand = new Date(d.jour + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }) + (r.heure ? ' à ' + r.heure : '');
   var html = '<div class="fc-dup" style="width:min(520px,84vw);max-width:100%;box-sizing:border-box;"><div style="font-size:17px;font-weight:800;">' + escapeHtml(r.nom) + '</div><div class="fc-muted" style="margin-bottom:14px;">' + escapeHtml((r.r2 ? 'R2' : 'R1') + ' · ' + quand) + '</div>';
   if (calendly) {
-    html += '<div style="border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:10px;"><div style="font-weight:700;margin-bottom:2px;">Déplacer</div><div class="fc-muted" style="margin-bottom:8px;">Tu choisis le nouveau créneau sur la page Calendly de ce rendez-vous. Calendly déplace l\'événement dans ton agenda Google et prévient le prospect ; Close suit ton agenda.</div>'
-      + (d.invite === null ? '<span class="fc-muted">Recherche du lien…</span>' : (d.invite && d.invite.reschedule_url ? '<a class="btn btn-primary" style="text-decoration:none;" target="_blank" rel="noopener" href="' + escapeHtml(d.invite.reschedule_url) + '" onclick="_dp.ouvert=true;setTimeout(sdDpRendre,300)">Choisir le nouveau créneau ↗</a>' + (d.ouvert ? ' <button class="btn" onclick="sdDpFait(\'Reprogrammé\')">C\'est déplacé</button>' : '') : '<span class="fc-muted">Lien introuvable' + (d.erreur ? ' (' + escapeHtml(d.erreur) + ')' : '') + ' : utilise « Reprogrammer » dans l\'invitation Calendly.</span>')) + '</div>'
+    var auto = typeof COPILOT_URL !== 'undefined', champ = 'font-family:var(--font);font-size:13.5px;padding:7px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg);color:var(--text);';
+    var lien = d.invite && d.invite.reschedule_url ? '<a target="_blank" rel="noopener" style="color:var(--accent);" href="' + escapeHtml(d.invite.reschedule_url) + '" onclick="_dp.ouvert=true;setTimeout(sdDpRendre,300)">choisir sur la page Calendly ↗</a>' + (d.ouvert ? ' <button class="btn" style="margin-left:6px;" onclick="sdDpFait(\'Reprogrammé\')">C\'est déplacé</button>' : '') : '';
+    html += '<div style="border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:10px;"><div style="font-weight:700;margin-bottom:2px;">Déplacer</div><div class="fc-muted" style="margin-bottom:8px;">Choisis le jour puis l\'heure parmi tes créneaux libres. Je réserve le nouveau créneau dans Calendly et j\'annule l\'ancien : ton agenda Google est à jour, le prospect reçoit l\'annulation et la nouvelle invitation, Close suit ton agenda.</div>';
+    if (auto) {
+      html += '<input type="date" id="dp-date" min="' + rlIso(new Date()) + '" value="' + escapeHtml(d.date || '') + '" onchange="sdDpDate(this.value)" style="' + champ + '">';
+      if (d.date) {
+        if (d.creneaux === null) html += '<div class="fc-muted" style="margin-top:8px;">Lecture de tes créneaux libres…</div>';
+        else if (d.cErr && !d.creneaux) html += '<div style="margin-top:8px;font-size:13px;color:var(--red);">' + escapeHtml(/403/.test(d.cErr) ? 'Ce type de rendez-vous appartient à l\'équipe : Calendly ne me laisse pas lire ses créneaux.' : d.cErr) + '</div>';
+        else if (!d.creneaux.length) html += '<div class="fc-muted" style="margin-top:8px;">Aucun créneau libre ce jour-là dans Calendly.</div>';
+        else html += '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;">' + d.creneaux.map(function(c) { var on = d.choix === c.debut; return '<button class="btn' + (on ? ' btn-primary' : '') + '" style="padding:5px 10px;font-size:13px;"' + (d.enCours ? ' disabled' : '') + ' onclick="_dp.choix=\'' + c.debut + '\';_dp.choixH=\'' + c.heure + '\';_dp.cErr=\'\';sdDpRendre()">' + c.heure + '</button>'; }).join('') + '</div>';
+        if (d.choix) html += '<div style="margin-top:10px;"><button class="btn btn-primary"' + (d.enCours ? ' disabled' : '') + ' onclick="sdDpDeplacer()">' + (d.enCours ? 'Déplacement…' : 'Déplacer au ' + escapeHtml(new Date(d.date + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }) + ' à ' + d.choixH)) + '</button></div>';
+        if (d.cErr && d.creneaux) html += '<div style="margin-top:8px;font-size:13px;color:var(--red);">' + escapeHtml(d.cErr) + '</div>';
+      }
+      html += '<div class="fc-muted" style="margin-top:10px;font-size:12.5px;">' + (d.invite === null ? '' : (lien ? 'Autre façon : ' + lien : '')) + '</div>';
+    } else html += (d.invite === null ? '<span class="fc-muted">Recherche du lien…</span>' : (lien ? 'Copilot éteint : ' + lien : '<span class="fc-muted">Lien introuvable' + (d.erreur ? ' (' + escapeHtml(d.erreur) + ')' : '') + ' : utilise « Reprogrammer » dans l\'invitation Calendly.</span>'));
+    html += '</div>'
       + '<div style="border:1px solid var(--border);border-radius:12px;padding:12px 14px;"><div style="font-weight:700;margin-bottom:2px;">Annuler</div><div class="fc-muted" style="margin-bottom:8px;">L\'événement est annulé dans Calendly et retiré de ton agenda Google. Le prospect reçoit le mail d\'annulation de Calendly, avec ton message.</div><input type="text" id="dp-raison" placeholder="Message pour le prospect (facultatif)" style="width:100%;box-sizing:border-box;font-family:var(--font);font-size:13.5px;padding:8px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg);color:var(--text);margin-bottom:8px;">'
       + '<label style="display:flex;gap:8px;align-items:center;font-size:13px;margin-bottom:8px;cursor:pointer;"><input type="checkbox" id="dp-sur" onchange="document.getElementById(\'dp-annuler\').disabled=!this.checked"> Oui, annuler ce rendez-vous et prévenir le prospect</label><button class="btn" id="dp-annuler" disabled style="color:var(--red);border-color:var(--red);" onclick="sdDpAnnuler(this)">Annuler le rendez-vous</button></div>';
   } else {
@@ -10142,6 +10156,29 @@ function sdDpRendre() {
   }
   html += '<div style="text-align:right;margin-top:12px;"><button class="btn" onclick="fermerModalDoublon()">Fermer</button></div></div>';
   document.getElementById('fc-dup-modal').innerHTML = html;
+}
+function sdDpDate(v) { // créneaux libres Calendly du jour choisi (même type de rendez-vous)
+  var d = _dp; if (!d) return; d.date = v; d.choix = ''; d.choixH = ''; d.cErr = ''; d.creneaux = null; sdDpRendre(); if (!v) return;
+  fetch(COPILOT_URL + '/calendly/creneaux?' + new URLSearchParams({ event: d.r.uri, date: v }), { mode: 'cors', cache: 'no-store' }).then(function(x) { return x.json(); })
+    .then(function(j) { if (_dp !== d || d.date !== v) return; if (j.ok === false) { d.creneaux = false; d.cErr = j.error || 'créneaux illisibles'; } else d.creneaux = j.creneaux || []; sdDpRendre(); })
+    .catch(function() { if (_dp !== d || d.date !== v) return; d.creneaux = false; d.cErr = 'Copilot injoignable : relance-le, ou passe par la page Calendly.'; sdDpRendre(); });
+}
+function sdDpDeplacer() { // le copilot réserve le nouveau créneau puis annule l'ancien ; si la réservation est refusée, rien n'est touché
+  var d = _dp; if (!d || !d.choix || d.enCours) return; d.enCours = true; d.cErr = ''; sdDpRendre();
+  rlPost('/calendly/deplacer', { event: d.r.uri, debut: d.choix, nom: d.r.nom }).then(function(j) {
+    if (_dp !== d) return; var r = d.r, st = loadStore(), row = r.row ? (st[r.row._monthKey] || [])[r.row._storeKey] : null, fr = j.date.split('-').reverse().join('/');
+    if (row && r.r2) { // un R2 garde sa ligne : elle suit la nouvelle date, et le R1 d'origine aussi
+      try { localStorage.setItem('salesdesk_rdvs_backup_' + Date.now(), JSON.stringify(st)); } catch (e) {}
+      var avant = row.date, mk = j.date.slice(0, 7); row.date = fr; row.heure = j.heure; delete row.confirme; delete row.confirmeAt; delete row.relanceVeilleAt;
+      Object.keys(st).forEach(function(k) { if (/^\d{4}-\d{2}$/.test(k)) (st[k] || []).forEach(function(x) { if (x && x.source !== 'R2' && x.dateR2 === avant && fcNormNom(x.client || '') === fcNormNom(row.client || '')) x.dateR2 = fr; }); });
+      if (mk !== r.row._monthKey) { st[r.row._monthKey].splice(r.row._storeKey, 1); (st[mk] = st[mk] || []).push(row); }
+      saveStore(st);
+    } else if (row) { row.presence = 'Reprogrammé'; row.result = ''; saveStore(st); try { sdStatutClose(Object.assign({}, row), 'reprogramme'); } catch (e) {} }
+    fermerModalDoublon(); _dp = null;
+    if (j.avertissement) alert(j.avertissement);
+    if (typeof showCopyToast === 'function') showCopyToast('✓ Déplacé au ' + new Date(j.date + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }) + ' à ' + j.heure);
+    try { _auj.calEtat = {}; _auj.cal = {}; } catch (e) {} try { refreshAll(); } catch (e) {} renderAujourdhui();
+  }).catch(function(e) { if (_dp !== d) return; d.enCours = false; d.cErr = e.message; sdDpRendre(); });
 }
 function sdDpAnnuler(btn) {
   var d = _dp; if (!d || !d.r.uri) return; var cle = (state.calendly && state.calendly.apiKey) || localStorage.getItem('calendly_key'); if (!cle) { alert('Clé Calendly absente sur cet appareil.'); return; }
