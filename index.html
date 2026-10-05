@@ -10156,6 +10156,51 @@ function sdDetecterAnnulations() {
     if (nouveaux.length && typeof showCopyToast === 'function') showCopyToast('⚠ ' + nouveaux.map(function(a) { return a.nom + (a.deplace ? ' a déplacé' : ' a annulé') + ' son RDV de ' + a.heure; }).join(' · '));
   }).catch(function(err) { console.warn('[annulations]', err && err.message); }).then(function() { _annulEnCours = false; _annulAt = Date.now(); });
 }
+// Annulation par le prospect : tu choisis la suite, SalesDesk l'écrit dans Close (note sur la fiche + tâche de relance, ou opportunité perdue)
+var _aq = null;
+function sdAnnulQuoiFaire(uri) {
+  var st = loadStore(), x = (st._annulations || {})[uri]; if (!x) return;
+  _aq = { uri: uri, x: x, choix: '', date: rlJourOuvre(rlIso(new Date()), 1), mot: '', enCours: false };
+  var ov = document.getElementById('fc-dup-overlay');
+  if (!ov) { ov = document.createElement('div'); ov.id = 'fc-dup-overlay'; ov.className = 'modal-overlay'; ov.style.zIndex = '1300'; ov.innerHTML = '<div class="modal" id="fc-dup-modal"></div>'; document.body.appendChild(ov); }
+  ov.onclick = function(ev) { if (ev.target === ov) fermerModalDoublon(); }; ov.classList.add('open'); sdAqRendre();
+}
+function sdAqRendre() {
+  var q = _aq; if (!q) return; var x = q.x, demain = rlJourOuvre(rlIso(new Date()), 1), auj = rlIso(new Date());
+  var quand = (x.date === auj ? 'aujourd\'hui' : 'du ' + fcFrDepuisIso(x.date)) + ' à ' + x.heure;
+  var P = function(v, lib) { return '<button class="ar-pill' + (q.choix === v ? ' on' : '') + '" onclick="_aq.choix=\'' + v + '\';sdAqRendre()">' + lib + '</button>'; };
+  var dateTache = q.choix === 'auj' ? auj : q.choix === 'demain' ? demain : q.choix === 'date' ? q.date : '';
+  var fera = [];
+  if (q.choix) fera.push('note sur la fiche Close : « RDV ' + quand + ' annulé par le prospect' + (x.raison ? ' (' + x.raison + ')' : '') + ' »');
+  if (dateTache) fera.push('tâche Close « Relancer : a annulé son RDV » le ' + fcFrDepuisIso(dateTache) + ' (elle entre dans ton Suivi)');
+  if (q.choix === 'stop') fera.push('opportunité Close → Lost - Cancelled, aucune relance');
+  var h = '<div class="fc-dup" style="width:min(540px,84vw);max-width:100%;box-sizing:border-box;"><div style="font-size:17px;font-weight:800;">' + escapeHtml(x.nom) + ' a annulé</div><div class="fc-muted" style="margin-bottom:12px;">RDV ' + escapeHtml(quand) + (x.raison ? ' · raison donnée : « ' + escapeHtml(x.raison) + ' »' : ' · sans raison donnée') + '</div>'
+    + '<div class="ar-lab">Que fais-tu ?</div><div class="ar-pills">' + P('auj', '📞 Je le rappelle aujourd\'hui') + P('demain', '📅 Relance demain') + P('date', '📅 À une date') + P('stop', '✋ Laisser tomber') + '</div>'
+    + (q.choix === 'date' ? '<div class="ar-row"><input type="date" min="' + auj + '" value="' + escapeHtml(q.date) + '" onchange="_aq.date=this.value;sdAqRendre()"></div>' : '')
+    + (q.choix ? '<div class="ar-row"><input type="text" id="aq-mot" placeholder="Un mot pour la note Close (facultatif)" value="' + escapeHtml(q.mot) + '" oninput="_aq.mot=this.value" style="flex:1;"></div><div class="fc-muted" style="margin-top:8px;">Ce qui sera fait :<br>• ' + fera.map(escapeHtml).join('<br>• ') + '</div>' : '')
+    + '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px;"><button class="btn" onclick="fermerModalDoublon()">Plus tard</button><button class="btn btn-primary"' + ((!q.choix || q.enCours || (q.choix === 'date' && !q.date)) ? ' disabled' : '') + ' onclick="sdAqValider()">' + (q.enCours ? 'Écriture dans Close…' : 'Valider') + '</button></div></div>';
+  document.getElementById('fc-dup-modal').innerHTML = h;
+}
+function sdAqValider() {
+  var q = _aq; if (!q || !q.choix || q.enCours) return; var x = q.x, auj = rlIso(new Date());
+  var st = loadStore(), fr = x.date.split('-').reverse().join('/'), row = (st[x.date.slice(0, 7)] || []).find(function(r) { return r && r.date === fr && fcNormNom(r.client || '') === fcNormNom(x.nom); }) || { client: x.nom, email: '' };
+  var dateTache = q.choix === 'auj' ? auj : q.choix === 'demain' ? rlJourOuvre(auj, 1) : q.choix === 'date' ? q.date : '';
+  var suite = dateTache ? 'relance le ' + fcFrDepuisIso(dateTache) : 'on laisse tomber';
+  var note = 'RDV du ' + fr + ' à ' + x.heure + ' annulé par le prospect le ' + new Date(x.at).toLocaleDateString('fr-FR') + ' à ' + new Date(x.at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) + (x.raison ? ' — raison : « ' + x.raison + ' »' : '') + ' — suite : ' + suite + (q.mot.trim() ? ' — ' + q.mot.trim() : '') + ' (SalesDesk)';
+  q.enCours = true; sdAqRendre();
+  var base = { nom: x.nom, email: row.email || '', lead: row.closeLead || '' };
+  var etapes = [rlPost('/close/note', Object.assign({ note: note }, base))];
+  if (dateTache) etapes.push(rlPost('/close/taches', Object.assign({ date: dateTache, texte: 'Relancer : a annulé son RDV du ' + fr + (x.raison ? ' (' + x.raison + ')' : '') + ' · SalesDesk', motif: 'annulation' }, base)));
+  Promise.all(etapes.map(function(p) { return p.then(function() { return ''; }, function(e) { return e.message; }); })).then(function(res) {
+    if (q.choix === 'stop') { try { sdStatutClose(Object.assign({}, row), 'laisser_tomber'); } catch (e) {} }
+    var err = res.filter(Boolean);
+    if (err.length) { q.enCours = false; sdAqRendre(); alert('Close n\'a pas tout pris : ' + err.join(' ; ') + '\nRien n\'est marqué comme traité : corrige puis revalide.'); return; }
+    var st2 = loadStore(); if (st2._annulations && st2._annulations[q.uri]) { st2._annulations[q.uri].vu = true; st2._annulations[q.uri].suite = suite; }
+    var r2 = (st2[x.date.slice(0, 7)] || []).find(function(r) { return r && r.date === fr && fcNormNom(r.client || '') === fcNormNom(x.nom); }); if (r2) { if (dateTache) { r2.relanceDate = dateTache; r2.relanceFait = false; r2.relanceCond = 'A annulé son RDV' + (x.raison ? ' (' + x.raison + ')' : ''); } r2.retour = (r2.retour ? r2.retour + ' · ' : '') + 'Annulé par le prospect' + (x.raison ? ' : ' + x.raison : '') + ' → ' + suite; }
+    saveStore(st2); fermerModalDoublon(); _aq = null; try { _tachesCloseAt = 0; } catch (e) {} try { refreshAll(); } catch (e) {} renderAujourdhui();
+    if (typeof showCopyToast === 'function') showCopyToast('✓ Fiche Close à jour : ' + suite);
+  });
+}
 function sdAnnulVu(uri) { var st = loadStore(); if (st._annulations && st._annulations[uri]) { st._annulations[uri].vu = true; saveStore(st); } renderAujourdhui(); }
 // Les RDV d'un jour : lignes du store (base) enrichies par Calendly (heure exacte, lien visio, début/fin) ; événements Calendly sans ligne ajoutés
 function aujRdvsDu(iso) {
@@ -10471,7 +10516,7 @@ function renderAujourdhui() {
   window._rlItems = items;
   var suivre = '', nb = 0;
   try { var _an = loadStore()._annulations || {}; Object.keys(_an).forEach(function(u) { var x = _an[u]; if (x.vu) return; nb++;
-    suivre += '<div class="auj-item"><span class="auj-dot red"></span><span><div class="t">' + escapeHtml(x.nom) + ' <span class="fc-muted">· ' + (x.deplace ? 'a déplacé son RDV' : 'a annulé son RDV') + '</span></div><div class="d">' + escapeHtml((x.date === todayIso ? 'aujourd\'hui' : fcFrDepuisIso(x.date)) + ' à ' + x.heure + ' · ' + (x.deplace ? 'déplacé' : 'annulé') + ' à ' + new Date(x.at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) + (x.raison ? ' · raison : « ' + x.raison + ' »' : '') + (x.note ? ' · noté ' + x.note + ' dans SalesDesk et Close' : '')) + '</div></span><span class="act2"><button class="btn btn-sm" onclick="ouvrirFicheClient(' + JSON.stringify(x.nom).replace(/"/g, '&quot;') + ',\'\')">Fiche</button><button class="btn btn-sm btn-primary" onclick="sdAnnulVu(' + JSON.stringify(u).replace(/"/g, '&quot;') + ')">Vu</button></span></div>'; }); } catch (e) {}
+    suivre += '<div class="auj-item"><span class="auj-dot red"></span><span><div class="t">' + escapeHtml(x.nom) + ' <span class="fc-muted">· ' + (x.deplace ? 'a déplacé son RDV' : 'a annulé son RDV') + '</span></div><div class="d">' + escapeHtml((x.date === todayIso ? 'aujourd\'hui' : fcFrDepuisIso(x.date)) + ' à ' + x.heure + ' · ' + (x.deplace ? 'déplacé' : 'annulé') + ' à ' + new Date(x.at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) + (x.raison ? ' · raison : « ' + x.raison + ' »' : '') + (x.note ? ' · noté ' + x.note + ' dans SalesDesk et Close' : '')) + '</div></span><span class="act2"><button class="btn btn-sm" onclick="ouvrirFicheClient(' + JSON.stringify(x.nom).replace(/"/g, '&quot;') + ',\'\')">Fiche</button>' + (x.deplace ? '<button class="btn btn-sm btn-primary" onclick="sdAnnulVu(' + JSON.stringify(u).replace(/"/g, '&quot;') + ')">Vu</button>' : '<button class="btn btn-sm btn-primary" onclick="sdAnnulQuoiFaire(' + JSON.stringify(u).replace(/"/g, '&quot;') + ')">Que faire ?</button>') + '</span></div>'; }); } catch (e) {}
   try {
     var demainRdvs = estAuj ? sdRdvsDeDemain() : [];
     if (demainRdvs.length && now.getHours() >= 13 && !sdVerifDemainFaite()) {
