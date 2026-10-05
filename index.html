@@ -469,6 +469,18 @@ main { max-width: 100%; margin: 0; padding: 6px 8px; }
 .cp-head .t { font-weight: 700; font-size: 14.5px; } .cp-head .s { font-size: 12.5px; color: var(--text3); }
 .cp-panel iframe { flex: 1; width: 100%; border: 0; background: var(--bg); }
 .cp-off { padding: 28px; font-size: 14px; line-height: 1.6; color: var(--text2); }
+.fc-dernier .synth { margin: 8px 0 6px; padding: 10px 12px; border-radius: 10px; background: var(--surface); border: 1px solid var(--border); }
+.fc-dernier .synth .st { font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--text3); margin-bottom: 5px; }
+.fc-dernier .synth .sl { display: grid; grid-template-columns: 150px 1fr; gap: 10px; padding: 2px 0; font-size: 13.5px; } .fc-dernier .synth .sl b { color: var(--text2); font-weight: 600; }
+.fc-rdvs { border: 1px solid var(--border); border-radius: 12px; background: var(--surface); overflow: hidden; }
+.fc-rl { border-top: 1px solid var(--border); } .fc-rl:first-child { border-top: 0; }
+.fc-rl summary { display: flex; align-items: center; gap: 10px; padding: 9px 14px; cursor: pointer; list-style: none; font-size: 13.5px; } .fc-rl summary::-webkit-details-marker { display: none; }
+.fc-rl summary:hover { background: var(--surface2); }
+.fc-rl .d { font-weight: 700; font-variant-numeric: tabular-nums; min-width: 82px; }
+.fc-rl .k { font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 999px; background: var(--surface2); color: var(--text2); } .fc-rl .k.r2 { background: var(--soft-violet); color: var(--purple); }
+.fc-rl .m { color: var(--text2); font-size: 12.5px; } .fc-rl .x { color: var(--text3); font-size: 12.5px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fc-rl .c { font-size: 12px; color: var(--accent); text-decoration: none; } .fc-rl .v { font-size: 12px; color: var(--text3); } .fc-rl[open] .v { color: var(--accent); }
+.fc-rl-corps { padding: 4px 14px 12px; background: var(--surface2); }
 .fc-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.25); z-index: 1200; }
 .fc-overlay.open { display: block; }
 .fc-panel { position: absolute; top: 0; right: 0; bottom: 0; width: 760px; max-width: 96vw; background: var(--bg); box-shadow: -12px 0 40px rgba(0,0,0,0.18); display: flex; flex-direction: column; }
@@ -529,6 +541,7 @@ main { max-width: 100%; margin: 0; padding: 6px 8px; }
 .auj-head { align-items: flex-start; margin-bottom: 22px; }
 .auj-h1 { margin: 0 0 4px; }
 .auj-meta { font-size: 12.5px; color: var(--text2); }
+.auj-rdv.estr2 { border-left: 3px solid var(--purple); padding-left: 10px; } .auj-rdv.estr2 .h { color: var(--purple); }
 .auj-rdv .chips { align-items: center; gap: 8px; margin-top: 4px; }
 .auj-rdv .h { font-family: var(--font); font-variant-numeric: tabular-nums; font-weight: 700; font-size: 15px; }
 .auj-rdv .act .btn, .auj-item .btn, .auj-brief .btn { height: 30px; padding: 0 12px; display: inline-flex; align-items: center; font-size: 12.5px; }
@@ -3794,7 +3807,7 @@ function fcRendreProchaineEtape() {
   var cible = _fc.rows.find(function(r) { return r.source !== 'R2'; }) || last;
   var suiviArg = JSON.stringify(cible._monthKey).replace(/"/g, '&quot;') + ',' + cible._storeKey;
   if (dRdv && sdRdvPasse(last) && !String(last.presence || '').trim()) { lib = (last.source === 'R2' ? 'R2' : 'Rendez-vous') + ' du ' + last.date + ' à terminer'; det = 'Présence, résultat, suite — tout s\'écrit d\'un coup'; acts.push('<button class="btn btn-sm btn-primary" onclick="sdApresRdv(' + JSON.stringify(last._monthKey).replace(/"/g, '&quot;') + ',' + last._storeKey + ')">Terminer</button>'); }
-  else if (dRdv && dRdv >= today && !String(last.presence || '').trim()) { lib = (last.source === 'R2' ? 'R2' : 'Rendez-vous') + ' le ' + last.date + (last.heure ? ' à ' + last.heure : ''); det = 'À préparer, puis à terminer dans Mes RDV'; acts.push('<button class="btn btn-sm btn-primary" onclick="sdOuvrirCopilotSur(' + nomJs + ',' + JSON.stringify(frVersIsoSd(last.date)).replace(/"/g, '&quot;') + ',\'prepa\')">Préparer</button>'); }
+  else if (dRdv && dRdv >= today && (!String(last.presence || '').trim() || String(last.presence).trim() === 'Reprogrammé')) { lib = (last.source === 'R2' ? 'R2' : 'Rendez-vous') + (dRdv.getTime() === today.getTime() ? ' aujourd\'hui' : ' le ' + last.date) + (last.heure ? ' à ' + last.heure : ''); det = 'À préparer, puis à terminer dans Mes RDV'; acts.push('<button class="btn btn-sm btn-primary" onclick="sdOuvrirCopilotSur(' + nomJs + ',' + JSON.stringify(frVersIsoSd(last.date)).replace(/"/g, '&quot;') + ',\'prepa\')">Préparer</button>'); }
   else if (last.dateR2 && String(last.dateR2).trim() && parseDateFR(last.dateR2) >= today) { lib = 'R2 le ' + last.dateR2 + (last.heureR2 ? ' à ' + last.heureR2 : ''); det = 'Validation & lancement'; acts.push('<button class="btn btn-sm" onclick="sdOuvrirCopilotSur(' + nomJs + ',' + JSON.stringify(frVersIsoSd(last.dateR2)).replace(/"/g, '&quot;') + ',\'prepa\')">Préparer le R2</button>'); }
   else {
     // tâche Close / relance datée (suivi), sinon relance SalesDesk
@@ -3875,17 +3888,19 @@ function fcRendreDernierContact(j) {
   if (last.retour) faits.push('ton retour SalesDesk : ' + last.retour);
   if (last.relanceDernier) faits.push('dernière relance : ' + ({ joint: 'joint', pas_de_reponse: 'pas de réponse' }[last.relanceDernier] || last.relanceDernier) + (last.relanceDernierAt ? ' le ' + fcFrDepuisIso(last.relanceDernierAt) : ''));
   var ICO = { appel: '📞', rdv: '🤝', mail: '✉', sms: '💬', note: '📝' }, LIB = { appel: 'appel', rdv: 'RDV', mail: 'mail', sms: 'SMS', note: 'note' };
-  var echanges = (j.echanges || []).slice(0, 5);
+  var echanges = (j.echanges || []).slice(0, 6);
   var blocs = echanges.map(function(e, i) {
     var sidx = JSON.stringify(String(i)).replace(/"/g, '&quot;'), src = e.source || {};
     var preuves = [];
     if (src.audio && src.id) preuves.push('<a onclick="fcEcouter(' + sidx + ', this)">▶ écouter' + (src.duree ? ' (' + sec(src.duree) + ')' : '') + '</a>');
     if (src.extrait) preuves.push('<a onclick="fcMotsExacts(' + sidx + ', this)">“ mots exacts</a>');
     if (src.claap) preuves.push('<a href="' + escapeHtml(src.claap) + '" target="_blank" rel="noopener">Claap ↗</a>');
-    return '<div class="ech' + (i >= 2 ? ' plus' : '') + '" id="fc-ech-' + i + '"><div class="ech-t"><span>' + (ICO[e.type] || '📞') + ' ' + escapeHtml(e.date || '') + ' · ' + (LIB[e.type] || 'appel') + (e.par ? ' · <b>' + escapeHtml(e.par) + '</b>' : ' · toi') + '</span><span class="preuves">' + preuves.join('') + '</span></div><ul>' + e.lignes.map(function(l) { return '<li>' + escapeHtml(l) + '</li>'; }).join('') + '</ul><div class="ech-plus"></div></div>';
+    return '<div class="ech' + (i >= 2 ? ' plus' : '') + '" id="fc-ech-' + i + '"><div class="ech-t"><span>' + (ICO[e.type] || '📞') + ' ' + escapeHtml(e.date || '') + ' · ' + (LIB[e.type] || 'appel') + (e.par ? ' · <b>' + escapeHtml(e.par) + '</b>' : ' · toi') + '</span><span class="preuves">' + preuves.join('') + '</span></div><ul>' + e.lignes.map(function(l) { var m = /^([^:]{2,40}) :\s*(.*)$/.exec(l); return '<li>' + (m ? '<b>' + escapeHtml(m[1]) + ' :</b> ' + escapeHtml(m[2]) : escapeHtml(l)) + '</li>'; }).join('') + '</ul><div class="ech-plus"></div></div>';
   });
-  el.innerHTML = titre + fcHtmlCles(j)
-    + (blocs.length ? '<a class="voirplus" onclick="var e=this.nextElementSibling;var o=e.style.display!==\'none\';e.style.display=o?\'none\':\'\';this.textContent=o?\'Voir les ' + blocs.length + ' échanges ▸\':\'Masquer les échanges ▾\'">Voir les ' + blocs.length + ' échanges ▸</a><div class="echs ouvert" style="display:none;">' + blocs.join('') + '</div>' : '<div class="fc-muted" style="margin-top:6px;">Rien d\'exploitable dans Close (pas de note, pas d\'enregistrement, pas de compte rendu).</div>')
+  var synth = (j.synthese || []).length ? '<div class="synth"><div class="st">Le dossier en bref</div>' + j.synthese.map(function(l) { var m = /^([^:]{2,40}) :\s*(.*)$/.exec(l); return '<div class="sl">' + (m ? '<b>' + escapeHtml(m[1]) + '</b><span>' + escapeHtml(m[2]) + '</span>' : '<span>' + escapeHtml(l) + '</span>') + '</div>'; }).join('') + '</div>' : '';
+  var ouvrir = echanges.some(function(e) { return (e.lignes || []).length >= 6; }); // un vrai RDV détaillé : on le montre sans clic
+  el.innerHTML = titre + fcHtmlCles(j) + synth
+    + (blocs.length ? '<a class="voirplus" onclick="var e=this.nextElementSibling;var o=e.style.display!==\'none\';e.style.display=o?\'none\':\'\';this.textContent=o?\'Voir les ' + blocs.length + ' échanges ▸\':\'Masquer les échanges ▾\'">' + (ouvrir ? 'Masquer les échanges ▾' : 'Voir les ' + blocs.length + ' échanges ▸') + '</a><div class="echs ouvert" style="display:' + (ouvrir ? '' : 'none') + ';">' + blocs.join('') + '</div>' : '<div class="fc-muted" style="margin-top:6px;">Rien d\'exploitable dans Close (pas de note, pas d\'enregistrement, pas de compte rendu).</div>')
     + (j.prochaine ? '<div class="ech-next">➡ ' + escapeHtml(j.prochaine) + '</div>' : '')
     + (faits.length ? '<div class="faits">' + faits.map(escapeHtml).join(' · ') + '</div>' : '');
 }
@@ -4208,21 +4223,27 @@ function fcHtmlRdv() {
 function fcHtmlRdvListe() {
   if (!_fc.rows.length) return '';
   var cl = fcClients(loadStore())[_fc.cle] || {}, claap = cl.claap || {};
-  return _fc.rows.map(function(r) {
-    var pres = r.presence || '—', res = r.result === 'Promo' ? 'Non signé · si promo' : (r.result || '—');
+  var today = new Date(); today.setHours(0, 0, 0, 0);
+  return '<div class="fc-rdvs">' + _fc.rows.map(function(r, i) {
+    var d = parseDateFR(r.date), futur = d && d >= today && !String(r.presence || '').trim();
+    var pres = r.presence || (futur ? 'À venir' : '—'), res = r.result === 'Promo' ? 'Non signé · si promo' : (r.result || '');
     var url = claap[r.date] || '';
     var tab = (r.source === 'R2' || (r.dateR2 && String(r.dateR2).trim())) ? 'r2' : 'r1';
-    var suite = r.dateR2 && String(r.dateR2).trim() ? '📅 R2 le ' + r.dateR2 : (r.relanceDate ? '📞 Relance le ' + fcFrDepuisIso(r.relanceDate) + (r.relanceCond ? ' · ' + r.relanceCond : '') + (r.relanceFait ? ' ✓ faite' : '') : '');
-    return '<div class="fc-rdv">'
-      + '<div class="fc-rdv-date">' + escapeHtml(r.date || '') + '<small>' + escapeHtml((r.heure ? r.heure + ' · ' : '') + (r.source || '') + (r.source === 'R2' ? '' : ' · R1')) + '</small></div><div>'
-      + '<div class="fc-rdv-t"><span class="fc-badge' + (pres === 'Show' ? ' won' : (pres === 'No Show' ? ' lost' : '')) + '">' + escapeHtml(pres) + '</span><span class="fc-badge' + (res === 'Signé' ? ' won' : (res.indexOf('Non') === 0 ? ' lost' : (res === 'Intéressé' ? ' hot' : ''))) + '">' + escapeHtml(res) + '</span>' + (suite ? '<span class="fc-muted">' + escapeHtml(suite) + '</span>' : '') + '</div>'
-      + '<div class="fc-rdv-s">' + escapeHtml([r.type, r.pack, r.freq, r.tier, r.fms && ('FMS ' + r.fms)].filter(Boolean).join(' · ') || '—') + '</div>'
-      + '<div class="fc-claap"><span style="font-size:12px;color:var(--text3);">🎥 Claap</span><input placeholder="Coller le lien de l\'enregistrement" value="' + escapeHtml(url) + '" onchange="fcSetClaap(' + JSON.stringify(r.date || '').replace(/"/g, '&quot;') + ', this.value)">' + (url ? '<a href="' + escapeHtml(url) + '" target="_blank" rel="noopener">▶ Ouvrir</a>' : '') + '</div>'
+    var suite = r.dateR2 && String(r.dateR2).trim() ? 'R2 le ' + r.dateR2 : (r.relanceDate ? 'rappel le ' + fcFrDepuisIso(r.relanceDate) + (r.relanceFait ? ' ✓' : '') : '');
+    var offre = [r.pack, r.freq, r.tier].filter(Boolean).join(' · ');
+    var mkJs = JSON.stringify(r._monthKey).replace(/"/g, '&quot;');
+    return '<details class="fc-rl"' + (window._fcRdvOuvert === r._monthKey + '|' + r._storeKey ? ' open' : '') + ' ontoggle="window._fcRdvOuvert=this.open?\'' + r._monthKey + '|' + r._storeKey + '\':(window._fcRdvOuvert===\'' + r._monthKey + '|' + r._storeKey + '\'?\'\':window._fcRdvOuvert)"><summary>'
+      + '<span class="d">' + escapeHtml(r.date || '') + '</span><span class="k' + (r.source === 'R2' ? ' r2' : '') + '">' + (r.source === 'R2' ? 'R2' : 'R1') + '</span>'
+      + '<span class="m">' + escapeHtml([r.heure, r.source !== 'R2' ? r.source : '', r.type].filter(Boolean).join(' · ')) + '</span>'
+      + '<span class="fc-badge' + (pres === 'Show' ? ' won' : (pres === 'No Show' ? ' lost' : '')) + '">' + escapeHtml(pres) + '</span>'
+      + (res ? '<span class="fc-badge' + (res === 'Signé' ? ' won' : (res.indexOf('Non') === 0 ? ' lost' : (res === 'Intéressé' ? ' hot' : ''))) + '">' + escapeHtml(res) + '</span>' : '')
+      + '<span class="x">' + escapeHtml([offre, suite].filter(Boolean).join(' — ')) + '</span>' + (url ? '<a class="c" href="' + escapeHtml(url) + '" target="_blank" rel="noopener" onclick="event.stopPropagation()">Claap ↗</a>' : '') + '<span class="v">Modifier</span></summary>'
+      + '<div class="fc-rl-corps"><div class="fc-claap"><span style="font-size:12px;color:var(--text3);">Claap</span><input placeholder="Coller le lien de l\'enregistrement" value="' + escapeHtml(url) + '" onchange="fcSetClaap(' + JSON.stringify(r.date || '').replace(/"/g, '&quot;') + ', this.value)"></div>'
       + fcHtmlEdition(r)
-      + '<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;"><button class="btn btn-sm" style="font-size:11px;padding:3px 9px;" onclick="fermerFicheClient();goToRdvTableRow(' + JSON.stringify(r._monthKey).replace(/"/g, '&quot;') + ',' + r._storeKey + ',' + JSON.stringify(tab).replace(/"/g, '&quot;') + ')">✎ Modifier dans RDV Table</button>'
-      + (r.source !== 'R2' ? '<button class="btn btn-sm" style="font-size:11px;padding:3px 9px;" onclick="fcPopupSuivi(' + JSON.stringify(r._monthKey).replace(/"/g, '&quot;') + ',' + r._storeKey + ')">📅 R2 / 📞 Relance</button>' : '') + '</div>'
-      + '</div></div>';
-  }).join('');
+      + '<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">' + (sdRdvPasse(r) && !String(r.presence || '').trim() ? '<button class="btn btn-sm btn-primary" onclick="sdApresRdv(' + mkJs + ',' + r._storeKey + ')">Terminer ce RDV</button>' : '')
+      + (r.source !== 'R2' ? '<button class="btn btn-sm" onclick="fcPopupSuivi(' + mkJs + ',' + r._storeKey + ')">R2 / rappel</button>' : '')
+      + '<button class="btn btn-sm" onclick="fermerFicheClient();goToRdvTableRow(' + mkJs + ',' + r._storeKey + ',' + JSON.stringify(tab).replace(/"/g, '&quot;') + ')">Voir dans RDV Table</button></div></div></details>';
+  }).join('') + '</div>';
 }
 // Édition directe depuis la fiche : présence, vendu ou pas, pack, fréquence (même logique que le tableau RDV, popups raison / suite comprises)
 function fcHtmlEdition(r) {
@@ -9883,14 +9904,17 @@ function renderAujourdhui() {
   } catch (e) {}
   // ── Données du jour ──
   var rdvsTous = aujRdvsDu(jour);
-  var horsJour = rdvsTous.filter(function(r) { var pz = String((r.row || {}).presence || '').trim(); return pz === 'Reprogrammé' || pz === 'Annulé'; }); // plus à l'agenda du jour : listés à part
+  // « Reprogrammé » posé sur un RDV qui n'a pas encore eu lieu = c'est le nouveau créneau (la présence a suivi la ligne) : il reste à l'agenda.
+  // Hors agenda seulement si : Annulé, ou Reprogrammé avec un RDV plus tard pour la même personne, ou jour déjà passé.
+  var _plusTard = function(r) { var n = fcNormNom(r.nom); return Object.keys(st).some(function(k) { return /^\d{4}-\d{2}$/.test(k) && Array.isArray(st[k]) && st[k].some(function(x) { if (!x || fcNormNom(x.client || '') !== n) return false; var a = frVersIsoSd(x.date), b = frVersIsoSd(x.dateR2 || ''); return (a && a > jour) || (b && b > jour); }); }); };
+  var horsJour = rdvsTous.filter(function(r) { var pz = String((r.row || {}).presence || '').trim(); if (pz === 'Annulé') return true; if (pz !== 'Reprogrammé') return false; if (r.start) return false; return jour < todayIso || _plusTard(r); });
   var rdvs = rdvsTous.filter(function(r) { return horsJour.indexOf(r) < 0; });
   var nomAff = function(n) { var x = String(n || ''); return x.charAt(0).toUpperCase() + x.slice(1); }; // « sonia Lavastre » → « Sonia Lavastre » (affichage seulement)
   var prepDe = function(r) { return r.r2 ? aujPrep(r.nom, jour) : aujPrep(r.nom, jour); };
   var items = []; try { items = rlConstruireItems(todayIso).items; } catch (e) {}
   // les retards se comptent par rapport à aujourd'hui et ne s'affichent que sur aujourd'hui ; un autre jour ne montre que ce qui est dû ce jour-là
   var retardTous = items.filter(function(i) { return i.date && i.date < todayIso; }).sort(function(a, b) { return a.date.localeCompare(b.date); }), retard = estAuj ? retardTous : [], dus = items.filter(function(i) { return i.date === jour; });
-  var prepasManquantes = rdvs.filter(function(r) { var p = prepDe(r); return !r.r2 && (p.etat === 'rien' || p.etat === 'partiel') && !(r.row && String(r.row.presence || '').trim()); });
+  var prepasManquantes = rdvs.filter(function(r) { var p = prepDe(r); var pz2 = String((r.row || {}).presence || '').trim(); return (p.etat === 'rien' || p.etat === 'partiel') && (!pz2 || (pz2 === 'Reprogrammé' && jour >= todayIso)); });
   // ── Vue semaine ──
   var semEl = document.getElementById('auj-semaine'), grid = document.getElementById('auj-grid');
   if (_auj.vue === 'semaine') {
@@ -9929,11 +9953,12 @@ function renderAujourdhui() {
     elR.innerHTML = rdvs.map(function(r, idx) {
       var row = r.row || {}, cleR = fcNormNom(r.nom) + '|' + (r.heure || ''), ouvert = cleR === ouvertCle;
       var pres = String(row.presence || '').trim(), res = String(row.result || '').trim();
+      var replanifie = pres === 'Reprogrammé' && jour >= todayIso; if (replanifie) pres = '';
       var passe = jour < todayIso || (estAuj && r.heure && r.heure < hhmm && !(r.end && r.end > now));
       var p = prepDe(r);
       var statutRdv = pres ? (pres === 'Show' ? (res ? 'Terminé · ' + res : 'Terminé') : pres) : (passe ? 'À terminer' : '');
       var nomJs = JSON.stringify(r.nom).replace(/"/g, '&quot;'), emailJs = JSON.stringify(r.email || '').replace(/"/g, '&quot;'), jourJs = JSON.stringify(jour).replace(/"/g, '&quot;');
-      var chips = '<span class="auj-meta">' + escapeHtml([r.r2 ? 'R2' : 'R1', row.type, (r.source && r.source !== 'R2') ? r.source : ''].filter(Boolean).join(' · ')) + '</span>'
+      var chips = (r.r2 ? '<span class="auj-chip r2">R2</span>' : '') + '<span class="auj-meta">' + escapeHtml([r.r2 ? 'Validation & lancement' : 'R1', row.type, (r.source && r.source !== 'R2') ? r.source : '', replanifie ? 'reprogrammé à ce jour' : ''].filter(Boolean).join(' · ')) + '</span>'
         + (!pres && !passe && p.etat !== 'inconnu' ? '<span class="auj-chip ' + (p.etat === 'ok' ? 'ok' : 'warn') + '" title="' + escapeHtml(p.detail || '') + '">' + escapeHtml(p.lib) + '</span>' : '')
         + (statutRdv ? '<span class="auj-chip ' + (pres === 'Show' ? 'ok' : 'warn') + '">' + escapeHtml(statutRdv) + '</span>' : '');
       var mins = r.start ? Math.round((r.start - now) / 60000) : null, enCours = r.start && r.end && now >= r.start && now <= r.end, bientot = estAuj && mins !== null && mins <= 15 && mins > 0;
@@ -9954,7 +9979,7 @@ function renderAujourdhui() {
         if (!briefVide && p.etat === 'partiel' && p.detail) lignes.push('<div class="bl"><b>Il manque :</b><span>' + escapeHtml(p.detail) + '</span></div>');
         brief = (briefVide && _auj.ouvert === null) ? '' : '<div class="auj-brief' + (briefVide ? ' vide' : '') + '">' + (briefVide ? '' : '<div class="bt">' + (idx === prochainIdx && estAuj ? 'Prochain rendez-vous' : 'Brief') + '</div>') + lignes.join('') + (!briefVide && p.etat === 'ok' ? '<div class="ba"><a style="color:var(--accent);cursor:pointer;font-weight:600;font-size:12.5px;" onclick="' + cible(r.nom, r.email, jour, 'prepa') + '">Voir le brief complet ›</a></div>' : '') + '</div>';
       }
-      return '<div class="auj-rdv-wrap' + (ouvert ? ' ouvert' : '') + '"><div class="auj-rdv' + (idx === prochainIdx && estAuj && !passe ? ' prochain' : '') + '"><div class="h' + (passe ? ' passe' : '') + '">' + escapeHtml(r.heure || '') + (compte ? '<div class="cd">' + escapeHtml(compte) + '</div>' : '') + '</div><div><div class="n" style="cursor:pointer" onclick="ouvrirFicheClient(' + nomJs + ',' + emailJs + ')">' + escapeHtml(nomAff(r.nom)) + '</div>' + (sousTitre(r) ? '<div class="sub">' + escapeHtml(sousTitre(r)) + '</div>' : '') + '<div class="chips">' + chips + '</div></div><div class="act">' + actions + '</div><button class="tog" title="' + (ouvert ? 'Replier' : 'Développer') + '" onclick="aujOuvrir(' + JSON.stringify(cleR).replace(/"/g, '&quot;') + ')">' + (ouvert ? '▴' : '▾') + '</button>' + brief + '</div></div>';
+      return '<div class="auj-rdv-wrap' + (ouvert ? ' ouvert' : '') + '"><div class="auj-rdv' + (r.r2 ? ' estr2' : '') + (idx === prochainIdx && estAuj && !passe ? ' prochain' : '') + '"><div class="h' + (passe ? ' passe' : '') + '">' + escapeHtml(r.heure || '') + (compte ? '<div class="cd">' + escapeHtml(compte) + '</div>' : '') + '</div><div><div class="n" style="cursor:pointer" onclick="ouvrirFicheClient(' + nomJs + ',' + emailJs + ')">' + escapeHtml(nomAff(r.nom)) + '</div>' + (sousTitre(r) ? '<div class="sub">' + escapeHtml(sousTitre(r)) + '</div>' : '') + '<div class="chips">' + chips + '</div></div><div class="act">' + actions + '</div><button class="tog" title="' + (ouvert ? 'Replier' : 'Développer') + '" onclick="aujOuvrir(' + JSON.stringify(cleR).replace(/"/g, '&quot;') + ')">' + (ouvert ? '▴' : '▾') + '</button>' + brief + '</div></div>';
     }).join('');
   }
   if (horsJour.length) { elR.innerHTML = (rdvs.length ? elR.innerHTML : '<div class="auj-empty"><b>Aucun rendez-vous maintenu ' + (estAuj ? 'aujourd\'hui' : 'ce jour') + '.</b></div>') + '<div class="auj-hors"><div class="ht">Reprogrammés ou annulés</div>' + horsJour.map(function(r) { var nj = JSON.stringify(r.nom).replace(/"/g, '&quot;'), ej = JSON.stringify(r.email || '').replace(/"/g, '&quot;'); return '<div class="hl"><span class="hn" onclick="ouvrirFicheClient(' + nj + ',' + ej + ')">' + escapeHtml(nomAff(r.nom)) + '</span><span class="auj-meta">' + escapeHtml([r.r2 ? 'R2' : 'R1', (r.row || {}).type, r.heure ? 'prévu à ' + r.heure : ''].filter(Boolean).join(' · ')) + '</span><span class="auj-chip warn">' + escapeHtml(String((r.row || {}).presence || '')) + '</span></div>'; }).join('') + '</div>'; }
