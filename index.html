@@ -3836,7 +3836,58 @@ function fcRendre() {
   var body = document.getElementById('fc-body');
   if (_fc.tab === 'rdv') body.innerHTML = fcHtmlRdv();
   else if (_fc.tab === 'prepa') body.innerHTML = fcHtmlPrepa();
+  else if (_fc.tab === 'mails') body.innerHTML = fcHtmlMails();
   else body.innerHTML = fcHtmlNotes();
+}
+// ── Onglet Mails de la fiche : les derniers échanges lus dans Close (reçus et envoyés), et la rédaction d'un mail envoyé par Close depuis ta boîte, toujours avec ta signature ──
+var _fcMails = { cle: null, data: null, erreur: '', redige: false, b: { to: '', objet: '', texte: '' }, ouverts: {}, enCours: false };
+function fcChargerMails() {
+  if (typeof COPILOT_URL === 'undefined') { _fcMails.erreur = 'Copilot éteint : les mails se lisent par lui.'; return; }
+  var cle = _fc.cle, q = { nom: _fc.nom, email: _fc.email || '' }, l = sdLeadPour(_fc.nom, _fc.email || ''); if (l) q.lead = l;
+  fetch(COPILOT_URL + '/close/mails?' + new URLSearchParams(q), { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).then(function(j) {
+    if (_fcMails.cle !== cle) return; if (j.ok === false) _fcMails.erreur = j.error || 'Close illisible'; else { _fcMails.data = j; _fcMails.erreur = ''; if (!_fcMails.b.to) _fcMails.b.to = (j.adresses || []).indexOf(_fc.email) >= 0 ? _fc.email : ((j.adresses || [])[0] || _fc.email || ''); }
+    if (_fc.tab === 'mails') fcRendre();
+  }).catch(function() { if (_fcMails.cle !== cle) return; _fcMails.erreur = 'Copilot injoignable.'; if (_fc.tab === 'mails') fcRendre(); });
+}
+function fcHtmlMails() {
+  if (_fcMails.cle !== _fc.cle) { _fcMails = { cle: _fc.cle, data: null, erreur: '', redige: false, b: { to: '', objet: '', texte: '' }, ouverts: {}, enCours: false }; fcChargerMails(); }
+  var M = _fcMails, j = M.data, champ = 'width:100%;box-sizing:border-box;font-family:var(--font);font-size:13.5px;padding:8px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg);color:var(--text);';
+  if (M.erreur) return '<div class="fc-muted">' + escapeHtml(M.erreur) + '</div>';
+  if (!j) return '<div class="fc-muted">Lecture des mails dans Close…</div>';
+  if (!j.trouve) return '<div class="fc-muted">Pas de fiche Close trouvée pour cette personne : impossible de lire ou d\'écrire un mail d\'ici.</div>';
+  var h = '<div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;"><b style="flex:1;">' + (j.mails.length ? j.mails.length + ' dernier' + (j.mails.length > 1 ? 's' : '') + ' mail' + (j.mails.length > 1 ? 's' : '') + ' · ' + j.recus + ' reçu' + (j.recus > 1 ? 's' : '') : 'Aucun mail échangé') + '</b><a class="tag" href="' + escapeHtml(j.url) + '" target="_blank" rel="noopener">↗ Close</a><button class="btn btn-sm" onclick="_fcMails.cle=null;fcRendre()">↻</button>' + (M.redige ? '' : '<button class="btn btn-sm btn-primary" onclick="fcMailEcrire()">✉ Écrire un mail</button>') + '</div>';
+  if (M.redige) {
+    var adr = (j.adresses || []).length ? j.adresses : (M.b.to ? [M.b.to] : []);
+    h += '<div style="border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:12px;background:var(--surface2);">'
+      + '<div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;"><span class="fc-muted" style="min-width:44px;">À</span>' + (adr.length > 1 ? '<select onchange="_fcMails.b.to=this.value" style="' + champ + '">' + adr.map(function(a) { return '<option' + (a === M.b.to ? ' selected' : '') + '>' + escapeHtml(a) + '</option>'; }).join('') + '</select>' : '<b>' + escapeHtml(adr[0] || 'aucune adresse sur la fiche Close') + '</b>') + '</div>'
+      + '<input type="text" placeholder="Objet" value="' + escapeHtml(M.b.objet) + '" oninput="_fcMails.b.objet=this.value" style="' + champ + 'margin-bottom:8px;">'
+      + '<textarea placeholder="Ton message…" oninput="_fcMails.b.texte=this.value" style="' + champ + 'min-height:170px;resize:vertical;line-height:1.5;">' + escapeHtml(M.b.texte) + '</textarea>'
+      + '<div class="fc-muted" style="margin-top:6px;white-space:pre-line;border-left:3px solid var(--border);padding-left:10px;font-size:12.5px;">' + (j.signature ? 'Ta signature est ajoutée automatiquement :\n' + escapeHtml(j.signature) : '⚠ Signature Close introuvable : le mail ne partira pas sans elle.') + '</div>'
+      + '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px;flex-wrap:wrap;"><button class="btn btn-sm" onclick="_fcMails.redige=false;fcRendre()">Fermer</button><button class="btn btn-sm"' + (M.enCours ? ' disabled' : '') + ' onclick="fcMailEnvoyer(false)">Enregistrer en brouillon dans Close</button><button class="btn btn-sm btn-primary"' + (M.enCours ? ' disabled' : '') + ' onclick="fcMailEnvoyer(true)">' + (M.enCours ? 'Envoi…' : 'Envoyer') + '</button></div></div>';
+  }
+  h += j.mails.map(function(m, i) {
+    var d = new Date(m.at), quand = d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' }) + ' ' + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }), ouvert = M.ouverts[m.id] || (m.recu && j.mails.findIndex(function(x) { return x.recu; }) === i && M.ouverts[m.id] !== false); // le dernier mail reçu est déplié d'office
+    return '<div style="border:1px solid var(--border);border-left:4px solid ' + (m.recu ? 'var(--accent)' : 'var(--border)') + ';border-radius:10px;padding:9px 12px;margin-bottom:8px;">'
+      + '<div style="display:flex;gap:8px;align-items:baseline;cursor:pointer;" onclick="_fcMails.ouverts[\'' + m.id + '\']=' + (ouvert ? 'false' : 'true') + ';fcRendre()"><span class="fc-badge' + (m.recu ? ' hot' : '') + '">' + (m.recu ? '← Reçu' : (m.programme ? '⏱ Programmé' : '→ Envoyé')) + '</span><b style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeHtml(m.sujet) + '</b><span class="fc-muted" style="white-space:nowrap;">' + quand + (!m.recu && m.ouvertures ? ' · lu ' + m.ouvertures + '×' : '') + '</span></div>'
+      + (ouvert ? '<div class="fc-pre" style="margin-top:8px;white-space:pre-wrap;">' + escapeHtml(m.texte || '(vide)') + '</div>' + (m.recu ? '<div style="text-align:right;margin-top:6px;"><button class="btn btn-sm" onclick="fcMailEcrire(' + i + ')">↩ Répondre</button></div>' : '') : '') + '</div>';
+  }).join('');
+  return h;
+}
+function fcMailEcrire(i) { // nouveau mail, ou réponse au mail reçu n° i (objet repris, même adresse)
+  var M = _fcMails, j = M.data; if (!j) return; M.redige = true;
+  if (i !== undefined && j.mails[i]) { var m = j.mails[i], em = (/<([^>]+)>/.exec(m.de) || [])[1] || m.de; em = String(em || '').trim().toLowerCase(); if ((j.adresses || []).indexOf(em) >= 0) M.b.to = em; if (!M.b.objet) M.b.objet = /^re\s*:/i.test(m.sujet) ? m.sujet : 'Re: ' + m.sujet; }
+  if (!M.b.texte) { var p = (_fc.nom || '').split(/\s+/)[0] || ''; M.b.texte = 'Bonjour ' + (p ? p.charAt(0).toUpperCase() + p.slice(1).toLowerCase() : '') + ',\n\n\n\nBien cordialement,'; }
+  fcRendre();
+}
+function fcMailEnvoyer(reel) {
+  var M = _fcMails, j = M.data, b = M.b; if (!j || M.enCours) return;
+  if (!b.to) { alert('Aucune adresse sur la fiche Close de ce prospect.'); return; } if (!b.objet.trim()) { alert('Il manque l\'objet.'); return; } if (b.texte.replace(/\s/g, '').length < 20) { alert('Le message est vide.'); return; }
+  if (reel && !confirm('Envoyer ce mail maintenant à ' + b.to + ', depuis ta boîte, avec ta signature ?')) return;
+  M.enCours = true; fcRendre();
+  rlPost('/close/mail', { lead: j.lead, nom: _fc.nom, to: b.to, objet: b.objet.trim(), texte: b.texte.trim(), envoyer: !!reel }).then(function() {
+    if (typeof showCopyToast === 'function') showCopyToast(reel ? '✓ Mail envoyé à ' + b.to : '✓ Brouillon créé dans Close');
+    _fcMails = { cle: null, data: null, erreur: '', redige: false, b: { to: '', objet: '', texte: '' }, ouverts: {}, enCours: false }; fcRendre();
+  }).catch(function(e) { M.enCours = false; fcRendre(); alert((reel ? 'Mail non envoyé : ' : 'Brouillon non créé : ') + e.message + '\nTon texte est conservé.'); });
 }
 // Appeler : l'appli Close ne prend pas les liens tel:, donc on ouvre la fiche DANS l'application Close (closeio://) avec le numéro copié ;
 // l'appel passé là-bas est loggé et enregistré (ce qui nourrit « avant d'appeler », le compteur, l'escalade). Alt+clic = tel: classique.
@@ -14308,6 +14359,7 @@ window.addEventListener('load', function() {
     <div class="fc-tabs">
       <button class="fc-tab on" data-tab="rdv" onclick="fcOnglet('rdv')">Vue d'ensemble</button>
       <button class="fc-tab" data-tab="prepa" onclick="fcOnglet('prepa')">Historique</button>
+      <button class="fc-tab" data-tab="mails" onclick="fcOnglet('mails')">Mails</button>
       <button class="fc-tab" data-tab="notes" onclick="fcOnglet('notes')">Notes</button>
     </div>
     <div class="fc-body" id="fc-body"></div>
