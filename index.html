@@ -9858,8 +9858,24 @@ function aujRdvsDu(iso) {
     if (x) { x.join = e.join || ''; x.start = e.start; x.end = e.end; if (!x.heure) x.heure = heure; x.uri = e.uri; }
     else out.push({ nom: e.name, email: em, heure: heure, source: e.source, r2: !!e.isR2, row: null, join: e.join || '', start: e.start, end: e.end, uri: e.uri });
   });
+  out.forEach(function(o) { if (!o.heure && o.row) aujHeureClose(o, iso); });
   out.sort(function(a, b) { return (a.heure || '99').localeCompare(b.heure || '99'); });
   return out;
+}
+// RDV sans heure (pas pris par Calendly : invitation envoyée à la main, R2 calé au téléphone) : on la lit dans l'agenda Close, une fois, et on la note sur la ligne
+var _aujHeures = {};
+function aujHeureClose(o, iso) {
+  if (typeof COPILOT_URL === 'undefined') return; var cle = fcNormNom(o.nom) + '|' + iso;
+  var h = _aujHeures[cle]; if (h && h.heure) { o.heure = h.heure; if (h.join && !o.join) o.join = h.join; if (h.debut) { o.start = new Date(h.debut); o.end = h.fin ? new Date(h.fin) : new Date(+new Date(h.debut) + 30 * 60000); } return; }
+  if (h) return; _aujHeures[cle] = { enCours: true };
+  var q = { nom: o.nom, email: o.email || '', date: iso }, l = (o.row && o.row.closeLead) || sdLeadPour(o.nom, o.email || ''); if (l) q.lead = l;
+  fetch(COPILOT_URL + '/close/heure-rdv?' + new URLSearchParams(q), { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).then(function(j) {
+    if (!j || !j.trouve || !j.heure) { _aujHeures[cle] = { rien: true }; return; }
+    _aujHeures[cle] = j;
+    var st = loadStore(), fr = iso.split('-').reverse().join('/'), row = (st[iso.slice(0, 7)] || []).find(function(r) { return r && r.date === fr && fcNormNom(r.client) === fcNormNom(o.nom) && !String(r.heure || '').trim(); });
+    if (row) { row.heure = j.heure; if (j.lead && !row.closeLead) row.closeLead = j.lead; saveStore(st); }
+    renderAujourdhui();
+  }).catch(function() { delete _aujHeures[cle]; });
 }
 // État de préparation d'un RDV (dossier copilot du même nom et du même jour)
 function aujPrep(nom, iso) {
@@ -9914,7 +9930,7 @@ function renderAujourdhui() {
   var items = []; try { items = rlConstruireItems(todayIso).items; } catch (e) {}
   // les retards se comptent par rapport à aujourd'hui et ne s'affichent que sur aujourd'hui ; un autre jour ne montre que ce qui est dû ce jour-là
   var retardTous = items.filter(function(i) { return i.date && i.date < todayIso; }).sort(function(a, b) { return a.date.localeCompare(b.date); }), retard = estAuj ? retardTous : [], dus = items.filter(function(i) { return i.date === jour; });
-  var prepasManquantes = rdvs.filter(function(r) { var p = prepDe(r); var pz2 = String((r.row || {}).presence || '').trim(); return (p.etat === 'rien' || p.etat === 'partiel') && (!pz2 || (pz2 === 'Reprogrammé' && jour >= todayIso)); });
+  var prepasManquantes = rdvs.filter(function(r) { var p = prepDe(r); var pz2 = String((r.row || {}).presence || '').trim(); return !r.r2 && (p.etat === 'rien' || p.etat === 'partiel') && (!pz2 || (pz2 === 'Reprogrammé' && jour >= todayIso)); });
   // ── Vue semaine ──
   var semEl = document.getElementById('auj-semaine'), grid = document.getElementById('auj-grid');
   if (_auj.vue === 'semaine') {
@@ -9959,7 +9975,7 @@ function renderAujourdhui() {
       var statutRdv = pres ? (pres === 'Show' ? (res ? 'Terminé · ' + res : 'Terminé') : pres) : (passe ? 'À terminer' : '');
       var nomJs = JSON.stringify(r.nom).replace(/"/g, '&quot;'), emailJs = JSON.stringify(r.email || '').replace(/"/g, '&quot;'), jourJs = JSON.stringify(jour).replace(/"/g, '&quot;');
       var chips = (r.r2 ? '<span class="auj-chip r2">R2</span>' : '') + '<span class="auj-meta">' + escapeHtml([r.r2 ? 'Validation & lancement' : 'R1', row.type, (r.source && r.source !== 'R2') ? r.source : '', replanifie ? 'reprogrammé à ce jour' : ''].filter(Boolean).join(' · ')) + '</span>'
-        + (!pres && !passe && p.etat !== 'inconnu' ? '<span class="auj-chip ' + (p.etat === 'ok' ? 'ok' : 'warn') + '" title="' + escapeHtml(p.detail || '') + '">' + escapeHtml(p.lib) + '</span>' : '')
+        + (!pres && !passe && !r.r2 && p.etat !== 'inconnu' ? '<span class="auj-chip ' + (p.etat === 'ok' ? 'ok' : 'warn') + '" title="' + escapeHtml(p.detail || '') + '">' + escapeHtml(p.lib) + '</span>' : '')
         + (statutRdv ? '<span class="auj-chip ' + (pres === 'Show' ? 'ok' : 'warn') + '">' + escapeHtml(statutRdv) + '</span>' : '');
       var mins = r.start ? Math.round((r.start - now) / 60000) : null, enCours = r.start && r.end && now >= r.start && now <= r.end, bientot = estAuj && mins !== null && mins <= 15 && mins > 0;
       var compte = enCours ? 'en cours' : (bientot ? 'dans ' + mins + ' min' : (estAuj && mins !== null && mins > 15 && idx === prochainIdx ? (mins < 60 ? 'dans ' + mins + ' min' : 'dans ' + Math.floor(mins / 60) + ' h' + (mins % 60 ? String(mins % 60).padStart(2, '0') : '')) : ''));
@@ -9968,9 +9984,10 @@ function renderAujourdhui() {
       var actions = pres ? '<button class="btn btn-sm" onclick="ouvrirFicheClient(' + nomJs + ',' + emailJs + ')">Fiche</button>'
         : passe ? '<button class="btn btn-sm btn-primary" onclick="sdApresRdvPour(' + nomJs + ',' + jourJs + ')">Terminer</button><button class="btn btn-sm" onclick="ouvrirFicheClient(' + nomJs + ',' + emailJs + ')">Fiche</button>'
         : ((enCours || bientot) && r.join ? rejoindre + '<button class="btn btn-sm" onclick="' + cible(r.nom, r.email, jour, 'prepa') + '">' + (p.etat === 'ok' ? 'Voir le brief' : 'Préparer') + '</button>' : '<button class="btn btn-sm' + (p.etat === 'ok' ? '' : ' btn-primary') + '" onclick="' + cible(r.nom, r.email, jour, 'prepa') + '">' + (p.etat === 'ok' ? 'Voir le brief' : 'Préparer') + '</button>' + rejoindre) + assistant;
+      if (r.r2 && !pres && !passe) actions = (r.join ? '<a class="btn btn-sm btn-primary" style="text-decoration:none;" href="' + escapeHtml(r.join) + '" target="_blank" rel="noopener">Rejoindre</a>' : '') + '<button class="btn btn-sm' + (r.join ? '' : ' btn-primary') + '" title="Tout ce qui s\'est dit au R1 et depuis" onclick="ouvrirFicheClient(' + nomJs + ',' + emailJs + ')">Revoir le dossier</button>' + assistant; // un R2 ne se prépare pas : on relit le dossier
       // brief compact du RDV ouvert
       var brief = '';
-      if (ouvert && !pres) {
+      if (ouvert && !pres && !r.r2) {
         var bj = p.d ? aujBrief(p.d) : null, lignes = [];
         if (p.d && !bj) lignes.push('<div class="fc-muted">Lecture du brief…</div>');
         else if (bj && bj.briefing) { var B = bj.briefing; if (B.mission) lignes.push('<div class="bl"><b>Besoin :</b><span>' + escapeHtml(B.mission) + '</span></div>'); if (B.il_a_dit && B.il_a_dit.length) lignes.push('<div class="bl"><b>Il a dit :</b><span>' + escapeHtml(B.il_a_dit[0]) + '</span></div>'); if (B.angle) lignes.push('<div class="bl"><b>Angle :</b><span>' + escapeHtml(B.angle) + '</span></div>'); if (B.questions && B.questions.length) lignes.push('<div class="bl"><b>À vérifier :</b><span>' + escapeHtml(B.questions.slice(0, 2).join(' · ')) + '</span></div>'); if (B.pieges && B.pieges.length) lignes.push('<div class="bl"><b>⚠ Piège :</b><span>' + escapeHtml(B.pieges[0]) + '</span></div>'); }
