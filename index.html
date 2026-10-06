@@ -3980,6 +3980,16 @@ function fcRendreContact() {
   try { fcRendreProchaineEtape(); } catch (e) {}
 }
 // Prochaine étape : la réponse à « que dois-je faire maintenant ? » — RDV à venir, R2 calé, tâche Close / relance datée, ou rien (→ à décider)
+// Depuis la fiche : les mêmes boutons que dans le Suivi, sur la tâche Close de la personne (appeler, sans réponse, joint, pas intéressé, déplacer, prendre un RDV, manager, clôturer)
+function fcItemSuiviPour(t) { try { var it = (window._rlItems || []).find(function(x) { return x.t && x.t.id === t.id; }); if (!it) { window._rlItems = rlConstruireItems(rlIso(new Date())).items; it = window._rlItems.find(function(x) { return x.t && x.t.id === t.id; }); } return it || null; } catch (e) { return null; } }
+function fcBoutonsSuivi(it) {
+  var cleJs = JSON.stringify(it.cle).replace(/"/g, '&quot;'), A = function(action, lib, cls, titre) { return '<button class="btn btn-sm' + (cls ? ' ' + cls : '') + '" title="' + escapeHtml(titre || '') + '" onclick="rlAction(' + cleJs + ', \'' + action + '\', this);setTimeout(function(){try{fcRendre()}catch(e){}},1500)">' + lib + '</button>'; };
+  return '<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;">'
+    + '<button class="btn btn-sm btn-primary" title="Close compose directement ; Alt + clic = ouvrir la fiche" onclick="svAppeler(event,' + cleJs + ')">📞 Appeler</button>'
+    + A('pas_reponse', '📭 Sans réponse', 'sv-orange', 'Appel loggé dans Close, tâche décalée selon la cadence') + A('joint', '🤝 Joint', 'sv-vert', 'Il demande qu\'on le rappelle à une date') + A('pas_interesse', '✋ Pas intéressé', 'sv-rouge', 'Close en Not interested, tâche terminée')
+    + '<button class="btn btn-sm" onclick="svDemain(' + cleJs + ');setTimeout(function(){try{fcRendre()}catch(e){}},1500)">⏭ Déplacer à demain</button><button class="btn btn-sm" onclick="svDeplacer(' + cleJs + ')">📅 Déplacer au…</button>'
+    + A('rdv_pris', '📆 Prendre un RDV', 'btn-primary', 'Tu choisis le créneau, je réserve dans Calendly, la tâche est terminée') + A('manager', '👔 Passer au manager', 'sv-bleu', 'Note épinglée + tâche pour ' + RL_MANAGER) + A('supprimer', '✅ Clôturer la tâche', '', 'La tâche Close est terminée') + '</div>';
+}
 function fcRendreProchaineEtape() {
   var el = document.getElementById('fc-next'); if (!el) return;
   var last = _fc.rows[0]; if (!last) { el.innerHTML = ''; return; }
@@ -3998,15 +4008,17 @@ function fcRendreProchaineEtape() {
     var t = (_tachesClose && _tachesClose.taches || []).find(function(x) { return [x.fiche, x.contact].concat(x.contacts || []).some(function(y) { var yn = fcNormNom(y || ''); return yn && (yn === n || rlMemePersonne(yn, n)); }); });
     var dateRel = (t && t.date) || (last.relanceDate && !last.relanceFait ? last.relanceDate : '');
     if (sv && sv.escalade) { lib = 'Passé à ' + (sv.escalade.a || RL_MANAGER); det = 'le ' + fcFrDepuisIso(sv.escalade.date) + ' — en attente de son retour'; }
-    else if (dateRel) { var ret = dateRel < todayIso; lib = (ret ? '⏰ À rappeler depuis le ' : 'À rappeler le ') + fcFrDepuisIso(dateRel); det = (t && t.texte && !/^follow ?up/i.test(t.texte) ? t.texte : (last.relanceCond || '')) + (sv && sv.tentatives ? (det ? ' · ' : '') + sv.tentatives + ' appel(s) sans réponse' : ''); acts.push('<button class="btn btn-sm btn-primary" onclick="fcAppelerDepuisFiche()">Appeler</button>', '<button class="btn btn-sm" onclick="fcPopupSuivi(' + suiviArg + ')">Décaler</button>'); }
+    else if (dateRel) { var ret = dateRel < todayIso; lib = (ret ? '⏰ À rappeler depuis le ' : 'À rappeler le ') + fcFrDepuisIso(dateRel); det = (t && t.texte && !/^follow ?up/i.test(t.texte) ? t.texte : (last.relanceCond || '')) + (sv && sv.tentatives ? (det ? ' · ' : '') + sv.tentatives + ' appel(s) sans réponse' : ''); var itS = t ? fcItemSuiviPour(t) : null;
+      if (itS) acts.push(fcBoutonsSuivi(itS)); else acts.push('<button class="btn btn-sm btn-primary" onclick="fcAppelerDepuisFiche()">📞 Appeler</button>', '<button class="btn btn-sm" onclick="fcPopupSuivi(' + suiviArg + ')">📅 Décaler</button>'); }
     else if (last.result === 'Signé') { lib = 'Client signé' + (last.dateSignature ? ' le ' + last.dateSignature : ''); det = 'Onboarding et vitrine côté RealAdvisor'; }
     else if (last.result === 'Non signé' && last.nosignRaison === 'pasinteresse') { lib = 'Pas intéressé'; det = 'Dossier clos'; }
     else if (['No Show', 'Annulé', 'Reprogrammé'].indexOf(String(last.presence || '').trim()) >= 0) { lib = String(last.presence).trim() + ' le ' + last.date; det = 'Aucune relance posée'; acts.push('<button class="btn btn-sm btn-primary" onclick="fcPopupSuivi(' + suiviArg + ')">Me mettre un rappel</button>'); }
     else { lib = 'Aucune prochaine étape'; det = SD_INTERESSE.indexOf(String(last.result || '').trim()) >= 0 ? 'Intéressé sans suite : R2 ou rappel ?' : 'À décider'; acts.push('<button class="btn btn-sm btn-primary" onclick="fcPopupSuivi(' + suiviArg + ')">Poser une suite</button>'); }
   }
-  el.innerHTML = '<div><div class="lab">Prochaine étape</div><div class="q">' + escapeHtml(lib) + '</div>' + (det ? '<div class="d">' + escapeHtml(det) + '</div>' : '') + '</div><div class="acts">' + acts.join('') + '<button class="btn btn-sm" title="Calendly pré-rempli" onclick="fcCalendlyDepuisFiche()">📆 Caler un RDV</button></div>';
+  el.innerHTML = '<div><div class="lab">Prochaine étape</div><div class="q">' + escapeHtml(lib) + '</div>' + (det ? '<div class="d">' + escapeHtml(det) + '</div>' : '') + '</div><div class="acts">' + acts.join('') + (acts.some(function(x) { return /Prendre un RDV/.test(x); }) ? '' : '<button class="btn btn-sm" title="Tu choisis le créneau, je réserve dans Calendly" onclick="fcCalerRdvDepuisFiche()">📆 Caler un RDV</button>') + '</div>';
 }
 function fcAppelerDepuisFiche() { var a = document.querySelector('#fc-contact a[href^="tel:"]'); if (a) a.click(); else if (typeof showCopyToast === 'function') showCopyToast('Pas de numéro sur la fiche'); }
+function fcCalerRdvDepuisFiche() { var last = _fc.rows[0] || {}, r2 = SD_INTERESSE.indexOf(String(last.result || '').trim()) >= 0; if (typeof COPILOT_URL === 'undefined') { fcCalendlyDepuisFiche(); return; } var lead = _fc.rows.map(function(r) { return r.closeLead; }).find(Boolean) || sdLeadPour(_fc.nom, _fc.email || '') || ''; sdReserverCalendly({ type: r2 ? 'r2' : 'r1', nom: _fc.nom, email: _fc.email || last.email || '', tel: '', cp: last.cp || '', lead: lead, cle: '' }, function(j) { if (typeof showCopyToast === 'function') showCopyToast('✓ RDV réservé : ' + fcFrDepuisIso(j.date) + ' à ' + j.heure); try { refreshAll(); } catch (e) {} fcRendre(); }); }
 function fcCalendlyDepuisFiche() { var last = _fc.rows[0] || {}; var faux = { cle: 'fiche', nom: _fc.nom, col: SD_INTERESSE.indexOf(String(last.result || '').trim()) >= 0 ? 'r2' : 'rdv', rel: null, row: last, t: null }; window._rlItems = (window._rlItems || []).filter(function(x) { return x.cle !== 'fiche'; }).concat([faux]); rlCalendly('fiche'); }
 // Suivi : R2 planifié / relance (locale ou copilot) / rien → à décider
 function fcIsoDepuisFr(d) { var m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(d || ''); return m ? m[3] + '-' + m[2] + '-' + m[1] : ''; }
