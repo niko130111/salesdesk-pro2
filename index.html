@@ -568,8 +568,8 @@ main { max-width: 100%; margin: 0; padding: 6px 8px; }
 @media (max-width: 1000px) { .au-grille { grid-template-columns: 1fr; } .au-int .l { grid-template-columns: 1fr auto; } .au-int .l .q { grid-column: 1 / -1; } }
 .fc-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.25); z-index: 1200; }
 .fc-overlay.open { display: block; }
-.fc-panel { position: absolute; top: 0; right: 0; bottom: 0; width: 760px; max-width: 96vw; background: var(--bg); box-shadow: -12px 0 40px rgba(0,0,0,0.18); display: flex; flex-direction: column; }
-.fc-head { padding: 22px 26px 14px; background: var(--surface); border-bottom: 1px solid var(--border); }
+.fc-panel { position: absolute; top: 0; right: 0; bottom: 0; width: 760px; max-width: 96vw; background: var(--bg); box-shadow: -12px 0 40px rgba(0,0,0,0.18); display: flex; flex-direction: column; overflow-y: auto; } /* tout le panneau défile : l'en-tête (avant d'appeler, dossier en bref) peut être long */
+.fc-head { flex: none; padding: 22px 26px 14px; background: var(--surface); border-bottom: 1px solid var(--border); }
 .fc-nom { font-size: 26px; font-weight: 700; display: flex; align-items: center; gap: 12px; letter-spacing: -.01em; }
 .fc-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 .fc-chip { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; padding: 7px 12px; border-radius: 10px; background: var(--surface2); color: var(--text); text-decoration: none; border: 1px solid var(--border); }
@@ -743,7 +743,7 @@ main { max-width: 100%; margin: 0; padding: 6px 8px; }
 .fc-tabs { display: flex; gap: 4px; padding: 10px 26px 0; background: var(--surface); border-bottom: 1px solid var(--border); }
 .fc-tab { border: 0; background: transparent; padding: 10px 14px; font-family: var(--font); font-size: 13.5px; font-weight: 600; color: var(--text3); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; }
 .fc-tab.on { color: var(--accent); border-bottom-color: var(--accent); }
-.fc-body { flex: 1; overflow: auto; padding: 20px 26px 28px; font-size: 13.5px; line-height: 1.55; }
+.fc-body { flex: none; padding: 20px 26px 28px; font-size: 13.5px; line-height: 1.55; }
 .fc-tl { position: relative; padding-left: 2px; }
 .fc-tl-jour { font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--text3); margin: 14px 0 6px; display: flex; gap: 8px; align-items: center; }
 .fc-tl-jour .tag { font-weight: 600; letter-spacing: 0; text-transform: none; font-size: 11px; padding: 1px 7px; border-radius: 999px; background: var(--soft-green); color: var(--green); }
