@@ -4925,6 +4925,14 @@ function sdRdvPasse(r) { var d = parseDateFR(r && r.date); if (!d) return false;
 function sdApresRdvPour(nom, date) { // date : jj/mm/aaaa ou aaaa-mm-jj ; sans date → dernier RDV passé du nom
   var fr = /^\d{4}-\d{2}-\d{2}$/.test(date || '') ? fcFrDepuisIso(date) : String(date || '').trim();
   var rows = fcLignesDuNom(nom), r = fr ? rows.find(function(x) { return x.date === fr; }) : null;
+  // RDV du jour venu de Calendly sans ligne SalesDesk (un R2 « Validation », typiquement) : on crée la ligne, reliée au R1, puis on ouvre l'écran dessus — jamais sur un autre RDV du même nom
+  if (!r && fr) { var isoJ = fcIsoDepuisFr(fr), ev = (typeof aujRdvsDu === 'function' ? aujRdvsDu(isoJ) : []).find(function(x) { return !x.row && fcNormNom(x.nom) === fcNormNom(nom); });
+    if (ev && ev.r2) { var st = loadStore(), mk = isoJ.slice(0, 7), r1 = rows.filter(function(x) { return x.source !== 'R2'; }).sort(function(x, y) { return (parseDateFR(y.date) || 0) - (parseDateFR(x.date) || 0); })[0] || null;
+      var ligne = { client: nom, date: fr, heure: ev.heure || '', source: 'R2', type: (r1 && r1.type) || '', email: ev.email || (r1 && r1.email) || '', presence: '', result: '', closeLead: (r1 && r1.closeLead) || '' };
+      if (!st[mk]) st[mk] = []; st[mk].push(ligne);
+      if (r1) { var o = (st[r1._monthKey] || [])[r1._storeKey]; if (o) { o.dateR2 = fr; if (ev.heure) o.heureR2 = ev.heure; if (!o.presenceR2 || o.presenceR2 === 'Programmé') o.presenceR2 = 'Programmé'; delete o.r2Attendu; } }
+      saveStore(st); sdApresRdv(mk, st[mk].length - 1); return; }
+    if (ev) { if (typeof showCopyToast === 'function') showCopyToast('Ce RDV vient de Calendly sans ligne SalesDesk : ajoute-le avec « + Ajouter un RDV »'); return; } }
   if (!r) { var today = new Date(); today.setHours(23, 59, 59, 0); r = rows.find(function(x) { var d = parseDateFR(x.date); return d && d <= today; }); }
   if (!r) { if (typeof showCopyToast === 'function') showCopyToast('Pas de ligne SalesDesk pour ' + nom + (fr ? ' le ' + fr : '') + ' — synchronise Calendly ou ajoute le RDV'); return; }
   sdApresRdv(r._monthKey, r._storeKey);
@@ -5131,6 +5139,14 @@ function arValiderSuivi() {
     if (a.suite === 'rel' && a.relDate) { r.relanceDate = a.relDate; r.relanceCond = a.relCond; r.relanceFait = false; }
     if (a.suite === '' && a.result === 'Non signé') { delete r.relanceDate; delete r.relanceCond; }
   } else { r.result = ''; delete r.nosignRaison; }
+  if (a.estR2) { // le R1 porte les stats : on y reporte la présence au R2 et le résultat final
+    var r1s = fcLignesDuNom(r.client).filter(function(x) { return x.source !== 'R2' && (x.dateR2 === r.date || !x.dateR2 || parseDateFR(x.date) <= parseDateFR(r.date)); }).sort(function(x, y) { return (parseDateFR(y.date) || 0) - (parseDateFR(x.date) || 0); });
+    var r1 = r1s[0] ? (store[r1s[0]._monthKey] || [])[r1s[0]._storeKey] : null;
+    if (r1) { r1.dateR2 = r.date; if (r.heure) r1.heureR2 = r.heure; r1.presenceR2 = a.presence;
+      if (a.presence === 'Show' && a.result === 'Signé') { r1.result = 'Signé'; r1.pack = a.pack; r1.freq = a.freq; r1.oneshot = a.oneshot ? 'O' : 'N'; if (a.type) r1.type = a.type; if (!r1.dateSignature) r1.dateSignature = new Date().toLocaleDateString('fr-FR'); delete r1.attenteSignature; }
+      else if (a.presence === 'Show' && a.result === 'Non signé') { r1.result = 'Non signé'; r1.nosignRaison = a.raison; delete r1.attenteSignature; }
+      else if (a.presence === 'Show' && a.result === 'Attente') { r1.result = 'Intéressé'; r1.attenteSignature = true; r1.attenteDepuis = r1.attenteDepuis || new Date().toISOString().slice(0, 10); } }
+  }
   if (a.note !== (r.retour || '')) r.retour = a.note;
   // traité dans le Quotidien (clé nom|date)
   if (!store._processedRdvs) store._processedRdvs = {};
