@@ -4024,6 +4024,8 @@ function fcChargerDernierContact(force, leadId) {
   el.innerHTML = '<div class="t"><span>🗣 Avant d\'appeler</span></div><div class="fc-muted">lecture de Close' + (force ? ' et transcription des appels enregistrés (10-20 s)' : '') + '…</div>';
   var ctrl = new AbortController(); setTimeout(function() { ctrl.abort(); }, 90000);
   var q = { email: _fc.email || '', nom: _fc.nom, force: force ? '1' : '0' }; if (leadId) { q.lead = leadId; _fc.leadChoisi = leadId; } else if (_fc.leadChoisi) q.lead = _fc.leadChoisi; else { var _lk = sdLeadPour(_fc.nom, _fc.email || ''); if (_lk) q.lead = _lk; }
+  // en deux temps : les faits tout de suite (dernier appel, journal, sans attendre le modèle), puis la synthèse complète
+  if (!force) fetch(COPILOT_URL + '/close/dernier-contact?' + new URLSearchParams(Object.assign({}, q, { rapide: '1' })), { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).then(function(j) { if (_fc.cle === cle && !_fc.dernier && j && j.trouve) { _fc.dernier = j; fcRendreDernierContact(j); if (_fc.tab === 'prepa') fcRendre(); } }).catch(function() {});
   fetch(COPILOT_URL + '/close/dernier-contact?' + new URLSearchParams(q), { mode: 'cors', cache: 'no-store', signal: ctrl.signal })
     .then(function(r) { return r.json(); }).then(function(j) { if (_fc.cle === cle) { _fc.dernier = j; fcRendreDernierContact(j); if (_fc.tab === 'prepa') fcRendre(); } })
     .catch(function() { if (_fc.cle === cle) { _fc.dernier = { error: 'copilot sans réponse' }; if (_fc.tab === 'prepa') fcRendre(); } if (_fc.cle === cle) el.innerHTML = '<div class="t"><span>🗣 Avant d\'appeler</span><a onclick="fcChargerDernierContact(true)">↻ réessayer</a></div><div class="fc-muted">Le copilot n\'a pas répondu à temps (appels longs à transcrire ?) — réessaie dans quelques secondes.</div>'; });
@@ -4047,6 +4049,7 @@ function fcRendreDernierContact(j) {
   var el = document.getElementById('fc-dernier'); if (!el) return;
   var titre = '<div class="t"><span>🗣 Avant d\'appeler</span><span style="display:flex;gap:10px;align-items:baseline;">' + (j && j.nom ? '<span class="src">d\'après la fiche Close « ' + escapeHtml(j.nom) + ' »' + (j.candidats && j.candidats.length > 1 ? ' <select onchange="fcChargerDernierContact(false,this.value)" style="font-size:11px;border-radius:6px;border:1px solid var(--border);background:var(--surface);">' + j.candidats.map(function(c) { return '<option value="' + escapeHtml(c.id) + '"' + (c.id === j.lead ? ' selected' : '') + '>' + escapeHtml(c.nom) + '</option>'; }).join('') + '</select>' : '') + '</span>' : '') + '<a onclick="fcChargerDernierContact(true)" title="Relire Close">↻</a><a onclick="fcOnglet(\'notes\')" title="Ma note">✎ ma note</a></span></div>';
   if (!j || j.configure === false || j.error || j.trouve === false) { el.innerHTML = j && j.error ? titre + '<div class="fc-muted">Close : ' + escapeHtml(j.error) + '</div>' : (j && j.trouve === false ? titre + '<div class="fc-muted">Aucune fiche Close trouvée pour ce nom / cet email.</div>' : ''); return; }
+  if (j.partiel) titre = titre.replace('🗣 Avant d\'appeler</span>', '🗣 Avant d\'appeler</span><span class="fc-muted" style="font-weight:500;">synthèse en cours…</span>'); // les faits sont là, le résumé du modèle arrive
   var faits = [], last = _fc.rows[0] || {};
   var sec = function(n) { return n >= 60 ? Math.round(n / 60) + ' min' : n + ' s'; };
   var par = function(x) { return x && x.par && !/lapeyre/i.test(x.par) ? ' par ' + x.par : ''; };
@@ -10262,6 +10265,8 @@ function prInfosSalesDesk(nom, email) {
   var LIB = { pasbudget: 'pas de budget', promo: 'à relancer si promo', carte: 'carte de prospection', rent: 'au RENT', relancer: 'à relancer', pasinteresse: 'pas intéressé', ghost: 'ghost' };
   return { date: last.date, presence: last.presence || '', result: last.result || '', raison: LIB[last.nosignRaison] || (last.result === 'Promo' ? 'à relancer si promo' : ''), retour: last.retour || '' };
 }
+// Préchauffer les fiches des prochains à appeler : le copilot prépare « avant d'appeler » en arrière-plan, au clic c'est prêt
+function sdPrechauffer(prospects) { if (typeof COPILOT_URL === 'undefined' || !prospects || !prospects.length) return; fetch(COPILOT_URL + '/close/dernier-contact/prechauffer', { method: 'POST', mode: 'cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prospects: prospects.slice(0, 10) }) }).catch(function() {}); }
 function prEcarter(lead, raison, jours, btn) {
   if (btn) btn.disabled = true;
   rlPost('/listes-appel/ecarter', { lead: lead, raison: raison, jours: jours }).then(function() { var L = (_pr.data && _pr.data.listes[_pr.liste]); if (L) { L.items = L.items.filter(function(i) { return i.id !== lead; }); L.n = L.items.length; } renderProspection(); if (typeof showCopyToast === 'function') showCopyToast(raison === 'appelé' ? '✓ Noté appelé · retiré 30 jours' : '✓ Écarté ' + jours + ' jours'); }).catch(function(e) { if (btn) btn.disabled = false; alert(e.message); });
@@ -10282,6 +10287,7 @@ function renderProspection() {
   var sel = function(v, lib) { return '<button class="btn btn-sm' + (_pr.cat === v ? ' btn-primary' : '') + '" onclick="_pr.cat=\'' + v + '\';renderProspection()">' + lib + '</button>'; };
   F.innerHTML = '<span class="fc-muted" style="margin-right:4px;">' + escapeHtml(L.pourquoi) + '</span><span style="flex:1"></span>' + sel('', 'Tous') + sel('Mandataire', 'Mandataires') + sel('Agence', 'Agences') + '<button class="btn btn-sm' + (_pr.bdrParti ? ' btn-primary' : '') + '" onclick="_pr.bdrParti=!_pr.bdrParti;renderProspection()">BDR parti</button><input type="search" placeholder="Nom, ville, réseau…" value="' + escapeHtml(_pr.q) + '" oninput="_pr.q=this.value.toLowerCase();renderProspection()" style="font-family:var(--font);font-size:13px;padding:6px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg);color:var(--text);min-width:200px;"><span class="fc-muted">' + items.length + ' / ' + L.n + ' · à jour du ' + new Date(j.at).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) + '</span>';
   var q = function(v) { return JSON.stringify(v).replace(/"/g, '&quot;'); };
+  sdPrechauffer(items.slice(0, 8).map(function(i) { return { lead: i.id, nom: i.nom, email: i.email || '' }; }));
   C.innerHTML = '<div class="auj-card" style="padding:6px 18px;">' + (items.length ? items.slice(0, 200).map(function(i) {
     var sd = prInfosSalesDesk(i.nom.split('|')[0].trim(), i.email), sdTxt = sd ? ('SalesDesk : ' + [sd.presence, sd.result, sd.raison].filter(Boolean).join(' · ') + ' le ' + sd.date + (sd.retour ? ' — ' + sd.retour.slice(0, 80) : '')) : '';
     return '<div style="display:flex;gap:12px;align-items:flex-start;padding:10px 0;border-top:1px solid var(--border);">'
@@ -11219,6 +11225,7 @@ function svRendreFile(items, today) {
   var el = document.getElementById('sv-file'); if (!el) return;
   var demain = rlJourOuvre(today, 1), fin = rlPlus(today, 7);
   var dansQuand = function(it, q) { if (!it.date) return false; if (q === 'atraiter') return it.date <= today; if (q === 'demain') return it.date === demain; return it.date > today && it.date <= fin; };
+  try { sdPrechauffer(items.filter(function(it) { return dansQuand(it, 'atraiter'); }).slice(0, 8).map(function(it) { return { lead: it.lead || (it.t && it.t.lead) || '', nom: it.nom, email: it.email || '' }; })); } catch (e) {} // les 8 prochains à appeler : fiches préparées en arrière-plan
   var nQ = function(q) { return items.filter(function(it) { return dansQuand(it, q); }).length; };
   var base = items.filter(function(it) { return dansQuand(it, _sv.quand); });
   var M = [['r2', 'R2 sans réponse'], ['nsin', 'No-show inbound'], ['nsout', 'No-show outbound'], ['rdv', 'Prise de RDV'], ['aclasser', 'À classer']];
