@@ -5023,7 +5023,7 @@ function arRendreC2() {
       out += '<div class="fc-muted" style="margin-top:6px;">Close passe en Won tout seul au paiement — rien à écrire côté statut.</div>';
     }
     if (a.result === 'Non signé') {
-      out += '<div class="ar-lab">Pourquoi</div><div class="ar-pills">' + arPill('raison', 'pasinteresse', '✗ Pas intéressé', 'ko') + arPill('raison', 'pasbudget', '💸 Pas de budget', 'warn') + arPill('raison', 'promo', '💡 Si promo', '') + arPill('raison', 'carte', '🗺️ Carte de prospection', '') + arPill('raison', 'rent', '🏢 Au RENT', '') + arPill('raison', 'ghost', '🫥 Ghost', 'warn') + '</div>';
+      out += '<div class="ar-lab">Pourquoi</div><div class="ar-pills">' + arPill('raison', 'pasinteresse', '✗ Pas intéressé', 'ko') + arPill('raison', 'relancer', '🔁 À rappeler', 'warn') + arPill('raison', 'pasbudget', '💸 Pas de budget', 'warn') + arPill('raison', 'promo', '💡 Si promo', '') + arPill('raison', 'carte', '🗺️ Carte de prospection', '') + arPill('raison', 'rent', '🏢 Au RENT', '') + arPill('raison', 'ghost', '🫥 Ghost', 'warn') + '</div>';
     }
     var veutSuite = arInt(a) || (a.result === 'Non signé' && ['pasbudget', 'promo', 'carte', 'rent', 'relancer'].indexOf(a.raison) >= 0);
     if (veutSuite) {
