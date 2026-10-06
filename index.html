@@ -4179,7 +4179,7 @@ function sdReserverCalendly(opts, cb) {
   _rv = { o: opts, cb: cb, date: '', creneaux: undefined, choix: '', choixH: '', err: '', enCours: false };
   var ov = document.getElementById('fc-dup-overlay');
   if (!ov) { ov = document.createElement('div'); ov.id = 'fc-dup-overlay'; ov.className = 'modal-overlay'; ov.style.zIndex = '1300'; ov.innerHTML = '<div class="modal" id="fc-dup-modal"></div>'; document.body.appendChild(ov); }
-  ov.onclick = function(ev) { if (ev.target === ov) { fermerModalDoublon(); _rv = null; } }; ov.classList.add('open'); sdRvRendre();
+  ov.onclick = function(ev) { if (ev.target === ov && !(_rv && _rv.enCours)) { fermerModalDoublon(); _rv = null; } }; ov.classList.add('open'); sdRvRendre(); // pendant la réservation, la fenêtre ne se ferme pas
 }
 function sdRvRendre() {
   var v = _rv; if (!v) return; var o = v.o, champ = 'font-family:var(--font);font-size:13.5px;padding:7px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg);color:var(--text);';
@@ -4193,7 +4193,7 @@ function sdRvRendre() {
     if (v.choix) h += '<div style="margin-top:10px;"><button class="btn btn-primary"' + (v.enCours ? ' disabled' : '') + ' onclick="sdRvReserver()">' + (v.enCours ? 'Réservation…' : 'Réserver ' + escapeHtml(new Date(v.date + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }) + ' à ' + v.choixH)) + '</button></div>';
     if (v.err && v.creneaux) h += '<div style="margin-top:8px;font-size:12.5px;color:var(--red);">' + escapeHtml(v.err) + '</div>';
   }
-  h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;gap:8px;">' + (o.cle ? '<a class="fc-muted" style="font-size:12px;cursor:pointer;" onclick="sdRvSecours()">ou la page Calendly pré-remplie ↗ (puis tu me donnes la date : la tâche sera terminée)</a>' : '<span></span>') + '<button class="btn" onclick="fermerModalDoublon();_rv=null;">Annuler</button></div></div>';
+  h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;gap:8px;">' + (o.cle ? '<a class="fc-muted" style="font-size:12px;cursor:pointer;" onclick="sdRvSecours()">ou la page Calendly pré-remplie ↗ (puis tu me donnes la date : la tâche sera terminée)</a>' : '<span></span>') + '<button class="btn"' + (v.enCours ? ' disabled' : '') + ' onclick="fermerModalDoublon();_rv=null;">Annuler</button></div></div>';
   document.getElementById('fc-dup-modal').innerHTML = h;
 }
 function sdRvSecours() { // réservation faite sur la page Calendly : on ouvre la page, puis on demande la date pour terminer la tâche et poser la suite comme si c'était réservé d'ici
@@ -4209,10 +4209,10 @@ function sdRvDate(d) {
 function sdRvReserver() {
   var v = _rv; if (!v || !v.choix || v.enCours) return; v.enCours = true; v.err = ''; sdRvRendre();
   rlPost('/calendly/reserver', { type: v.o.type, debut: v.choix, nom: v.o.nom, email: v.o.email || '', tel: v.o.tel || '', cp: v.o.cp || '', lead: v.o.lead || '' }).then(function(j) {
-    if (_rv !== v) return; fermerModalDoublon(); _rv = null;
+    if (_rv === v) { fermerModalDoublon(); _rv = null; } // fenêtre déjà fermée : le RDV existe quand même dans Calendly, on termine la suite (tâche Close, ligne SalesDesk)
     if (typeof showCopyToast === 'function') showCopyToast('✓ RDV réservé dans Calendly : ' + fcFrDepuisIso(j.date) + ' à ' + j.heure);
     try { _auj.calEtat = {}; _auj.cal = {}; } catch (e) {} if (v.cb) v.cb(j);
-  }).catch(function(e) { if (_rv !== v) return; v.enCours = false; v.err = e.message; sdRvRendre(); });
+  }).catch(function(e) { if (_rv !== v) { if (typeof showCopyToast === 'function') showCopyToast('✗ Réservation Calendly refusée : ' + e.message); return; } v.enCours = false; v.err = e.message; sdRvRendre(); });
 }
 function rlDateModal(titre, texte, dateDefaut, cb, avecHeure) {
   var ov = document.getElementById('fc-dup-overlay');
