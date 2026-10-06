@@ -11261,7 +11261,24 @@ function svCharger(it) { // contexte Close du prospect choisi (une fois par pros
   fetch(COPILOT_URL + '/close/contact?' + new URLSearchParams({ email: email, nom: it.nom }), { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); })
     .then(function(j) { var l = (j.leads || []).find(function(x) { return !lead || x.id === lead; }) || (j.leads || [])[0]; var tel = ''; if (l) (l.contacts || []).some(function(c) { tel = ((c.tels || [])[0]) || ''; return !!tel; }); _sv.tel[cle] = { tel: tel, url: l ? l.url : '' }; if (_sv.sel === cle) renderRelancesPage(); }).catch(function() {});
 }
-function svAppeler(ev, cle) { var x = _sv.tel[cle] || {}, it = (window._rlItems || []).find(function(i) { return i.cle === cle; }); var url = x.url || (it && it.t && it.t.lead ? 'https://app.close.com/lead/' + it.t.lead + '/' : ''); if (!url) { if (typeof showCopyToast === 'function') showCopyToast('Fiche Close introuvable pour cet appel'); return; } fcAppeler(ev, x.tel || '', url); }
+function svAppeler(ev, cle) { var x = _sv.tel[cle] || {}, it = (window._rlItems || []).find(function(i) { return i.cle === cle; }); var url = x.url || (it && it.t && it.t.lead ? 'https://app.close.com/lead/' + it.t.lead + '/' : ''); if (!url) { if (typeof showCopyToast === 'function') showCopyToast('Fiche Close introuvable pour cet appel'); return; } fcAppeler(ev, x.tel || '', url); svApresAppel(cle); }
+// Après « Appeler » : une seule fenêtre pour dire ce qui s'est passé (sans réponse, joint, RDV pris, clôturer, manager). Elle reste ouverte pendant l'appel ; « Plus tard » la ferme sans rien faire.
+function svApresAppel(cle) {
+  var it = (window._rlItems || []).find(function(i) { return i.cle === cle; }); if (!it) return;
+  var cleJs = JSON.stringify(cle).replace(/"/g, '&quot;'), nb = (rlSuivi(it).tentatives || 0);
+  var B = function(action, lib, det, cls) { return '<button class="fc-dup-item" onclick="fermerModalDoublon();rlAction(' + cleJs + ', \'' + action + '\', null)"><b' + (cls ? ' style="color:' + cls + '"' : '') + '>' + lib + '</b><div style="font-size:12px;color:var(--text3);">' + det + '</div></button>'; };
+  var html = '<div class="fc-dup" style="width:min(520px,84vw);max-width:100%;box-sizing:border-box;"><div style="font-size:16px;font-weight:800;margin-bottom:2px;">📞 ' + escapeHtml(it.nom) + '</div><div class="fc-muted" style="margin-bottom:12px;">' + escapeHtml(RL_LIBELLES[it.col] || it.col) + (nb ? ' · ' + nb + ' appel' + (nb > 1 ? 's' : '') + ' déjà passé' + (nb > 1 ? 's' : '') : '') + ' — qu\'est-ce que ça a donné ?</div>'
+    + B('pas_reponse', '📭 Sans réponse', 'nouvelle tâche à la prochaine étape de la cadence, SMS si prévu')
+    + B('joint', '📞 Joint, on avance', 'tu choisis la date du prochain rappel')
+    + B('rdv_pris', '📆 Prendre un RDV', 'tu choisis le créneau, je réserve dans Calendly, la tâche est terminée', 'var(--green)')
+    + B('supprimer', '✅ Clôturer la tâche', 'la tâche Close est terminée, la relance s\'arrête')
+    + B('manager', '👔 Passer au manager', 'note épinglée + tâche pour ' + RL_MANAGER + ' dans Close')
+    + '<div style="text-align:right;margin-top:12px;"><button class="btn btn-sm" onclick="fermerModalDoublon()">Plus tard</button></div></div>';
+  var ov = document.getElementById('fc-dup-overlay');
+  if (!ov) { ov = document.createElement('div'); ov.id = 'fc-dup-overlay'; ov.className = 'modal-overlay'; ov.style.zIndex = '1300'; ov.innerHTML = '<div class="modal" id="fc-dup-modal"></div>'; document.body.appendChild(ov); }
+  ov.onclick = function(ev) { if (ev.target === ov) fermerModalDoublon(); };
+  document.getElementById('fc-dup-modal').innerHTML = html; ov.classList.add('open');
+}
 // Déplacer (le « snooze » de Close) : une tâche ou toutes celles cochées, au jour choisi. Rien d'autre ne change (texte, cadence, compteur d'appels). L'heure d'une tâche est gardée.
 function svDeplacerVers(cles, date, heure) {
   var its = cles.map(function(c) { return (window._rlItems || []).find(function(i) { return i.cle === c; }); }).filter(function(i) { return i && i.t; });
