@@ -4796,7 +4796,7 @@ function fcRechercheClavier(ev) {
   var items = document.querySelectorAll('.fc-search-item'); if (!items.length) return;
   if (ev.key === 'ArrowDown') { _fcSearchSel = Math.min(items.length - 1, _fcSearchSel + 1); }
   else if (ev.key === 'ArrowUp') { _fcSearchSel = Math.max(0, _fcSearchSel - 1); }
-  else if (ev.key === 'Enter') { ev.preventDefault(); fcRechercheOuvrir(_fcSearchSel >= 0 ? _fcSearchSel : 0); return; }
+  else if (ev.key === 'Enter') { ev.preventDefault(); var el = items[_fcSearchSel >= 0 ? _fcSearchSel : 0]; if (el) el.click(); return; } // clic simulé : marche pour les résultats SalesDesk et « Dans Close »
   else return;
   ev.preventDefault(); items.forEach(function(el, i) { el.classList.toggle('sel', i === _fcSearchSel); });
 }
@@ -5223,7 +5223,7 @@ function arValiderSuivi() {
   store._processedRdvs[(r.client || '') + '|' + (r.date || '')] = { name: r.client || '', email: r.email || '', rdvDate: r.date || '', presence: r.presence, result: r.result || '', type: r.type || '', heure: r.heure || '', processedFrom: a.estR2 ? 'apres-r2' : 'apres-r1', processedDate: new Date().toLocaleDateString('fr-FR'), processedAt: new Date().toISOString() };
   saveStore(store);
   var copie = Object.assign({}, r);
-  if (a.presence === 'Show' && a.result === 'Signé' && a.resultAvant !== 'Signé') setTimeout(function() { try { sdFelicitations(r.client, copie); } catch (e) {} }, 400); // 🎆
+  if (a.presence === 'Show' && a.result === 'Signé' && a.resultAvant !== 'Signé') setTimeout(function() { try { sdFelicitations(r.client, copie, false); } catch (e) {} }, 400); // 🎆
   // Close : statut
   if (a.presence === 'Show' && a.result === 'Attente') sdStatutClose({ client: r.client, email: r.email || '', closeLead: r.closeLead || '' }, 'mail_envoye'); // en attente de signature (R1 comme R2) : opportunité → Contract Sent / Offer Sent
   else if (!a.estR2) {
@@ -10426,7 +10426,10 @@ function prInfosSalesDesk(nom, email) {
   return { date: last.date, presence: last.presence || '', result: last.result || '', raison: LIB[last.nosignRaison] || (last.result === 'Promo' ? 'à relancer si promo' : ''), retour: last.retour || '' };
 }
 // Préchauffer les fiches des prochains à appeler : le copilot prépare « avant d'appeler » en arrière-plan, au clic c'est prêt
-function sdPrechauffer(prospects) { if (typeof COPILOT_URL === 'undefined' || !prospects || !prospects.length) return; fetch(COPILOT_URL + '/close/dernier-contact/prechauffer', { method: 'POST', mode: 'cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prospects: prospects.slice(0, 40) }) }).catch(function() {}); }
+var _sdPrechauffes = {};
+function sdPrechauffer(prospects) { if (typeof COPILOT_URL === 'undefined' || !prospects || !prospects.length) return;
+  var now = Date.now(); prospects = prospects.filter(function(p) { var k = JSON.stringify([p.lead || '', p.nom || '', p.email || '']); if (_sdPrechauffes[k] && now - _sdPrechauffes[k] < 600000) return false; _sdPrechauffes[k] = now; return true; }); if (!prospects.length) return; // déjà demandé il y a moins de 10 min (chaque frappe dans Prospection relançait tout)
+  fetch(COPILOT_URL + '/close/dernier-contact/prechauffer', { method: 'POST', mode: 'cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prospects: prospects.slice(0, 40) }) }).catch(function() {}); }
 function prEcarter(lead, raison, jours, btn) {
   if (btn) btn.disabled = true;
   rlPost('/listes-appel/ecarter', { lead: lead, raison: raison, jours: jours }).then(function() { var L = (_pr.data && _pr.data.listes[_pr.liste]); if (L) { L.items = L.items.filter(function(i) { return i.id !== lead; }); L.n = L.items.length; } renderProspection(); if (typeof showCopyToast === 'function') showCopyToast(raison === 'appelé' ? '✓ Noté appelé · retiré 30 jours' : '✓ Écarté ' + jours + ' jours'); }).catch(function(e) { if (btn) btn.disabled = false; alert(e.message); });
@@ -10570,7 +10573,7 @@ function sdAqValider() {
   });
 }
 // 🎆 Félicitations à la signature : grand, coloré, avec des feux d'artifice ; la commission estimée de la ligne si on l'a
-function sdFelicitations(nom, row) {
+function sdFelicitations(nom, row, tache) { // tache === false : pas de tâche « Configurer » posée (Après le RDV)
   var comm = 0; try { comm = row ? Math.round(getComm(row)) : 0; } catch (e) {}
   var ov = document.getElementById('fc-dup-overlay');
   if (!ov) { ov = document.createElement('div'); ov.id = 'fc-dup-overlay'; ov.className = 'modal-overlay'; ov.style.zIndex = '1300'; ov.innerHTML = '<div class="modal" id="fc-dup-modal"></div>'; document.body.appendChild(ov); }
@@ -10579,7 +10582,7 @@ function sdFelicitations(nom, row) {
   document.getElementById('fc-dup-modal').innerHTML = '<div class="fc-dup sd-felic" style="width:min(520px,86vw);max-width:100%;box-sizing:border-box;text-align:center;position:relative;overflow:hidden;padding:30px 24px;">' + feux
     + '<div style="font-size:54px;line-height:1;">🎆</div><div style="font-size:30px;font-weight:900;color:var(--green);margin:10px 0 6px;">Félicitations !</div><div style="font-size:20px;font-weight:800;">' + escapeHtml(nom) + ' a signé' + (row && row.pack ? ' · ' + escapeHtml(row.pack + (row.freq ? ' ' + row.freq.toLowerCase() : '') + (row.tier ? ' ' + row.tier : '')) : '') + '</div>'
     + (comm ? '<div style="font-size:24px;font-weight:900;color:var(--purple);margin-top:10px;">+ ' + comm.toLocaleString('fr-FR') + ' € de commission</div>' : '')
-    + '<div class="fc-muted" style="margin-top:12px;">Tâche « Configurer » posée pour demain, en tête de ton Suivi.</div><div style="margin-top:18px;"><button class="btn btn-primary" onclick="fermerModalDoublon()">🚀 On continue</button></div></div>';
+    + (tache === false ? '' : '<div class="fc-muted" style="margin-top:12px;">Tâche « Configurer » posée pour demain, en tête de ton Suivi.</div>') + '<div style="margin-top:18px;"><button class="btn btn-primary" onclick="fermerModalDoublon()">🚀 On continue</button></div></div>';
   ov.classList.add('open');
 }
 function sdAnnulVu(uri) { var st = loadStore(); if (st._annulations && st._annulations[uri]) { st._annulations[uri].vu = true; saveStore(st); } renderAujourdhui(); }
@@ -10754,7 +10757,7 @@ function sdVerifDemainValider() {
   // RDV annulés : ligne en Annulé (compte comme no-show), Calendly annulé, Close à jour, relance dans 2 jours ouvrés (lundi-vendredi)
   if (annules.length) { if (typeof sdBackupStore === 'function') sdBackupStore(st); var cleCal = (state.calendly && state.calendly.apiKey) || localStorage.getItem('calendly_key'), dRel = rlJourOuvre(rlIso(new Date()), 2);
     annules.forEach(function(x) { var row = x.row; row.presence = 'Annulé'; row.result = ''; row.annulePar = 'prospect'; delete row.confirme; delete row.confirmeAt; row.relanceDate = dRel; row.relanceFait = false; row.relanceCond = 'RDV annulé';
-      if (x.r.uri && cleCal) fetch(x.r.uri + '/cancellation', { method: 'POST', headers: { Authorization: 'Bearer ' + cleCal, 'Content-Type': 'application/json' }, body: JSON.stringify({ reason: 'Rendez-vous annulé' }) }).catch(function() {});
+      if (x.r.uri && cleCal) fetch(x.r.uri + '/cancellation', { method: 'POST', headers: { Authorization: 'Bearer ' + cleCal, 'Content-Type': 'application/json' }, body: JSON.stringify({ reason: 'Rendez-vous annulé' }) }).then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); }).catch(function(e) { if (typeof showCopyToast === 'function') showCopyToast('⚠️ ' + row.client + ' : Calendly n\'a pas annulé l\'événement (' + e.message + '), annule-le dans Calendly'); });
       try { sdStatutClose(Object.assign({}, row), 'annule'); } catch (e) {}
       if (typeof rlPost === 'function') rlPost('/close/taches', { nom: row.client, email: row.email || '', lead: row.closeLead || '', date: dRel, texte: 'Relancer : a annulé son RDV du ' + row.date, motif: 'rdv annulé (vérif de la veille)' }).catch(function() {}); }); }
   if (new Date().getHours() >= 13) { if (!st._verifDemain) st._verifDemain = {}; st._verifDemain[rlIso(new Date())] = { at: new Date().toISOString(), relances: aRelancer.length }; Object.keys(st._verifDemain).sort().slice(0, -30).forEach(function(k) { delete st._verifDemain[k]; }); }
