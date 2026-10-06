@@ -973,6 +973,7 @@ select.form-input { cursor: pointer; }
     <button class="nav-tab active" data-page="aujourdhui" onclick="showPage('aujourdhui',this);togglePeriodSelector(false);renderAujourdhui()"><span class="nav-ico">▦</span>Aujourd'hui</button>
     <button class="nav-tab" data-page="mesrdv" onclick="showPage('mesrdv',this);togglePeriodSelector(false);ouvrirCopilot()"><span class="nav-ico">🧭</span>Copilot</button>
     <button class="nav-tab" data-page="relances" onclick="showPage('relances',this);togglePeriodSelector(false);renderRelancesPage()"><span class="nav-ico">☎</span>Suivi<span id="nav-relances-badge" style="display:none;margin-left:6px;background:var(--red);color:#fff;font-size:10px;padding:1px 6px;border-radius:99px;font-weight:700;"></span></button>
+    <button class="nav-tab" data-page="prospection" onclick="showPage('prospection',this);togglePeriodSelector(false);renderProspection()"><span class="nav-ico">☏</span>Prospection</button>
     <button class="nav-tab" data-page="analytics" onclick="showPage('analytics',this);togglePeriodSelector(false);chargerAppelsClose();renderDaily();setTimeout(function(){try{refreshKpis();renderPerfTop();}catch(e){}},60)"><span class="nav-ico">◔</span>Performance</button>
     <div class="nav-more" id="nav-more">
       <button class="nav-tab nav-more-btn" id="nav-more-btn" onclick="navPlus(event)">Plus ▾<span id="nav-more-dot" style="display:none;width:7px;height:7px;border-radius:50%;background:var(--red);margin-left:6px;vertical-align:middle;"></span></button>
@@ -2004,6 +2005,15 @@ select.form-input { cursor: pointer; }
 <!-- ===================== PIPELINE PAGE ===================== -->
 <!-- ════ PAGE RELANCES : une seule file, 4 colonnes ════ -->
 <!-- ════ PAGE CONTRÔLE : ce qui marche, ce qui ne marche pas, ce qui est parti ════ -->
+<div id="page-prospection" class="page">
+  <div class="auj">
+    <header class="auj-head"><div><h1 class="pf-h1" style="margin:0;">Prospection</h1><div class="auj-resume" id="pr-resume">Les prospects à appeler, construits chaque nuit depuis Close : jamais un RDV de moins de 2 mois (sauf BDR parti), jamais une tâche à venir, jamais un client.</div></div>
+      <div class="auj-head-actions"><button class="btn" id="pr-btn-construire" onclick="prConstruire()">↻ Reconstruire maintenant</button></div></header>
+    <div id="pr-onglets" style="display:flex;gap:6px;flex-wrap:wrap;margin:14px 0 10px;"></div>
+    <div id="pr-filtres" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px;"></div>
+    <div id="pr-corps"></div>
+  </div>
+</div>
 <div id="page-automatisations" class="page">
   <div class="auj">
     <header class="auj-head"><div><h1 class="pf-h1" style="margin:0;">Automatisations</h1><div class="auj-resume">Chaque message envoyé à un prospect, dans l'ordre où il le reçoit. Tu modifies le texte, tu allumes ou tu éteins. Rien ne part tant que c'est éteint.</div></div>
@@ -10206,6 +10216,57 @@ function renderAutoJour() { // une colonne par automatisation (mail du jour J, S
         + '</div>'; }).join('')
     + '</div></div>';
   el.innerHTML = h;
+}
+// ── Prospection : listes d'appel construites par le copilot (Close), enrichies de ce que SalesDesk sait (raison du non-signé, dernier RDV ici) ──
+var _pr = { data: null, at: 0, liste: '', cat: '', bdrParti: false, q: '', enCours: false };
+function prCharger(force) {
+  if (typeof COPILOT_URL === 'undefined') { _pr.erreur = 'Copilot éteint : les listes se lisent par lui.'; renderProspection(); return; }
+  if (_pr.enCours || (!force && _pr.data && Date.now() - _pr.at < 120000)) return; _pr.enCours = true;
+  fetch(COPILOT_URL + '/listes-appel', { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).then(function(j) { _pr.enCours = false; _pr.erreur = ''; _pr.data = j; _pr.at = Date.now(); if (!_pr.liste && j.listes) { var l = Object.values(j.listes).sort(function(a, b) { return a.ordre - b.ordre; })[0]; if (l) _pr.liste = l.cle; } renderProspection(); if (j.enCours) setTimeout(function() { prCharger(true); }, 20000); }).catch(function() { _pr.enCours = false; _pr.erreur = 'Copilot injoignable.'; renderProspection(); });
+}
+function prConstruire() {
+  if (typeof COPILOT_URL === 'undefined') return; if (!confirm('Reconstruire les listes maintenant ? Le copilot relit Close (5 à 15 minutes), les listes se mettent à jour toutes seules à la fin.')) return;
+  var b = document.getElementById('pr-btn-construire'); if (b) { b.disabled = true; b.textContent = 'Construction en cours…'; }
+  fetch(COPILOT_URL + '/listes-appel/construire', { method: 'POST', mode: 'cors', headers: { 'Content-Type': 'application/json' }, body: '{}' }).then(function(r) { return r.json(); }).then(function() { prCharger(true); }).catch(function() {}).then(function() { if (b) { b.disabled = false; b.textContent = '↻ Reconstruire maintenant'; } });
+  setTimeout(function() { prCharger(true); }, 25000);
+}
+// Ce que SalesDesk sait d'un prospect : sa dernière ligne, et la raison du non-signé (pas de budget, si promo, carte, RENT, à relancer)
+function prInfosSalesDesk(nom, email) {
+  var st = loadStore(), n = fcNormNom(nom), em = String(email || '').toLowerCase(), last = null;
+  Object.keys(st).forEach(function(k) { if (!/^\d{4}-\d{2}$/.test(k) || !Array.isArray(st[k])) return; st[k].forEach(function(r) { if (!r || !r.client) return; if (fcNormNom(r.client) === n || (em && String(r.email || '').toLowerCase() === em)) { var d = parseDateFR(r.date); if (d && (!last || d > parseDateFR(last.date))) last = r; } }); });
+  if (!last) return null;
+  var LIB = { pasbudget: 'pas de budget', promo: 'à relancer si promo', carte: 'carte de prospection', rent: 'au RENT', relancer: 'à relancer', pasinteresse: 'pas intéressé', ghost: 'ghost' };
+  return { date: last.date, presence: last.presence || '', result: last.result || '', raison: LIB[last.nosignRaison] || (last.result === 'Promo' ? 'à relancer si promo' : ''), retour: last.retour || '' };
+}
+function prEcarter(lead, raison, jours, btn) {
+  if (btn) btn.disabled = true;
+  rlPost('/listes-appel/ecarter', { lead: lead, raison: raison, jours: jours }).then(function() { var L = (_pr.data && _pr.data.listes[_pr.liste]); if (L) { L.items = L.items.filter(function(i) { return i.id !== lead; }); L.n = L.items.length; } renderProspection(); if (typeof showCopyToast === 'function') showCopyToast(raison === 'appelé' ? '✓ Noté appelé · retiré 30 jours' : '✓ Écarté ' + jours + ' jours'); }).catch(function(e) { if (btn) btn.disabled = false; alert(e.message); });
+}
+function prAppeler(ev, tel, url, lead, nom) { // ouvre la fiche Close (numéro copié), l'appel se passe et se logge là-bas ; la fiche sort de la liste 30 jours
+  fcAppeler(ev, tel, url); prEcarter(lead, 'appelé', 30, null); return false;
+}
+function renderProspection() {
+  var page = document.getElementById('page-prospection'); if (!page || !page.classList.contains('active')) return;
+  if (!_pr.data && !_pr.erreur) { prCharger(false); document.getElementById('pr-corps').innerHTML = '<div class="fc-muted">Lecture des listes…</div>'; return; }
+  var j = _pr.data, O = document.getElementById('pr-onglets'), F = document.getElementById('pr-filtres'), C = document.getElementById('pr-corps');
+  if (_pr.erreur) { O.innerHTML = ''; F.innerHTML = ''; C.innerHTML = '<div class="fc-muted">' + escapeHtml(_pr.erreur) + '</div>'; return; }
+  if (!j.pret) { O.innerHTML = ''; F.innerHTML = ''; C.innerHTML = '<div class="auj-card"><b>Les listes ne sont pas encore construites.</b><div class="fc-muted" style="margin-top:4px;">' + (j.enCours ? 'Construction en cours (' + escapeHtml((j.etat || {}).liste || '') + ', page ' + ((j.etat || {}).page || 0) + ')… elles apparaîtront toutes seules.' : 'Elles se construisent chaque nuit à 05:15. Clique « Reconstruire maintenant » pour ne pas attendre.') + '</div></div>'; return; }
+  var listes = Object.values(j.listes).sort(function(a, b) { return a.ordre - b.ordre; }); if (!j.listes[_pr.liste]) _pr.liste = listes[0].cle;
+  O.innerHTML = listes.map(function(l) { return '<button class="ar-pill' + (l.cle === _pr.liste ? ' on' : '') + '" onclick="_pr.liste=\'' + l.cle + '\';renderProspection()">' + escapeHtml(l.ordre + '. ' + l.titre) + ' <span class="auj-count">' + l.n + '</span></button>'; }).join('');
+  // ce que SalesDesk sait prime : un prospect que Nicolas a noté « pas intéressé » ou « ghost » après son RDV ne revient pas dans une liste
+  var L = j.listes[_pr.liste], items = L.items.filter(function(i) { var sd = prInfosSalesDesk(i.nom.split('|')[0].trim(), i.email); if (sd && /pas intéressé|ghost/.test(sd.raison)) return false; return (!_pr.cat || i.cat === _pr.cat) && (!_pr.bdrParti || i.ownerInactif) && (!_pr.q || (i.nom + ' ' + i.ville + ' ' + i.reseau).toLowerCase().indexOf(_pr.q) >= 0); });
+  var sel = function(v, lib) { return '<button class="btn btn-sm' + (_pr.cat === v ? ' btn-primary' : '') + '" onclick="_pr.cat=\'' + v + '\';renderProspection()">' + lib + '</button>'; };
+  F.innerHTML = '<span class="fc-muted" style="margin-right:4px;">' + escapeHtml(L.pourquoi) + '</span><span style="flex:1"></span>' + sel('', 'Tous') + sel('Mandataire', 'Mandataires') + sel('Agence', 'Agences') + '<button class="btn btn-sm' + (_pr.bdrParti ? ' btn-primary' : '') + '" onclick="_pr.bdrParti=!_pr.bdrParti;renderProspection()">BDR parti</button><input type="search" placeholder="Nom, ville, réseau…" value="' + escapeHtml(_pr.q) + '" oninput="_pr.q=this.value.toLowerCase();renderProspection()" style="font-family:var(--font);font-size:13px;padding:6px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg);color:var(--text);min-width:200px;"><span class="fc-muted">' + items.length + ' / ' + L.n + ' · à jour du ' + new Date(j.at).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) + '</span>';
+  var q = function(v) { return JSON.stringify(v).replace(/"/g, '&quot;'); };
+  C.innerHTML = '<div class="auj-card" style="padding:6px 18px;">' + (items.length ? items.slice(0, 200).map(function(i) {
+    var sd = prInfosSalesDesk(i.nom.split('|')[0].trim(), i.email), sdTxt = sd ? ('SalesDesk : ' + [sd.presence, sd.result, sd.raison].filter(Boolean).join(' · ') + ' le ' + sd.date + (sd.retour ? ' — ' + sd.retour.slice(0, 80) : '')) : '';
+    return '<div style="display:flex;gap:12px;align-items:flex-start;padding:10px 0;border-top:1px solid var(--border);">'
+      + '<div style="min-width:40px;text-align:center;"><div style="font-size:18px;font-weight:800;color:' + (i.score >= 80 ? 'var(--green)' : i.score >= 60 ? 'var(--accent)' : 'var(--text2)') + ';">' + i.score + '</div><div class="fc-muted" style="font-size:10px;">score</div></div>'
+      + '<div style="flex:1;min-width:0;"><div style="font-weight:700;"><a class="fc-nomlien" onclick="ouvrirFicheClient(' + q(i.nom.split('|')[0].trim()) + ',' + q(i.email || '') + ')">' + escapeHtml(i.nom) + '</a> <span class="auj-meta">· ' + escapeHtml([i.cat, i.reseau, i.ville || i.cp].filter(Boolean).join(' · ')) + '</span></div>'
+      + '<div style="font-size:12.5px;margin-top:2px;">' + escapeHtml(i.raisons.join(' · ')) + '</div>'
+      + (sdTxt ? '<div class="fc-muted" style="font-size:12px;margin-top:2px;">' + escapeHtml(sdTxt) + '</div>' : '')
+      + (i.ownerNom ? '<div class="fc-muted" style="font-size:11.5px;margin-top:2px;">BDR : ' + escapeHtml(i.ownerNom) + (i.ownerInactif ? ' (parti)' : '') + (i.dernierRdv ? ' · dernier RDV ' + escapeHtml(i.dernierRdv.split('-').reverse().join('/')) : '') + '</div>' : '') + '</div>'
+      + '<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;align-items:center;">' + (i.tel ? '<a class="btn btn-sm btn-primary" href="tel:' + escapeHtml(String(i.tel).replace(/\s/g, '')) + '" onclick="return prAppeler(event,' + q(i.tel) + ',' + q(i.url) + ',' + q(i.id) + ',' + q(i.nom) + ')">📞 Appeler</a>' : '<span class="fc-muted" style="font-size:12px;">sans numéro</span>') + '<a class="btn btn-sm" href="' + escapeHtml(i.url) + '" target="_blank" rel="noopener">Close ↗</a><button class="btn btn-sm" title="Retiré des listes 90 jours" onclick="prEcarter(' + q(i.id) + ',\'pas maintenant\',90,this)">Pas maintenant</button></div></div>'; }).join('') + (items.length > 200 ? '<div class="auj-etat">200 premiers affichés : affine avec les filtres.</div>' : '') : '<div class="fc-muted" style="padding:10px 0;">Rien dans cette liste avec ces filtres.</div>') + '</div>';
 }
 // ── Nouveautés du tableau de bord : RDV pris ou déplacés récemment (Calendly) et mails reçus de prospects (Close), lus par le copilot. « Vu » les retire ; ils restent dans la fiche. ──
 var _nouv = { data: null, at: 0, enCours: false };
