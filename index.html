@@ -10393,6 +10393,12 @@ function renderProspection() {
       + (i.ownerNom ? '<div class="fc-muted" style="font-size:11.5px;margin-top:2px;">BDR : ' + escapeHtml(i.ownerNom) + (i.ownerInactif ? ' (parti)' : '') + (i.dernierRdv ? ' · dernier RDV ' + escapeHtml(i.dernierRdv.split('-').reverse().join('/')) : '') + '</div>' : '') + '</div>'
       + '<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;align-items:center;">' + (i.tel ? '<a class="btn btn-sm btn-primary" href="tel:' + escapeHtml(String(i.tel).replace(/\s/g, '')) + '" onclick="return prAppeler(event,' + q(i.tel) + ',' + q(i.url) + ',' + q(i.id) + ',' + q(i.nom) + ')">📞 Appeler</a>' : '<span class="fc-muted" style="font-size:12px;">sans numéro</span>') + '<a class="btn btn-sm" href="' + escapeHtml(i.url) + '" target="_blank" rel="noopener">Close ↗</a><button class="btn btn-sm" title="Retiré des listes 90 jours" onclick="prEcarter(' + q(i.id) + ',\'pas maintenant\',90,this)">Pas maintenant</button></div></div>'; }).join('') + (items.length > 200 ? '<div class="auj-etat">200 premiers affichés : affine avec les filtres.</div>' : '') : '<div class="fc-muted" style="padding:10px 0;">Rien dans cette liste avec ces filtres.</div>') + '</div>';
 }
+// ── Heures au quart d'heure, partout : les champs heure proposent 15 min par 15 min (datalist) et refusent la minute près ──
+(function() {
+  var dl = document.createElement('datalist'); dl.id = 'sd-quarts'; var o = ''; for (var h = 6; h <= 21; h++) for (var m = 0; m < 60; m += 15) o += '<option value="' + String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0') + '"></option>'; dl.innerHTML = o; document.body.appendChild(dl);
+  var regler = function(root) { (root.querySelectorAll ? root.querySelectorAll('input[type="time"]:not([data-quarts])') : []).forEach(function(i) { i.setAttribute('step', '900'); i.setAttribute('list', 'sd-quarts'); i.dataset.quarts = '1'; i.addEventListener('change', function() { var v = i.value; if (!/^\d{2}:\d{2}$/.test(v)) return; var mn = Math.round(parseInt(v.slice(3), 10) / 15) * 15, hh = parseInt(v.slice(0, 2), 10); if (mn === 60) { mn = 0; hh = (hh + 1) % 24; } var nv = String(hh).padStart(2, '0') + ':' + String(mn).padStart(2, '0'); if (nv !== v) { i.value = nv; i.dispatchEvent(new Event('input', { bubbles: true })); } }); }); };
+  regler(document); new MutationObserver(function(ms) { ms.forEach(function(m) { m.addedNodes.forEach(function(n) { if (n.nodeType === 1) regler(n); }); }); }).observe(document.body, { childList: true, subtree: true });
+})();
 // ── Nouveautés du tableau de bord : RDV pris ou déplacés récemment (Calendly) et mails reçus de prospects (Close), lus par le copilot. « Vu » les retire ; ils restent dans la fiche. ──
 var _nouv = { data: null, at: 0, enCours: false };
 function chargerNouveautes(force) {
@@ -11340,10 +11346,11 @@ function svRendreFile(items, today) {
   try { sdPrechauffer(items.filter(function(it) { return dansQuand(it, 'atraiter'); }).slice(0, 40).map(function(it) { return { lead: it.lead || (it.t && it.t.lead) || '', nom: it.nom, email: it.email || '' }; })); } catch (e) {} // les 8 prochains à appeler : fiches préparées en arrière-plan
   var nQ = function(q) { return items.filter(function(it) { return dansQuand(it, q); }).length; };
   var base = items.filter(function(it) { return dansQuand(it, _sv.quand); });
-  var M = [['r2', 'R2 sans réponse'], ['nsin', 'No-show inbound'], ['nsout', 'No-show outbound'], ['rdv', 'Prise de RDV'], ['aclasser', 'À classer']];
+  var M = [['r2', 'R2 sans réponse'], ['nsin', 'No-show inbound'], ['nsout', 'No-show outbound'], ['rappel', 'Rappel demandé'], ['rdv', 'Prise de RDV'], ['aclasser', 'À classer']];
+  var motifDe = function(it) { try { return (it.col !== 'r2' && rlSuivi(it).dernier === 'joint') ? 'rappel' : it.col; } catch (e) { return it.col; } }; // joint et « rappelez-moi » : avant la prise de RDV
   var vis = base.filter(function(it) { return !_sv.motif || it.col === _sv.motif || (_sv.motif === 'aclasser' && !M.some(function(m) { return m[0] === it.col; })); });
   // ordre d'appel : heure fixée d'abord (dans l'ordre des heures), puis par motif ; dans un motif, l'ordre de la vue Colonnes
-  var rangM = function(it) { var i = M.findIndex(function(m) { return m[0] === it.col; }); return i < 0 ? 9 : i; };
+  var rangM = function(it) { var i = M.findIndex(function(m) { return m[0] === motifDe(it); }); return i < 0 ? 9 : i; };
   var ordre = vis.slice().sort(function(a, b) { var ha = (a.t && a.t.heure && a.date === today) ? a.t.heure : '', hb = (b.t && b.t.heure && b.date === today) ? b.t.heure : ''; if (ha || hb) return ha && hb ? ha.localeCompare(hb) : (ha ? -1 : 1); return rangM(a) - rangM(b) || vis.indexOf(a) - vis.indexOf(b); });
   if (!ordre.some(function(it) { return it.cle === _sv.sel; })) _sv.sel = ordre.length ? ordre[Math.min(_sv.idx || 0, ordre.length - 1)].cle : '';
   _sv.idx = Math.max(0, ordre.findIndex(function(it) { return it.cle === _sv.sel; }));
@@ -11356,8 +11363,8 @@ function svRendreFile(items, today) {
   // liste
   var liste = '', grp = null;
   ordre.forEach(function(it) {
-    var aHeure = it.t && it.t.heure && it.date === today, g = aHeure ? 'À heure fixée' : ((M.find(function(m) { return m[0] === it.col; }) || [0, 'À classer'])[1]);
-    if (g !== grp) { grp = g; liste += '<div class="sv-grp"><span>' + g + '</span><span>' + ordre.filter(function(x) { var ax = x.t && x.t.heure && x.date === today; return (ax ? 'À heure fixée' : ((M.find(function(m) { return m[0] === x.col; }) || [0, 'À classer'])[1])) === g; }).length + '</span></div>'; }
+    var aHeure = it.t && it.t.heure && it.date === today, g = aHeure ? 'À heure fixée' : ((M.find(function(m) { return m[0] === motifDe(it); }) || [0, 'À classer'])[1]);
+    if (g !== grp) { grp = g; liste += '<div class="sv-grp"><span>' + g + '</span><span>' + ordre.filter(function(x) { var ax = x.t && x.t.heure && x.date === today; return (ax ? 'À heure fixée' : ((M.find(function(m) { return m[0] === motifDe(x); }) || [0, 'À classer'])[1])) === g; }).length + '</span></div>'; }
     var nb = (rlSuivi(it).tentatives || 0), ret = it.date < today;
     var quand = aHeure ? it.t.heure : (ret ? 'depuis le ' + it.date.split('-').reverse().slice(0, 2).join('/') : (it.date === today ? '' : it.date.split('-').reverse().slice(0, 2).join('/')));
     var raison = [svRaison(it), nb ? nb + ' appel' + (nb > 1 ? 's' : '') + ' sans réponse' : ''].filter(Boolean).join(' · ');
