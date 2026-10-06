@@ -4138,6 +4138,44 @@ function rlIdentite(it) {
   if (!lead) { var cl = fcClients(loadStore())[fcCle(it.nom, email)] || {}; var m = /lead_[A-Za-z0-9]+/.exec(cl.closeUrl || ''); if (m) lead = m[0]; }
   return { lead: lead, nom: it.nom, email: email };
 }
+// ── Réserver un RDV dans Calendly depuis SalesDesk (R1 sur ton lien, ou R2 « Validation ») : jour → créneaux libres → un clic réserve ; Calendly met ton agenda Google à jour et envoie l'invitation. cb(j) reçoit { date, heure } ──
+var _rv = null;
+function sdReserverCalendly(opts, cb) {
+  if (typeof COPILOT_URL === 'undefined') { alert('Copilot éteint : réserve sur la page Calendly.'); return; }
+  _rv = { o: opts, cb: cb, date: '', creneaux: undefined, choix: '', choixH: '', err: '', enCours: false };
+  var ov = document.getElementById('fc-dup-overlay');
+  if (!ov) { ov = document.createElement('div'); ov.id = 'fc-dup-overlay'; ov.className = 'modal-overlay'; ov.style.zIndex = '1300'; ov.innerHTML = '<div class="modal" id="fc-dup-modal"></div>'; document.body.appendChild(ov); }
+  ov.onclick = function(ev) { if (ev.target === ov) { fermerModalDoublon(); _rv = null; } }; ov.classList.add('open'); sdRvRendre();
+}
+function sdRvRendre() {
+  var v = _rv; if (!v) return; var o = v.o, champ = 'font-family:var(--font);font-size:13.5px;padding:7px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg);color:var(--text);';
+  var h = '<div class="fc-dup" style="width:min(540px,84vw);max-width:100%;box-sizing:border-box;"><div style="font-size:16px;font-weight:700;margin-bottom:2px;">📆 ' + (o.type === 'r2' ? 'R2 « Validation & lancement »' : 'Nouveau R1') + ' — ' + escapeHtml(o.nom) + '</div><div class="fc-muted" style="margin-bottom:10px;">Choisis le jour puis l\'heure parmi tes créneaux libres. Je réserve dans Calendly : agenda Google à jour, invitation envoyée' + (o.email ? ' à ' + escapeHtml(o.email) : '') + '.</div>'
+    + '<input type="date" min="' + rlIso(new Date()) + '" value="' + escapeHtml(v.date) + '" onchange="sdRvDate(this.value)" style="' + champ + '">';
+  if (v.date) {
+    if (v.creneaux === undefined || v.creneaux === null) h += '<div class="fc-muted" style="margin-top:8px;">Lecture de tes créneaux libres…</div>';
+    else if (v.creneaux === false) h += '<div style="margin-top:8px;font-size:12.5px;color:var(--red);">' + escapeHtml(v.err || 'créneaux illisibles') + '</div>';
+    else if (!v.creneaux.length) h += '<div class="fc-muted" style="margin-top:8px;">Aucun créneau libre ce jour-là.</div>';
+    else h += '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;">' + v.creneaux.map(function(c) { return '<button class="btn btn-sm' + (v.choix === c.debut ? ' btn-primary' : '') + '"' + (v.enCours ? ' disabled' : '') + ' onclick="_rv.choix=\'' + c.debut + '\';_rv.choixH=\'' + c.heure + '\';_rv.err=\'\';sdRvRendre()">' + c.heure + '</button>'; }).join('') + '</div>';
+    if (v.choix) h += '<div style="margin-top:10px;"><button class="btn btn-primary"' + (v.enCours ? ' disabled' : '') + ' onclick="sdRvReserver()">' + (v.enCours ? 'Réservation…' : 'Réserver ' + escapeHtml(new Date(v.date + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }) + ' à ' + v.choixH)) + '</button></div>';
+    if (v.err && v.creneaux) h += '<div style="margin-top:8px;font-size:12.5px;color:var(--red);">' + escapeHtml(v.err) + '</div>';
+  }
+  h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;gap:8px;">' + (o.cle ? '<a class="fc-muted" style="font-size:12px;cursor:pointer;" onclick="fermerModalDoublon();_rv=null;rlCalendly(' + JSON.stringify(o.cle).replace(/"/g, '&quot;') + ')">ou la page Calendly pré-remplie ↗</a>' : '<span></span>') + '<button class="btn" onclick="fermerModalDoublon();_rv=null;">Annuler</button></div></div>';
+  document.getElementById('fc-dup-modal').innerHTML = h;
+}
+function sdRvDate(d) {
+  var v = _rv; if (!v) return; v.date = d; v.creneaux = null; v.choix = ''; v.err = ''; sdRvRendre(); if (!d) return;
+  fetch(COPILOT_URL + '/calendly/creneaux?' + new URLSearchParams({ type: v.o.type, date: d }), { mode: 'cors', cache: 'no-store' }).then(function(x) { return x.json(); })
+    .then(function(j) { if (_rv !== v || v.date !== d) return; if (j.ok === false) { v.creneaux = false; v.err = j.error || ''; } else v.creneaux = j.creneaux || []; sdRvRendre(); })
+    .catch(function() { if (_rv !== v || v.date !== d) return; v.creneaux = false; v.err = 'Copilot injoignable'; sdRvRendre(); });
+}
+function sdRvReserver() {
+  var v = _rv; if (!v || !v.choix || v.enCours) return; v.enCours = true; v.err = ''; sdRvRendre();
+  rlPost('/calendly/reserver', { type: v.o.type, debut: v.choix, nom: v.o.nom, email: v.o.email || '', tel: v.o.tel || '', cp: v.o.cp || '' }).then(function(j) {
+    if (_rv !== v) return; fermerModalDoublon(); _rv = null;
+    if (typeof showCopyToast === 'function') showCopyToast('✓ RDV réservé dans Calendly : ' + fcFrDepuisIso(j.date) + ' à ' + j.heure);
+    try { _auj.calEtat = {}; _auj.cal = {}; } catch (e) {} if (v.cb) v.cb(j);
+  }).catch(function(e) { if (_rv !== v) return; v.enCours = false; v.err = e.message; sdRvRendre(); });
+}
 function rlDateModal(titre, texte, dateDefaut, cb, avecHeure) {
   var ov = document.getElementById('fc-dup-overlay');
   if (!ov) { ov = document.createElement('div'); ov.id = 'fc-dup-overlay'; ov.className = 'modal-overlay'; ov.style.zIndex = '1300'; ov.innerHTML = '<div class="modal" id="fc-dup-modal"></div>'; document.body.appendChild(ov); }
@@ -4202,14 +4240,17 @@ function rlAction(ix, action, btn) {
     return;
   }
   if (action === 'rdv_pris') {
-    rlDateModal(it.nom + (it.col === 'r2' ? ' — RDV pris, date du R2' : ' — nouveau RDV pris, date'), it.col === 'r2' ? 'La tâche Close est terminée ; le R2 est posé dans SalesDesk.' : 'La tâche Close est terminée ; le nouveau RDV arrivera par Calendly dans Mes RDV.', rlJourOuvre(today, 1), function(d, h) {
+    var suiteRdvPris = function(d, h) {
       occupe(true);
       terminerClose().then(function() {
         var row = (it.rel && it.rel.row) || it.row; var st = loadStore();
         if (row && it.col === 'r2') { var trouve = null; Object.keys(st).forEach(function(k) { if (!/^\d{4}-\d{2}$/.test(k)) return; (st[k] || []).forEach(function(x) { if (x && x.client === row.client && x.date === row.date) trouve = x; }); }); if (trouve) { trouve.dateR2 = fcFrDepuisIso(d); if (h) trouve.heureR2 = h; if (!trouve.result || SD_INTERESSE.indexOf(trouve.result) >= 0) trouve.result = 'R2 planifié'; saveStore(st); } }
         rlPoserSuivi(it, { tentatives: 0, col: it.col, dernier: 'rdv_pris', prochaine: d }); rlPost('/sms/annuler-pour', { nom: it.nom, raison: 'RDV repris' }).catch(function() {}); return rlMajRelance(it, 'rdv_pris', '');
       }).then(function() { fini((it.col === 'r2' ? '📅 R2 le ' : '📅 Nouveau RDV le ') + fcFrDepuisIso(d)); if (typeof refreshAll === 'function') refreshAll(); }).catch(echec);
-    }, true);
+    };
+    // Calendly d'abord : on réserve le créneau pour de vrai (ton lien R1, ou le R2 « Validation »), puis SalesDesk et Close suivent. Sans copilot : la date à la main, le RDV à réserver sur la page Calendly.
+    if (typeof COPILOT_URL !== 'undefined') sdReserverCalendly({ type: it.col === 'r2' ? 'r2' : 'r1', nom: it.nom, email: id.email || '', tel: id.tel || '', cp: (it.row && it.row.cp) || '', cle: it.cle }, function(j) { suiteRdvPris(j.date, j.heure); });
+    else rlDateModal(it.nom + (it.col === 'r2' ? ' — RDV pris, date du R2' : ' — nouveau RDV pris, date'), 'Réserve-le sur la page Calendly ; la tâche Close est terminée.', rlJourOuvre(today, 1), suiteRdvPris, true);
     return;
   }
   if (action === 'supprimer') {
@@ -11270,7 +11311,7 @@ function svRendreFile(items, today) {
       + (gere ? '<button class="btn" title="Appel loggé dans Close, tâche décalée selon la cadence" onclick="rlAction(' + cleJs + ', \'pas_reponse\', this)">Sans réponse</button><button class="btn" title="Tu l\'as eu : il demande qu\'on le rappelle à une date" onclick="rlAction(' + cleJs + ', \'joint\', this)">Joint</button><button class="btn" title="Un RDV a été pris : la tâche est terminée" onclick="rlAction(' + cleJs + ', \'rdv_pris\', this)">RDV pris</button>'
         : (sel.rel && sel.rel.r ? '<button class="btn" onclick="relanceResultat(' + JSON.stringify(String(sel.rel.r.id)).replace(/"/g, '&quot;') + ', this)">Résultat</button>' : '')) + '</div>'
       + '<div class="sv-acts2">' + (t ? '<button class="btn" title="Déplacer au prochain jour ouvré, sans rien changer d\'autre" onclick="svDemain(' + cleJs + ')">Déplacer à demain</button><button class="btn" title="Déplacer à la date de ton choix" onclick="svDeplacer(' + cleJs + ')">Déplacer au…</button>' : '')
-      + '<button class="btn" title="Calendly pré-rempli (' + (sel.col === 'r2' ? 'R2 Validation' : 'R1') + ')" onclick="rlCalendly(' + cleJs + ')">Planifier un RDV</button>'
+      + '<button class="btn btn-primary" title="Tu choisis le créneau, je réserve dans Calendly (' + (sel.col === 'r2' ? 'R2 Validation' : 'R1 sur ton lien') + ') ; la tâche Close est terminée" onclick="rlAction(' + cleJs + ', \'rdv_pris\', this)">📆 Prendre un RDV</button>'
       + (gere ? '<button class="btn' + (sel.col === 'r2' && nbT >= 3 ? ' btn-primary' : '') + '" title="Note épinglée + tâche pour ' + RL_MANAGER + ' dans Close" onclick="rlAction(' + cleJs + ', \'manager\', this)">Passer au manager</button><button class="btn" title="La tâche Close est terminée, la relance s\'arrête" onclick="rlAction(' + cleJs + ', \'supprimer\', this)">Clôturer la tâche</button>' : '')
       + (email ? '<a class="btn" style="text-decoration:none;" href="mailto:' + escapeHtml(email) + '">Mail</a>' : '')
       + (t ? '<select title="Changer le motif" onchange="rlClasser(' + JSON.stringify(t.id).replace(/"/g, '&quot;') + ', this.value)" style="height:28px;font-size:12px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text2);"><option value="">Motif : ' + escapeHtml(motifLib) + '</option><option value="r2">R2 sans réponse</option><option value="rdv">Prise de RDV</option><option value="nsin">No-show inbound</option><option value="nsout">No-show outbound</option></select>' : '') + '</div>'
