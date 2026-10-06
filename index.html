@@ -4112,7 +4112,7 @@ function fcRendreDernierContact(j) {
 }
 // ── Traiter une tâche R2 sans réponse depuis SalesDesk : Close suit (tâche déplacée / terminée, appel sans réponse loggé, escalade manager) ──
 var RL_MANAGER = 'Anthony Gourdon';
-var RL_MOTIFS_GERES = ['r2', 'nsin', 'nsout', 'rdv']; // motifs traités depuis SalesDesk (Close suit)
+var RL_MOTIFS_GERES = ['r2', 'nsin', 'nsout', 'rdv', 'config']; // motifs traités depuis SalesDesk (Close suit)
 var RL_LIBELLES = { config: 'À configurer', r2: 'R2 sans réponse', nsin: 'No-show Inbound', nsout: 'No-show Outbound', rdv: 'Prise de RDV' };
 var RL_CADENCE = { config: [1], r2: [1], nsin: [1, 1, 2, 3, 5, 5], nsout: [1, 1, 2, 3, 5, 5], rdv: [1, 1, 2, 3, 5, 5] }; // jours ouvrés entre deux appels, puis veille 30 j
 // Brouillons SMS (jamais envoyés seuls) : copiés, ou ouverts dans Messages. Accents volontaires, ton de Nicolas.
@@ -5411,12 +5411,7 @@ function renderDeals() {
   const MONTHS_IDX = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
   const mNum = String(MONTHS_IDX.indexOf(state.month) + 1).padStart(2,'0');
   const mk = `${state.year}-${mNum}`;
-  const rows = getRdvs(state.month, state.year).filter(r => {
-    if (r.result !== 'Signé') return false;
-    if (!r.dateSignature) return true;
-    const p = r.dateSignature.split('/');
-    return p.length === 3 ? `${p[2]}-${p[1]}` === mk : true;
-  });
+  const rows = sdVentesDuMois(mk); // ventes signées ce mois (date de signature), R2 exclues
   const list = document.getElementById('deals-list');
   const cnt = document.getElementById('deals-count');
   cnt.textContent = rows.length;
@@ -6899,11 +6894,11 @@ function getLast3FinishedMonthsStats() {
     return p === 'Show' || p === 'No Show' || p === 'Annulé' || p === 'Reprogrammé';
   });
   var shows = r1Traites.filter(function(r) { return r.presence === 'Show'; });
-  var signes = allRdvs.filter(function(r) { return r.result === 'Signé'; });
+  var signes = months.reduce(function(a, mk) { return a.concat(sdVentesDuMois(mk, store)); }, []); // ventes signées sur les 3 mois, R2 exclues
   // Total réel des 3 mois : commissions des ventes + primes (palier, exceptionnelle, supplémentaire) de chaque mois
   var MI3 = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
   var totalComm = signes.reduce(function(s, r) { return s + (getComm ? getComm(r) : (r.commission||0)); }, 0)
-    + months.reduce(function(s, mk) { var nb = (store[mk] || []).filter(function(r) { return r && r.result === 'Signé'; }).length; return s + (typeof sdPrimesDuMois === 'function' ? sdPrimesDuMois(MI3[parseInt(mk.split('-')[1], 10) - 1], mk.split('-')[0], nb) : 0); }, 0);
+    + months.reduce(function(s, mk) { var nb = sdVentesDuMois(mk, store).length; return s + (typeof sdPrimesDuMois === 'function' ? sdPrimesDuMois(MI3[parseInt(mk.split('-')[1], 10) - 1], mk.split('-')[0], nb) : 0); }, 0);
   // Cycle de vente moyen sur la période (R1 → signature)
   var _cycles = signes.filter(function(r) { return r.date && r.dateSignature; }).map(function(r) {
     var p1 = String(r.date).split('/'), p2 = String(r.dateSignature).split('/');
@@ -8213,6 +8208,13 @@ function aFiniParSigner(r, set) {
   return !!(r.client && set.has(String(r.client).toLowerCase().trim()));
 }
 
+// Ventes d'un mois (YYYY-MM) : lignes R1 (jamais R2) en Signé, rangées au mois de leur date de signature ;
+// sans date de signature, la vente reste au mois du R1. Une seule définition pour toutes les pages.
+function sdVentesDuMois(monthKey, store) {
+  const out = [];
+  try { const st = store || loadStore(); Object.keys(st).forEach(k => { if (!/^\d{4}-\d{2}$/.test(k) || !Array.isArray(st[k])) return; st[k].forEach(r => { if (!r || r.result !== 'Signé' || r.source === 'R2') return; const p = String(r.dateSignature || '').split('/'); const ms = p.length === 3 ? p[2] + '-' + p[1] : k; if (ms === monthKey) out.push(r); }); }); } catch (e) {}
+  return out;
+}
 function computeKpis(month, year) {
   const rows = getRdvs(month, year);
   const MONTHS_IDX = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
@@ -8244,7 +8246,7 @@ function computeKpis(month, year) {
 
   // Signés ce mois = les ventes SIGNÉES ce mois, quel que soit le mois du R1 (date de signature ; à défaut la date du RDV). Jamais une ligne R2 (le R1 porte la vente).
   const signesRows = [];
-  try { const stAll = loadStore(); Object.keys(stAll).forEach(k => { if (!/^\d{4}-\d{2}$/.test(k) || !Array.isArray(stAll[k])) return; stAll[k].forEach(r => { if (!r || r.result !== 'Signé' || r.source === 'R2') return; const p = String(r.dateSignature || '').split('/'); const ms = p.length === 3 ? `${p[2]}-${p[1]}` : k; if (ms === monthKey) signesRows.push(r); }); }); } catch (e) {}
+  try { signesRows.push.apply(signesRows, sdVentesDuMois(monthKey)); } catch (e) {}
   const signes = signesRows.length;
   // closing = la cohorte : parmi les R1 vus ce mois, combien ont fini par signer (quel que soit le mois de signature) — un taux, pas un compte de ventes du mois
   const signesCohorte = rowsR1Traites.filter(r => r.result === 'Signé').length;
@@ -8274,12 +8276,12 @@ function computeKpis(month, year) {
 
   // Cycle de vente : R1 → signature.
   // (Anciennement libellé "Délai R1→R2" alors que le calcul n'a jamais porté sur dateR2.)
-  let delai = null;
+  let delai = null, nbDelai = 0;
   if (hasDelai) {
     const ecarts = signesRows.filter(r => r.dateSignature)
       .map(r => _ecartJours(r.date, r.dateSignature))
       .filter(v => v !== null && v >= 0);
-    delai = _moyenne(ecarts);
+    delai = _moyenne(ecarts); nbDelai = ecarts.length;
   }
 
   // Vrai délai R1 → R2, celui que le libellé annonçait.
@@ -8359,7 +8361,7 @@ function computeKpis(month, year) {
 
   return { total, shows, noshow, signes, closing, oneshot, showrate, noshowrate,
     commission, mrr, inbound, outbound, pub, rdvParJour, showsParJour, joursOuvres,
-    delai, hasDelai, hasOneShot, hasBonus, mandataires, agences, sansType, signesRows,
+    delai, nbDelai, hasDelai, hasOneShot, hasBonus, mandataires, agences, sansType, signesRows,
     delaiR1R2, nbDelaiR1R2, delaiPriseRdv, nbDelaiPriseRdv,
     reprogrammes, annules, vraisNoShow, closingCohorte, cohorteShows, cohorteSignes };
 }
@@ -8536,7 +8538,7 @@ function renderKpis(kpis) {
   if (delaiCard) delaiCard.style.display = kpis.hasDelai ? '' : 'none';
   if (kpis.hasDelai) {
     set('kpi-r1r2', kpis.delai != null ? kpis.delai + ' j' : '—');
-    set('kpi-cycle-sub', kpis.signes > 0 ? 'moyenne sur ' + kpis.signes + ' vente' + (kpis.signes > 1 ? 's' : '') + ' du mois' : 'aucune vente ce mois');
+    set('kpi-cycle-sub', kpis.nbDelai > 0 ? 'moyenne sur ' + kpis.nbDelai + ' vente' + (kpis.nbDelai > 1 ? 's' : '') + ' du mois' : 'aucune vente datée ce mois');
   }
 
   // Vrai délai R1 → R2
@@ -8640,12 +8642,7 @@ function renderCommission(kpis) {
   const monthKey = `${state.year}-${mNum}`;
 
   // Signés ce mois
-  const signesRows = rows.filter(r => {
-    if (r.result !== 'Signé') return false;
-    if (!r.dateSignature) return true;
-    const p = r.dateSignature.split('/');
-    return p.length === 3 ? `${p[2]}-${p[1]}` === monthKey : true;
-  });
+  const signesRows = sdVentesDuMois(monthKey); // même définition que les tuiles : ventes signées ce mois, R2 exclues
 
   const nbSignes = signesRows.length;
   const mensuelleRows = signesRows.filter(r => r.freq === 'Mensuelle');
@@ -11788,11 +11785,11 @@ function getMonthlyBreakdown() {
       const base   = r1Traites(rows);
       const shows  = base.filter(r => normalizePresence(r.presence) === 'Show').length;
       const noshow = base.filter(r => normalizePresence(r.presence) === 'No Show').length;
-      // Les signés restent comptés sur toutes les lignes : une vente conclue au R2
-      // porte le résultat sur la ligne R2, qui n'est pas un R1.
-      const signes = rows.filter(r => r.result === 'Sign\u00e9').length;
-      const nbSignes = rows.filter(r => r.result === 'Sign\u00e9').length;
-      const commission = rows.filter(r => r.result === 'Sign\u00e9').reduce((s,r) => s+getComm(r), 0) + sdPrimesDuMois(MFR[mIdx], yr, nbSignes); // total réel du mois, primes comprises
+      // Ventes du mois : même définition que les tuiles (mois de signature, R2 exclues).
+      const ventes = sdVentesDuMois(key, store);
+      const signes = ventes.length;
+      const nbSignes = signes;
+      const commission = ventes.reduce((s,r) => s+getComm(r), 0) + sdPrimesDuMois(MFR[mIdx], yr, nbSignes); // total réel du mois, primes comprises
       const nbRdv  = base.length;
       acc.push({
         key, label: MFR[mIdx] + ' ' + yr,
@@ -11860,12 +11857,13 @@ function renderGlobal() {
   // Un show dont la vente a été conclue au R2 n'est pas un "non signé".
   const totalNonsigne = allR1T.filter(r =>
     normalizePresence(r.presence) === 'Show' && !aFiniParSigner(r, setSignes)).length;
-  const totalSignes = all.filter(r => r.result === 'Sign\u00e9').length;
+  const ventesPeriode = filteredMonths.reduce((a, m) => a.concat(sdVentesDuMois(m.key)), []); // ventes de la période, même définition que les tuiles
+  const totalSignes = ventesPeriode.length;
   const showrate    = totalRdv   ? Math.round(totalShows  / totalRdv   * 100) : 0;
   const noshowrate  = totalRdv   ? Math.round(totalNoshow / totalRdv   * 100) : 0;
   const closing     = totalShows ? Math.round(totalSignes / totalShows * 100) : 0;
   const transfo     = totalRdv   ? Math.round(totalSignes / totalRdv   * 100) : 0;
-  const commVentes  = all.filter(r => r.result === 'Sign\u00e9').reduce((s,r) => s+getComm(r), 0);
+  const commVentes  = ventesPeriode.reduce((s,r) => s+getComm(r), 0);
   const commTotal   = filteredMonths.reduce((s, m) => s + (m.commission || 0), 0); // total réel : commissions + primes de chaque mois
   const commAvg     = totalSignes ? Math.round(commTotal / totalSignes) : 0; // moyenne par vente = total réel (primes comprises) ÷ ventes
 
@@ -11902,7 +11900,7 @@ function renderGlobal() {
   set('g-total-shows',  totalShows);
   set('g-showrate',     showrate + '%');
   // délai moyen entre le R1 et la signature, sur toutes les ventes de la période qui ont une date de signature
-  try { const _ec = all.filter(r => r.result === 'Signé' && r.source !== 'R2' && r.dateSignature && r.date).map(r => { const a = String(r.date).split('/'), b = String(r.dateSignature).split('/'); if (a.length !== 3 || b.length !== 3) return null; return Math.floor((new Date(+b[2], +b[1]-1, +b[0]) - new Date(+a[2], +a[1]-1, +a[0])) / 86400000); }).filter(v => v !== null && v >= 0);
+  try { const _ec = ventesPeriode.filter(r => r.dateSignature && r.date).map(r => { const a = String(r.date).split('/'), b = String(r.dateSignature).split('/'); if (a.length !== 3 || b.length !== 3) return null; return Math.floor((new Date(+b[2], +b[1]-1, +b[0]) - new Date(+a[2], +a[1]-1, +a[0])) / 86400000); }).filter(v => v !== null && v >= 0);
     set('g-cycle', _ec.length ? Math.round(_ec.reduce((x, y) => x + y, 0) / _ec.length) + ' j' : '—'); set('g-cycle-sub', _ec.length ? 'moyenne sur ' + _ec.length + ' vente' + (_ec.length > 1 ? 's' : '') : 'aucune vente datée'); } catch (e) {}
   set('g-total-noshows', totalNoshow);
   set('g-noshowrate',   noshowrate + '%');
