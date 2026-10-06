@@ -4182,7 +4182,7 @@ function sdRvDate(d) {
 }
 function sdRvReserver() {
   var v = _rv; if (!v || !v.choix || v.enCours) return; v.enCours = true; v.err = ''; sdRvRendre();
-  rlPost('/calendly/reserver', { type: v.o.type, debut: v.choix, nom: v.o.nom, email: v.o.email || '', tel: v.o.tel || '', cp: v.o.cp || '' }).then(function(j) {
+  rlPost('/calendly/reserver', { type: v.o.type, debut: v.choix, nom: v.o.nom, email: v.o.email || '', tel: v.o.tel || '', cp: v.o.cp || '', lead: v.o.lead || '' }).then(function(j) {
     if (_rv !== v) return; fermerModalDoublon(); _rv = null;
     if (typeof showCopyToast === 'function') showCopyToast('✓ RDV réservé dans Calendly : ' + fcFrDepuisIso(j.date) + ' à ' + j.heure);
     try { _auj.calEtat = {}; _auj.cal = {}; } catch (e) {} if (v.cb) v.cb(j);
@@ -4261,7 +4261,7 @@ function rlAction(ix, action, btn) {
       }).then(function() { fini((it.col === 'r2' ? '📅 R2 le ' : '📅 Nouveau RDV le ') + fcFrDepuisIso(d)); if (typeof refreshAll === 'function') refreshAll(); }).catch(echec);
     };
     // Calendly d'abord : on réserve le créneau pour de vrai (ton lien R1, ou le R2 « Validation »), puis SalesDesk et Close suivent. Sans copilot : la date à la main, le RDV à réserver sur la page Calendly.
-    if (typeof COPILOT_URL !== 'undefined') sdReserverCalendly({ type: it.col === 'r2' ? 'r2' : 'r1', nom: it.nom, email: id.email || '', tel: id.tel || '', cp: (it.row && it.row.cp) || '', cle: it.cle }, function(j) { suiteRdvPris(j.date, j.heure); });
+    if (typeof COPILOT_URL !== 'undefined') sdReserverCalendly({ type: it.col === 'r2' ? 'r2' : 'r1', nom: it.nom, email: id.email || '', tel: id.tel || '', cp: (it.row && it.row.cp) || '', lead: id.lead || (it.t && it.t.lead) || '', cle: it.cle }, function(j) { suiteRdvPris(j.date, j.heure); });
     else rlDateModal(it.nom + (it.col === 'r2' ? ' — RDV pris, date du R2' : ' — nouveau RDV pris, date'), 'Réserve-le sur la page Calendly ; la tâche Close est terminée.', rlJourOuvre(today, 1), suiteRdvPris, true);
     return;
   }
