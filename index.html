@@ -3921,7 +3921,7 @@ document.addEventListener('click', function(ev) { var a = ev.target && ev.target
 // Appeler : l'appli Close ne prend pas les liens tel:, donc on ouvre la fiche DANS l'application Close (closeio://) avec le numéro copié ;
 // l'appel passé là-bas est loggé et enregistré (ce qui nourrit « avant d'appeler », le compteur, l'escalade). Alt+clic = tel: classique.
 function fcAppeler(ev, tel, closeUrl) {
-  if (ev && ev.altKey) return true;
+  if (ev && ev.altKey) { if (ev.preventDefault) ev.preventDefault(); if (tel) window.location.href = 'tel:' + String(tel).replace(/\s/g, ''); return false; } // Alt + clic : le numéro part à l'application d'appel du Mac (Close s'il s'est déclaré), depuis un bouton comme depuis un lien
   if (ev) ev.preventDefault();
   try { navigator.clipboard.writeText(String(tel).replace(/\s/g, '')); } catch (e) {}
   if (closeUrl) { sdOuvrirClose(closeUrl); if (typeof showCopyToast === 'function') showCopyToast('📞 Fiche ouverte dans Close · numéro copié'); }
