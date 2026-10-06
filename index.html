@@ -1430,7 +1430,7 @@ select.form-input { cursor: pointer; }
     <div class="kpi-card">
       <div class="kpi-label">Closing</div>
       <div class="kpi-value green" id="kpi-closing">50%</div>
-      <div class="kpi-sub" title="Signés du mois / Shows du mois. Avec un cycle de 2 à 4 semaines, les deux ne portent pas sur les mêmes prospects — voir la carte « Closing cohorte ».">Signés / Shows du mois</div>
+      <div class="kpi-sub" title="Parmi les R1 vus (Show) ce mois, la part qui a signé depuis, quel que soit le mois de la signature. Un R1 de septembre signé en octobre compte dans le closing de septembre, et dans les Signés d'octobre.">des R1 vus ce mois ont signé</div>
       <div class="kpi-vs"><span id="bench-closing">—</span></div>
     </div>
     <div class="kpi-card" id="kpi-oneshot-card">
@@ -11833,8 +11833,9 @@ function getMonthlyBreakdown() {
         key, label: MFR[mIdx] + ' ' + yr,
         rdv: nbRdv, shows, noshow, signes, commission,
         showrate: nbRdv ? Math.round(shows/nbRdv*100) : 0,
-        closing:  shows ? Math.round(signes/shows*100) : 0,
-        transfo:  nbRdv ? Math.round(signes/nbRdv*100) : 0,
+        // closing et transfo = la cohorte (R1 du mois qui ont fini par signer), comme la tuile du mois ; signes et commission = ventes signées ce mois
+        closing:  shows ? Math.round(base.filter(r => r.result === 'Sign\u00e9').length/shows*100) : 0,
+        transfo:  nbRdv ? Math.round(base.filter(r => r.result === 'Sign\u00e9').length/nbRdv*100) : 0,
       });
       return acc;
     }, []);
