@@ -7510,7 +7510,10 @@ function dailyCalRenderNav() {
 // ============================================================
 const CALENDLY_OUTBOUND_URI = 'https://api.calendly.com/event_types/d6280962-6237-4f86-9d92-8320c817f400';
 
+// RDV pris par un SDR puis déplacé sur mon lien R1 : l'événement est sur mon type outbound, mais il reste Inbound (c'est le SDR qui l'a pris) et ne compte pas comme un outbound du jour
+function sdCalDeplaces() { if (!window._calDeplacesMem) { try { window._calDeplacesMem = loadStore()._calDeplaces || {}; } catch (e) { window._calDeplacesMem = {}; } } return window._calDeplacesMem; }
 function detecterSourceCalendly(ev) {
+  try { var dep = ev && ev.uri ? sdCalDeplaces()[ev.uri] : null; if (dep && dep.source) return dep.source; } catch (e) {}
   const nom = (ev.name || '').toLowerCase();
   // R2 = "Validation & lancement RealAdvisor". Priorité absolue.
   // On reste sur "validation" seul, comme le faisait fetchWeekEvents : exiger aussi
@@ -10717,7 +10720,12 @@ function sdDpDeplacer() { // le copilot réserve le nouveau créneau puis annule
       Object.keys(st).forEach(function(k) { if (/^\d{4}-\d{2}$/.test(k)) (st[k] || []).forEach(function(x) { if (x && x.source !== 'R2' && x.dateR2 === avant && fcNormNom(x.client || '') === fcNormNom(row.client || '')) x.dateR2 = fr; }); });
       if (mk !== r.row._monthKey) { st[r.row._monthKey].splice(r.row._storeKey, 1); (st[mk] = st[mk] || []).push(row); }
       saveStore(st);
-    } else if (row) { row.presence = 'Reprogrammé'; row.result = ''; saveStore(st); try { sdStatutClose(Object.assign({}, row), 'reprogramme'); } catch (e) {} }
+    } else if (row) { sdBackupStore(st); row.presence = 'Reprogrammé'; row.result = '';
+      // la nouvelle ligne tout de suite, avec la source et le type d'origine (un RDV pris par un SDR reste Inbound même déplacé sur mon lien) ; l'import Calendly la retrouvera par nom + date + heure
+      var mkN = j.date.slice(0, 7), dejaLa = (st[mkN] || []).some(function(x) { return x && x.client === row.client && x.date === fr; });
+      if (!dejaLa) { var neuf = { date: fr, heure: j.heure || '', client: row.client, email: row.email || '', source: row.source || 'Inbound', type: row.type || 'Mandataire', presence: '', result: '', pack: '', freq: '', tier: row.tier || '', fms: row.fms || '', oneshot: 'N', commission: 0, remise: '', dateR2: '', heureR2: '', datePrise: row.datePrise || '', closeLead: row.closeLead || '', typeSource: row.typeSource || '', deplaceDe: row.date, _calendlyImported: true }; (st[mkN] = st[mkN] || []).push(neuf); }
+      if (j.surMonLien && j.nouveau) { st._calDeplaces = st._calDeplaces || {}; st._calDeplaces[j.nouveau] = { source: row.source || 'Inbound', de: row.date, at: new Date().toISOString() }; window._calDeplacesMem = st._calDeplaces; }
+      saveStore(st); try { sdStatutClose(Object.assign({}, row), 'reprogramme'); } catch (e) {} }
     fermerModalDoublon(); _dp = null;
     if (j.avertissement) alert(j.avertissement);
     if (typeof showCopyToast === 'function') showCopyToast('✓ Déplacé au ' + new Date(j.date + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }) + ' à ' + j.heure);
