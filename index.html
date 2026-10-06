@@ -1025,13 +1025,13 @@ select.form-input { cursor: pointer; }
     <div id="auj-semaine" style="display:none;"></div>
     <div class="auj-grid" id="auj-grid">
       <section class="auj-main">
-        <div class="auj-card"><div class="auj-card-head"><h2>Mes rendez-vous <span class="auj-count" id="auj-rdv-count">0</span></h2><a onclick="mjAller('Mes RDV')" title="Agenda complet et copilot">Copilot ›</a></div><div id="auj-rdvs"></div></div>
+        <div class="auj-card"><div class="auj-card-head"><h2>Mes rendez-vous du jour <span class="auj-count" id="auj-rdv-count">0</span></h2><a onclick="mjAller('Mes RDV')" title="Agenda complet et copilot">Copilot ›</a></div><div id="auj-rdvs"></div></div>
         <div id="auj-apres"></div>
-        <div id="auj-auto"></div>
       </section>
       <aside class="auj-side">
         <div id="auj-nouv"></div>
         <div class="auj-card"><div class="auj-card-head"><h2>À faire <span id="auj-afaire-quand">aujourd'hui</span></h2><a onclick="mjAller('Relances')">Voir tout le suivi ›</a></div><div id="auj-suivre"></div></div>
+        <div id="auj-auto"></div>
         <div id="controle-alerte-auj" class="controle-alerte" style="display:none;"></div>
         <div class="auj-sync" id="auj-sync"></div>
       </aside>
@@ -10196,7 +10196,7 @@ function renderAutoJour() {
   var hm = function(d) { var x = new Date(d); return isNaN(x) ? '—' : x.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }); };
   var cls = function(e) { return /^(envoyé|délivré)/.test(e) ? 'green' : e === 'programmé' ? 'blue' : /erreur|échec|introuvable/.test(e) ? 'red' : 'orange'; };
   var items = j.items, max = _autoJour.ouvert ? items.length : 8;
-  var h = '<div class="auj-card"><div class="auj-card-head"><h2>Automatisations aujourd\'hui <span class="auj-count">' + items.length + '</span></h2><span class="fc-muted" style="font-size:12px;">' + j.envoyes + ' parti' + (j.envoyes > 1 ? 's' : '') + ' · ' + j.aVenir + ' à venir' + (j.problemes ? ' · <b style="color:var(--red)">' + j.problemes + ' problème' + (j.problemes > 1 ? 's' : '') + '</b>' : '') + '</span></div>';
+  var h = '<div class="auj-card"><div class="auj-card-head"><h2>Copilot aujourd\'hui <span class="auj-count">' + items.length + '</span></h2><span class="fc-muted" style="font-size:12px;">' + j.envoyes + ' parti' + (j.envoyes > 1 ? 's' : '') + ' · ' + j.aVenir + ' à venir' + (j.problemes ? ' · <b style="color:var(--red)">' + j.problemes + ' problème' + (j.problemes > 1 ? 's' : '') + '</b>' : '') + '</span></div>';
   h += items.slice(0, max).map(function(i) { return '<div class="auj-item" style="padding:6px 0;"><span class="auj-dot ' + cls(i.etat) + '"></span><span style="flex:1;min-width:0;"><div class="t" style="display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;"><span style="font-variant-numeric:tabular-nums;color:var(--text3);min-width:40px;">' + hm(i.quand) + '</span><span>' + (i.canal === 'sms' ? '💬' : '✉') + ' ' + escapeHtml(i.type) + '</span><b>→ ' + escapeHtml(i.nom) + '</b></div><div class="d">' + escapeHtml(i.etat) + (i.lu ? ' · lu ' + i.lu + '×' : '') + (i.rdv ? ' · RDV ' + escapeHtml(i.rdv.split(' ')[0].split('-').reverse().join('/') + (i.rdv.split(' ')[1] ? ' ' + i.rdv.split(' ')[1] : '')) : '') + (i.detail ? ' · ' + escapeHtml(i.detail) : '') + '</div></span></div>'; }).join('');
   if (items.length > 8) h += '<div class="auj-etat" style="cursor:pointer;" onclick="_autoJour.ouvert=!_autoJour.ouvert;renderAutoJour()">' + (_autoJour.ouvert ? 'Réduire' : '+ ' + (items.length - 8) + ' autres') + '</div>';
   el.innerHTML = h + '</div>';
