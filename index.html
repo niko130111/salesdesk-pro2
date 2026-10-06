@@ -8237,15 +8237,13 @@ function computeKpis(month, year) {
   // Total brut (pour info, R1 tous, traités + non-traités)
   const totalR1Brut = rowsR1.length;
 
-  // Signés ce mois (via dateSignature si dispo)
-  const signesRows = rows.filter(r => {
-    if (r.result !== 'Signé') return false;
-    if (!r.dateSignature) return true;
-    const p = r.dateSignature.split('/');
-    return p.length === 3 ? `${p[2]}-${p[1]}` === monthKey : true;
-  });
+  // Signés ce mois = les ventes SIGNÉES ce mois, quel que soit le mois du R1 (date de signature ; à défaut la date du RDV). Jamais une ligne R2 (le R1 porte la vente).
+  const signesRows = [];
+  try { const stAll = loadStore(); Object.keys(stAll).forEach(k => { if (!/^\d{4}-\d{2}$/.test(k) || !Array.isArray(stAll[k])) return; stAll[k].forEach(r => { if (!r || r.result !== 'Signé' || r.source === 'R2') return; const p = String(r.dateSignature || '').split('/'); const ms = p.length === 3 ? `${p[2]}-${p[1]}` : k; if (ms === monthKey) signesRows.push(r); }); }); } catch (e) {}
   const signes = signesRows.length;
-  const closing = shows > 0 ? Math.round(signes / shows * 100) : 0;
+  // closing = la cohorte : parmi les R1 vus ce mois, combien ont fini par signer (quel que soit le mois de signature) — un taux, pas un compte de ventes du mois
+  const signesCohorte = rowsR1Traites.filter(r => r.result === 'Signé').length;
+  const closing = shows > 0 ? Math.round(signesCohorte / shows * 100) : 0;
   const oneshot = hasOneShot ? rows.filter(r => r.oneshot === 'O' || r.freq === 'One Shot').length : null;
   const showrate = total > 0 ? Math.round(shows / total * 100) : 0;
   const noshowrate = total > 0 ? Math.round(noshow / total * 100) : 0;
