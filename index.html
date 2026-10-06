@@ -4255,14 +4255,14 @@ function rlAction(ix, action, btn) {
       if (!confirm(it.nom + ' : ' + nb + ' appels sans réponse. Mettre en veille 30 jours ? (la tâche Close est déplacée à J+30, elle reviendra dans ta file)')) return;
       var dv = rlJourOuvre(rlPlus(today, 29), 1);
       occupe(true);
-      tacheClose(dv, lib + ' · retour de veille · SalesDesk').then(function() { rlPoserSuivi(it, { tentatives: 0, col: it.col, dernier: 'veille', prochaine: dv, veille: today }); return rlMajRelance(it, 'plus_tard', dv); })
+      tacheClose(dv, lib + ' · retour de veille').then(function() { rlPoserSuivi(it, { tentatives: 0, col: it.col, dernier: 'veille', prochaine: dv, veille: today }); return rlMajRelance(it, 'plus_tard', dv); })
         .then(function() { fini('💤 En veille jusqu\'au ' + fcFrDepuisIso(dv)); rlProposerSms(it, id, 'dernier'); }).catch(echec);
       return;
     }
     var pas = it.col === 'r2' ? 1 : cad[Math.min(n - 1, cad.length - 1)], date = rlJourOuvre(today, pas);
     occupe(true);
     rlPost('/close/appel-sans-reponse', { lead: id.lead, nom: id.nom, email: id.email, note: 'Pas de réponse · ' + lib + ' · appel ' + n + ' (SalesDesk)' }).catch(function() {})
-      .then(function() { return tacheClose(date, lib + ' · appel ' + (n + 1) + (it.col !== 'r2' ? '/' + cad.length : '') + ' · SalesDesk'); })
+      .then(function() { return tacheClose(date, lib + ' · appel ' + (n + 1) + (it.col !== 'r2' ? '/' + cad.length : '') + ''); })
       .then(function() { rlPoserSuivi(it, { tentatives: n, col: it.col, dernier: 'pas_de_reponse', prochaine: date }); return rlMajRelance(it, 'pas_de_reponse', date); })
       .then(function() { fini('📵 Pas de réponse (' + n + ') → ' + fcFrDepuisIso(date) + (it.col === 'r2' && n >= 3 ? ' · pense à passer la main (👔)' : '')); if (it.col !== 'r2' && (n === 2 || n === 4)) rlProposerSms(it, id, n === 2 ? 'appel2' : 'appel4'); })
       .catch(echec);
@@ -4271,7 +4271,7 @@ function rlAction(ix, action, btn) {
   if (action === 'joint') {
     rlDateModal(it.nom + ' — joint, il demande qu\'on le rappelle le…', 'La tâche Close est déplacée à cette date, le compteur d\'appels repart à zéro.', rlJourOuvre(today, 1), function(d, h) {
       occupe(true);
-      tacheClose(d, (RL_LIBELLES[it.col] || it.col) + ' · joint le ' + fcFrDepuisIso(today) + ', rappeler · SalesDesk', h)
+      tacheClose(d, (RL_LIBELLES[it.col] || it.col) + ' · joint le ' + fcFrDepuisIso(today) + ', rappeler', h)
         .then(function() { rlPoserSuivi(it, { tentatives: 0, col: it.col, dernier: 'joint', prochaine: d }); rlPost('/sms/annuler-pour', { nom: it.nom, raison: 'joint' }).catch(function() {}); if (it.col === 'r2') sdSmsRappelPromis({ client: it.nom, email: id.email }, d); return rlMajRelance(it, 'joint', d); })
         .then(function() { fini('📞 Joint → rappel le ' + fcFrDepuisIso(d)); }).catch(echec);
     }, true);
@@ -4397,7 +4397,7 @@ function rlConvertirOrphelines(btn) {
   l.forEach(function(it) {
     suite = suite.then(function() {
       var id = rlIdentite(it), date = it.date && it.date > today ? it.date : rlJourOuvre(today, 1), lib = RL_LIBELLES[it.col] || 'Relance';
-      return rlPost('/close/taches', { lead: id.lead, nom: id.nom, email: id.email, date: date, texte: lib + ((it.rel.r.relance && it.rel.r.relance.condition) ? ' · ' + it.rel.r.relance.condition : '') + ' · SalesDesk', motif: 'conversion' })
+      return rlPost('/close/taches', { lead: id.lead, nom: id.nom, email: id.email, date: date, texte: lib + ((it.rel.r.relance && it.rel.r.relance.condition) ? ' · ' + it.rel.r.relance.condition : '') + '', motif: 'conversion' })
         .then(function() { n++; return rlMajRelance(it, 'plus_tard', date); }).catch(function() {});
     });
   });
@@ -4835,7 +4835,7 @@ function fcTacheCloseCreer(btn) {
   var date = (document.getElementById('fc-tc-date') || {}).value || '', heure = (document.getElementById('fc-tc-heure') || {}).value || '', texte = ((document.getElementById('fc-tc-texte') || {}).value || '').trim() || 'Rappeler';
   if (!date) { alert('Il manque la date.'); return; } btn.disabled = true; btn.textContent = 'Création…';
   var lead = _fc.rows.map(function(r) { return r.closeLead; }).find(Boolean) || sdLeadPour(_fc.nom, _fc.email || '') || '';
-  rlPost('/close/taches', { nom: _fc.nom, email: _fc.email || '', lead: lead, date: date, heure: heure, texte: texte + ' · SalesDesk', motif: 'tâche posée depuis la fiche' }).then(function(j) {
+  rlPost('/close/taches', { nom: _fc.nom, email: _fc.email || '', lead: lead, date: date, heure: heure, texte: texte + '', motif: 'tâche posée depuis la fiche' }).then(function(j) {
     fermerModalDoublon(); try { _tachesCloseAt = 0; } catch (e) {} try { majBadgeSuivi(); } catch (e) {}
     if (typeof showCopyToast === 'function') showCopyToast((j.action === 'deplacer_existante' ? '✓ Tâche Close déplacée au ' : '✓ Tâche Close créée le ') + fcFrDepuisIso(date) + (heure ? ' à ' + heure : ''));
   }).catch(function(e) { btn.disabled = false; btn.textContent = 'Créer la tâche'; alert('Tâche non créée : ' + e.message); });
@@ -4854,7 +4854,7 @@ function fcSuiviEnregistrer() {
   if (rel) { r.relanceDate = rel; r.relanceCond = cond; r.relanceFait = false; } else if (!r2) { delete r.relanceDate; }
   if (!String(r.result || '').trim() && !r2) { r.result = 'Intéressé'; if (!r.presence) r.presence = 'Show'; }
   // Close porte la date : le rappel devient une tâche Close (créée ou déplacée, jamais en double)
-  if (rel && typeof rlPost === 'function') { var colR = SD_INTERESSE.indexOf(String(r.result || '').trim()) >= 0 ? 'r2' : (['No Show', 'Annulé', 'Reprogrammé'].indexOf(String(r.presence || '').trim()) >= 0 ? (r.source === 'Outbound' ? 'nsout' : 'nsin') : 'rdv'); rlPost('/close/taches', { nom: r.client, email: r.email || '', date: rel, texte: (RL_LIBELLES[colR] || 'Relance') + (cond ? ' · ' + cond : '') + ' · SalesDesk', motif: 'rappel_fiche' }).then(function() { if (typeof showCopyToast === 'function') showCopyToast('📌 Tâche Close posée au ' + fcFrDepuisIso(rel)); if (typeof chargerTachesClose === 'function') chargerTachesClose(rlPlus(_rlLundi || rlLundiDe(rlIso(new Date())), -7), rlPlus(_rlLundi || rlLundiDe(rlIso(new Date())), 13), true); }).catch(function(e) { if (typeof showCopyToast === 'function') showCopyToast('Close : tâche non créée (' + e.message + ')'); }); }
+  if (rel && typeof rlPost === 'function') { var colR = SD_INTERESSE.indexOf(String(r.result || '').trim()) >= 0 ? 'r2' : (['No Show', 'Annulé', 'Reprogrammé'].indexOf(String(r.presence || '').trim()) >= 0 ? (r.source === 'Outbound' ? 'nsout' : 'nsin') : 'rdv'); rlPost('/close/taches', { nom: r.client, email: r.email || '', date: rel, texte: (RL_LIBELLES[colR] || 'Relance') + (cond ? ' · ' + cond : '') + '', motif: 'rappel_fiche' }).then(function() { if (typeof showCopyToast === 'function') showCopyToast('📌 Tâche Close posée au ' + fcFrDepuisIso(rel)); if (typeof chargerTachesClose === 'function') chargerTachesClose(rlPlus(_rlLundi || rlLundiDe(rlIso(new Date())), -7), rlPlus(_rlLundi || rlLundiDe(rlIso(new Date())), 13), true); }).catch(function(e) { if (typeof showCopyToast === 'function') showCopyToast('Close : tâche non créée (' + e.message + ')'); }); }
   sdSmsRappelPromis(r, rel && !r2 && SD_INTERESSE.indexOf(String(r.result || '').trim()) >= 0 ? rel : ''); // un RDV déjà qualifié (pas de budget, si promo…) garde son résultat : la relance s'ajoute par-dessus
   saveStore(store); fermerModalDoublon(); window._fcSuivi = null;
   refreshAll();
@@ -5132,7 +5132,7 @@ function arR2Reserver() {
     // la date du R2 est notée tout de suite sur la ligne, même si tu fermes sans valider le reste
     try { var st = loadStore(), row = (st[a.monthKey] || [])[a.idx]; if (row) { row.dateR2 = fcFrDepuisIso(j.date); row.heureR2 = j.heure; if (!row.presenceR2) row.presenceR2 = 'Programmé'; delete row.r2Attendu; saveStore(st); } } catch (e) {}
     // tâche Close au jour et à l'heure du R2 : il est bloqué dans Close aussi
-    rlPost('/close/taches', { nom: r.client, email: r.email || '', date: j.date, heure: j.heure, texte: 'R2 Validation & lancement à ' + j.heure + ' · SalesDesk', motif: 'r2 réservé' }).then(function() { if (typeof showCopyToast === 'function') showCopyToast('✓ Tâche Close posée le ' + fcFrDepuisIso(j.date) + ' à ' + j.heure); }).catch(function(e) { alert('R2 réservé dans Calendly, mais la tâche Close n\'a pas pu être créée : ' + e.message); });
+    rlPost('/close/taches', { nom: r.client, email: r.email || '', date: j.date, heure: j.heure, texte: 'R2 Validation & lancement à ' + j.heure + '', motif: 'r2 réservé' }).then(function() { if (typeof showCopyToast === 'function') showCopyToast('✓ Tâche Close posée le ' + fcFrDepuisIso(j.date) + ' à ' + j.heure); }).catch(function(e) { alert('R2 réservé dans Calendly, mais la tâche Close n\'a pas pu être créée : ' + e.message); });
     arRendreC2(); arRendreEcrit(); if (typeof showCopyToast === 'function') showCopyToast('✓ R2 réservé dans Calendly : invitation envoyée');
   }).catch(function(e) { if (_ar !== a) return; a.r2EnCours = false; a.r2Err = e.message; arRendreC2(); });
 }
@@ -5235,7 +5235,7 @@ function arValiderSuivi() {
   // Close : tâche de rappel (+ SMS « rappel promis » préparé si automatisation allumée)
   if (a.presence === 'Show' && a.suite === 'rel' && a.relDate && typeof rlPost === 'function') {
     var colR = arInt(a) ? 'r2' : 'rdv';
-    rlPost('/close/taches', { nom: r.client, email: r.email || '', date: a.relDate, texte: (a.result === 'Attente' ? 'Relancer : en attente de signature' + ((a.relCond && a.relCond !== 'En attente de signature') ? ' · ' + a.relCond : '') : (RL_LIBELLES[colR] || 'Relance') + (a.relCond ? ' · ' + a.relCond : '')) + ' · SalesDesk', motif: 'rappel' }).then(function(j) { var st = loadStore(); if (!st._tachesCloseSuivi) st._tachesCloseSuivi = {}; var k = (j.tache && j.tache.lead) ? j.tache.lead : 'n:' + fcNormNom(r.client); st._tachesCloseSuivi[k] = Object.assign({}, st._tachesCloseSuivi[k] || {}, { nom: r.client, col: colR, tentatives: 0, dernier: 'rappel', prochaine: a.relDate, at: new Date().toISOString() }); saveStore(st); }).catch(function(e) { if (typeof showCopyToast === 'function') showCopyToast('Tâche Close non créée : ' + e.message); });
+    rlPost('/close/taches', { nom: r.client, email: r.email || '', date: a.relDate, texte: (a.result === 'Attente' ? 'Relancer : en attente de signature' + ((a.relCond && a.relCond !== 'En attente de signature') ? ' · ' + a.relCond : '') : (RL_LIBELLES[colR] || 'Relance') + (a.relCond ? ' · ' + a.relCond : '')) + '', motif: 'rappel' }).then(function(j) { var st = loadStore(); if (!st._tachesCloseSuivi) st._tachesCloseSuivi = {}; var k = (j.tache && j.tache.lead) ? j.tache.lead : 'n:' + fcNormNom(r.client); st._tachesCloseSuivi[k] = Object.assign({}, st._tachesCloseSuivi[k] || {}, { nom: r.client, col: colR, tentatives: 0, dernier: 'rappel', prochaine: a.relDate, at: new Date().toISOString() }); saveStore(st); }).catch(function(e) { if (typeof showCopyToast === 'function') showCopyToast('Tâche Close non créée : ' + e.message); });
     try { sdSmsRappelPromis(copie, arInt(a) ? a.relDate : ''); } catch (e) {}
   }
   // No-show : relance (tâche + file + brouillon SMS) ou rien
@@ -6245,7 +6245,7 @@ function sdNoShowRelancer(nom, email, source, date, dateRdvFr, heure) {
   var r0 = window._nsRow || {}; var isoRdv = frVersIsoSd(r0.date || dateRdvFr || '');
   if (isoRdv) fetch(COPILOT_URL + '/evenement', { method: 'POST', mode: 'cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'no_show', nom: nom, date: isoRdv, email: email || '', heure: r0.heure || heure || '' }) }).then(function(r) { return r.json(); }).then(function(j) { if (j && j.sms && j.sms.sms && typeof showCopyToast === 'function') { var x = j.sms.sms; showCopyToast('💬 SMS no-show programmé à ' + new Date(x.prevu).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })); chargerSms(true); } }).catch(function() {});
   var col = source === 'Outbound' ? 'nsout' : 'nsin', lib = RL_LIBELLES[col];
-  rlPost('/close/taches', { nom: nom, email: email, date: date, texte: lib + ' · appel 1/' + RL_CADENCE[col].length + ' · SalesDesk', motif: 'no_show' })
+  rlPost('/close/taches', { nom: nom, email: email, date: date, texte: lib + ' · appel 1/' + RL_CADENCE[col].length + '', motif: 'no_show' })
     .then(function(j) { var st = loadStore(); if (!st._tachesCloseSuivi) st._tachesCloseSuivi = {}; var k = (j.tache && j.tache.lead) ? j.tache.lead : 'n:' + fcNormNom(nom); st._tachesCloseSuivi[k] = Object.assign({}, st._tachesCloseSuivi[k] || {}, { nom: nom, col: col, tentatives: 0, dernier: 'no_show', prochaine: date, at: new Date().toISOString() }); saveStore(st); fermerModalDoublon(); if (typeof showCopyToast === 'function') showCopyToast('📞 ' + nom + ' : relance le ' + fcFrDepuisIso(date) + ' (tâche Close créée)'); chargerTachesClose(rlPlus(_rlLundi || rlLundiDe(rlIso(new Date())), -7), rlPlus(_rlLundi || rlLundiDe(rlIso(new Date())), 13), true); })
     .catch(function(e) { alert('Tâche Close non créée : ' + e.message); });
 }
@@ -10558,7 +10558,7 @@ function sdAqValider() {
   q.enCours = true; sdAqRendre();
   var base = { nom: x.nom, email: row.email || '', lead: row.closeLead || '' };
   var etapes = [rlPost('/close/note', Object.assign({ note: note }, base))];
-  if (dateTache) etapes.push(rlPost('/close/taches', Object.assign({ date: dateTache, texte: 'Relancer : a annulé son RDV du ' + fr + (x.raison ? ' (' + x.raison + ')' : '') + ' · SalesDesk', motif: 'annulation' }, base)));
+  if (dateTache) etapes.push(rlPost('/close/taches', Object.assign({ date: dateTache, texte: 'Relancer : a annulé son RDV du ' + fr + (x.raison ? ' (' + x.raison + ')' : '') + '', motif: 'annulation' }, base)));
   Promise.all(etapes.map(function(p) { return p.then(function() { return ''; }, function(e) { return e.message; }); })).then(function(res) {
     if (q.choix === 'stop') { try { sdStatutClose(Object.assign({}, row), 'laisser_tomber'); } catch (e) {} }
     var err = res.filter(Boolean);
