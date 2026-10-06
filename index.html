@@ -700,7 +700,8 @@ main { max-width: 100%; margin: 0; padding: 6px 8px; }
 .rl-actions { margin-top: 8px; display: grid; gap: 4px; }
 .rl-row { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; }
 .rl-b { font-size: 11px !important; padding: 3px 8px !important; white-space: nowrap; }
-.btn.sv-orange { border-color: var(--orange); color: var(--orange); } .btn.sv-rouge { border-color: var(--red); color: var(--red); } .btn.sv-bleu { border-color: var(--accent); color: var(--accent); } .btn.sv-vert { border-color: var(--green); color: var(--green); } .btn.sv-violet { border-color: var(--purple); color: var(--purple); }
+.btn.sv-orange { border-color: var(--orange); color: var(--orange); } .btn.sv-rouge { border-color: var(--red); color: var(--red); } .btn.sv-bleu { border-color: var(--accent); color: var(--accent); } .btn.sv-vert { border-color: var(--green); color: var(--green); }
+.sd-feu { position: absolute; top: 100%; pointer-events: none; animation: sd-feu 1.8s ease-out forwards; } @keyframes sd-feu { 0% { transform: translateY(0) scale(.6); opacity: 0; } 25% { opacity: 1; } 100% { transform: translateY(-260px) scale(1.3); opacity: 0; } } .btn.sv-violet { border-color: var(--purple); color: var(--purple); }
 .controle-alerte { margin: 0 0 12px; padding: 10px 14px; border-radius: 12px; background: var(--soft-red); border: 1px solid var(--red); color: var(--red); font-size: 13px; font-weight: 600; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 .controle-alerte.orange { background: var(--soft-orange); border-color: var(--orange); color: var(--orange); }
 .ctl-ligne { display: flex; gap: 8px; align-items: flex-start; padding: 6px 0; border-top: 1px solid var(--border); font-size: 12.5px; }
@@ -4311,7 +4312,7 @@ function rlAction(ix, action, btn) {
             if (cible) { sdBackupStore(st); cible.result = 'Signé'; cible.pack = pack; cible.freq = freq; cible.tier = tier; cible.fms = fms; if (remise) cible.remise = remise; if (!cible.presence) cible.presence = 'Show'; cible.dateSignature = cible.dateSignature || new Date().toLocaleDateString('fr-FR'); delete cible.attenteSignature; delete cible.nosignRaison; delete cible.relanceDate; saveStore(st); }
             else if (typeof showCopyToast === 'function') showCopyToast('Aucune ligne de RDV SalesDesk pour ' + it.nom + ' : signature notée dans Close seulement'); } catch (e) {}
           rlPoserSuivi(it, { tentatives: 0, col: 'config', dernier: 'signe', prochaine: dConf }); return rlMajRelance(it, 'abandon', ''); })
-        .then(function() { fini('💰 Signé · à configurer demain'); try { refreshAll(); } catch (e) {} }).catch(echec);
+        .then(function() { fini('💰 Signé · à configurer demain'); try { refreshAll(); } catch (e) {} try { var stF = loadStore(), rF = null; fcLignesDuNom(it.nom).filter(function(x) { return x.source !== 'R2'; }).forEach(function(x) { if (!rF) rF = (stF[x._monthKey] || [])[x._storeKey]; }); setTimeout(function() { sdFelicitations(it.nom, rF); }, 300); } catch (e) {} }).catch(echec);
     };
     return;
   }
@@ -5215,6 +5216,7 @@ function arValiderSuivi() {
   store._processedRdvs[(r.client || '') + '|' + (r.date || '')] = { name: r.client || '', email: r.email || '', rdvDate: r.date || '', presence: r.presence, result: r.result || '', type: r.type || '', heure: r.heure || '', processedFrom: a.estR2 ? 'apres-r2' : 'apres-r1', processedDate: new Date().toLocaleDateString('fr-FR'), processedAt: new Date().toISOString() };
   saveStore(store);
   var copie = Object.assign({}, r);
+  if (a.presence === 'Show' && a.result === 'Signé' && a.resultAvant !== 'Signé') setTimeout(function() { try { sdFelicitations(r.client, copie); } catch (e) {} }, 400); // 🎆
   // Close : statut
   if (a.presence === 'Show' && a.result === 'Attente') sdStatutClose({ client: r.client, email: r.email || '', closeLead: r.closeLead || '' }, 'mail_envoye'); // en attente de signature (R1 comme R2) : opportunité → Contract Sent / Offer Sent
   else if (!a.estR2) {
@@ -10564,6 +10566,19 @@ function sdAqValider() {
     saveStore(st2); fermerModalDoublon(); _aq = null; try { _tachesCloseAt = 0; } catch (e) {} try { refreshAll(); } catch (e) {} renderAujourdhui();
     if (typeof showCopyToast === 'function') showCopyToast('✓ Fiche Close à jour : ' + suite);
   });
+}
+// 🎆 Félicitations à la signature : grand, coloré, avec des feux d'artifice ; la commission estimée de la ligne si on l'a
+function sdFelicitations(nom, row) {
+  var comm = 0; try { comm = row ? Math.round(getComm(row)) : 0; } catch (e) {}
+  var ov = document.getElementById('fc-dup-overlay');
+  if (!ov) { ov = document.createElement('div'); ov.id = 'fc-dup-overlay'; ov.className = 'modal-overlay'; ov.style.zIndex = '1300'; ov.innerHTML = '<div class="modal" id="fc-dup-modal"></div>'; document.body.appendChild(ov); }
+  ov.onclick = function(ev) { if (ev.target === ov) fermerModalDoublon(); };
+  var feux = ''; for (var i = 0; i < 14; i++) feux += '<span class="sd-feu" style="left:' + (4 + Math.random() * 92) + '%;animation-delay:' + (Math.random() * 1.2).toFixed(2) + 's;font-size:' + (18 + Math.random() * 22) + 'px;">' + ['🎆', '🎇', '✨', '🎉'][i % 4] + '</span>';
+  document.getElementById('fc-dup-modal').innerHTML = '<div class="fc-dup sd-felic" style="width:min(520px,86vw);max-width:100%;box-sizing:border-box;text-align:center;position:relative;overflow:hidden;padding:30px 24px;">' + feux
+    + '<div style="font-size:54px;line-height:1;">🎆</div><div style="font-size:30px;font-weight:900;color:var(--green);margin:10px 0 6px;">Félicitations !</div><div style="font-size:20px;font-weight:800;">' + escapeHtml(nom) + ' a signé' + (row && row.pack ? ' · ' + escapeHtml(row.pack + (row.freq ? ' ' + row.freq.toLowerCase() : '') + (row.tier ? ' ' + row.tier : '')) : '') + '</div>'
+    + (comm ? '<div style="font-size:24px;font-weight:900;color:var(--purple);margin-top:10px;">+ ' + comm.toLocaleString('fr-FR') + ' € de commission</div>' : '')
+    + '<div class="fc-muted" style="margin-top:12px;">Tâche « Configurer » posée pour demain, en tête de ton Suivi.</div><div style="margin-top:18px;"><button class="btn btn-primary" onclick="fermerModalDoublon()">🚀 On continue</button></div></div>';
+  ov.classList.add('open');
 }
 function sdAnnulVu(uri) { var st = loadStore(); if (st._annulations && st._annulations[uri]) { st._annulations[uri].vu = true; saveStore(st); } renderAujourdhui(); }
 // Les RDV d'un jour : lignes du store (base) enrichies par Calendly (heure exacte, lien visio, début/fin) ; événements Calendly sans ligne ajoutés
