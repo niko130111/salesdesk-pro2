@@ -10266,7 +10266,7 @@ function prInfosSalesDesk(nom, email) {
   return { date: last.date, presence: last.presence || '', result: last.result || '', raison: LIB[last.nosignRaison] || (last.result === 'Promo' ? 'à relancer si promo' : ''), retour: last.retour || '' };
 }
 // Préchauffer les fiches des prochains à appeler : le copilot prépare « avant d'appeler » en arrière-plan, au clic c'est prêt
-function sdPrechauffer(prospects) { if (typeof COPILOT_URL === 'undefined' || !prospects || !prospects.length) return; fetch(COPILOT_URL + '/close/dernier-contact/prechauffer', { method: 'POST', mode: 'cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prospects: prospects.slice(0, 10) }) }).catch(function() {}); }
+function sdPrechauffer(prospects) { if (typeof COPILOT_URL === 'undefined' || !prospects || !prospects.length) return; fetch(COPILOT_URL + '/close/dernier-contact/prechauffer', { method: 'POST', mode: 'cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prospects: prospects.slice(0, 40) }) }).catch(function() {}); }
 function prEcarter(lead, raison, jours, btn) {
   if (btn) btn.disabled = true;
   rlPost('/listes-appel/ecarter', { lead: lead, raison: raison, jours: jours }).then(function() { var L = (_pr.data && _pr.data.listes[_pr.liste]); if (L) { L.items = L.items.filter(function(i) { return i.id !== lead; }); L.n = L.items.length; } renderProspection(); if (typeof showCopyToast === 'function') showCopyToast(raison === 'appelé' ? '✓ Noté appelé · retiré 30 jours' : '✓ Écarté ' + jours + ' jours'); }).catch(function(e) { if (btn) btn.disabled = false; alert(e.message); });
@@ -11225,7 +11225,7 @@ function svRendreFile(items, today) {
   var el = document.getElementById('sv-file'); if (!el) return;
   var demain = rlJourOuvre(today, 1), fin = rlPlus(today, 7);
   var dansQuand = function(it, q) { if (!it.date) return false; if (q === 'atraiter') return it.date <= today; if (q === 'demain') return it.date === demain; return it.date > today && it.date <= fin; };
-  try { sdPrechauffer(items.filter(function(it) { return dansQuand(it, 'atraiter'); }).slice(0, 8).map(function(it) { return { lead: it.lead || (it.t && it.t.lead) || '', nom: it.nom, email: it.email || '' }; })); } catch (e) {} // les 8 prochains à appeler : fiches préparées en arrière-plan
+  try { sdPrechauffer(items.filter(function(it) { return dansQuand(it, 'atraiter'); }).slice(0, 40).map(function(it) { return { lead: it.lead || (it.t && it.t.lead) || '', nom: it.nom, email: it.email || '' }; })); } catch (e) {} // les 8 prochains à appeler : fiches préparées en arrière-plan
   var nQ = function(q) { return items.filter(function(it) { return dansQuand(it, q); }).length; };
   var base = items.filter(function(it) { return dansQuand(it, _sv.quand); });
   var M = [['r2', 'R2 sans réponse'], ['nsin', 'No-show inbound'], ['nsout', 'No-show outbound'], ['rdv', 'Prise de RDV'], ['aclasser', 'À classer']];
