@@ -4168,7 +4168,9 @@ function rlIdentite(it) {
   var row = (it.rel && it.rel.row) || it.row || {}, email = (it.rel && it.rel.r && it.rel.r.email) || row.email || '';
   var lead = it.t && it.t.lead ? it.t.lead : '';
   if (!lead) { var cl = fcClients(loadStore())[fcCle(it.nom, email)] || {}; var m = /lead_[A-Za-z0-9]+/.exec(cl.closeUrl || ''); if (m) lead = m[0]; }
-  return { lead: lead, nom: it.nom, email: email };
+  // téléphone : ligne SalesDesk, sinon numéro déjà lu sur la fiche Close (bouton Appeler) — le copilot retrouve la fiche par le numéro quand l'e-mail manque
+  var tel = (it.rel && it.rel.r && it.rel.r.tel) || row.tel || ((typeof _sv !== 'undefined' && _sv.tel && _sv.tel[it.cle]) || {}).tel || '';
+  return { lead: lead, nom: it.nom, email: email, tel: tel };
 }
 // ── Réserver un RDV dans Calendly depuis SalesDesk (R1 sur ton lien, ou R2 « Validation ») : jour → créneaux libres → un clic réserve ; Calendly met ton agenda Google à jour et envoie l'invitation. cb(j) reçoit { date, heure } ──
 var _rv = null;
