@@ -4006,7 +4006,7 @@ function fcRendreProchaineEtape() {
   var cible = _fc.rows.find(function(r) { return r.source !== 'R2'; }) || last;
   var suiviArg = JSON.stringify(cible._monthKey).replace(/"/g, '&quot;') + ',' + cible._storeKey;
   if (dRdv && sdRdvPasse(last) && !String(last.presence || '').trim()) { lib = (last.source === 'R2' ? 'R2' : 'Rendez-vous') + ' du ' + last.date + ' à terminer'; det = 'Présence, résultat, suite — tout s\'écrit d\'un coup'; acts.push('<button class="btn btn-sm btn-primary" onclick="sdApresRdv(' + JSON.stringify(last._monthKey).replace(/"/g, '&quot;') + ',' + last._storeKey + ')">Terminer</button>'); }
-  else if (dRdv && dRdv >= today && (!String(last.presence || '').trim() || String(last.presence).trim() === 'Reprogrammé')) { lib = (last.source === 'R2' ? 'R2' : 'Rendez-vous') + (dRdv.getTime() === today.getTime() ? ' aujourd\'hui' : ' le ' + last.date) + (last.heure ? ' à ' + last.heure : ''); det = 'À préparer, puis à terminer dans Mes RDV'; acts.push('<button class="btn btn-sm btn-primary" onclick="sdOuvrirCopilotSur(' + nomJs + ',' + JSON.stringify(frVersIsoSd(last.date)).replace(/"/g, '&quot;') + ',\'prepa\')">Préparer</button>'); }
+  else if (dRdv && dRdv >= today && (!String(last.presence || '').trim() || String(last.presence).trim() === 'Reprogrammé')) { lib = (last.source === 'R2' ? 'R2' : 'Rendez-vous') + (dRdv.getTime() === today.getTime() ? ' aujourd\'hui' : ' le ' + last.date) + (last.heure ? ' à ' + last.heure : ''); det = 'À préparer, puis à terminer dans Mes RDV'; acts.push('<button class="btn btn-sm btn-primary" onclick="sdOuvrirCopilotSur(' + nomJs + ',' + JSON.stringify(frVersIsoSd(last.date)).replace(/"/g, '&quot;') + ',\'prepa\')">Préparer</button>', '<button class="btn btn-sm" style="color:var(--red);border-color:var(--red);" title="Le prospect annule : ligne en Annulé, événement Calendly annulé, tâche de rappel dans 2 jours ouvrés, puis un mail de réponse prêt à envoyer" onclick="fcAnnulerRdvDepuisFiche()">❌ Il annule</button>'); }
   else if (last.dateR2 && String(last.dateR2).trim() && parseDateFR(last.dateR2) >= today) { lib = 'R2 le ' + last.dateR2 + (last.heureR2 ? ' à ' + last.heureR2 : ''); det = 'Validation & lancement'; acts.push('<button class="btn btn-sm" onclick="sdOuvrirCopilotSur(' + nomJs + ',' + JSON.stringify(frVersIsoSd(last.dateR2)).replace(/"/g, '&quot;') + ',\'prepa\')">Préparer le R2</button>'); }
   else {
     // tâche Close / relance datée (suivi), sinon relance SalesDesk
@@ -4022,6 +4022,33 @@ function fcRendreProchaineEtape() {
     else { lib = 'Aucune prochaine étape'; det = SD_INTERESSE.indexOf(String(last.result || '').trim()) >= 0 ? 'Intéressé sans suite : R2 ou rappel ?' : 'À décider'; acts.push('<button class="btn btn-sm btn-primary" onclick="fcPopupSuivi(' + suiviArg + ')">Poser une suite</button>'); }
   }
   el.innerHTML = '<div><div class="lab">Prochaine étape</div><div class="q">' + escapeHtml(lib) + '</div>' + (det ? '<div class="d">' + escapeHtml(det) + '</div>' : '') + '</div><div class="acts">' + acts.join('') + (acts.some(function(x) { return /Prendre un RDV/.test(x); }) ? '' : '<button class="btn btn-sm" title="Tu choisis le créneau, je réserve dans Calendly" onclick="fcCalerRdvDepuisFiche()">📆 Caler un RDV</button>') + '</div>';
+}
+// ❌ Il annule : depuis la fiche — même traitement que « RDV annulé » dans la vérification de demain, puis l'onglet Mails s'ouvre avec une réponse prête (signature ajoutée par le copilot)
+function fcAnnulerRdvDepuisFiche() {
+  var last = _fc.rows[0]; if (!last || last._monthKey === undefined || last._storeKey === undefined) return;
+  if (!confirm(_fc.nom + ' annule son RDV du ' + last.date + ' ?\n\nLigne notée Annulé (compte comme no-show), événement Calendly annulé (il reçoit le mail d\'annulation, les rappels s\'arrêtent), statut Close posé, tâche « Relancer » dans 2 jours ouvrés. Ensuite, un mail de réponse te sera proposé.')) return;
+  var iso = frVersIsoSd(last.date), lundi = rlLundiDe(iso);
+  var suite = function() {
+    var st = loadStore(), row = (st[last._monthKey] || [])[last._storeKey]; if (!row) return;
+    if (typeof sdBackupStore === 'function') sdBackupStore(st);
+    var uri = ''; try { var x = aujRdvsDu(iso).find(function(o) { return o.row && o.row._monthKey === last._monthKey && o.row._storeKey === last._storeKey; }); uri = (x && x.uri) || ''; } catch (e) {}
+    var dRel = sdAnnulerRdvLigne(row, uri, 'rdv annulé (fiche)');
+    saveStore(st);
+    try { _auj.calEtat = {}; _auj.cal = {}; } catch (e) {} try { refreshAll(); } catch (e) {} try { renderAujourdhui(); } catch (e) {}
+    _fc.rows = fcLignesDuNom(_fc.nom).filter(function(r) { var e = String(r.email || '').toLowerCase().trim(); return !_fc.email || !e || e === _fc.email; });
+    if (typeof showCopyToast === 'function') showCopyToast('✓ RDV annulé' + (uri ? ', Calendly prévenu' : ' (aucun événement Calendly actif ce jour-là : déjà annulé, ou à annuler dans Calendly)') + ' · rappel le ' + fcFrDepuisIso(dRel));
+    var p = (_fc.nom || '').trim().split(/\s+/)[0] || '', civ = /^(m|mr|mme|mlle|monsieur|madame|me)\.?$/i.test(p), prenom = civ ? '' : ' ' + p.charAt(0).toUpperCase() + p.slice(1).toLowerCase();
+    fcRepondreMail('Re : notre rendez-vous du ' + last.date, 'Bonjour' + prenom + ',\n\nMerci pour votre message, et aucun souci pour le report : l\'essentiel est que tout aille bien de votre côté.\n\nJe vous propose de reprendre rendez-vous dès que vous serez disponible : vous pouvez réserver directement un créneau ici ' + CALENDLY_R1 + ' ou me donner vos disponibilités, je m\'adapte.\n\nÀ très vite,');
+  };
+  if (_auj.calEtat[lundi] === 'ok') suite(); else { try { aujChargerSemaine(lundi); } catch (e) {} var t0 = Date.now(); (function att() { if (_auj.calEtat[lundi] === 'ok' || Date.now() - t0 > 8000) suite(); else setTimeout(att, 300); })(); }
+}
+// Ouvre l'onglet Mails de la fiche avec un brouillon (objet, texte) prêt à relire et envoyer
+function fcRepondreMail(objet, texte) {
+  _fc.tab = 'mails'; fcRendre();
+  var t0 = Date.now(); (function att() {
+    if (_fcMails.cle === _fc.cle && _fcMails.data) { _fcMails.b.objet = objet; _fcMails.b.texte = texte; _fcMails.redige = true; fcMailEcrire(); return; }
+    if (_fcMails.erreur || Date.now() - t0 > 12000) { if (typeof showCopyToast === 'function') showCopyToast('Mails illisibles pour le moment (' + (_fcMails.erreur || 'copilot lent') + ') : réessaie depuis l\'onglet Mails'); return; }
+    setTimeout(att, 300); })();
 }
 function fcAppelerDepuisFiche() { var a = document.querySelector('#fc-contact a[href^="tel:"]'); if (a) a.click(); else if (typeof showCopyToast === 'function') showCopyToast('Pas de numéro sur la fiche'); }
 function fcCalerRdvDepuisFiche() { var last = _fc.rows[0] || {}, r2 = SD_INTERESSE.indexOf(String(last.result || '').trim()) >= 0; if (typeof COPILOT_URL === 'undefined') { fcCalendlyDepuisFiche(); return; } var lead = _fc.rows.map(function(r) { return r.closeLead; }).find(Boolean) || sdLeadPour(_fc.nom, _fc.email || '') || ''; sdReserverCalendly({ type: r2 ? 'r2' : 'r1', nom: _fc.nom, email: _fc.email || last.email || '', tel: '', cp: last.cp || '', lead: lead, cle: '' }, function(j) { if (typeof showCopyToast === 'function') showCopyToast('✓ RDV réservé : ' + fcFrDepuisIso(j.date) + ' à ' + j.heure); try { refreshAll(); } catch (e) {} fcRendre(); }); }
@@ -10746,6 +10773,15 @@ function sdVerifDemainMaj() {
     + '<div style="display:flex;gap:8px;justify-content:flex-end;align-items:center;margin-top:14px;flex-wrap:wrap;"><span class="fc-muted" style="margin-right:auto;">' + nOui + ' confirmé' + (nOui > 1 ? 's' : '') + ' · <b>' + nRel + ' SMS de relance</b> à envoyer' + (nAnn ? ' · <b style="color:var(--red)">' + nAnn + ' annulé' + (nAnn > 1 ? 's' : '') + '</b> (no-show, Calendly annulé, relance dans 2 jours ouvrés)' : '') + (tot ? ' · relances possibles à partir de 13 h' : '') + '</span><button class="btn" onclick="fermerModalDoublon()">Plus tard</button><button class="btn btn-primary" onclick="sdVerifDemainValider()">' + (nRel ? 'Valider et envoyer ' + nRel + ' SMS' : nAnn ? 'Valider' : 'Valider (aucun SMS)') + '</button></div></div>';
   document.getElementById('fc-dup-modal').innerHTML = html;
 }
+// ── RDV annulé par le prospect (vérification de demain, fiche) : ligne en Annulé (compte comme no-show), événement Calendly annulé (mail d'annulation, rappels stoppés), statut Close, tâche « Relancer » dans 2 jours ouvrés. Renvoie la date de relance. ──
+function sdAnnulerRdvLigne(row, uri, motif) {
+  var cleCal = (state.calendly && state.calendly.apiKey) || localStorage.getItem('calendly_key'), dRel = rlJourOuvre(rlIso(new Date()), 2);
+  row.presence = 'Annulé'; row.result = ''; row.annulePar = 'prospect'; delete row.confirme; delete row.confirmeAt; row.relanceDate = dRel; row.relanceFait = false; row.relanceCond = 'RDV annulé';
+  if (uri && cleCal) fetch(uri + '/cancellation', { method: 'POST', headers: { Authorization: 'Bearer ' + cleCal, 'Content-Type': 'application/json' }, body: JSON.stringify({ reason: 'Rendez-vous annulé' }) }).then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); }).catch(function(e) { if (typeof showCopyToast === 'function') showCopyToast('⚠️ ' + row.client + ' : Calendly n\'a pas annulé l\'événement (' + e.message + '), annule-le dans Calendly'); });
+  try { sdStatutClose(Object.assign({}, row), 'annule'); } catch (e) {}
+  if (typeof rlPost === 'function') rlPost('/close/taches', { nom: row.client, email: row.email || '', lead: row.closeLead || '', date: dRel, texte: 'Relancer : a annulé son RDV du ' + row.date, motif: motif || 'rdv annulé' }).catch(function() {});
+  return dRel;
+}
 function sdVerifDemainValider() {
   var rdvs = window._vdRdvs || [], C = window._vdChoix || [], st = loadStore(), aRelancer = [], annules = [];
   rdvs.forEach(function(r, i) { if (!r.row) return; var row = (st[r.row._monthKey] || [])[r.row._storeKey]; if (!row) return;
@@ -10756,10 +10792,7 @@ function sdVerifDemainValider() {
   if (annules.length && !confirm(annules.map(function(x) { return x.r.nom; }).join(', ') + ' : RDV annulé ? Noté no-show (Annulé), annulé dans Calendly (le prospect reçoit le mail d\'annulation, les rappels s\'arrêtent), statut Close posé, et une tâche de relance dans 2 jours ouvrés.')) return;
   // RDV annulés : ligne en Annulé (compte comme no-show), Calendly annulé, Close à jour, relance dans 2 jours ouvrés (lundi-vendredi)
   if (annules.length) { if (typeof sdBackupStore === 'function') sdBackupStore(st); var cleCal = (state.calendly && state.calendly.apiKey) || localStorage.getItem('calendly_key'), dRel = rlJourOuvre(rlIso(new Date()), 2);
-    annules.forEach(function(x) { var row = x.row; row.presence = 'Annulé'; row.result = ''; row.annulePar = 'prospect'; delete row.confirme; delete row.confirmeAt; row.relanceDate = dRel; row.relanceFait = false; row.relanceCond = 'RDV annulé';
-      if (x.r.uri && cleCal) fetch(x.r.uri + '/cancellation', { method: 'POST', headers: { Authorization: 'Bearer ' + cleCal, 'Content-Type': 'application/json' }, body: JSON.stringify({ reason: 'Rendez-vous annulé' }) }).then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); }).catch(function(e) { if (typeof showCopyToast === 'function') showCopyToast('⚠️ ' + row.client + ' : Calendly n\'a pas annulé l\'événement (' + e.message + '), annule-le dans Calendly'); });
-      try { sdStatutClose(Object.assign({}, row), 'annule'); } catch (e) {}
-      if (typeof rlPost === 'function') rlPost('/close/taches', { nom: row.client, email: row.email || '', lead: row.closeLead || '', date: dRel, texte: 'Relancer : a annulé son RDV du ' + row.date, motif: 'rdv annulé (vérif de la veille)' }).catch(function() {}); }); }
+    annules.forEach(function(x) { sdAnnulerRdvLigne(x.row, x.r.uri, 'rdv annulé (vérif de la veille)'); }); }
   if (new Date().getHours() >= 13) { if (!st._verifDemain) st._verifDemain = {}; st._verifDemain[rlIso(new Date())] = { at: new Date().toISOString(), relances: aRelancer.length }; Object.keys(st._verifDemain).sort().slice(0, -30).forEach(function(k) { delete st._verifDemain[k]; }); }
   saveStore(st); fermerModalDoublon(); renderAujourdhui();
   if (!aRelancer.length) { if (typeof showCopyToast === 'function') showCopyToast('✓ RDV de demain vérifiés' + (annules.length ? ' · ' + annules.length + ' annulé' + (annules.length > 1 ? 's' : '') + ', relance dans 2 jours ouvrés' : ', aucun SMS envoyé')); return; }
