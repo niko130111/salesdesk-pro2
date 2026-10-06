@@ -10389,6 +10389,9 @@ function cpFermer() {
   document.getElementById('cp-overlay').classList.remove('open'); document.getElementById('cp-corps').innerHTML = ''; _cp = null;
   try { _mj.at = 0; chargerMaJournee(true); } catch (e) {} // l'état de préparation a pu changer : on relit
 }
+function cpOnglet() { // la préparation seule dans un onglet du navigateur (rien d'autre à l'écran pendant le RDV)
+  if (!_cp) return; var w = window.open(cpUrl(_cp.nom, _cp.date, _cp.mode), '_blank'); if (w) { cpFermer(); } else if (typeof showCopyToast === 'function') showCopyToast('Onglet bloqué : autorise les pop-ups pour SalesDesk');
+}
 function cpDetacher() {
   if (!_cp) return; var w = window.open(cpUrl(_cp.nom, _cp.date, _cp.mode), 'copilot-prepa', 'width=1180,height=860,menubar=no,toolbar=no,location=no,status=no');
   if (w) { w.focus(); document.getElementById('cp-overlay').classList.remove('open'); document.getElementById('cp-corps').innerHTML = ''; } else if (typeof showCopyToast === 'function') showCopyToast('Fenêtre bloquée : autorise les pop-ups pour SalesDesk');
@@ -14766,7 +14769,7 @@ window.addEventListener('load', function() {
 <!-- Fiche client : panneau à droite, ouvert au clic sur un nom (Pipeline, Quotidien, RDV Table, Relances) -->
 <div id="cp-overlay" class="cp-overlay" onclick="if(event.target===this)cpFermer()">
   <div class="cp-panel">
-    <div class="cp-head"><span class="t" id="cp-titre">Copilot</span><span class="s" id="cp-sous"></span><span style="margin-left:auto;display:flex;gap:6px;"><button class="btn btn-sm" title="Détacher dans une fenêtre à part (second écran)" onclick="cpDetacher()">⧉ Fenêtre</button><button class="btn btn-sm" onclick="cpFermer()">Fermer ✕</button></span></div>
+    <div class="cp-head"><span class="t" id="cp-titre">Copilot</span><span class="s" id="cp-sous"></span><span style="margin-left:auto;display:flex;gap:6px;"><button class="btn btn-sm" title="Ouvrir dans un nouvel onglet, seul à l'écran pendant le RDV" onclick="cpOnglet()">↗ Onglet</button><button class="btn btn-sm" title="Détacher dans une fenêtre à part (second écran)" onclick="cpDetacher()">⧉ Fenêtre</button><button class="btn btn-sm" onclick="cpFermer()">Fermer ✕</button></span></div>
     <div id="cp-corps" style="flex:1;display:flex;flex-direction:column;min-height:0;"></div>
   </div>
 </div>
