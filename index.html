@@ -4171,8 +4171,12 @@ function sdRvRendre() {
     if (v.choix) h += '<div style="margin-top:10px;"><button class="btn btn-primary"' + (v.enCours ? ' disabled' : '') + ' onclick="sdRvReserver()">' + (v.enCours ? 'Réservation…' : 'Réserver ' + escapeHtml(new Date(v.date + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }) + ' à ' + v.choixH)) + '</button></div>';
     if (v.err && v.creneaux) h += '<div style="margin-top:8px;font-size:12.5px;color:var(--red);">' + escapeHtml(v.err) + '</div>';
   }
-  h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;gap:8px;">' + (o.cle ? '<a class="fc-muted" style="font-size:12px;cursor:pointer;" onclick="fermerModalDoublon();_rv=null;rlCalendly(' + JSON.stringify(o.cle).replace(/"/g, '&quot;') + ')">ou la page Calendly pré-remplie ↗</a>' : '<span></span>') + '<button class="btn" onclick="fermerModalDoublon();_rv=null;">Annuler</button></div></div>';
+  h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;gap:8px;">' + (o.cle ? '<a class="fc-muted" style="font-size:12px;cursor:pointer;" onclick="sdRvSecours()">ou la page Calendly pré-remplie ↗ (puis tu me donnes la date : la tâche sera terminée)</a>' : '<span></span>') + '<button class="btn" onclick="fermerModalDoublon();_rv=null;">Annuler</button></div></div>';
   document.getElementById('fc-dup-modal').innerHTML = h;
+}
+function sdRvSecours() { // réservation faite sur la page Calendly : on ouvre la page, puis on demande la date pour terminer la tâche et poser la suite comme si c'était réservé d'ici
+  var v = _rv; if (!v) return; fermerModalDoublon(); _rv = null; try { rlCalendly(v.o.cle); } catch (e) {}
+  setTimeout(function() { rlDateModal(v.o.nom + ' — RDV pris sur Calendly : quelle date ?', 'La tâche Close sera terminée et le RDV arrivera de Calendly.', rlJourOuvre(rlIso(new Date()), 1), function(d, h) { if (v.cb) v.cb({ date: d, heure: h || '' }); }, true); }, 600);
 }
 function sdRvDate(d) {
   var v = _rv; if (!v) return; v.date = d; v.creneaux = null; v.choix = ''; v.err = ''; sdRvRendre(); if (!d) return;
