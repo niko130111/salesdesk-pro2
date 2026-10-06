@@ -4679,8 +4679,31 @@ function fcRechercher(q) {
   _fcSearchSel = -1;
   box.innerHTML = _fcSearchRes.length ? _fcSearchRes.map(function(g, i) {
     return '<button class="fc-search-item" onmousedown="event.preventDefault()" onclick="fcRechercheOuvrir(' + i + ')"><b>' + escapeHtml(g.nom) + '</b><small>' + escapeHtml([g.email, g.type, g.dates.length + ' RDV', g.result].filter(Boolean).join(' · ')) + '</small></button>';
-  }).join('') : '<div class="fc-search-vide">Aucun client « ' + escapeHtml(q) + ' »</div>';
+  }).join('') : '<div class="fc-search-vide">Aucun client « ' + escapeHtml(q) + ' » dans SalesDesk</div>';
   box.style.display = '';
+  fcRechercherClose(q);
+}
+// …et dans Close (fiches sans RDV dans SalesDesk) : une seconde section « Dans Close », après un court délai
+var _fcRechCloseT = null, _fcRechClose = [];
+function fcRechercherClose(q) {
+  if (typeof COPILOT_URL === 'undefined' || q.length < 3) return; clearTimeout(_fcRechCloseT);
+  _fcRechCloseT = setTimeout(function() {
+    fetch(COPILOT_URL + '/close/recherche?' + new URLSearchParams({ q: document.getElementById('fc-search-input').value.trim() }), { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).then(function(j) {
+      var box = document.getElementById('fc-search-liste'); if (!box || box.style.display === 'none' || fcNormNom(document.getElementById('fc-search-input').value) !== q) return;
+      var deja = {}; _fcSearchRes.forEach(function(g) { deja[fcNormNom(g.nom)] = 1; if (g.email) deja[g.email] = 1; });
+      _fcRechClose = (j.leads || []).filter(function(l) { return !deja[fcNormNom(l.nom.split('|')[0])] && !(l.email && deja[l.email]); });
+      var old = box.querySelector('.fc-search-close'); if (old) old.remove();
+      if (!_fcRechClose.length) return;
+      var d = document.createElement('div'); d.className = 'fc-search-close';
+      d.innerHTML = '<div class="fc-search-vide" style="font-weight:700;">Dans Close</div>' + _fcRechClose.map(function(l, i) { return '<button class="fc-search-item" onmousedown="event.preventDefault()" onclick="fcRechercheOuvrirClose(' + i + ')"><b>' + escapeHtml(l.nom) + '</b><small>' + escapeHtml([l.contact && l.contact !== l.nom ? l.contact : '', l.cat, l.ville, l.statut].filter(Boolean).join(' · ')) + '</small></button>'; }).join('');
+      box.appendChild(d);
+    }).catch(function() {});
+  }, 350);
+}
+function fcRechercheOuvrirClose(i) {
+  var l = _fcRechClose[i]; if (!l) return; fcFermerRecherche(); document.getElementById('fc-search-input').value = '';
+  try { sdMemoriserLead(l.nom.split('|')[0].trim(), l.email || '', l.id); } catch (e) {}
+  ouvrirFicheClient(l.nom.split('|')[0].trim(), l.email || '');
 }
 function fcRechercheOuvrir(i) {
   var g = _fcSearchRes[i]; if (!g) return;
