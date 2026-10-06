@@ -794,6 +794,7 @@ main { max-width: 100%; margin: 0; padding: 6px 8px; }
 .fc-dup .fc-dup-item:hover { border-color: var(--accent); background: var(--accent-bg); }
 @media (max-width: 700px) { .fc-panel { width: 100vw; max-width: 100vw; } }
 .modal-overlay.open { display: flex; }
+.modal-overlay.a-gauche { justify-content: flex-start; padding-left: 24px; } /* fenêtre après appel : à gauche, la fiche prospect reste lisible */
 .modal { background: var(--surface); border-radius: var(--radius-lg); padding: 24px; width: 480px; max-width: 95vw; max-height: 85vh; overflow-y: auto; box-shadow: 0 20px 50px rgba(0,0,0,0.15); }
 .modal-title { font-size: 16px; font-weight: 600; margin-bottom: 20px; }
 .form-group { margin-bottom: 14px; }
@@ -3836,7 +3837,7 @@ function fcPopupDoublon(nom, emails, rows) {
   if (!ov) { ov = document.createElement('div'); ov.id = 'fc-dup-overlay'; ov.className = 'modal-overlay'; ov.style.zIndex = '1300'; ov.innerHTML = '<div class="modal" id="fc-dup-modal"></div>'; document.body.appendChild(ov); ov.onclick = function(ev) { if (ev.target === ov) fermerModalDoublon(); }; }
   document.getElementById('fc-dup-modal').innerHTML = html; ov.classList.add('open');
 }
-function fermerModalDoublon() { var ov = document.getElementById('fc-dup-overlay'); if (ov) ov.classList.remove('open'); }
+function fermerModalDoublon() { try { var _o = document.getElementById('fc-dup-overlay'); if (_o) _o.classList.remove('a-gauche'); } catch (e) {} var ov = document.getElementById('fc-dup-overlay'); if (ov) ov.classList.remove('open'); }
 function fermerModalPlusTard() { window._sdChaine = false; fermerModalDoublon(); }
 function fermerFicheClient() { document.getElementById('fc-overlay').classList.remove('open'); }
 function fcOnglet(t) { _fc.tab = t; fcRendre(); }
@@ -3914,7 +3915,7 @@ function fcMailEnvoyer(reel) {
   }).catch(function(e) { M.enCours = false; fcRendre(); alert((reel ? 'Mail non envoyé : ' : 'Brouillon non créé : ') + e.message + '\nTon texte est conservé.'); });
 }
 // Toutes les ouvertures de Close passent par UNE seule fenêtre (nommée « close ») : la fiche suivante remplace la précédente au lieu d'ouvrir un onglet de plus à chaque clic
-function sdOuvrirClose(url) { try { var w = window.open(url, 'close'); if (w) w.focus(); } catch (e) { window.open(url, '_blank'); } }
+function sdOuvrirClose(url) { window.location.href = String(url).replace(/^https:\/\/app\.close\.com/, 'closeio://app.close.com'); } // l'application Close (pas le navigateur) ; elle navigue dans sa fenêtre
 document.addEventListener('click', function(ev) { var a = ev.target && ev.target.closest ? ev.target.closest('a[href*="app.close.com"]') : null; if (!a || ev.altKey || ev.metaKey || ev.ctrlKey) return; ev.preventDefault(); sdOuvrirClose(a.href); }, true);
 // Appeler : l'appli Close ne prend pas les liens tel:, donc on ouvre la fiche DANS l'application Close (closeio://) avec le numéro copié ;
 // l'appel passé là-bas est loggé et enregistré (ce qui nourrit « avant d'appeler », le compteur, l'escalade). Alt+clic = tel: classique.
@@ -11304,7 +11305,7 @@ function svApresAppel(cle) {
   var ov = document.getElementById('fc-dup-overlay');
   if (!ov) { ov = document.createElement('div'); ov.id = 'fc-dup-overlay'; ov.className = 'modal-overlay'; ov.style.zIndex = '1300'; ov.innerHTML = '<div class="modal" id="fc-dup-modal"></div>'; document.body.appendChild(ov); }
   ov.onclick = function(ev) { if (ev.target === ov) fermerModalDoublon(); };
-  document.getElementById('fc-dup-modal').innerHTML = html; ov.classList.add('open');
+  document.getElementById('fc-dup-modal').innerHTML = html; ov.classList.add('open'); ov.classList.add('a-gauche'); // la fiche reste visible à droite
 }
 // Déplacer (le « snooze » de Close) : une tâche ou toutes celles cochées, au jour choisi. Rien d'autre ne change (texte, cadence, compteur d'appels). L'heure d'une tâche est gardée.
 function svDeplacerVers(cles, date, heure) {
@@ -11375,7 +11376,7 @@ function svRendreFile(items, today) {
       + '<div class="meta">' + escapeHtml([motifLib, row.type, row.source, ech, nbT ? nbT + ' appel' + (nbT > 1 ? 's' : '') + ' sans réponse' : ''].filter(Boolean).join(' · ')) + '</div>'
       + (svRaison(sel) ? '<div class="meta" style="color:var(--text);margin-top:6px;">📌 ' + escapeHtml(svRaison(sel)) + '</div>' : '')
       + '<div class="sv-acts"><button class="btn btn-primary" title="Ouvre la fiche dans l\'application Close, numéro copié : l\'appel y est enregistré" onclick="svAppeler(event,' + cleJs + ')">📞 Appeler' + (tel ? ' ' + escapeHtml(tel) : '') + '</button>'
-      + (gere ? '<button class="btn" title="Appel loggé dans Close, tâche décalée selon la cadence" onclick="rlAction(' + cleJs + ', \'pas_reponse\', this)">Sans réponse</button><button class="btn" title="Tu l\'as eu : il demande qu\'on le rappelle à une date" onclick="rlAction(' + cleJs + ', \'joint\', this)">Joint</button><button class="btn" title="Un RDV a été pris : la tâche est terminée" onclick="rlAction(' + cleJs + ', \'rdv_pris\', this)">RDV pris</button>'
+      + (gere ? '<button class="btn" title="Appel loggé dans Close, tâche décalée selon la cadence" onclick="rlAction(' + cleJs + ', \'pas_reponse\', this)">Sans réponse</button><button class="btn" title="Tu l\'as eu : il demande qu\'on le rappelle à une date" onclick="rlAction(' + cleJs + ', \'joint\', this)">Joint</button>'
         : (sel.rel && sel.rel.r ? '<button class="btn" onclick="relanceResultat(' + JSON.stringify(String(sel.rel.r.id)).replace(/"/g, '&quot;') + ', this)">Résultat</button>' : '')) + '</div>'
       + '<div class="sv-acts2">' + (t ? '<button class="btn" title="Déplacer au prochain jour ouvré, sans rien changer d\'autre" onclick="svDemain(' + cleJs + ')">Déplacer à demain</button><button class="btn" title="Déplacer à la date de ton choix" onclick="svDeplacer(' + cleJs + ')">Déplacer au…</button>' : '')
       + '<button class="btn btn-primary" title="Tu choisis le créneau, je réserve dans Calendly (' + (sel.col === 'r2' ? 'R2 Validation' : 'R1 sur ton lien') + ') ; la tâche Close est terminée" onclick="rlAction(' + cleJs + ', \'rdv_pris\', this)">📆 Prendre un RDV</button>'
