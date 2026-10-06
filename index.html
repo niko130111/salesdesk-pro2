@@ -3937,7 +3937,7 @@ function fcAppeler(ev, tel, closeUrl) { // clic : la fiche s'ouvre DANS l'applic
     if (mL && typeof COPILOT_URL !== 'undefined' && typeof rlPost === 'function') { // le copilot ouvre la fiche dans l'app Close et lui envoie ⌘⇧D : l'appel part tout seul
       if (typeof showCopyToast === 'function') showCopyToast('📞 Close ouvre la fiche et compose…');
       rlPost('/close/appeler', { lead: mL[0] }).then(function() { if (typeof showCopyToast === 'function') showCopyToast('📞 Close compose' + (num ? ' ' + num : '') + ' · numéro copié'); })
-        .catch(function(e) { sdOuvrirClose(closeUrl); if (typeof showCopyToast === 'function') showCopyToast('Fiche ouverte dans Close, numéro copié · appel automatique impossible : ' + e.message); });
+        .catch(function(e) { var msg = String(e && e.message || e); if (/Accessibilit/i.test(msg)) { alert('📞 Appel automatique impossible\n\n' + msg + '\n\nEn attendant, la fiche est ouverte dans Close et le numéro est copié.'); } else if (typeof showCopyToast === 'function') showCopyToast('Fiche ouverte dans Close, numéro copié · appel automatique impossible : ' + msg); });
     } else { sdOuvrirClose(closeUrl); if (typeof showCopyToast === 'function') showCopyToast('Close ouvert sur sa fiche · numéro copié' + (num ? ' (' + num + ') : clique dessus dans Close pour appeler' : '')); }
   }
   else if (num) { window.location.href = 'tel:' + num; if (typeof showCopyToast === 'function') showCopyToast('Pas de fiche Close : appel via le Mac ' + num); }
