@@ -1027,6 +1027,7 @@ select.form-input { cursor: pointer; }
       <section class="auj-main">
         <div class="auj-card"><div class="auj-card-head"><h2>Mes rendez-vous <span class="auj-count" id="auj-rdv-count">0</span></h2><a onclick="mjAller('Mes RDV')" title="Agenda complet et copilot">Copilot ›</a></div><div id="auj-rdvs"></div></div>
         <div id="auj-apres"></div>
+        <div id="auj-auto"></div>
       </section>
       <aside class="auj-side">
         <div id="auj-nouv"></div>
@@ -9726,8 +9727,8 @@ function chargerMaJournee(force) {
     fetch(COPILOT_URL + '/etat', { mode: 'cors', cache: 'no-store', signal: ctrl.signal }).then(function(r) { return r.json(); }).catch(function() { return null; }),
     fetch('http://127.0.0.1:3016/api/status', { mode: 'cors', cache: 'no-store', signal: ctrl.signal }).then(function(r) { return r.json(); }).catch(function() { return false; })
   ]).then(function(r) { _mj.copilot = r[0] && r[0].rdvs ? r[0].rdvs : null; _mj.sdRdvs = r[1] && r[1].rdvs ? r[1].rdvs : null; _mj.etat = r[2]; _mj.rappels = r[3]; fin(); }).catch(fin);
-  try { chargerVerifClose(false); } catch (e) {} try { chargerSms(false); } catch (e) {} try { chargerControle(false); } catch (e) {} try { chargerAppelsJour(false); } catch (e) {} try { chargerMailsFinR1(false); } catch (e) {} try { chargerNouveautes(false); } catch (e) {}
-  if (!window._mjMinuteurs) { window._mjMinuteurs = true; setInterval(function() { try { chargerControle(true); } catch (e) {} }, 5 * 60000); setInterval(function() { try { chargerAppelsJour(true); chargerMailsFinR1(true); chargerNouveautes(true); } catch (e) {} }, 2 * 60000); } // posés une seule fois (ils s'empilaient à chaque lecture)
+  try { chargerVerifClose(false); } catch (e) {} try { chargerSms(false); } catch (e) {} try { chargerControle(false); } catch (e) {} try { chargerAppelsJour(false); } catch (e) {} try { chargerMailsFinR1(false); } catch (e) {} try { chargerNouveautes(false); } catch (e) {} try { chargerAutoJour(false); } catch (e) {}
+  if (!window._mjMinuteurs) { window._mjMinuteurs = true; setInterval(function() { try { chargerControle(true); } catch (e) {} }, 5 * 60000); setInterval(function() { try { chargerAppelsJour(true); chargerMailsFinR1(true); chargerNouveautes(true); chargerAutoJour(true); } catch (e) {} }, 2 * 60000); } // posés une seule fois (ils s'empilaient à chaque lecture)
 }
 // ── Contrôle : organe de contrôle (copilot /controle + état SalesDesk), alertes en bandeau dans Quotidien et Mes RDV ──
 var _ctl = null, _ctlAt = 0;
@@ -10184,6 +10185,22 @@ function aujChargerSemaine(lundiIso) {
 }
 // ── Annulations vues toutes seules : Calendly dit qui a annulé (ou déplacé) un RDV à venir ; SalesDesk note « Annulé » / « Reprogrammé » sur la ligne encore sans présence, pose le statut Close et te le dit dans À faire ──
 var _annulEnCours = false, _annulAt = 0;
+// ── Automatisations du jour : ce qui est parti, programmé ou retenu aujourd'hui (SMS, mails), état réel lu par le copilot dans Close et SMS Gate ──
+var _autoJour = { data: null, at: 0, enCours: false, ouvert: false };
+function chargerAutoJour(force) {
+  if (typeof COPILOT_URL === 'undefined' || _autoJour.enCours || (!force && _autoJour.data && Date.now() - _autoJour.at < 110000)) return; _autoJour.enCours = true;
+  fetch(COPILOT_URL + '/automatisations/jour', { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).then(function(j) { _autoJour.enCours = false; if (j && j.ok !== false) { _autoJour.data = j; _autoJour.at = Date.now(); renderAutoJour(); } }).catch(function() { _autoJour.enCours = false; });
+}
+function renderAutoJour() {
+  var el = document.getElementById('auj-auto'); if (!el) return; var j = _autoJour.data; if (!j || !(j.items || []).length) { el.innerHTML = ''; return; }
+  var hm = function(d) { var x = new Date(d); return isNaN(x) ? '—' : x.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }); };
+  var cls = function(e) { return /^(envoyé|délivré)/.test(e) ? 'green' : e === 'programmé' ? 'blue' : /erreur|échec|introuvable/.test(e) ? 'red' : 'orange'; };
+  var items = j.items, max = _autoJour.ouvert ? items.length : 8;
+  var h = '<div class="auj-card"><div class="auj-card-head"><h2>Automatisations aujourd\'hui <span class="auj-count">' + items.length + '</span></h2><span class="fc-muted" style="font-size:12px;">' + j.envoyes + ' parti' + (j.envoyes > 1 ? 's' : '') + ' · ' + j.aVenir + ' à venir' + (j.problemes ? ' · <b style="color:var(--red)">' + j.problemes + ' problème' + (j.problemes > 1 ? 's' : '') + '</b>' : '') + '</span></div>';
+  h += items.slice(0, max).map(function(i) { return '<div class="auj-item" style="padding:6px 0;"><span class="auj-dot ' + cls(i.etat) + '"></span><span style="flex:1;min-width:0;"><div class="t" style="display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;"><span style="font-variant-numeric:tabular-nums;color:var(--text3);min-width:40px;">' + hm(i.quand) + '</span><span>' + (i.canal === 'sms' ? '💬' : '✉') + ' ' + escapeHtml(i.type) + '</span><b>→ ' + escapeHtml(i.nom) + '</b></div><div class="d">' + escapeHtml(i.etat) + (i.lu ? ' · lu ' + i.lu + '×' : '') + (i.rdv ? ' · RDV ' + escapeHtml(i.rdv.split(' ')[0].split('-').reverse().join('/') + (i.rdv.split(' ')[1] ? ' ' + i.rdv.split(' ')[1] : '')) : '') + (i.detail ? ' · ' + escapeHtml(i.detail) : '') + '</div></span></div>'; }).join('');
+  if (items.length > 8) h += '<div class="auj-etat" style="cursor:pointer;" onclick="_autoJour.ouvert=!_autoJour.ouvert;renderAutoJour()">' + (_autoJour.ouvert ? 'Réduire' : '+ ' + (items.length - 8) + ' autres') + '</div>';
+  el.innerHTML = h + '</div>';
+}
 // ── Nouveautés du tableau de bord : RDV pris ou déplacés récemment (Calendly) et mails reçus de prospects (Close), lus par le copilot. « Vu » les retire ; ils restent dans la fiche. ──
 var _nouv = { data: null, at: 0, enCours: false };
 function chargerNouveautes(force) {
@@ -10635,7 +10652,7 @@ function renderAujourdhui() {
   if (!nb) suivre = '<div class="auj-empty">' + (_tachesClose && _tachesClose.error ? '<b>Tâches Close indisponibles</b> (copilot absent) — seules les relances SalesDesk sont listées. ' : '') + (nb ? '' : 'Rien à faire ' + (estAuj ? 'aujourd\'hui' : 'ce jour') + '.' + (items.length ? ' Les prochaines relances sont dans le suivi.' : '')) + '</div>';
   else if (_tachesClose && _tachesClose.error) suivre = '<div class="auj-etat" style="color:var(--orange);margin:0 0 6px;">⚠ Tâches Close indisponibles : liste partielle (SalesDesk seul).</div>' + suivre;
   document.getElementById('auj-suivre').innerHTML = suivre;
-  try { renderNouveautes(); } catch (e) {}
+  try { renderNouveautes(); } catch (e) {} try { renderAutoJour(); } catch (e) {}
   aujRendreSync(lundi);
   // bandeau d'alerte commun
   var al = document.getElementById('controle-alerte-auj'), src = document.getElementById('controle-alerte-daily'); if (al && src) { al.className = src.className; al.style.display = src.style.display; al.innerHTML = src.innerHTML; }
