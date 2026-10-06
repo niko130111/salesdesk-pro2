@@ -3927,13 +3927,13 @@ function sdOuvrirClose(url) { window.location.href = String(url).replace(/^https
 document.addEventListener('click', function(ev) { var a = ev.target && ev.target.closest ? ev.target.closest('a[href*="app.close.com"]') : null; if (!a || ev.altKey || ev.metaKey || ev.ctrlKey) return; ev.preventDefault(); sdOuvrirClose(a.href); }, true);
 // Appeler : l'appli Close ne prend pas les liens tel:, donc on ouvre la fiche DANS l'application Close (closeio://) avec le numéro copié ;
 // l'appel passé là-bas est loggé et enregistré (ce qui nourrit « avant d'appeler », le compteur, l'escalade). Alt+clic = tel: classique.
-function fcAppeler(ev, tel, closeUrl) { // clic : Close compose directement (lien téléphone pris en charge par l'appli Close sur le Mac) ; Alt + clic : ouvrir la fiche Close sans appeler
+function fcAppeler(ev, tel, closeUrl) { // clic : la fiche s'ouvre DANS l'application Close, numéro copié, un clic sur le numéro là-bas lance l'appel (Close ne peut pas recevoir de lien tel:, vérifié le 06/10/2026) ; Alt + clic : lien tel: classique (FaceTime)
   if (ev && ev.preventDefault) ev.preventDefault();
   var num = String(tel || '').replace(/\s/g, '');
   try { if (num) navigator.clipboard.writeText(num); } catch (e) {}
-  if (ev && ev.altKey) { if (closeUrl) { sdOuvrirClose(closeUrl); if (typeof showCopyToast === 'function') showCopyToast('Fiche ouverte dans Close · numéro copié'); } return false; }
-  if (num) { window.location.href = 'tel:' + num; if (typeof showCopyToast === 'function') showCopyToast('📞 Close compose ' + num); }
-  else if (closeUrl) { sdOuvrirClose(closeUrl); if (typeof showCopyToast === 'function') showCopyToast('Pas de numéro : fiche ouverte dans Close'); }
+  if (ev && ev.altKey && num) { window.location.href = 'tel:' + num; if (typeof showCopyToast === 'function') showCopyToast('📞 Appel via le Mac (FaceTime) : ' + num); return false; }
+  if (closeUrl) { sdOuvrirClose(closeUrl); if (typeof showCopyToast === 'function') showCopyToast('Close ouvert sur sa fiche · numéro copié' + (num ? ' (' + num + ') : clique dessus dans Close pour appeler' : '')); }
+  else if (num) { window.location.href = 'tel:' + num; if (typeof showCopyToast === 'function') showCopyToast('Pas de fiche Close : appel via le Mac ' + num); }
   return false;
 }
 // Corriger le nom d'une personne partout (lignes, fiche, traités, suivi, journal) — et dans le copilot ; proposition = le nom tel qu'il est dans Close
@@ -3973,7 +3973,7 @@ function fcRendreContact() {
     if (!tel) cts.some(function(x) { tel = propre(x.tels)[0] || ''; return !!tel; });
   }
   var mail = _fc.email || mailClose;
-  if (tel) chips.push('<a class="fc-chip accent" href="tel:' + escapeHtml(tel.replace(/\s/g, '')) + '" title="Ouvre la fiche dans l\'application Close (numéro copié) : l\'appel y est loggé et enregistré. Alt+clic = appel direct (FaceTime)." onclick="return fcAppeler(event, ' + JSON.stringify(tel).replace(/"/g, '&quot;') + ', ' + JSON.stringify(url || '').replace(/"/g, '&quot;') + ')">📞 ' + escapeHtml(tel) + '</a>');
+  if (tel) chips.push('<a class="fc-chip accent" href="tel:' + escapeHtml(tel.replace(/\s/g, '')) + '" title="Ouvre la fiche dans l\'application Close, numéro copié : un clic sur le numéro dans Close lance l\'appel (loggé et enregistré). Alt+clic = appel via le Mac (FaceTime)." onclick="return fcAppeler(event, ' + JSON.stringify(tel).replace(/"/g, '&quot;') + ', ' + JSON.stringify(url || '').replace(/"/g, '&quot;') + ')">📞 ' + escapeHtml(tel) + '</a>');
   if (mail) chips.push('<a class="fc-chip" href="mailto:' + escapeHtml(mail) + '">✉ ' + escapeHtml(mail) + '</a>');
   if (url) chips.push('<a class="fc-chip" href="' + escapeHtml(url) + '" target="_blank" rel="noopener">↗ Close' + (statut ? ' <span class="k">' + escapeHtml(statut) + '</span>' : '') + '</a>');
   if (typeof COPILOT_URL !== 'undefined') chips.push('<a class="fc-chip" href="#" onclick="fcTacheClose();return false;" title="Une tâche de rappel dans Close, à la date et à l\'heure que tu veux">⏰ Tâche Close</a>');
@@ -11463,7 +11463,7 @@ function svCharger(it) { // contexte Close du prospect choisi (une fois par pros
   fetch(COPILOT_URL + '/close/contact?' + new URLSearchParams({ email: email, nom: it.nom }), { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); })
     .then(function(j) { var l = (j.leads || []).find(function(x) { return !lead || x.id === lead; }) || (j.leads || [])[0]; var tel = ''; if (l) (l.contacts || []).some(function(c) { tel = ((c.tels || [])[0]) || ''; return !!tel; }); _sv.tel[cle] = { tel: tel, url: l ? l.url : '' }; if (_sv.sel === cle) renderRelancesPage(); }).catch(function() {});
 }
-function svAppeler(ev, cle) { var x = _sv.tel[cle] || {}, it = (window._rlItems || []).find(function(i) { return i.cle === cle; }); var url = x.url || (it && it.t && it.t.lead ? 'https://app.close.com/lead/' + it.t.lead + '/' : ''); if (!url) { if (typeof showCopyToast === 'function') showCopyToast('Fiche Close introuvable pour cet appel'); return; } fcAppeler(ev, x.tel || '', url); }
+function svAppeler(ev, cle) { var x = _sv.tel[cle] || {}, it = (window._rlItems || []).find(function(i) { return i.cle === cle; }); var url = x.url || (it && it.t && it.t.lead ? 'https://app.close.com/lead/' + it.t.lead + '/' : ''); if (!url && !x.tel) { if (typeof showCopyToast === 'function') showCopyToast('Fiche Close introuvable pour cet appel'); return; } fcAppeler(ev, x.tel || '', url); }
 // Après « Appeler » : une seule fenêtre pour dire ce qui s'est passé (sans réponse, joint, RDV pris, clôturer, manager). Elle reste ouverte pendant l'appel ; « Plus tard » la ferme sans rien faire.
 function svApresAppel(cle) {
   var it = (window._rlItems || []).find(function(i) { return i.cle === cle; }); if (!it) return;
