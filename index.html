@@ -3902,13 +3902,16 @@ function fcMailEnvoyer(reel) {
     _fcMails = { cle: null, data: null, erreur: '', redige: false, b: { to: '', objet: '', texte: '' }, ouverts: {}, enCours: false }; fcRendre();
   }).catch(function(e) { M.enCours = false; fcRendre(); alert((reel ? 'Mail non envoyé : ' : 'Brouillon non créé : ') + e.message + '\nTon texte est conservé.'); });
 }
+// Toutes les ouvertures de Close passent par UNE seule fenêtre (nommée « close ») : la fiche suivante remplace la précédente au lieu d'ouvrir un onglet de plus à chaque clic
+function sdOuvrirClose(url) { try { var w = window.open(url, 'close'); if (w) w.focus(); } catch (e) { window.open(url, '_blank'); } }
+document.addEventListener('click', function(ev) { var a = ev.target && ev.target.closest ? ev.target.closest('a[href*="app.close.com"]') : null; if (!a || ev.altKey || ev.metaKey || ev.ctrlKey) return; ev.preventDefault(); sdOuvrirClose(a.href); }, true);
 // Appeler : l'appli Close ne prend pas les liens tel:, donc on ouvre la fiche DANS l'application Close (closeio://) avec le numéro copié ;
 // l'appel passé là-bas est loggé et enregistré (ce qui nourrit « avant d'appeler », le compteur, l'escalade). Alt+clic = tel: classique.
 function fcAppeler(ev, tel, closeUrl) {
   if (ev && ev.altKey) return true;
   if (ev) ev.preventDefault();
   try { navigator.clipboard.writeText(String(tel).replace(/\s/g, '')); } catch (e) {}
-  if (closeUrl) { window.location.href = String(closeUrl).replace(/^https:/, 'closeio:'); if (typeof showCopyToast === 'function') showCopyToast('📞 Fiche ouverte dans Close · numéro copié'); }
+  if (closeUrl) { sdOuvrirClose(closeUrl); if (typeof showCopyToast === 'function') showCopyToast('📞 Fiche ouverte dans Close · numéro copié'); }
   else { window.location.href = 'tel:' + String(tel).replace(/\s/g, ''); }
   return false;
 }
