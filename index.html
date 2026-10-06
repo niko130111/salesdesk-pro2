@@ -430,6 +430,17 @@ main { max-width: 100%; margin: 0; padding: 6px 8px; }
 /* MODAL */
 .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.35); z-index: 1000; align-items: center; justify-content: center; }
 /* ---------- Fiche client (panneau à droite) ---------- */
+/* Blocs bien séparés, une couleur par bloc : contact (gris), prochaine étape (violet), avant d'appeler (ambre), dossier en bref (bleu) */
+.fc-head { background: var(--bg); }
+.fc-bloc { margin-top: 12px; padding: 12px 14px; border-radius: 12px; background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--border); }
+.fc-bloc-t { font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--text3); margin-bottom: 8px; }
+.fc-contact { margin-top: 12px; padding: 12px 14px; border-radius: 12px; background: var(--surface); border: 1px solid var(--border); border-left: 4px solid #9aa3b2; }
+.fc-next { margin-top: 12px; border-left: 4px solid var(--purple); background: var(--surface); }
+.fc-dernier { margin: 12px 0 0; border-left: 4px solid var(--orange); border-radius: 12px; }
+.fc-head .fc-dernier .synth { margin: 12px 0 0; padding: 10px 12px; border-radius: 10px; background: #eef4fb; border: 1px solid #c9d8ea; border-left: 4px solid #185FA5; }
+.fc-head .fc-dernier .synth .st { color: #0C447C; }
+.fc-tabs { margin-top: 12px; }
+
 /* Après le RDV : un écran, trois colonnes (ce qui s'est dit · résultat & suite · message), un bouton qui écrit partout */
 .ar-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.3); z-index: 1250; align-items: center; justify-content: center; padding: 18px; }
 .ar-overlay.open { display: flex; }
