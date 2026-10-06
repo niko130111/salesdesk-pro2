@@ -971,6 +971,7 @@ select.form-input { cursor: pointer; }
   </a>
   <div class="nav-tabs">
     <button class="nav-tab active" data-page="aujourdhui" onclick="showPage('aujourdhui',this);togglePeriodSelector(false);renderAujourdhui()"><span class="nav-ico">▦</span>Aujourd'hui</button>
+    <button class="nav-tab" data-page="mesrdv" onclick="showPage('mesrdv',this);togglePeriodSelector(false);ouvrirCopilot()"><span class="nav-ico">🧭</span>Copilot</button>
     <button class="nav-tab" data-page="relances" onclick="showPage('relances',this);togglePeriodSelector(false);renderRelancesPage()"><span class="nav-ico">☎</span>Suivi<span id="nav-relances-badge" style="display:none;margin-left:6px;background:var(--red);color:#fff;font-size:10px;padding:1px 6px;border-radius:99px;font-weight:700;"></span></button>
     <button class="nav-tab" data-page="analytics" onclick="showPage('analytics',this);togglePeriodSelector(false);chargerAppelsClose();renderDaily();setTimeout(function(){try{refreshKpis();renderPerfTop();}catch(e){}},60)"><span class="nav-ico">◔</span>Performance</button>
     <div class="nav-more" id="nav-more">
@@ -1025,8 +1026,9 @@ select.form-input { cursor: pointer; }
     <div id="auj-semaine" style="display:none;"></div>
     <div class="auj-grid" id="auj-grid">
       <section class="auj-main">
-        <div class="auj-card"><div class="auj-card-head"><h2>Mes rendez-vous du jour <span class="auj-count" id="auj-rdv-count">0</span></h2><a onclick="mjAller('Mes RDV')" title="Agenda complet et copilot">Copilot ›</a></div><div id="auj-rdvs"></div></div>
+        <div class="auj-card"><div class="auj-card-head"><h2>Mes rendez-vous du jour <span class="auj-count" id="auj-rdv-count">0</span></h2></div><div id="auj-rdvs"></div></div>
         <div id="auj-apres"></div>
+        <div id="auj-auto"></div>
       </section>
       <aside class="auj-side">
         <div id="auj-nouv"></div>
@@ -1035,7 +1037,6 @@ select.form-input { cursor: pointer; }
         <div class="auj-sync" id="auj-sync"></div>
       </aside>
     </div>
-    <div id="auj-auto"></div>
   </div>
 </div>
 <!-- ===================== DAILY PAGE ===================== -->
@@ -10197,7 +10198,7 @@ function renderAutoJour() { // une colonne par automatisation (mail du jour J, S
   var cls = function(e) { return /^(envoyé|délivré)/.test(e) ? 'green' : e === 'programmé' ? 'blue' : /erreur|échec|introuvable/.test(e) ? 'red' : 'orange'; };
   var ICO = function(t, c) { return /jour J/.test(t) ? '📨' : /prise de RDV/.test(t) ? '✉' : /fin de RDV/.test(t) ? '📝' : /relance/i.test(t) ? '🔁' : /no-show/i.test(t) ? '👻' : /site/.test(t) ? '🌐' : c === 'sms' ? '💬' : '✉'; };
   var groupes = {}, ordre = []; j.items.forEach(function(i) { if (!groupes[i.type]) { groupes[i.type] = { type: i.type, canal: i.canal, items: [] }; ordre.push(i.type); } groupes[i.type].items.push(i); });
-  var h = '<div class="auj-card"><div class="auj-card-head"><h2>Copilot aujourd\'hui <span class="auj-count">' + j.items.length + '</span></h2><span class="fc-muted" style="font-size:12px;">' + j.envoyes + ' parti' + (j.envoyes > 1 ? 's' : '') + ' · ' + j.aVenir + ' à venir' + (j.problemes ? ' · <b style="color:var(--red)">' + j.problemes + ' problème' + (j.problemes > 1 ? 's' : '') + '</b>' : '') + '</span></div>'
+  var h = '<div class="auj-card"><div class="auj-card-head"><h2>Automatisations aujourd\'hui <span class="auj-count">' + j.items.length + '</span></h2><span class="fc-muted" style="font-size:12px;">' + j.envoyes + ' parti' + (j.envoyes > 1 ? 's' : '') + ' · ' + j.aVenir + ' à venir' + (j.problemes ? ' · <b style="color:var(--red)">' + j.problemes + ' problème' + (j.problemes > 1 ? 's' : '') + '</b>' : '') + '</span></div>'
     + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;align-items:start;">'
     + ordre.map(function(t) { var g = groupes[t], partis = g.items.filter(function(i) { return /^(envoyé|délivré)/.test(i.etat); }).length;
       return '<div style="border:1px solid var(--border);border-radius:12px;padding:10px 12px;background:var(--surface2);min-width:0;"><div style="font-weight:700;font-size:13px;margin-bottom:6px;display:flex;gap:6px;align-items:baseline;"><span>' + ICO(g.type, g.canal) + '</span><span style="flex:1;min-width:0;">' + escapeHtml(g.type) + '</span><span class="fc-muted" style="font-size:11.5px;white-space:nowrap;">' + partis + '/' + g.items.length + '</span></div>'
