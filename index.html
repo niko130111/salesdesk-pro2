@@ -700,6 +700,7 @@ main { max-width: 100%; margin: 0; padding: 6px 8px; }
 .rl-actions { margin-top: 8px; display: grid; gap: 4px; }
 .rl-row { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; }
 .rl-b { font-size: 11px !important; padding: 3px 8px !important; white-space: nowrap; }
+.btn.sv-orange { border-color: var(--orange); color: var(--orange); } .btn.sv-rouge { border-color: var(--red); color: var(--red); } .btn.sv-bleu { border-color: var(--accent); color: var(--accent); } .btn.sv-vert { border-color: var(--green); color: var(--green); }
 .controle-alerte { margin: 0 0 12px; padding: 10px 14px; border-radius: 12px; background: var(--soft-red); border: 1px solid var(--red); color: var(--red); font-size: 13px; font-weight: 600; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 .controle-alerte.orange { background: var(--soft-orange); border-color: var(--orange); color: var(--orange); }
 .ctl-ligne { display: flex; gap: 8px; align-items: flex-start; padding: 6px 0; border-top: 1px solid var(--border); font-size: 12.5px; }
@@ -4273,6 +4274,12 @@ function rlAction(ix, action, btn) {
     if (!confirm('Supprimer cette relance ? La tâche Close sera terminée.')) return;
     occupe(true);
     terminerClose().then(function() { rlPoserSuivi(it, { col: it.col, dernier: 'abandon' }); return rlMajRelance(it, 'abandon', ''); }).then(function() { fini('🗑 Relance supprimée'); }).catch(echec);
+    return;
+  }
+  if (action === 'pas_interesse') {
+    if (!confirm(it.nom + ' : pas intéressé ? La fiche Close passe en « Not interested », l\'opportunité en perdue, la tâche est terminée.')) return;
+    occupe(true);
+    terminerClose().then(function() { try { sdStatutClose({ client: it.nom, email: id.email || '', closeLead: id.lead || '' }, 'pas_interesse'); } catch (e) {} rlPoserSuivi(it, { col: it.col, dernier: 'pas_interesse' }); rlPost('/sms/annuler-pour', { nom: it.nom, raison: 'pas intéressé' }).catch(function() {}); return rlMajRelance(it, 'abandon', ''); }).then(function() { fini('✋ Pas intéressé · Close à jour, tâche terminée'); }).catch(echec);
     return;
   }
   if (action === 'manager') { rlEscalader(it, id, suivi); return; }
@@ -11299,7 +11306,7 @@ function svCharger(it) { // contexte Close du prospect choisi (une fois par pros
   fetch(COPILOT_URL + '/close/contact?' + new URLSearchParams({ email: email, nom: it.nom }), { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); })
     .then(function(j) { var l = (j.leads || []).find(function(x) { return !lead || x.id === lead; }) || (j.leads || [])[0]; var tel = ''; if (l) (l.contacts || []).some(function(c) { tel = ((c.tels || [])[0]) || ''; return !!tel; }); _sv.tel[cle] = { tel: tel, url: l ? l.url : '' }; if (_sv.sel === cle) renderRelancesPage(); }).catch(function() {});
 }
-function svAppeler(ev, cle) { var x = _sv.tel[cle] || {}, it = (window._rlItems || []).find(function(i) { return i.cle === cle; }); var url = x.url || (it && it.t && it.t.lead ? 'https://app.close.com/lead/' + it.t.lead + '/' : ''); if (!url) { if (typeof showCopyToast === 'function') showCopyToast('Fiche Close introuvable pour cet appel'); return; } fcAppeler(ev, x.tel || '', url); svApresAppel(cle); }
+function svAppeler(ev, cle) { var x = _sv.tel[cle] || {}, it = (window._rlItems || []).find(function(i) { return i.cle === cle; }); var url = x.url || (it && it.t && it.t.lead ? 'https://app.close.com/lead/' + it.t.lead + '/' : ''); if (!url) { if (typeof showCopyToast === 'function') showCopyToast('Fiche Close introuvable pour cet appel'); return; } fcAppeler(ev, x.tel || '', url); }
 // Après « Appeler » : une seule fenêtre pour dire ce qui s'est passé (sans réponse, joint, RDV pris, clôturer, manager). Elle reste ouverte pendant l'appel ; « Plus tard » la ferme sans rien faire.
 function svApresAppel(cle) {
   var it = (window._rlItems || []).find(function(i) { return i.cle === cle; }); if (!it) return;
@@ -11387,12 +11394,12 @@ function svRendreFile(items, today) {
       + '<div class="meta">' + escapeHtml([motifLib, row.type, row.source, ech, nbT ? nbT + ' appel' + (nbT > 1 ? 's' : '') + ' sans réponse' : ''].filter(Boolean).join(' · ')) + '</div>'
       + (svRaison(sel) ? '<div class="meta" style="color:var(--text);margin-top:6px;">📌 ' + escapeHtml(svRaison(sel)) + '</div>' : '')
       + '<div class="sv-acts"><button class="btn btn-primary" title="Ouvre la fiche dans l\'application Close, numéro copié : l\'appel y est enregistré" onclick="svAppeler(event,' + cleJs + ')">📞 Appeler' + (tel ? ' ' + escapeHtml(tel) : '') + '</button>'
-      + (gere ? '<button class="btn" title="Appel loggé dans Close, tâche décalée selon la cadence" onclick="rlAction(' + cleJs + ', \'pas_reponse\', this)">Sans réponse</button><button class="btn" title="Tu l\'as eu : il demande qu\'on le rappelle à une date" onclick="rlAction(' + cleJs + ', \'joint\', this)">Joint</button>'
+      + (gere ? '<button class="btn sv-orange" title="Appel loggé dans Close, tâche décalée selon la cadence" onclick="rlAction(' + cleJs + ', \'pas_reponse\', this)">📭 Sans réponse</button><button class="btn sv-vert" title="Tu l\'as eu : il demande qu\'on le rappelle à une date" onclick="rlAction(' + cleJs + ', \'joint\', this)">🤝 Joint</button><button class="btn sv-rouge" title="Pas intéressé : fiche Close en Not interested, opportunité perdue, tâche terminée" onclick="rlAction(' + cleJs + ', \'pas_interesse\', this)">✋ Pas intéressé</button>'
         : (sel.rel && sel.rel.r ? '<button class="btn" onclick="relanceResultat(' + JSON.stringify(String(sel.rel.r.id)).replace(/"/g, '&quot;') + ', this)">Résultat</button>' : '')) + '</div>'
-      + '<div class="sv-acts2">' + (t ? '<button class="btn" title="Déplacer au prochain jour ouvré, sans rien changer d\'autre" onclick="svDemain(' + cleJs + ')">Déplacer à demain</button><button class="btn" title="Déplacer à la date de ton choix" onclick="svDeplacer(' + cleJs + ')">Déplacer au…</button>' : '')
+      + '<div class="sv-acts2">' + (t ? '<button class="btn" title="Déplacer au prochain jour ouvré, sans rien changer d\'autre" onclick="svDemain(' + cleJs + ')">⏭ Déplacer à demain</button><button class="btn" title="Déplacer à la date de ton choix" onclick="svDeplacer(' + cleJs + ')">📅 Déplacer au…</button>' : '')
       + '<button class="btn btn-primary" title="Tu choisis le créneau, je réserve dans Calendly (' + (sel.col === 'r2' ? 'R2 Validation' : 'R1 sur ton lien') + ') ; la tâche Close est terminée" onclick="rlAction(' + cleJs + ', \'rdv_pris\', this)">📆 Prendre un RDV</button>'
-      + (gere ? '<button class="btn' + (sel.col === 'r2' && nbT >= 3 ? ' btn-primary' : '') + '" title="Note épinglée + tâche pour ' + RL_MANAGER + ' dans Close" onclick="rlAction(' + cleJs + ', \'manager\', this)">Passer au manager</button><button class="btn" title="La tâche Close est terminée, la relance s\'arrête" onclick="rlAction(' + cleJs + ', \'supprimer\', this)">Clôturer la tâche</button>' : '')
-      + (email ? '<a class="btn" style="text-decoration:none;" href="mailto:' + escapeHtml(email) + '">Mail</a>' : '')
+      + (gere ? '<button class="btn sv-bleu" title="Note épinglée + tâche pour ' + RL_MANAGER + ' dans Close" onclick="rlAction(' + cleJs + ', \'manager\', this)">👔 Passer au manager</button><button class="btn" title="La tâche Close est terminée, la relance s\'arrête" onclick="rlAction(' + cleJs + ', \'supprimer\', this)">✅ Clôturer la tâche</button>' : '')
+      + (email ? '<a class="btn" style="text-decoration:none;" href="mailto:' + escapeHtml(email) + '">✉ Mail</a>' : '')
       + (t ? '<select title="Changer le motif" onchange="rlClasser(' + JSON.stringify(t.id).replace(/"/g, '&quot;') + ', this.value)" style="height:28px;font-size:12px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text2);"><option value="">Motif : ' + escapeHtml(motifLib) + '</option><option value="r2">R2 sans réponse</option><option value="rdv">Prise de RDV</option><option value="nsin">No-show inbound</option><option value="nsout">No-show outbound</option></select>' : '') + '</div>'
       + rlChipAppels(sel, items.indexOf(sel)) + rlChipRdvPris(sel);
     var j = _sv.ctx[sel.cle];
