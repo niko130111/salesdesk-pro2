@@ -3920,12 +3920,13 @@ function sdOuvrirClose(url) { window.location.href = String(url).replace(/^https
 document.addEventListener('click', function(ev) { var a = ev.target && ev.target.closest ? ev.target.closest('a[href*="app.close.com"]') : null; if (!a || ev.altKey || ev.metaKey || ev.ctrlKey) return; ev.preventDefault(); sdOuvrirClose(a.href); }, true);
 // Appeler : l'appli Close ne prend pas les liens tel:, donc on ouvre la fiche DANS l'application Close (closeio://) avec le numéro copié ;
 // l'appel passé là-bas est loggé et enregistré (ce qui nourrit « avant d'appeler », le compteur, l'escalade). Alt+clic = tel: classique.
-function fcAppeler(ev, tel, closeUrl) {
-  if (ev && ev.altKey) { if (ev.preventDefault) ev.preventDefault(); if (tel) window.location.href = 'tel:' + String(tel).replace(/\s/g, ''); return false; } // Alt + clic : le numéro part à l'application d'appel du Mac (Close s'il s'est déclaré), depuis un bouton comme depuis un lien
-  if (ev) ev.preventDefault();
-  try { navigator.clipboard.writeText(String(tel).replace(/\s/g, '')); } catch (e) {}
-  if (closeUrl) { sdOuvrirClose(closeUrl); if (typeof showCopyToast === 'function') showCopyToast('📞 Fiche ouverte dans Close · numéro copié'); }
-  else { window.location.href = 'tel:' + String(tel).replace(/\s/g, ''); }
+function fcAppeler(ev, tel, closeUrl) { // clic : Close compose directement (lien téléphone pris en charge par l'appli Close sur le Mac) ; Alt + clic : ouvrir la fiche Close sans appeler
+  if (ev && ev.preventDefault) ev.preventDefault();
+  var num = String(tel || '').replace(/\s/g, '');
+  try { if (num) navigator.clipboard.writeText(num); } catch (e) {}
+  if (ev && ev.altKey) { if (closeUrl) { sdOuvrirClose(closeUrl); if (typeof showCopyToast === 'function') showCopyToast('Fiche ouverte dans Close · numéro copié'); } return false; }
+  if (num) { window.location.href = 'tel:' + num; if (typeof showCopyToast === 'function') showCopyToast('📞 Close compose ' + num); }
+  else if (closeUrl) { sdOuvrirClose(closeUrl); if (typeof showCopyToast === 'function') showCopyToast('Pas de numéro : fiche ouverte dans Close'); }
   return false;
 }
 // Corriger le nom d'une personne partout (lignes, fiche, traités, suivi, journal) — et dans le copilot ; proposition = le nom tel qu'il est dans Close
@@ -11393,7 +11394,7 @@ function svRendreFile(items, today) {
     pan = '<h2 onclick="ouvrirFicheClient(' + nomJs + ',' + emailJs + ')" title="Ouvrir la fiche">' + escapeHtml(sel.nom) + '</h2>'
       + '<div class="meta">' + escapeHtml([motifLib, row.type, row.source, ech, nbT ? nbT + ' appel' + (nbT > 1 ? 's' : '') + ' sans réponse' : ''].filter(Boolean).join(' · ')) + '</div>'
       + (svRaison(sel) ? '<div class="meta" style="color:var(--text);margin-top:6px;">📌 ' + escapeHtml(svRaison(sel)) + '</div>' : '')
-      + '<div class="sv-acts"><button class="btn btn-primary" title="Ouvre la fiche dans l\'application Close, numéro copié : l\'appel y est enregistré" onclick="svAppeler(event,' + cleJs + ')">📞 Appeler' + (tel ? ' ' + escapeHtml(tel) : '') + '</button>'
+      + '<div class="sv-acts"><button class="btn btn-primary" title="Close compose directement ; Alt + clic = ouvrir la fiche sans appeler" onclick="svAppeler(event,' + cleJs + ')">📞 Appeler' + (tel ? ' ' + escapeHtml(tel) : '') + '</button>'
       + (gere ? '<button class="btn sv-orange" title="Appel loggé dans Close, tâche décalée selon la cadence" onclick="rlAction(' + cleJs + ', \'pas_reponse\', this)">📭 Sans réponse</button><button class="btn sv-vert" title="Tu l\'as eu : il demande qu\'on le rappelle à une date" onclick="rlAction(' + cleJs + ', \'joint\', this)">🤝 Joint</button><button class="btn sv-rouge" title="Pas intéressé : fiche Close en Not interested, opportunité perdue, tâche terminée" onclick="rlAction(' + cleJs + ', \'pas_interesse\', this)">✋ Pas intéressé</button>'
         : (sel.rel && sel.rel.r ? '<button class="btn" onclick="relanceResultat(' + JSON.stringify(String(sel.rel.r.id)).replace(/"/g, '&quot;') + ', this)">Résultat</button>' : '')) + '</div>'
       + '<div class="sv-acts2">' + (t ? '<button class="btn" title="Déplacer au prochain jour ouvré, sans rien changer d\'autre" onclick="svDemain(' + cleJs + ')">⏭ Déplacer à demain</button><button class="btn" title="Déplacer à la date de ton choix" onclick="svDeplacer(' + cleJs + ')">📅 Déplacer au…</button>' : '')
