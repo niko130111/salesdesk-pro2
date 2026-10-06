@@ -1453,9 +1453,9 @@ select.form-input { cursor: pointer; }
       <div class="kpi-sub" id="kpi-suivi-sans" style="color:var(--orange);"></div>
     </div>
     <div class="kpi-card" id="kpi-delai-card" title="Temps moyen entre le R1 et la signature">
-      <div class="kpi-label">Cycle de vente</div>
+      <div class="kpi-label">Délai R1 → signature</div>
       <div class="kpi-value" id="kpi-r1r2">—</div>
-      <div class="kpi-sub" id="kpi-cycle-sub">R1 → signature</div>
+      <div class="kpi-sub" id="kpi-cycle-sub">jours en moyenne</div>
       <div class="kpi-vs"><span class="eq" id="bench-cycle">—</span></div>
     </div>
     <div class="kpi-card" title="Temps moyen entre le R1 et le R2 planifié">
@@ -1755,6 +1755,11 @@ select.form-input { cursor: pointer; }
       <div class="kpi-label">Closing (Vente/Show)</div>
       <div class="kpi-value green" id="g-closing">—</div>
       <div class="kpi-sub">ventes / présences</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Délai R1 → signature</div>
+      <div class="kpi-value" id="g-cycle">—</div>
+      <div class="kpi-sub" id="g-cycle-sub">jours en moyenne</div>
     </div>
 
     <div class="kpi-card" style="background:var(--orange-bg);border-color:var(--soft-orange-line);">
@@ -8531,7 +8536,7 @@ function renderKpis(kpis) {
   if (delaiCard) delaiCard.style.display = kpis.hasDelai ? '' : 'none';
   if (kpis.hasDelai) {
     set('kpi-r1r2', kpis.delai != null ? kpis.delai + ' j' : '—');
-    set('kpi-cycle-sub', kpis.signes > 0 ? 'sur ' + kpis.signes + ' vente(s)' : 'aucune vente');
+    set('kpi-cycle-sub', kpis.signes > 0 ? 'moyenne sur ' + kpis.signes + ' vente' + (kpis.signes > 1 ? 's' : '') + ' du mois' : 'aucune vente ce mois');
   }
 
   // Vrai délai R1 → R2
@@ -11896,6 +11901,9 @@ function renderGlobal() {
   set('g-show-par-jour-global', showParJourGlobal);
   set('g-total-shows',  totalShows);
   set('g-showrate',     showrate + '%');
+  // délai moyen entre le R1 et la signature, sur toutes les ventes de la période qui ont une date de signature
+  try { const _ec = all.filter(r => r.result === 'Signé' && r.source !== 'R2' && r.dateSignature && r.date).map(r => { const a = String(r.date).split('/'), b = String(r.dateSignature).split('/'); if (a.length !== 3 || b.length !== 3) return null; return Math.floor((new Date(+b[2], +b[1]-1, +b[0]) - new Date(+a[2], +a[1]-1, +a[0])) / 86400000); }).filter(v => v !== null && v >= 0);
+    set('g-cycle', _ec.length ? Math.round(_ec.reduce((x, y) => x + y, 0) / _ec.length) + ' j' : '—'); set('g-cycle-sub', _ec.length ? 'moyenne sur ' + _ec.length + ' vente' + (_ec.length > 1 ? 's' : '') : 'aucune vente datée'); } catch (e) {}
   set('g-total-noshows', totalNoshow);
   set('g-noshowrate',   noshowrate + '%');
   set('g-total-signes', totalSignes);
