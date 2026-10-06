@@ -1031,11 +1031,11 @@ select.form-input { cursor: pointer; }
       <aside class="auj-side">
         <div id="auj-nouv"></div>
         <div class="auj-card"><div class="auj-card-head"><h2>À faire <span id="auj-afaire-quand">aujourd'hui</span></h2><a onclick="mjAller('Relances')">Voir tout le suivi ›</a></div><div id="auj-suivre"></div></div>
-        <div id="auj-auto"></div>
         <div id="controle-alerte-auj" class="controle-alerte" style="display:none;"></div>
         <div class="auj-sync" id="auj-sync"></div>
       </aside>
     </div>
+    <div id="auj-auto"></div>
   </div>
 </div>
 <!-- ===================== DAILY PAGE ===================== -->
@@ -10191,15 +10191,20 @@ function chargerAutoJour(force) {
   if (typeof COPILOT_URL === 'undefined' || _autoJour.enCours || (!force && _autoJour.data && Date.now() - _autoJour.at < 110000)) return; _autoJour.enCours = true;
   fetch(COPILOT_URL + '/automatisations/jour', { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).then(function(j) { _autoJour.enCours = false; if (j && j.ok !== false) { _autoJour.data = j; _autoJour.at = Date.now(); renderAutoJour(); } }).catch(function() { _autoJour.enCours = false; });
 }
-function renderAutoJour() {
+function renderAutoJour() { // une colonne par automatisation (mail du jour J, SMS de confirmation, mail de prise de RDV…), les envois dans l'ordre de la journée
   var el = document.getElementById('auj-auto'); if (!el) return; var j = _autoJour.data; if (!j || !(j.items || []).length) { el.innerHTML = ''; return; }
   var hm = function(d) { var x = new Date(d); return isNaN(x) ? '—' : x.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }); };
   var cls = function(e) { return /^(envoyé|délivré)/.test(e) ? 'green' : e === 'programmé' ? 'blue' : /erreur|échec|introuvable/.test(e) ? 'red' : 'orange'; };
-  var items = j.items, max = _autoJour.ouvert ? items.length : 8;
-  var h = '<div class="auj-card"><div class="auj-card-head"><h2>Copilot aujourd\'hui <span class="auj-count">' + items.length + '</span></h2><span class="fc-muted" style="font-size:12px;">' + j.envoyes + ' parti' + (j.envoyes > 1 ? 's' : '') + ' · ' + j.aVenir + ' à venir' + (j.problemes ? ' · <b style="color:var(--red)">' + j.problemes + ' problème' + (j.problemes > 1 ? 's' : '') + '</b>' : '') + '</span></div>';
-  h += items.slice(0, max).map(function(i) { return '<div class="auj-item" style="padding:6px 0;"><span class="auj-dot ' + cls(i.etat) + '"></span><span style="flex:1;min-width:0;"><div class="t" style="display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;"><span style="font-variant-numeric:tabular-nums;color:var(--text3);min-width:40px;">' + hm(i.quand) + '</span><span>' + (i.canal === 'sms' ? '💬' : '✉') + ' ' + escapeHtml(i.type) + '</span><b>→ ' + escapeHtml(i.nom) + '</b></div><div class="d">' + escapeHtml(i.etat) + (i.lu ? ' · lu ' + i.lu + '×' : '') + (i.rdv ? ' · RDV ' + escapeHtml(i.rdv.split(' ')[0].split('-').reverse().join('/') + (i.rdv.split(' ')[1] ? ' ' + i.rdv.split(' ')[1] : '')) : '') + (i.detail ? ' · ' + escapeHtml(i.detail) : '') + '</div></span></div>'; }).join('');
-  if (items.length > 8) h += '<div class="auj-etat" style="cursor:pointer;" onclick="_autoJour.ouvert=!_autoJour.ouvert;renderAutoJour()">' + (_autoJour.ouvert ? 'Réduire' : '+ ' + (items.length - 8) + ' autres') + '</div>';
-  el.innerHTML = h + '</div>';
+  var ICO = function(t, c) { return /jour J/.test(t) ? '📨' : /prise de RDV/.test(t) ? '✉' : /fin de RDV/.test(t) ? '📝' : /relance/i.test(t) ? '🔁' : /no-show/i.test(t) ? '👻' : /site/.test(t) ? '🌐' : c === 'sms' ? '💬' : '✉'; };
+  var groupes = {}, ordre = []; j.items.forEach(function(i) { if (!groupes[i.type]) { groupes[i.type] = { type: i.type, canal: i.canal, items: [] }; ordre.push(i.type); } groupes[i.type].items.push(i); });
+  var h = '<div class="auj-card"><div class="auj-card-head"><h2>Copilot aujourd\'hui <span class="auj-count">' + j.items.length + '</span></h2><span class="fc-muted" style="font-size:12px;">' + j.envoyes + ' parti' + (j.envoyes > 1 ? 's' : '') + ' · ' + j.aVenir + ' à venir' + (j.problemes ? ' · <b style="color:var(--red)">' + j.problemes + ' problème' + (j.problemes > 1 ? 's' : '') + '</b>' : '') + '</span></div>'
+    + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;align-items:start;">'
+    + ordre.map(function(t) { var g = groupes[t], partis = g.items.filter(function(i) { return /^(envoyé|délivré)/.test(i.etat); }).length;
+      return '<div style="border:1px solid var(--border);border-radius:12px;padding:10px 12px;background:var(--surface2);min-width:0;"><div style="font-weight:700;font-size:13px;margin-bottom:6px;display:flex;gap:6px;align-items:baseline;"><span>' + ICO(g.type, g.canal) + '</span><span style="flex:1;min-width:0;">' + escapeHtml(g.type) + '</span><span class="fc-muted" style="font-size:11.5px;white-space:nowrap;">' + partis + '/' + g.items.length + '</span></div>'
+        + g.items.map(function(i) { return '<div style="display:flex;gap:7px;align-items:baseline;padding:4px 0;border-top:1px dashed var(--border);font-size:12.5px;" title="' + escapeHtml(i.etat + (i.detail ? ' · ' + i.detail : '')) + '"><span class="auj-dot ' + cls(i.etat) + '" style="margin-top:4px;flex:none;"></span><span style="font-variant-numeric:tabular-nums;color:var(--text3);flex:none;">' + hm(i.quand) + '</span><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"><b>' + escapeHtml(i.nom) + '</b></span><span class="fc-muted" style="flex:none;font-size:11.5px;">' + escapeHtml(i.etat.replace(/ \(.*\)$/, '')) + (i.lu ? ' · lu' : '') + '</span></div>'; }).join('')
+        + '</div>'; }).join('')
+    + '</div></div>';
+  el.innerHTML = h;
 }
 // ── Nouveautés du tableau de bord : RDV pris ou déplacés récemment (Calendly) et mails reçus de prospects (Close), lus par le copilot. « Vu » les retire ; ils restent dans la fiche. ──
 var _nouv = { data: null, at: 0, enCours: false };
