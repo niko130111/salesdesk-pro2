@@ -4984,7 +4984,10 @@ function fcTacheCloseCreer(btn) {
   if (!date) { alert('Il manque la date.'); return; } btn.disabled = true; btn.textContent = 'Création…';
   var c = window._fcTacheCtx || { nom: _fc.nom, email: _fc.email || '' }, lead = c.lead || sdLeadPour(c.nom, c.email || '') || '';
   rlPost('/close/taches', { nom: c.nom, email: c.email || '', lead: lead, date: date, heure: heure, texte: texte + '', motif: 'tâche posée depuis la fiche' }).then(function(j) {
-    fermerModalDoublon(); try { _tachesCloseAt = 0; } catch (e) {} try { majBadgeSuivi(); } catch (e) {} try { if (typeof _rlLundi !== 'undefined' && _rlLundi) chargerTachesClose(rlPlus(_rlLundi, -7), rlPlus(_rlLundi, 13), true); } catch (e) {} // le Suivi se rafraîchit
+    fermerModalDoublon(); try { _tachesCloseAt = 0; } catch (e) {} try { majBadgeSuivi(); } catch (e) {}
+    // s'il a aussi une relance SalesDesk (ex. « R2 sans réponse depuis le 01/10 »), elle passe à la même date : sinon il restait dans « À traiter » malgré la tâche
+    try { var itx = c.cle ? (window._rlItems || []).find(function(i) { return i.cle === c.cle; }) : (window._rlItems || []).find(function(i) { return i.rel && i.rel.r && fcNormNom(i.nom) === fcNormNom(c.nom); }); if (itx && itx.rel && itx.rel.r) rlMajRelance(itx, 'plus_tard', date); } catch (e) {}
+    try { if (typeof _rlLundi !== 'undefined' && _rlLundi) chargerTachesClose(rlPlus(_rlLundi, -7), rlPlus(_rlLundi, 13), true); } catch (e) {} try { if (document.getElementById('page-relances') && typeof renderRelancesPage === 'function') renderRelancesPage(); } catch (e) {} // le Suivi se rafraîchit
     if (typeof showCopyToast === 'function') showCopyToast((j.action === 'deplacer_existante' ? '✓ Tâche Close déplacée au ' : '✓ Tâche Close créée le ') + fcFrDepuisIso(date) + (heure ? ' à ' + heure : ''));
   }).catch(function(e) { btn.disabled = false; btn.textContent = 'Créer la tâche'; alert('Tâche non créée : ' + e.message); });
 }
@@ -11721,7 +11724,7 @@ function svDeplacerVers(cles, date, heure) {
   };
   suite();
 }
-function svTache(cle) { var it = (window._rlItems || []).find(function(i) { return i.cle === cle; }); if (!it) return; var id = rlIdentite(it); fcTacheClose({ nom: id.nom || it.nom, email: id.email || '', lead: id.lead || '' }); }
+function svTache(cle) { var it = (window._rlItems || []).find(function(i) { return i.cle === cle; }); if (!it) return; var id = rlIdentite(it); fcTacheClose({ nom: id.nom || it.nom, email: id.email || '', lead: id.lead || '', cle: it.cle }); }
 function svDemain(cle) { svDeplacerVers([cle], rlJourOuvre(rlIso(new Date()), 1), ''); }
 function svDeplacer(cle) { var it = (window._rlItems || []).find(function(i) { return i.cle === cle; }); if (!it) return; rlDateModal('Déplacer ' + it.nom, 'La tâche Close passe à cette date. Rien d\'autre ne change.', rlJourOuvre(rlIso(new Date()), 1), function(d, h) { svDeplacerVers([cle], d, h); }, true); }
 function svCocher(cle, on) { _sv.coches = _sv.coches || {}; if (on) _sv.coches[cle] = 1; else delete _sv.coches[cle]; svMajSelection(); }
