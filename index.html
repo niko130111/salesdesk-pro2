@@ -4405,12 +4405,12 @@ function rlAction(ix, action, btn) {
   if (!it) { alert('Cette carte a changé entre-temps, la page se rafraîchit.'); dessinerRelances(); renderMaJournee(); return; }
   var id = rlIdentite(it), today = rlIso(new Date()), suivi = rlSuivi(it), nb = suivi.tentatives || 0;
   var occupe = function(on) { if (btn) { btn.disabled = on; btn.style.opacity = on ? '.5' : ''; } };
-  var fini = function(msg) { occupe(false); if (typeof showCopyToast === 'function') showCopyToast(msg); chargerTachesClose(rlPlus(_rlLundi, -7), rlPlus(_rlLundi, 13), true); setTimeout(dessinerRelances, 400); setTimeout(renderMaJournee, 450); if (typeof renderAujourdhui === 'function') setTimeout(renderAujourdhui, 500); if (typeof majAlerteRelances === 'function') majAlerteRelances(); };
+  var fini = function(msg) { occupe(false); if (typeof showCopyToast === 'function') showCopyToast(msg); chargerTachesClose(rlPlus(_rlLundi, -7), rlPlus(_rlLundi, 13), true); setTimeout(function() { chargerTachesClose(rlPlus(_rlLundi, -7), rlPlus(_rlLundi, 13), true); }, 6000); /* seconde relecture : Close met parfois quelques secondes à refléter une tâche terminée ou déplacée */ setTimeout(dessinerRelances, 400); setTimeout(renderMaJournee, 450); if (typeof renderAujourdhui === 'function') setTimeout(renderAujourdhui, 500); if (typeof majAlerteRelances === 'function') majAlerteRelances(); };
   var echec = function(e) { occupe(false); alert('Close n\'a pas été mis à jour : ' + (e && e.message ? e.message : e)); };
   var tacheClose = function(date, texte, heure) { // déplace la tâche existante, sinon en crée une (sans doublon côté serveur)
     return it.t ? rlPost('/close/taches/' + encodeURIComponent(it.t.id), { action: 'decaler', date: date, heure: heure || '', texte: texte, motif: action }) : rlPost('/close/taches', { lead: id.lead, nom: id.nom, email: id.email, date: date, heure: heure || '', texte: texte, motif: action });
   };
-  var terminerClose = function() { return it.t ? rlPost('/close/taches/' + encodeURIComponent(it.t.id), { action: 'terminer', motif: action }) : Promise.resolve(); };
+  var terminerClose = function() { return it.t ? rlPost('/close/taches/' + encodeURIComponent(it.t.id), { action: 'terminer', motif: action }).then(function(r) { try { if (_tachesClose && _tachesClose.taches) _tachesClose.taches = _tachesClose.taches.filter(function(t) { return t.id !== it.t.id; }); } catch (e) {} return r; }) : Promise.resolve(); }; // la tâche disparaît tout de suite de la liste : la relecture Close peut encore la renvoyer ouverte pendant quelques secondes
   if (action === 'pas_reponse') {
     var n = nb + 1, lib = RL_LIBELLES[it.col] || it.col, cad = RL_CADENCE[it.col] || [1];
     // au-delà de la cadence : mise en veille 30 jours (la tâche Close part à J+30, le compteur repart)
