@@ -592,10 +592,10 @@ main { max-width: 100%; margin: 0; padding: 6px 8px; }
 /* ── Aujourd'hui ── */
 .auj { max-width: 1240px; margin: 0 auto; padding: 18px 20px 40px; }
 .auj-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; margin-bottom: 18px; }
-.auj-date { font-size: 14px; color: var(--text2); margin-top: 2px; }
+.auj-date { font-size: 20px; font-weight: 600; color: var(--text2); margin-top: 0; }
 .auj-date::first-letter { text-transform: uppercase; }
 .auj-h1 { font-size: 28px; font-weight: 800; letter-spacing: -.02em; margin: 2px 0 2px; color: var(--text); }
-.auj-resume { font-size: 14px; color: var(--text2); }
+.auj-resume { font-size: 12px; color: var(--text3); }
 .auj-head-actions { display: flex; gap: 8px; }
 .auj-grid { display: grid; grid-template-columns: minmax(0, 65fr) minmax(300px, 35fr); gap: 16px; align-items: start; }
 @media (max-width: 1000px) { .auj-grid { grid-template-columns: 1fr; } }
@@ -628,7 +628,8 @@ main { max-width: 100%; margin: 0; padding: 6px 8px; }
 .auj-item .d { font-size: 12px; color: var(--text2); }
 .auj-item .when { margin-left: auto; font-size: 12px; color: var(--text3); white-space: nowrap; }
 .auj-item.lien { cursor: pointer; } .auj-item.lien:hover .t { color: var(--accent); }
-.auj-pilot { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 8px; font-size: 12.5px; color: var(--text2); }
+.auj-pilot { display: flex; gap: 8px; flex-wrap: nowrap; align-items: center; margin-top: 10px; font-size: 12.5px; color: var(--text2); width: 100%; flex-basis: 100%; overflow-x: auto; white-space: nowrap; }
+.auj-pilot .pp { flex: none; }
 .auj-pilot .pp { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); }
 .auj-pilot .pp b { color: var(--text); font-weight: 700; } .auj-pilot .pp.ok b { color: var(--green); }
 .auj-pilot .pp button { width: 18px; height: 18px; border-radius: 5px; border: 1px solid var(--border); background: var(--surface2); color: var(--text); font-size: 12px; line-height: 1; cursor: pointer; padding: 0; }
@@ -700,7 +701,7 @@ main { max-width: 100%; margin: 0; padding: 6px 8px; }
 .auj-sem .e { align-items: flex-start; } .auj-sem .e .ep { margin-top: 6px; }
 .auj-sem .e .en { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.3; }
 .auj-sem .e .eh { font-family: var(--font); font-variant-numeric: tabular-nums; padding-top: 1px; }
-.auj-head { flex-wrap: nowrap; } .auj-head > div:first-child { min-width: 0; flex: 1; } .auj-head-actions { flex-shrink: 0; }
+.auj-head { flex-wrap: wrap; } .auj-head > div:first-child { min-width: 0; flex: 1; } .auj-head-actions { flex-shrink: 0; } /* titre + actions sur la première ligne, pastilles sur la seconde (pleine largeur) */
 .auj-partiel { font-size: 12px; color: var(--orange); margin-top: 2px; }
 .auj-comm .big { font-size: 24px; font-weight: 800; color: var(--text); letter-spacing: -.01em; }
 .auj-comm .big small { font-size: 14px; font-weight: 500; color: var(--text2); }
@@ -1045,11 +1046,14 @@ select.form-input { cursor: pointer; }
 <div id="page-aujourdhui" class="page active">
   <div class="auj">
     <header class="auj-head">
-      <div><div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;"><h1 class="auj-h1" id="auj-titre">Aujourd'hui</h1><div class="auj-date" id="auj-date">—</div></div><div class="auj-resume" id="auj-resume">—</div><div class="auj-partiel" id="auj-partiel" style="display:none"></div><div class="auj-pilot" id="auj-pilot"></div></div>
+      <div><div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;"><h1 class="auj-h1" id="auj-titre">Aujourd'hui</h1><div class="auj-date" id="auj-date">—</div></div><div class="auj-resume" id="auj-resume">—</div><div class="auj-partiel" id="auj-partiel" style="display:none"></div></div>
       <div class="auj-head-actions">
         <div class="auj-nav"><button class="btn" title="Jour précédent" onclick="aujAller(-1)">‹</button><button class="btn" onclick="aujAller('auj')">Aujourd'hui</button><button class="btn" title="Jour suivant" onclick="aujAller(1)">›</button></div>
         <div class="auj-seg" id="auj-seg"><button class="on" onclick="aujVue('jour')">Jour</button><button onclick="aujVue('semaine')">Semaine</button></div>
         <button class="btn btn-primary" onclick="openModal('newRdvModal')">+ Ajouter un RDV</button>
+      </div>
+      <div class="auj-pilot" id="auj-pilot"></div>
+      <div style="display:none">
       </div>
     </header>
     <div id="auj-semaine" style="display:none;"></div>
