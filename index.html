@@ -486,9 +486,9 @@ main { max-width: 100%; margin: 0; padding: 6px 8px; }
 .cp-head .t { font-weight: 700; font-size: 14.5px; } .cp-head .s { font-size: 12.5px; color: var(--text3); }
 .cp-panel iframe { flex: 1; width: 100%; border: 0; background: var(--bg); }
 .cp-off { padding: 28px; font-size: 14px; line-height: 1.6; color: var(--text2); }
-.fc-dernier .synth { margin: 8px 0 6px; padding: 10px 12px; border-radius: 10px; background: var(--surface); border: 1px solid var(--border); }
+.fc-dernier .synth { margin: 12px 0 8px; padding: 12px 14px; border-radius: 10px; background: var(--surface); border: 1px solid var(--border); }
 .fc-dernier .synth .st { font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--text3); margin-bottom: 5px; }
-.fc-dernier .synth .sl { display: grid; grid-template-columns: 150px 1fr; gap: 10px; padding: 2px 0; font-size: 13.5px; } .fc-dernier .synth .sl b { color: var(--text2); font-weight: 600; }
+.fc-dernier .synth .sl { display: grid; grid-template-columns: 150px 1fr; gap: 12px; padding: 6px 0; font-size: 13.5px; line-height: 1.5; border-top: 1px dashed var(--border); } .fc-dernier .synth .sl:first-of-type { border-top: 0; } .fc-dernier .synth .sl b { color: var(--text2); font-weight: 600; }
 .fc-rdvs { border: 1px solid var(--border); border-radius: 12px; background: var(--surface); overflow: hidden; }
 .fc-rl { border-top: 1px solid var(--border); } .fc-rl:first-child { border-top: 0; }
 .fc-rl summary { display: flex; align-items: center; gap: 10px; padding: 9px 14px; cursor: pointer; list-style: none; font-size: 13.5px; } .fc-rl summary::-webkit-details-marker { display: none; }
@@ -580,7 +580,7 @@ main { max-width: 100%; margin: 0; padding: 6px 8px; }
 .fc-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.25); z-index: 1200; }
 .fc-overlay.open { display: block; }
 .fc-panel { position: absolute; top: 0; right: 0; bottom: 0; width: 980px; max-width: 96vw; background: var(--bg); box-shadow: -12px 0 40px rgba(0,0,0,0.18); display: flex; flex-direction: column; overflow-y: auto; } /* tout le panneau défile : l'en-tête (avant d'appeler, dossier en bref) peut être long */
-.fc-head { flex: none; padding: 22px 26px 14px; background: var(--surface); border-bottom: 1px solid var(--border); }
+.fc-head { flex: none; padding: 14px 22px 12px; background: var(--surface); border-bottom: 1px solid var(--border); }
 .fc-nom { font-size: 26px; font-weight: 700; display: flex; align-items: center; gap: 12px; letter-spacing: -.01em; }
 .fc-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 .fc-chip { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 600; padding: 4px 9px; border-radius: 8px; background: var(--surface2); color: var(--text); text-decoration: none; border: 1px solid var(--border); }
@@ -734,20 +734,20 @@ main { max-width: 100%; margin: 0; padding: 6px 8px; }
 .fc-dernier .t { font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--orange); margin-bottom: 6px; display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
 .fc-dernier .t a { color: var(--orange); font-weight: 600; text-transform: none; letter-spacing: 0; font-size: 11px; cursor: pointer; }
 .fc-dernier ul { margin: 0; padding-left: 18px; }
-.fc-dernier li { margin: 2px 0; }
-.fc-dernier .faits { font-size: 12px; color: var(--text2); margin-top: 8px; }
-.fc-dernier .ech { padding: 8px 0; border-top: 1px dashed var(--soft-yellow-line); }
-.fc-dernier .ech:first-of-type { border-top: 0; padding-top: 2px; }
-.fc-dernier .ech-t { font-size: 12px; font-weight: 700; color: var(--orange); margin-bottom: 3px; }
-.fc-dernier .ech-next { margin-top: 8px; font-weight: 700; font-size: 13px; }
+.fc-dernier li { margin: 5px 0; line-height: 1.5; }
+.fc-dernier .faits { font-size: 12px; color: var(--text2); margin-top: 12px; padding-top: 8px; border-top: 1px dashed var(--soft-yellow-line); }
+.fc-dernier .ech { padding: 10px 12px; margin: 8px 0; border-radius: 10px; background: var(--surface); border: 1px solid var(--border); }
+.fc-dernier .ech:first-of-type { margin-top: 4px; }
+.fc-dernier .ech-t { font-size: 12px; font-weight: 700; color: var(--orange); margin-bottom: 6px; }
+.fc-dernier .ech-next { margin-top: 12px; font-weight: 700; font-size: 13px; line-height: 1.5; }
 .fc-dernier .t .src { font-size: 11px; font-weight: 500; text-transform: none; letter-spacing: 0; color: var(--text3); }
-.fc-dernier .cle { font-size: 14px; margin: 3px 0; }
-.fc-dernier .cle.promesse { font-size: 16px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+.fc-dernier .cle { font-size: 14px; margin: 8px 0; line-height: 1.5; }
+.fc-dernier .cle.promesse { font-size: 16px; font-weight: 700; color: var(--text); margin: 4px 0 10px; line-height: 1.4; }
 .fc-dernier .cle.alerte { color: var(--red); }
 .fc-dernier .echs { margin-top: 10px; }
 .fc-dernier .ech.plus { display: none; }
 .fc-dernier .echs.ouvert .ech.plus { display: block; }
-.fc-dernier .voirplus { display: inline-block; margin-top: 6px; font-size: 12px; color: var(--accent); cursor: pointer; font-weight: 600; }
+.fc-dernier .voirplus { display: inline-block; margin-top: 10px; font-size: 12.5px; color: var(--accent); cursor: pointer; font-weight: 600; }
 .fc-dernier .ech-t { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
 .fc-dernier .preuves a { font-size: 11px; font-weight: 600; color: var(--accent); cursor: pointer; margin-left: 10px; text-decoration: none; }
 .fc-dernier pre.mots { white-space: pre-wrap; font: 12px/1.45 inherit; font-family: inherit; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; margin: 6px 0 0; max-height: 240px; overflow: auto; color: var(--text2); }
@@ -760,6 +760,7 @@ main { max-width: 100%; margin: 0; padding: 6px 8px; }
 .fc-muted { font-size: 12px; color: var(--text3); }
 .fc-nom .fc-close { margin-left: auto; border: 0; background: transparent; font-size: 20px; cursor: pointer; color: var(--text3); }
 .fc-badges { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.fc-nom .fc-badges { margin: 0 0 0 6px; }
 .fc-badge { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 99px; background: var(--surface2); color: var(--text2); }
 .fc-badge.won { background: var(--green-bg); color: var(--green); } .fc-badge.lost { background: var(--red-bg); color: var(--red); } .fc-badge.hot { background: var(--soft-orange); color: var(--orange); }
 .fc-contact { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 13px; }
@@ -4166,12 +4167,16 @@ function fcRendreDernierContact(j) {
   var ouvrir = echanges.some(function(e) { return (e.lignes || []).length >= 6; }); // un vrai RDV détaillé : on le montre sans clic
   var ouvertD = false; try { ouvertD = localStorage.getItem('sd_fiche_dossier') === '1'; } catch (e) {}
   var resteCles = fcHtmlCles(j, 'reste');
+  // le dernier échange, en clair : c'est le contexte qu'il faut avoir avant de décrocher
+  var dernierBloc = blocs.length ? '<div class="fc-muted" style="margin-top:8px;font-weight:700;">Ce qu\'on s\'est dit en dernier</div><div class="echs ouvert">' + blocs[0].replace(' plus"', '"') + '</div>' : '';
+  var autresBlocs = blocs.slice(1);
   el.innerHTML = titre + fcHtmlCles(j, 'essentiel')
+    + dernierBloc
     + (j.prochaine ? '<div class="ech-next">➡ ' + escapeHtml(j.prochaine) + '</div>' : '')
     + (faits.length ? '<div class="faits">' + faits.map(escapeHtml).join(' · ') + '</div>' : '')
     + '<a class="voirplus" style="display:block;margin-top:8px;" onclick="var e=this.nextElementSibling;var o=e.style.display!==\'none\';e.style.display=o?\'none\':\'\';this.textContent=o?\'Voir tout le dossier ▸\':\'Masquer le dossier ▾\';try{localStorage.setItem(\'sd_fiche_dossier\',o?\'0\':\'1\')}catch(x){}">' + (ouvertD ? 'Masquer le dossier ▾' : 'Voir tout le dossier ▸') + '</a>'
     + '<div style="display:' + (ouvertD ? '' : 'none') + ';margin-top:8px;">' + resteCles + synth
-    + (blocs.length ? '<a class="voirplus" onclick="var e=this.nextElementSibling;var o=e.style.display!==\'none\';e.style.display=o?\'none\':\'\';this.textContent=o?\'Voir les ' + blocs.length + ' échanges ▸\':\'Masquer les échanges ▾\'">' + (ouvrir ? 'Masquer les échanges ▾' : 'Voir les ' + blocs.length + ' échanges ▸') + '</a><div class="echs ouvert" style="display:' + (ouvrir ? '' : 'none') + ';">' + blocs.join('') + '</div>' : '<div class="fc-muted" style="margin-top:6px;">Rien d\'exploitable dans Close (pas de note, pas d\'enregistrement, pas de compte rendu).</div>')
+    + (autresBlocs.length ? '<div class="fc-muted" style="margin-top:8px;font-weight:700;">Échanges précédents</div><div class="echs ouvert">' + autresBlocs.map(function(b) { return b.replace(' plus"', '"'); }).join('') + '</div>' : (blocs.length ? '' : '<div class="fc-muted" style="margin-top:6px;">Rien d\'exploitable dans Close (pas de note, pas d\'enregistrement, pas de compte rendu).</div>'))
     + '</div>';
 }
 // ── Traiter une tâche R2 sans réponse depuis SalesDesk : Close suit (tâche déplacée / terminée, appel sans réponse loggé, escalade manager) ──
@@ -14855,8 +14860,7 @@ window.addEventListener('load', function() {
 <div id="fc-overlay" class="fc-overlay" onclick="if(event.target===this)fermerFicheClient()">
   <div class="fc-panel">
     <div class="fc-head">
-      <div class="fc-nom"><span id="fc-nom"></span><button class="btn btn-sm" style="font-size:11px;padding:2px 8px;margin-left:10px;" title="Corriger l'orthographe du nom ou fusionner avec une autre fiche" onclick="fcCorrigerNom()">✎ Corriger le nom</button><button class="fc-close" onclick="fermerFicheClient()" title="Fermer">✕</button></div>
-      <div class="fc-badges" id="fc-badges"></div>
+      <div class="fc-nom"><span id="fc-nom"></span><button class="btn btn-sm" style="font-size:11px;padding:2px 8px;margin-left:10px;" title="Corriger l'orthographe du nom ou fusionner avec une autre fiche" onclick="fcCorrigerNom()">✎ Corriger le nom</button><div class="fc-badges" id="fc-badges"></div><button class="fc-close" onclick="fermerFicheClient()" title="Fermer">✕</button></div>
       <div class="fc-contact" id="fc-contact"></div>
       <div class="fc-next" id="fc-next"></div>
       <div class="fc-dernier" id="fc-dernier"></div>
