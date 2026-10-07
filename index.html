@@ -718,6 +718,7 @@ main { max-width: 100%; margin: 0; padding: 6px 8px; }
 .fc-next .q { font-size: 15px; font-weight: 700; color: var(--text); }
 .fc-next .d { font-size: 12.5px; color: var(--text2); }
 .fc-next .acts { margin-left: auto; display: flex; gap: 6px; flex-wrap: wrap; }
+.fc-next:has(.fc-barre) { flex-direction: column; align-items: stretch; } .fc-next .acts:has(.fc-barre) { margin-left: 0; width: 100%; flex-direction: column; margin-top: 10px; } /* la barre d'actions prend toute la largeur, sous la prochaine étape */
 .fc-dernier { margin: 12px 0 4px; padding: 12px 14px; border-radius: 12px; background: var(--soft-yellow); border: 1px solid var(--soft-yellow-line); font-size: 13.5px; line-height: 1.45; }
 .fc-dernier .t { font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--orange); margin-bottom: 6px; display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
 .fc-dernier .t a { color: var(--orange); font-weight: 600; text-transform: none; letter-spacing: 0; font-size: 11px; cursor: pointer; }
@@ -3845,7 +3846,7 @@ function fcPopupDoublon(nom, emails, rows) {
   if (!ov) { ov = document.createElement('div'); ov.id = 'fc-dup-overlay'; ov.className = 'modal-overlay'; ov.style.zIndex = '1300'; ov.innerHTML = '<div class="modal" id="fc-dup-modal"></div>'; document.body.appendChild(ov); ov.onclick = function(ev) { if (ev.target === ov) fermerModalDoublon(); }; }
   document.getElementById('fc-dup-modal').innerHTML = html; ov.classList.add('open');
 }
-function fermerModalDoublon() { try { var _o = document.getElementById('fc-dup-overlay'); if (_o) _o.classList.remove('a-gauche'); } catch (e) {} var ov = document.getElementById('fc-dup-overlay'); if (ov) ov.classList.remove('open'); }
+function fermerModalDoublon() { try { var _o = document.getElementById('fc-dup-overlay'); if (_o) { _o.classList.remove('a-gauche'); delete _o.dataset.vd; } } catch (e) {} var ov = document.getElementById('fc-dup-overlay'); if (ov) ov.classList.remove('open'); }
 function fermerModalPlusTard() { window._sdChaine = false; fermerModalDoublon(); }
 function fermerFicheClient() { document.getElementById('fc-overlay').classList.remove('open'); }
 function fcOnglet(t) { _fc.tab = t; fcRendre(); }
@@ -3983,7 +3984,6 @@ function fcRendreContact() {
   if (tel) chips.push('<a class="fc-chip accent" href="tel:' + escapeHtml(tel.replace(/\s/g, '')) + '" title="Ouvre la fiche dans l\'application Close, numéro copié : un clic sur le numéro dans Close lance l\'appel (loggé et enregistré). Alt+clic = appel via le Mac (FaceTime)." onclick="return fcAppeler(event, ' + JSON.stringify(tel).replace(/"/g, '&quot;') + ', ' + JSON.stringify(url || '').replace(/"/g, '&quot;') + ')">📞 ' + escapeHtml(tel) + '</a>');
   if (mail) chips.push('<a class="fc-chip" href="mailto:' + escapeHtml(mail) + '">✉ ' + escapeHtml(mail) + '</a>');
   if (url) chips.push('<a class="fc-chip" href="' + escapeHtml(url) + '" target="_blank" rel="noopener">↗ Close' + (statut ? ' <span class="k">' + escapeHtml(statut) + '</span>' : '') + '</a>');
-  if (typeof COPILOT_URL !== 'undefined') chips.push('<a class="fc-chip" href="#" onclick="fcTacheClose();return false;" title="Une tâche de rappel dans Close, à la date et à l\'heure que tu veux">⏰ Tâche Close</a>');
   if (c === null) note = 'Close : recherche…';
   else if (c && c.configure === false) note = 'Close : clé absente';
   else if (c && c.error) note = 'Close : ' + c.error;
@@ -3999,9 +3999,10 @@ function fcItemSuiviPour(t) { try { var it = (window._rlItems || []).find(functi
 function fcBoutonsSuivi(it) { // la même barre partout où une fiche s'ouvre : Appeler, Prendre un RDV, puis le résultat de l'appel, Contrat envoyé et Signé à la fin
   var cleJs = JSON.stringify(it.cle).replace(/"/g, '&quot;'), A = function(action, lib, cls, titre) { return '<button class="btn btn-sm' + (cls ? ' ' + cls : '') + '" title="' + escapeHtml(titre || '') + '" onclick="rlAction(' + cleJs + ', \'' + action + '\', this);setTimeout(function(){try{fcRendre()}catch(e){}},1500)">' + lib + '</button>'; };
   var aTache = !!(it.t || it.rel);
-  return '<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;">'
+  return '<div class="fc-barre" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:6px;width:100%;">'
     + '<button class="btn btn-sm btn-primary" title="Close ouvre la fiche et compose ; Alt + clic = appel via le Mac" onclick="svAppeler(event,' + cleJs + ')">📞 Appeler</button>'
     + A('rdv_pris', '📆 Prendre un RDV', 'btn-primary', 'Tu choisis le créneau, je réserve dans Calendly' + (aTache ? ', la tâche est terminée' : ''))
+    + (typeof COPILOT_URL !== 'undefined' ? '<button class="btn btn-sm" title="Un mail depuis ta boîte Close, avec ta signature" onclick="fcRepondreMail(\'\', \'\')">✉ Écrire un mail</button>' : '')
     + A('pas_reponse', '📭 Sans réponse', 'sv-orange', 'Appel loggé dans Close, tâche décalée selon la cadence') + A('pas_interesse', '✋ Pas intéressé', 'sv-rouge', 'Close en Not interested' + (aTache ? ', tâche terminée' : ''))
     + (aTache ? '<button class="btn btn-sm" onclick="svDemain(' + cleJs + ');setTimeout(function(){try{fcRendre()}catch(e){}},1500)">⏭ Déplacer à demain</button><button class="btn btn-sm" onclick="svDeplacer(' + cleJs + ')">📅 Déplacer au…</button>' : '')
     + (typeof COPILOT_URL !== 'undefined' ? '<button class="btn btn-sm" title="Une tâche Close à la date, à l\'heure et avec le texte que tu veux" onclick="fcTacheClose()">⏰ Tâche</button>' : '')
@@ -10803,7 +10804,7 @@ function sdPopupVerifDemain() { // pour chaque RDV de demain tu dis explicitemen
   try { chargerSms(true); } catch (e) {} window._vdRdvs = rdvs; window._vdChoix = rdvs.map(function(r) { return (r.row && r.row.confirme) ? 'oui' : ''; });
   var ov = document.getElementById('fc-dup-overlay');
   if (!ov) { ov = document.createElement('div'); ov.id = 'fc-dup-overlay'; ov.className = 'modal-overlay'; ov.style.zIndex = '1300'; ov.innerHTML = '<div class="modal" id="fc-dup-modal"></div>'; document.body.appendChild(ov); }
-  ov.onclick = function(ev) { if (ev.target === ov) fermerModalDoublon(); }; ov.classList.add('open'); sdVerifDemainMaj();
+  ov.onclick = function(ev) { if (ev.target === ov) fermerModalDoublon(); }; ov.classList.add('open'); ov.dataset.vd = '1'; sdVerifDemainMaj();
 }
 // ── Bloc « Demain » dans la colonne de droite d'Aujourd'hui : les RDV du prochain jour ouvré, et pour chacun OUI / Relancer / Annulé, puis Valider (même traitement que la fenêtre de vérification) ──
 function aujVerifDemainInit() {
@@ -10841,7 +10842,7 @@ function sdVerifDemainMaj() {
     + '<div class="fc-muted" style="margin-bottom:12px;">Pour chacun, dis ce que tu veux. <b>Seuls ceux marqués « Relancer par SMS » reçoivent un message.</b> Sans choix, il ne se passe rien pour lui.</div>'
     + lignes
     + '<div style="display:flex;gap:8px;justify-content:flex-end;align-items:center;margin-top:14px;flex-wrap:wrap;"><span class="fc-muted" style="margin-right:auto;">' + nOui + ' confirmé' + (nOui > 1 ? 's' : '') + ' · <b>' + nRel + ' SMS de relance</b> à envoyer' + (nAnn ? ' · <b style="color:var(--red)">' + nAnn + ' annulé' + (nAnn > 1 ? 's' : '') + '</b> (no-show, Calendly annulé, relance dans 2 jours ouvrés)' : '') + (tot ? ' · relances possibles à partir de 13 h' : '') + '</span><button class="btn" onclick="fermerModalDoublon()">Plus tard</button><button class="btn btn-primary" onclick="sdVerifDemainValider()">' + (nRel ? 'Valider et envoyer ' + nRel + ' SMS' : nAnn ? 'Valider' : 'Valider (aucun SMS)') + '</button></div></div>';
-  var ovV = document.getElementById('fc-dup-overlay'); if (ovV && ovV.classList.contains('open') && document.getElementById('fc-dup-modal')) document.getElementById('fc-dup-modal').innerHTML = html;
+  var ovV = document.getElementById('fc-dup-overlay'); if (ovV && ovV.classList.contains('open') && ovV.dataset.vd === '1' && document.getElementById('fc-dup-modal')) document.getElementById('fc-dup-modal').innerHTML = html; // seulement si c'est bien la fenêtre de vérification qui est ouverte (sinon elle écrasait la fenêtre en cours)
   aujRendreDemain(faireLignes(true), nOui, nRel, nAnn, tot, jour);
 }
 // ── RDV annulé par le prospect (vérification de demain, fiche) : ligne en Annulé (compte comme no-show), événement Calendly annulé (mail d'annulation, rappels stoppés), statut Close, tâche « Relancer » dans 2 jours ouvrés. Renvoie la date de relance. ──
