@@ -4058,13 +4058,14 @@ function fcRendreProchaineEtape() {
     var dateRel = (t && t.date) || (last.relanceDate && !last.relanceFait ? last.relanceDate : '');
     if (sv && sv.escalade) { lib = 'Passé à ' + (sv.escalade.a || RL_MANAGER); det = 'le ' + fcFrDepuisIso(sv.escalade.date) + ' — en attente de son retour'; }
     else if (dateRel) { var ret = dateRel < todayIso; lib = (ret ? '⏰ À rappeler depuis le ' : 'À rappeler le ') + fcFrDepuisIso(dateRel); det = (t && t.texte && !/^follow ?up/i.test(t.texte) ? t.texte : (last.relanceCond || '')) + (sv && sv.tentatives ? (det ? ' · ' : '') + sv.tentatives + ' appel(s) sans réponse' : ''); var itS = t ? fcItemSuiviPour(t) : null;
-      if (itS) acts.push(fcBoutonsSuivi(itS)); else acts.push('<button class="btn btn-sm btn-primary" onclick="fcAppelerDepuisFiche()">📞 Appeler</button>', '<button class="btn btn-sm" onclick="fcPopupSuivi(' + suiviArg + ')">📅 Décaler</button>'); }
+      if (itS) acts.push(fcBoutonsSuivi(itS)); else acts.push('<button class="btn btn-sm" onclick="fcPopupSuivi(' + suiviArg + ')">📅 Décaler le rappel</button>'); }
     else if (last.result === 'Signé') { lib = 'Client signé' + (last.dateSignature ? ' le ' + last.dateSignature : ''); det = 'Onboarding et vitrine côté RealAdvisor'; acts.push('<button class="btn btn-sm btn-primary" title="Remplit la fiche Close : offre, fréquence, durée, dates, tier, frais de mise en service, add-ons, lien de la démo, lien Stripe" onclick="fcOnboarding()">🚀 Onboarding</button>'); }
     else if (last.result === 'Non signé' && last.nosignRaison === 'pasinteresse') { lib = 'Pas intéressé'; det = 'Dossier clos'; }
     else if (['No Show', 'Annulé', 'Reprogrammé'].indexOf(String(last.presence || '').trim()) >= 0) { lib = String(last.presence).trim() + ' le ' + last.date; det = 'Aucune relance posée'; }
     else { lib = 'Aucune prochaine étape'; det = SD_INTERESSE.indexOf(String(last.result || '').trim()) >= 0 ? 'Intéressé sans suite : R2 ou rappel ?' : 'À décider'; }
   }
   if (!acts.some(function(x) { return /rlAction\(/.test(x); })) acts.push(fcBoutonsSuivi(fcItemFiche())); // la même barre d'actions sur toute fiche, quel que soit l'état du dossier
+  if (_fc.rows.some(function(r) { return r.result === 'Signé' && r.source !== 'R2'; }) && !acts.some(function(x) { return /fcOnboarding/.test(x); })) acts.unshift('<button class="btn btn-sm btn-primary" title="Remplit la fiche Close : offre, fréquence, durée, dates, tier, frais de mise en service, add-ons, lien de la démo, lien Stripe" onclick="fcOnboarding()">🚀 Onboarding</button>'); // client signé : l'onboarding est proposé quel que soit l'état du suivi
   el.innerHTML = '<div style="width:100%">' + labHtml + '<div class="q">' + escapeHtml(lib) + '</div>' + (det ? '<div class="d">' + escapeHtml(det) + '</div>' : '') + '</div><div class="acts">' + acts.join('') + '</div>';
 }
 // ❌ Il annule : depuis la fiche — même traitement que « RDV annulé » dans la vérification de demain, puis l'onglet Mails s'ouvre avec une réponse prête (signature ajoutée par le copilot)
@@ -4137,7 +4138,7 @@ function fcOnboarding() {
   };
   if (typeof COPILOT_URL === 'undefined') { rendre(''); return; }
   fetch(COPILOT_URL + '/close/dernier-contact?' + new URLSearchParams(Object.assign({ rapide: '1' }, lead ? { lead: lead } : { nom: _fc.nom, email: _fc.email || '' })), { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).then(function(j) {
-    var claap = ''; try { var jr = (j && j.journal) || []; var e = jr.find(function(a) { return a.claap; }); claap = e ? e.claap : ''; if (!claap) { var ec = (j && j.echanges) || []; var x = ec.find(function(q) { return q.source && q.source.claap; }); claap = x ? x.source.claap : ''; } } catch (e2) {}
+    var claap = ''; try { var jr = ((j && j.journal) || []).filter(function(a) { return a.claap; }), isoR1 = frVersIsoSd(last.date) || ''; var duR1 = jr.find(function(a) { return String(a.at || '').slice(0, 10) === isoR1; }); var plusAncien = jr.slice().sort(function(a, b) { return String(a.at).localeCompare(String(b.at)); })[0]; claap = (duR1 || plusAncien || {}).claap || ''; /* la vidéo du R1 : celle datée du jour du R1, sinon la plus ancienne (l'onboarding du CSM vient après) */ if (!claap) { var ec = (j && j.echanges) || []; var x = ec.find(function(q) { return q.source && q.source.claap; }); claap = x ? x.source.claap : ''; } } catch (e2) {}
     rendre(claap);
   }).catch(function() { rendre(''); });
 }
