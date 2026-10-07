@@ -632,7 +632,7 @@ main { max-width: 100%; margin: 0; padding: 6px 8px; }
 .auj-pilot .pp { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); }
 .auj-pilot .pp b { color: var(--text); font-weight: 700; } .auj-pilot .pp.ok b { color: var(--green); }
 .auj-pilot .pp button { width: 18px; height: 18px; border-radius: 5px; border: 1px solid var(--border); background: var(--surface2); color: var(--text); font-size: 12px; line-height: 1; cursor: pointer; padding: 0; }
-.auj-pilot a { color: var(--accent); cursor: pointer; font-weight: 600; }
+.auj-pilot a { color: var(--accent); cursor: pointer; font-weight: 600; margin-left: auto; }
 /* Finition Aujourd'hui : une action principale par ligne, méta en texte, alerte technique discrète */
 .auj-head { align-items: flex-start; margin-bottom: 22px; }
 .auj-h1 { margin: 0 0 4px; }
@@ -1045,7 +1045,7 @@ select.form-input { cursor: pointer; }
 <div id="page-aujourdhui" class="page active">
   <div class="auj">
     <header class="auj-head">
-      <div><h1 class="auj-h1" id="auj-titre">Aujourd'hui</h1><div class="auj-date" id="auj-date">—</div><div class="auj-resume" id="auj-resume">—</div><div class="auj-partiel" id="auj-partiel" style="display:none"></div><div class="auj-pilot" id="auj-pilot"></div></div>
+      <div><div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;"><h1 class="auj-h1" id="auj-titre">Aujourd'hui</h1><div class="auj-date" id="auj-date">—</div></div><div class="auj-resume" id="auj-resume">—</div><div class="auj-partiel" id="auj-partiel" style="display:none"></div><div class="auj-pilot" id="auj-pilot"></div></div>
       <div class="auj-head-actions">
         <div class="auj-nav"><button class="btn" title="Jour précédent" onclick="aujAller(-1)">‹</button><button class="btn" onclick="aujAller('auj')">Aujourd'hui</button><button class="btn" title="Jour suivant" onclick="aujAller(1)">›</button></div>
         <div class="auj-seg" id="auj-seg"><button class="on" onclick="aujVue('jour')">Jour</button><button onclick="aujVue('semaine')">Semaine</button></div>
@@ -10375,8 +10375,13 @@ function sdActionMailFinR1(cle, action, btn) {
 }
 // ── Retour des appels Close : les appels passés aujourd'hui remontent sur les cartes, « joint » ou « pas de réponse » pré-rempli, tu valides ──
 var _appelsJour = null, _appelsJourAt = 0;
+var _appelsSemaine = null, _appelsSemaineAt = 0;
+function chargerAppelsSemaine(force) {
+  if (typeof COPILOT_URL === 'undefined') return; if (_appelsSemaine && Date.now() - _appelsSemaineAt < 300000 && !force) return;
+  fetch(COPILOT_URL + '/close/appels-semaine' + (force ? '?force=1' : ''), { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).then(function(j) { if (j && j.configure !== false && !j.error) { _appelsSemaine = j; _appelsSemaineAt = Date.now(); try { renderAujourdhui(); } catch (e) {} } }).catch(function() {});
+}
 function chargerAppelsJour(force) {
-  if (typeof COPILOT_URL === 'undefined') return;
+  if (typeof COPILOT_URL === 'undefined') return; try { chargerAppelsSemaine(force); } catch (e) {}
   if (_appelsJour && Date.now() - _appelsJourAt < 60000 && !force) return;
   fetch(COPILOT_URL + '/close/appels-jour' + (force ? '?force=1' : ''), { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).then(function(j) { _appelsJour = j.appels || []; _appelsJourAt = Date.now(); renderMaJournee(); dessinerRelances(); }).catch(function() {});
 }
@@ -10938,6 +10943,7 @@ function renderAujourdhui() {
       '<span class="pp' + (fait ? ' ok' : '') + '" title="RDV Outbound pris aujourd\'hui / objectif du jour">Outbound du jour <b>' + escapeHtml(mj ? mj[1] + ' / ' + mj[2] : '—') + '</b></span>'
       + '<span class="pp" title="Outbound qu\'il reste à prendre cette semaine (objectif ajusté aux absences)">Reste cette semaine <b>' + escapeHtml(/^\d+$/.test(os) ? os : '—') + '</b></span>'
       + (function() { var ap = (typeof _appelsJour !== 'undefined' && _appelsJour) ? _appelsJour : null; if (!ap) return ''; var jn = ap.filter(function(a) { return a.joint; }).length; return '<span class="pp" title="Appels passés aujourd\'hui dans Close · dont ceux où tu as eu la personne">Appels du jour <b>' + ap.length + '</b>' + (ap.length ? ' · ' + jn + ' joint' + (jn > 1 ? 's' : '') : '') + '</span>'; })()
+      + (function() { var as = (typeof _appelsSemaine !== 'undefined' && _appelsSemaine) ? _appelsSemaine : null; if (!as) return ''; return '<span class="pp" title="Appels sortants depuis lundi dans Close · dont ceux où tu as eu la personne">Appels de la semaine <b>' + (as.total || 0) + '</b>' + (as.total ? ' · ' + (as.joints || 0) + ' joint' + (as.joints > 1 ? 's' : '') : '') + '</span>'; })()
       + (function() { try { var dr = sdRdvsDeDemain(); if (!dr.length) return ''; var c = dr.filter(function(r) { return r.row && r.row.confirme; }).length; return '<span class="pp' + (c === dr.length ? ' ok' : '') + '" style="cursor:pointer" title="Dire qui a répondu OUI et qui relancer par SMS" onclick="sdPopupVerifDemain()">RDV de demain <b>' + c + ' / ' + dr.length + '</b> confirmés</span>'; } catch (e) { return ''; } })()
       + '<a onclick="mjAller(\'Performance\')">Objectifs du mois ›</a>';
   } catch (e) {}
