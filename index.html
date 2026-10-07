@@ -3964,6 +3964,28 @@ function fcAppeler(ev, tel, closeUrl) { // clic : la fiche s'ouvre DANS l'applic
   return false;
 }
 // Corriger le nom d'une personne partout (lignes, fiche, traités, suivi, journal) — et dans le copilot ; proposition = le nom tel qu'il est dans Close
+// ── Relier une personne à la bonne fiche Close (ex. : ligne créée avec l'e-mail du conjoint) : lien collé → toutes ses lignes prennent closeLead et l'e-mail de cette fiche ──
+function fcChangerFicheClose() {
+  if (!_fc.nom) return; if (typeof COPILOT_URL === 'undefined') { alert('Copilot éteint : il lit la fiche Close.'); return; }
+  var lien = prompt('Colle le lien de la bonne fiche Close pour « ' + _fc.nom + ' » :', ''); if (!lien) return;
+  var m = /lead_[A-Za-z0-9]+/.exec(lien); if (!m) { alert('Pas d\'identifiant de fiche (lead_…) dans ce lien.'); return; }
+  var lead = m[0];
+  fetch(COPILOT_URL + '/close/contact?' + new URLSearchParams({ lead: lead }), { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).then(function(j) {
+    var l = (j.leads || [])[0]; if (!l) { alert('Fiche Close introuvable : ' + lead); return; }
+    var ct = (l.contacts || []).find(function(c) { return fcNormNom(c.nom || '') === fcNormNom(_fc.nom); }) || (l.contacts || [])[0] || {}, email = String((ct.emails || [])[0] || '').toLowerCase().trim(), ancienEmail = String(_fc.email || '').toLowerCase().trim();
+    if (!confirm('Relier « ' + _fc.nom + ' » à la fiche Close « ' + l.nom + ' »' + (email ? ' (' + email + ')' : '') + ' ?\n\nToutes ses lignes SalesDesk pointeront vers cette fiche' + (email && email !== ancienEmail ? ' et prendront cet e-mail' : '') + '.')) return;
+    var st = loadStore(); if (typeof sdBackupStore === 'function') sdBackupStore(st);
+    var n = fcNormNom(_fc.nom), nb = 0;
+    Object.keys(st).forEach(function(k) { if (!/^\d{4}-\d{2}$/.test(k) || !Array.isArray(st[k])) return; st[k].forEach(function(r) { if (!r || fcNormNom(r.client || '') !== n) return; r.closeLead = lead; if (email && String(r.email || '').toLowerCase().trim() !== email) { r.emailAncien = r.email || ''; r.email = email; } nb++; }); });
+    var cls = fcClients(st), url = 'https://app.close.com/lead/' + lead + '/', kOld = fcCle(_fc.nom, ancienEmail), kNew = fcCle(_fc.nom, email || ancienEmail);
+    var cl = cls[kNew] || cls[kOld] || { nom: _fc.nom, email: email || ancienEmail, notes: '', claap: {} }; cl.closeUrl = url; if (email) cl.email = email; cls[kNew] = cl; if (cls[kOld] && kOld !== kNew) cls[kOld].closeUrl = url;
+    if (!cls['n:' + n]) cls['n:' + n] = { nom: _fc.nom, email: email || ancienEmail, notes: '', claap: {} }; cls['n:' + n].closeUrl = url;
+    saveStore(st);
+    if (typeof showCopyToast === 'function') showCopyToast('✓ ' + _fc.nom + ' relié à « ' + l.nom + ' » · ' + nb + ' ligne' + (nb > 1 ? 's' : ''));
+    try { if (window._sv) _sv.ctx = {}; } catch (e) {} try { _tachesCloseAt = 0; } catch (e) {}
+    try { fermerFicheClient(); } catch (e) {} setTimeout(function() { try { ouvrirFicheClient(_fc.nom, email || ancienEmail); } catch (e) {} try { refreshAll(); } catch (e) {} }, 200);
+  }).catch(function(e) { alert('Close ne répond pas : ' + (e && e.message || e)); });
+}
 function fcCorrigerNom() {
   var ancien = _fc.nom; if (!ancien) return;
   var suggestion = '';
@@ -15109,7 +15131,7 @@ window.addEventListener('load', function() {
 <div id="fc-overlay" class="fc-overlay" onclick="if(event.target===this)fermerFicheClient()">
   <div class="fc-panel">
     <div class="fc-head">
-      <div class="fc-nom"><span id="fc-nom"></span><button class="btn btn-sm" style="font-size:11px;padding:2px 8px;margin-left:10px;" title="Corriger l'orthographe du nom ou fusionner avec une autre fiche" onclick="fcCorrigerNom()">✎ Corriger le nom</button><div class="fc-badges" id="fc-badges"></div><button class="fc-close" onclick="fermerFicheClient()" title="Fermer">✕</button></div>
+      <div class="fc-nom"><span id="fc-nom"></span><button class="btn btn-sm" style="font-size:11px;padding:2px 8px;margin-left:10px;" title="Corriger l'orthographe du nom ou fusionner avec une autre fiche" onclick="fcCorrigerNom()">✎ Corriger le nom</button><button class="btn btn-sm" style="font-size:11px;padding:2px 8px;margin-left:6px;" title="Relier cette personne à une autre fiche Close : colle le lien de la bonne fiche, toutes ses lignes SalesDesk y pointeront (et prendront son e-mail)" onclick="fcChangerFicheClose()">↔ Fiche Close</button><div class="fc-badges" id="fc-badges"></div><button class="fc-close" onclick="fermerFicheClient()" title="Fermer">✕</button></div>
       <div class="fc-contact" id="fc-contact"></div>
       <div class="fc-next" id="fc-next"></div>
       <div class="fc-dernier" id="fc-dernier"></div>
