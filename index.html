@@ -434,7 +434,7 @@ main { max-width: 100%; margin: 0; padding: 6px 8px; }
 .fc-head { background: var(--bg); }
 .fc-bloc { margin-top: 12px; padding: 12px 14px; border-radius: 12px; background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--border); }
 .fc-bloc-t { font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--text3); margin-bottom: 8px; }
-.fc-contact { margin-top: 12px; padding: 12px 14px; border-radius: 12px; background: var(--surface); border: 1px solid var(--border); border-left: 4px solid #9aa3b2; }
+.fc-contact { margin-top: 8px; padding: 6px 10px; border-radius: 10px; background: var(--surface); border: 1px solid var(--border); border-left: 4px solid #9aa3b2; }
 .fc-next { margin-top: 12px; border-left: 4px solid var(--purple); background: var(--surface); }
 .fc-dernier { margin: 12px 0 0; border-left: 4px solid var(--orange); border-radius: 12px; }
 .fc-head .fc-dernier .synth { margin: 12px 0 0; padding: 10px 12px; border-radius: 10px; background: #eef4fb; border: 1px solid #c9d8ea; border-left: 4px solid #185FA5; }
@@ -583,7 +583,7 @@ main { max-width: 100%; margin: 0; padding: 6px 8px; }
 .fc-head { flex: none; padding: 22px 26px 14px; background: var(--surface); border-bottom: 1px solid var(--border); }
 .fc-nom { font-size: 26px; font-weight: 700; display: flex; align-items: center; gap: 12px; letter-spacing: -.01em; }
 .fc-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
-.fc-chip { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; padding: 7px 12px; border-radius: 10px; background: var(--surface2); color: var(--text); text-decoration: none; border: 1px solid var(--border); }
+.fc-chip { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 600; padding: 4px 9px; border-radius: 8px; background: var(--surface2); color: var(--text); text-decoration: none; border: 1px solid var(--border); }
 .fc-chip:hover { border-color: var(--accent); color: var(--accent); }
 .fc-chip.accent { background: var(--accent-bg); color: var(--accent); border-color: transparent; }
 .fc-chip .k { font-size: 11px; font-weight: 500; color: var(--text3); }
@@ -4028,7 +4028,7 @@ function fcItemFiche() {
 }
 function fcRendreProchaineEtape() {
   var el = document.getElementById('fc-next'); if (!el) return;
-  var last = _fc.rows[0]; if (!last) { el.innerHTML = ''; return; }
+  var last = _fc.rows[0]; if (!last) { el.innerHTML = '<div><div class="lab">Prochaine étape</div><div class="q">Aucun RDV dans SalesDesk</div><div class="d">Prospect Close : appeler, prendre un RDV, poser une tâche…</div></div><div class="acts">' + fcBoutonsSuivi(fcItemFiche()) + '</div>'; return; }
   var today = new Date(); today.setHours(0, 0, 0, 0); var todayIso = rlIso(new Date());
   var n = fcNormNom(_fc.nom), q = null, lib = '', det = '', acts = [];
   var nomJs = JSON.stringify(_fc.nom).replace(/"/g, '&quot;'), emailJs = JSON.stringify(_fc.email || '').replace(/"/g, '&quot;');
@@ -4126,12 +4126,13 @@ function fcChargerDernierContact(force, leadId) {
 // Les 3 lignes closer (promesse datée · accroche · état du deal) + alertes, puis le détail par échange avec la preuve (audio, mots exacts, Claap)
 // le modèle écrit parfois « vide » / « rien » au lieu de laisser la clé vide : on ne l'affiche pas
 function sdClesPropres(c) { var o = {}; Object.keys(c || {}).forEach(function(k) { var v = String(c[k] == null ? '' : c[k]).trim(); o[k] = /^(vide|rien|aucun[e]?|n\/?a|—|-)\.?$/i.test(v) ? '' : v; }); return o; }
-function fcHtmlCles(j) {
-  var c = sdClesPropres(j.cles), out = [];
-  if (c.promesse) out.push('<div class="cle promesse">🤝 ' + escapeHtml(c.promesse) + '</div>');
-  if (c.accroche) out.push('<div class="cle">💬 <b>Pour ouvrir :</b> ' + escapeHtml(c.accroche) + '</div>');
-  if (c.deal) out.push('<div class="cle">💶 <b>Le deal :</b> ' + escapeHtml(c.deal) + '</div>');
-  if (c.promesse_sdr) out.push('<div class="cle alerte">⚠ <b>Promis par un collègue :</b> ' + escapeHtml(c.promesse_sdr) + '</div>');
+function fcHtmlCles(j, mode) { // mode 'essentiel' = ce qu'il faut avoir en tête avant de décrocher ; 'reste' = l'accroche et le deal, repliés par défaut ; rien = tout
+  var c = sdClesPropres(j.cles), out = [], ess = mode !== 'reste', reste = mode !== 'essentiel';
+  if (ess && c.promesse) out.push('<div class="cle promesse">🤝 ' + escapeHtml(c.promesse) + '</div>');
+  if (reste && c.accroche) out.push('<div class="cle">💬 <b>Pour ouvrir :</b> ' + escapeHtml(c.accroche) + '</div>');
+  if (reste && c.deal) out.push('<div class="cle">💶 <b>Le deal :</b> ' + escapeHtml(c.deal) + '</div>');
+  if (ess && c.promesse_sdr) out.push('<div class="cle alerte">⚠ <b>Promis par un collègue :</b> ' + escapeHtml(c.promesse_sdr) + '</div>');
+  if (mode === 'reste') return out.join('');
   var badges = [];
   if (c.demo_faite) badges.push('<span class="fc-badge">🎬 Démo déjà faite le ' + escapeHtml(c.demo_faite) + ' — ne pas re-pitcher</span>');
   if (j.tentativesDepuis >= 2) badges.push('<span class="fc-badge" style="background:var(--soft-red);color:var(--red);">📵 ' + j.tentativesDepuis + ' appels sans réponse' + (j.derniereConversation ? ' depuis le ' + escapeHtml(j.derniereConversation.date) : '') + ' → tenter SMS / mail</span>');
@@ -4163,10 +4164,15 @@ function fcRendreDernierContact(j) {
   });
   var synth = (j.synthese || []).length ? '<div class="synth"><div class="st">Le dossier en bref</div>' + j.synthese.map(function(l) { var m = /^([^:]{2,40}) :\s*(.*)$/.exec(l); return '<div class="sl">' + (m ? '<b>' + escapeHtml(m[1]) + '</b><span>' + escapeHtml(m[2]) + '</span>' : '<span>' + escapeHtml(l) + '</span>') + '</div>'; }).join('') + '</div>' : '';
   var ouvrir = echanges.some(function(e) { return (e.lignes || []).length >= 6; }); // un vrai RDV détaillé : on le montre sans clic
-  el.innerHTML = titre + fcHtmlCles(j) + synth
-    + (blocs.length ? '<a class="voirplus" onclick="var e=this.nextElementSibling;var o=e.style.display!==\'none\';e.style.display=o?\'none\':\'\';this.textContent=o?\'Voir les ' + blocs.length + ' échanges ▸\':\'Masquer les échanges ▾\'">' + (ouvrir ? 'Masquer les échanges ▾' : 'Voir les ' + blocs.length + ' échanges ▸') + '</a><div class="echs ouvert" style="display:' + (ouvrir ? '' : 'none') + ';">' + blocs.join('') + '</div>' : '<div class="fc-muted" style="margin-top:6px;">Rien d\'exploitable dans Close (pas de note, pas d\'enregistrement, pas de compte rendu).</div>')
+  var ouvertD = false; try { ouvertD = localStorage.getItem('sd_fiche_dossier') === '1'; } catch (e) {}
+  var resteCles = fcHtmlCles(j, 'reste');
+  el.innerHTML = titre + fcHtmlCles(j, 'essentiel')
     + (j.prochaine ? '<div class="ech-next">➡ ' + escapeHtml(j.prochaine) + '</div>' : '')
-    + (faits.length ? '<div class="faits">' + faits.map(escapeHtml).join(' · ') + '</div>' : '');
+    + (faits.length ? '<div class="faits">' + faits.map(escapeHtml).join(' · ') + '</div>' : '')
+    + '<a class="voirplus" style="display:block;margin-top:8px;" onclick="var e=this.nextElementSibling;var o=e.style.display!==\'none\';e.style.display=o?\'none\':\'\';this.textContent=o?\'Voir tout le dossier ▸\':\'Masquer le dossier ▾\';try{localStorage.setItem(\'sd_fiche_dossier\',o?\'0\':\'1\')}catch(x){}">' + (ouvertD ? 'Masquer le dossier ▾' : 'Voir tout le dossier ▸') + '</a>'
+    + '<div style="display:' + (ouvertD ? '' : 'none') + ';margin-top:8px;">' + resteCles + synth
+    + (blocs.length ? '<a class="voirplus" onclick="var e=this.nextElementSibling;var o=e.style.display!==\'none\';e.style.display=o?\'none\':\'\';this.textContent=o?\'Voir les ' + blocs.length + ' échanges ▸\':\'Masquer les échanges ▾\'">' + (ouvrir ? 'Masquer les échanges ▾' : 'Voir les ' + blocs.length + ' échanges ▸') + '</a><div class="echs ouvert" style="display:' + (ouvrir ? '' : 'none') + ';">' + blocs.join('') + '</div>' : '<div class="fc-muted" style="margin-top:6px;">Rien d\'exploitable dans Close (pas de note, pas d\'enregistrement, pas de compte rendu).</div>')
+    + '</div>';
 }
 // ── Traiter une tâche R2 sans réponse depuis SalesDesk : Close suit (tâche déplacée / terminée, appel sans réponse loggé, escalade manager) ──
 var RL_MANAGER = 'Anthony Gourdon';
