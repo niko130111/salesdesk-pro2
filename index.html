@@ -671,6 +671,17 @@ main { max-width: 100%; margin: 0; padding: 6px 8px; }
 .auj-item .lab { font-size: 11px; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: .04em; }
 .auj-badge { font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 999px; background: var(--soft-red); color: var(--red); }
 .auj-badge.bleu { background: var(--accent-bg); color: var(--accent); }
+/* Blocs latéraux d'Aujourd'hui (Demain, À faire) : version dense */
+#auj-demain .ar-pill { font-size: 11.5px; font-weight: 600; padding: 3px 8px; border-radius: 8px; }
+#auj-demain .ar-pills { gap: 4px; }
+#auj-demain .auj-card > div[style*='border-top'] { padding: 5px 0 !important; gap: 6px !important; font-size: 12.5px; }
+#auj-demain .auj-meta, #auj-demain .fc-muted { font-size: 11px; }
+#auj-suivre .auj-item { padding: 6px 0; gap: 8px; font-size: 12.5px; align-items: center; }
+#auj-suivre .auj-item .d { font-size: 11.5px; }
+#auj-suivre .auj-item .auj-dot { margin-top: 0; }
+#auj-suivre .auj-acts { margin-top: 3px; }
+#auj-suivre .btn, #auj-demain .btn { padding: 2px 8px; font-size: 11.5px; }
+#auj-suivre .act2 { flex: none; display: flex; gap: 4px; }
 .auj-sync { font-size: 11.5px; color: var(--text3); padding: 6px 4px; display: flex; gap: 6px 12px; flex-wrap: wrap; align-items: center; }
 .auj-sync i { font-style: normal; display: inline-flex; align-items: center; gap: 4px; } .auj-sync i::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--green); display: inline-block; }
 .auj-sync i.ko::before { background: var(--red); } .auj-sync i.warn::before { background: var(--orange); } .auj-sync i.off::before { background: var(--text3); }
@@ -10819,7 +10830,7 @@ function aujRendreDemain(lignes, nOui, nRel, nAnn, tot, jour) {
   var rdvs = window._vdRdvs || []; if (!rdvs.length) { el.innerHTML = ''; return; }
   var fait = typeof sdVerifDemainFaite === 'function' && sdVerifDemainFaite();
   el.innerHTML = '<div class="auj-card"><div class="auj-card-head"><h2>Demain <span class="auj-meta">· ' + escapeHtml(jour) + '</span></h2><span class="auj-meta">' + rdvs.length + ' RDV' + (fait ? ' · vérifiés' : '') + '</span></div>'
-    + '<div class="fc-muted" style="margin-bottom:4px;">Qui a répondu OUI au SMS ? Seuls ceux marqués « Relancer » reçoivent un message.</div>'
+    + '<div class="fc-muted" style="margin-bottom:2px;">OUI = a confirmé · Relancer = 2ᵉ SMS (dès 13 h) · Annulé</div>'
     + lignes
     + '<div style="display:flex;gap:8px;justify-content:space-between;align-items:center;margin-top:10px;flex-wrap:wrap;"><span class="fc-muted">' + nOui + ' confirmé' + (nOui > 1 ? 's' : '') + ' · <b>' + nRel + ' relance' + (nRel > 1 ? 's' : '') + '</b>' + (nAnn ? ' · <b style="color:var(--red)">' + nAnn + ' annulé' + (nAnn > 1 ? 's' : '') + '</b>' : '') + (tot && !nRel ? ' · relances dès 13 h' : '') + '</span><button class="btn btn-sm btn-primary" onclick="sdVerifDemainValider()">' + (nRel ? 'Valider et envoyer ' + nRel + ' SMS' : 'Valider') + '</button></div></div>';
 }
@@ -11033,7 +11044,7 @@ function renderAujourdhui() {
     var cleJs = JSON.stringify(i.cle).replace(/"/g, '&quot;'), nomJs = JSON.stringify(i.nom).replace(/"/g, '&quot;');
     var raison = (i.t && i.t.texte && !/^follow ?up/i.test(i.t.texte) ? i.t.texte : '') || (i.rel && i.rel.relance && i.rel.relance.condition) || (i.row && i.row.relanceCond) || LIBC[i.col] || i.col;
     var tent = (function() { try { var s = rlSuivi(i); return s && s.tentatives ? ' · ' + s.tentatives + ' appel(s) sans réponse' : ''; } catch (e) { return ''; } })();
-    return '<div class="auj-item"><span class="auj-dot ' + (enRetard ? 'red' : 'orange') + '"></span><span><div class="t">' + (ACT[i.col] || 'Relancer') + ' <a style="cursor:pointer;text-decoration:underline dotted;" title="Ouvrir la fiche" onclick="ouvrirFicheClient(' + nomJs + ')">' + escapeHtml(nomAff(i.nom)) + '</a></div><div class="d">' + escapeHtml(raison + tent) + '</div>' + (enRetard ? '<div style="margin-top:3px;"><span class="auj-badge">En retard · ' + escapeHtml(new Date(i.date + 'T12:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })) + '</span></div>' : (hDe(i) ? '<div style="margin-top:3px;"><span class="auj-badge bleu">' + escapeHtml(hDe(i)) + '</span></div>' : '')) + '<div class="auj-acts"><button class="btn btn-sm btn-primary" title="Close ouvre la fiche et compose" onclick="svAppeler(event,' + cleJs + ')">📞 Appeler</button></div></span></div>';
+    return '<div class="auj-item"><span class="auj-dot ' + (enRetard ? 'red' : 'orange') + '"></span><span><div class="t">' + (ACT[i.col] || 'Relancer') + ' <a style="cursor:pointer;text-decoration:underline dotted;" title="Ouvrir la fiche" onclick="ouvrirFicheClient(' + nomJs + ')">' + escapeHtml(nomAff(i.nom)) + '</a></div><div class="d">' + escapeHtml(raison + tent) + '</div>' + (enRetard ? '<div style="margin-top:3px;"><span class="auj-badge">En retard · ' + escapeHtml(new Date(i.date + 'T12:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })) + '</span></div>' : (hDe(i) ? '<div style="margin-top:3px;"><span class="auj-badge bleu">' + escapeHtml(hDe(i)) + '</span></div>' : '')) + '</span><span class="act2"><button class="btn btn-sm btn-primary" title="Close ouvre la fiche et compose" onclick="svAppeler(event,' + cleJs + ')">📞 Appeler</button></span></div>';
   };
   // ── À faire = l'urgent seulement : rappels à heure fixe, signatures (relance, configuration), RDV passés jamais terminés, RDV reprogrammés ou annulés sans suite, RDV du jour à préparer. Le reste des relances est dans le Suivi. ──
   var hDe = function(i) { return i.heure || (i.t && i.t.heure) || ''; };
