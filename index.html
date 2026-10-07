@@ -4132,7 +4132,9 @@ function fcHtmlCles(j, mode) { // mode 'essentiel' = ce qu'il faut avoir en têt
   if (ess && c.promesse) out.push('<div class="cle promesse">🤝 ' + escapeHtml(c.promesse) + '</div>');
   if (reste && c.accroche) out.push('<div class="cle">💬 <b>Pour ouvrir :</b> ' + escapeHtml(c.accroche) + '</div>');
   if (reste && c.deal) out.push('<div class="cle">💶 <b>Le deal :</b> ' + escapeHtml(c.deal) + '</div>');
-  if (ess && c.promesse_sdr) out.push('<div class="cle alerte">⚠ <b>Promis par un collègue :</b> ' + escapeHtml(c.promesse_sdr) + '</div>');
+  // promesse d'un collègue : seulement si elle est postérieure à ton dernier RDV avec lui (ou de moins de 45 jours s'il n'y a pas eu de RDV) — une promesse d'avant tes RDV n'apporte rien
+  var promSdrUtile = !!c.promesse_sdr; if (promSdrUtile) { try { var ds = (String(c.promesse_sdr).match(/\b(\d{2})\/(\d{2})\/(\d{4})\b/g) || []).map(function(d) { var p = d.split('/'); return p[2] + '-' + p[1] + '-' + p[0]; }).sort(); var dMax = ds[ds.length - 1] || ''; var dRdv = (_fc.rows || []).filter(function(r) { return r.source !== 'R2' && r.date; }).map(function(r) { return frVersIsoSd(r.date) || ''; }).sort().pop() || ''; var seuil = dRdv || rlPlus(rlIso(new Date()), -45); if (dMax && dMax < seuil) promSdrUtile = false; } catch (e) {} }
+  if (ess && promSdrUtile) out.push('<div class="cle alerte">⚠ <b>Promis par un collègue :</b> ' + escapeHtml(c.promesse_sdr) + '</div>');
   if (mode === 'reste') return out.join('');
   var badges = [];
   if (c.demo_faite) badges.push('<span class="fc-badge">🎬 Démo déjà faite le ' + escapeHtml(c.demo_faite) + ' — ne pas re-pitcher</span>');
