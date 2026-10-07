@@ -11013,6 +11013,31 @@ function sdAnnulationChoix(o) { // o = { nom, iso, heure, mk, idx, motif, apres 
   document.getElementById('an-rien').onclick = function() { appliquer(null); };
   document.getElementById('an-repro').onclick = function() { fermerModalDoublon(); try { sdDeplacerAnnuler(o.nom, o.iso, o.heure || ''); } catch (e) { alert('Déplacement impossible : ' + e.message); } };
 }
+// ── Bouton « No show » dans Mes rendez-vous : fenêtre tâche de rappel (2 jours ouvrés par défaut, date libre) ou ne rien faire ; dans les deux cas la ligne passe en No Show et Close est mis à jour ──
+function sdNoShowDepuisJour(mk, idx) {
+  var st0 = loadStore(), row0 = (st0[mk] || [])[idx]; if (!row0) return;
+  var ov = document.getElementById('fc-dup-overlay');
+  if (!ov) { ov = document.createElement('div'); ov.id = 'fc-dup-overlay'; ov.className = 'modal-overlay'; ov.style.zIndex = '1300'; ov.innerHTML = '<div class="modal" id="fc-dup-modal"></div>'; document.body.appendChild(ov); }
+  ov.onclick = function(ev) { if (ev.target === ov) fermerModalDoublon(); }; ov.classList.add('open');
+  var m = document.getElementById('fc-dup-modal'), today = rlIso(new Date()), defaut = rlJourOuvre(today, 2), champ = 'font-family:var(--font);font-size:13px;padding:6px 9px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);';
+  m.innerHTML = '<div class="fc-dup" style="width:min(520px,88vw);max-width:100%;box-sizing:border-box;"><div style="font-size:16px;font-weight:700;">👻 ' + escapeHtml(row0.client) + ' n\'est pas venu au RDV du ' + escapeHtml(row0.date) + (row0.heure ? ' à ' + escapeHtml(row0.heure) : '') + '</div><div class="fc-muted" style="margin:4px 0 12px;">Qu\'est-ce qu\'on fait ? La ligne passe en No Show et le statut Close est posé dans tous les cas.</div>'
+    + '<div style="display:flex;flex-direction:column;gap:8px;">'
+    + '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;"><button class="btn btn-primary" id="ns-rappel">📞 Tâche de rappel le</button><input type="date" id="ns-date" style="' + champ + '" value="' + defaut + '" min="' + today + '"><span class="fc-muted" style="font-size:12px;">2 jours ouvrés par défaut · tâche Close + relance dans ta file</span></div>'
+    + '<div style="display:flex;gap:8px;align-items:center;"><button class="btn" id="ns-rien">✖ Ne rien faire</button><span class="fc-muted" style="font-size:12px;">no-show noté, aucune tâche</span></div>'
+    + '</div><div style="text-align:right;margin-top:14px;"><button class="btn btn-sm" onclick="fermerModalDoublon()">Fermer</button></div></div>';
+  var appliquer = function(rappel) {
+    var st = loadStore(), row = (st[mk] || [])[idx]; if (!row) { fermerModalDoublon(); return; }
+    if (typeof sdBackupStore === 'function') sdBackupStore(st);
+    row.presence = 'No Show'; row.result = ''; delete row.confirme; delete row.confirmeAt; saveStore(st);
+    try { sdStatutClose(Object.assign({}, row), 'no_show'); } catch (e) {}
+    fermerModalDoublon();
+    if (rappel) { window._nsRow = row; sdNoShowRelancer(row.client, row.email || '', row.source || '', rappel, row.date, row.heure || ''); }
+    else if (typeof showCopyToast === 'function') showCopyToast('👻 ' + row.client + ' : no-show noté, Close mis à jour, aucune tâche');
+    try { refreshAll(); } catch (e) {} try { renderAujourdhui(); } catch (e) {}
+  };
+  document.getElementById('ns-rappel').onclick = function() { var d = document.getElementById('ns-date').value; if (!d) return; appliquer(d); };
+  document.getElementById('ns-rien').onclick = function() { appliquer(null); };
+}
 function sdVerifDemainValider() {
   var rdvs = window._vdRdvs || [], C = window._vdChoix || [], st = loadStore(), aRelancer = [], annules = [];
   rdvs.forEach(function(r, i) { if (!r.row) return; var row = (st[r.row._monthKey] || [])[r.row._storeKey]; if (!row) return;
@@ -11133,8 +11158,10 @@ function renderAujourdhui() {
       var compte = enCours ? 'en cours' : (bientot ? 'dans ' + mins + ' min' : (estAuj && mins !== null && mins > 15 && idx === prochainIdx ? (mins < 60 ? 'dans ' + mins + ' min' : 'dans ' + Math.floor(mins / 60) + ' h' + (mins % 60 ? String(mins % 60).padStart(2, '0') : '')) : ''));
       var rejoindre = r.join ? '<a class="btn btn-sm' + (enCours || bientot ? ' btn-primary' : '') + '" style="text-decoration:none;" href="' + escapeHtml(r.join) + '" target="_blank" rel="noopener" title="Ouvrir la visio">Rejoindre</a>' : (!passe && !pres && r.start ? '<span class="auj-chip" title="Pas de lien de visio dans l\'événement Calendly">lien visio absent</span>' : '');
       var assistant = (!SD_PAUSE_LIVE && !pres && !passe) ? '<button class="btn btn-sm auj-ico" title="Assistant live dans une fenêtre à part (second écran), sur ce RDV" onclick="sdAssistantFenetre(' + nomJs + ',' + jourJs + ')">⧉</button>' : '';
+      var noshow = (r.row && !pres && !r.r2 && jour <= todayIso) ? '<button class="btn btn-sm" style="background:var(--red);border-color:var(--red);color:#fff;" title="Il n\'est pas venu : ligne en No Show, statut Close, puis tâche de rappel ou rien" onclick="sdNoShowDepuisJour(' + JSON.stringify(row._monthKey).replace(/"/g, '&quot;') + ',' + row._storeKey + ')">No show</button>' : '';
+      rejoindre += noshow;
       var actions = pres ? '<button class="btn btn-sm" onclick="ouvrirFicheClient(' + nomJs + ',' + emailJs + ')">Fiche</button>'
-        : passe ? '<button class="btn btn-sm btn-primary" onclick="sdApresRdvPour(' + nomJs + ',' + jourJs + ')">Terminer</button><button class="btn btn-sm" onclick="ouvrirFicheClient(' + nomJs + ',' + emailJs + ')">Fiche</button>'
+        : passe ? '<button class="btn btn-sm btn-primary" onclick="sdApresRdvPour(' + nomJs + ',' + jourJs + ')">Terminer</button>' + noshow + '<button class="btn btn-sm" onclick="ouvrirFicheClient(' + nomJs + ',' + emailJs + ')">Fiche</button>'
         : ((enCours || bientot) && r.join ? rejoindre + '<button class="btn btn-sm" onclick="' + cible(r.nom, r.email, jour, 'prepa') + '">' + (p.etat === 'ok' ? 'Voir le brief' : 'Préparer') + '</button>' : '<button class="btn btn-sm' + (p.etat === 'ok' ? '' : ' btn-primary') + '" onclick="' + cible(r.nom, r.email, jour, 'prepa') + '">' + (p.etat === 'ok' ? 'Voir le brief' : 'Préparer') + '</button>' + rejoindre) + assistant;
       var deplacer = (!pres && !passe) ? '<button class="btn btn-sm" title="Déplacer ou annuler ce rendez-vous" onclick="sdDeplacerAnnuler(' + nomJs + ',' + jourJs + ',' + JSON.stringify(r.heure || '').replace(/"/g, '&quot;') + ')">Déplacer / annuler</button>' : '';
       if (deplacer) actions += deplacer;
