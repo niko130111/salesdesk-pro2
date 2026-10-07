@@ -4095,52 +4095,56 @@ function fcRepondreMail(objet, texte) {
     if (_fcMails.erreur || Date.now() - t0 > 12000) { if (typeof showCopyToast === 'function') showCopyToast('Mails illisibles pour le moment (' + (_fcMails.erreur || 'copilot lent') + ') : réessaie depuis l\'onglet Mails'); return; }
     setTimeout(att, 300); })();
 }
-// 🚀 Onboarding : pour un client signé, la fiche Close reçoit les infos de la vente. Pré-rempli depuis la ligne SalesDesk (pack, fréquence, tier, FMS, remise, date de signature) et Close (vidéo Claap du R1) ; les infos manquantes sont demandées.
+// 🚀 Onboarding : pour un client signé, les champs 1 à 8 de son opportunité Close (listes de choix lues dans Close). Pré-rempli depuis la ligne SalesDesk (pack, tier, FMS) et Close (vidéo Claap du R1, valeurs déjà saisies) ; ce qui manque est en orange.
 function fcOnboarding() {
   var last = _fc.rows.filter(function(r) { return r.result === 'Signé' && r.source !== 'R2'; })[0] || _fc.rows[0] || {}; if (!last.client) return;
   var lead = ''; try { lead = sdLeadPour(_fc.nom, _fc.email || '') || ((_fc.close && _fc.close.leads && _fc.close.leads[0]) || {}).id || ''; } catch (e) {}
   var ov = document.getElementById('fc-dup-overlay');
   if (!ov) { ov = document.createElement('div'); ov.id = 'fc-dup-overlay'; ov.className = 'modal-overlay'; ov.style.zIndex = '1300'; ov.innerHTML = '<div class="modal" id="fc-dup-modal"></div>'; document.body.appendChild(ov); }
   ov.onclick = function(ev) { if (ev.target === ov) fermerModalDoublon(); }; ov.classList.add('open');
-  var m = document.getElementById('fc-dup-modal'); m.innerHTML = '<div class="fc-dup"><div style="font-size:15px;font-weight:700;">🚀 Onboarding — ' + escapeHtml(_fc.nom) + '</div><div class="fc-muted" style="margin-top:8px;">Lecture de la fiche Close (vidéo du R1)…</div></div>';
-  var rendre = function(claap) {
+  var m = document.getElementById('fc-dup-modal'); m.innerHTML = '<div class="fc-dup"><div style="font-size:15px;font-weight:700;">🚀 Onboarding — ' + escapeHtml(_fc.nom) + '</div><div class="fc-muted" style="margin-top:8px;">Lecture de Close (champs, opportunité, vidéo du R1)…</div></div>';
+  if (typeof COPILOT_URL === 'undefined') { m.innerHTML = '<div class="fc-dup">Copilot éteint : l\'onboarding écrit dans Close via le copilot.<div style="margin-top:10px;text-align:right;"><button class="btn btn-sm" onclick="fermerModalDoublon()">Fermer</button></div></div>'; return; }
+  var pChamps = fetch(COPILOT_URL + '/close/onboarding/champs?' + new URLSearchParams(lead ? { lead: lead } : {}), { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); });
+  var pClaap = fetch(COPILOT_URL + '/close/dernier-contact?' + new URLSearchParams(Object.assign({ rapide: '1' }, lead ? { lead: lead } : { nom: _fc.nom, email: _fc.email || '' })), { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).catch(function() { return {}; });
+  Promise.all([pChamps, pClaap]).then(function(res) {
+    var J = res[0] || {}, j = res[1] || {}; if (J.ok === false) throw new Error(J.error || 'champs illisibles');
+    var defs = (J.champs || []).filter(function(d) { return !/^7\.[234]/.test(d.nom); }), opp = J.opportunite || null, deja = (opp && opp.custom) || {};
+    var claap = ''; try { var jr = ((j && j.journal) || []).filter(function(a) { return a.claap; }), isoR1 = frVersIsoSd(last.date) || ''; var duR1 = jr.find(function(a) { return String(a.at || '').slice(0, 10) === isoR1; }); var plusAncien = jr.slice().sort(function(a, b) { return String(a.at).localeCompare(String(b.at)); })[0]; claap = (duR1 || plusAncien || {}).claap || ''; } catch (e2) {}
+    var pack = String(last.pack || ''), plan = /expert/i.test(pack) ? 'Expert+' : /pro/i.test(pack) ? 'Pro+' : /start/i.test(pack) ? 'Start+' : '', tierN = (/(\d)/.exec(String(last.tier || '')) || [])[1] || '', fmsOffert = String(last.fms || '').toLowerCase() === 'offert';
+    var fmsDevine = fmsOffert ? '0' : ({ 'Expert+': '1090', 'Pro+': '790', 'Start+': '490' }[plan] || '');
+    var pre = { '1 - Demo Video Link': claap, '2 - Product': ['Visibility'], '3 - Subscription Plan': plan, '4 - Tier': tierN ? 'Tier ' + tierN : '', '5 - Setup Fee': fmsDevine, '6 - Add-ons': ['No'], '7.1 - Stripe Link (1)': '', '8 - Coupon': [] };
+    var aVerifier = { '5 - Setup Fee': !fmsOffert && !!fmsDevine };
     var champ = 'font-family:var(--font);font-size:13px;padding:7px 9px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);width:100%;box-sizing:border-box;';
-    var sig = last.dateSignature || new Date().toLocaleDateString('fr-FR'), isoSig = frVersIsoSd(sig) || rlIso(new Date()), renouv = (function() { var d = new Date(isoSig + 'T12:00:00'); d.setFullYear(d.getFullYear() + 1); return rlIso(d); })();
-    var freq = /mens/i.test(String(last.freq || '')) ? 'Monthly' : (/ann/i.test(String(last.freq || '')) ? 'Annually' : ''), tierN = (/(\d)/.exec(String(last.tier || '')) || [])[1] || '';
-    var sel = function(id, choix, cur) { return '<select id="' + id + '" style="' + champ + '">' + choix.map(function(v) { return '<option' + (v === cur ? ' selected' : '') + '>' + v + '</option>'; }).join('') + '</select>'; };
-    var F = function(lab, html, manque) { return '<div><div class="fc-muted" style="font-size:11px;' + (manque ? 'color:var(--orange);font-weight:700;' : '') + '">' + lab + (manque ? ' · à compléter' : '') + '</div>' + html + '</div>'; };
-    m.innerHTML = '<div class="fc-dup" style="width:min(680px,90vw);max-width:100%;box-sizing:border-box;"><div style="font-size:16px;font-weight:700;">🚀 Onboarding — ' + escapeHtml(_fc.nom) + '</div><div class="fc-muted" style="margin:4px 0 10px;">Relis, complète ce qui est en orange, puis valide : les champs sont écrits sur la fiche Close.' + (lead ? '' : ' <b style="color:var(--red)">Fiche Close non identifiée : la recherche se fera par e-mail / nom.</b>') + '</div>'
-      + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">'
-      + F('Offre (BDR - Contract)', '<input id="ob-contrat" style="' + champ + '" value="' + escapeHtml([last.pack, tierN ? 'Tier ' + tierN : '', last.freq].filter(Boolean).join(' | ')) + '">', !last.pack)
-      + F('Fréquence (BDR - Payment Frequency)', sel('ob-freq', ['', 'Annually', 'Monthly', 'Quarterly', 'Semiannually'], freq), !freq)
-      + F('Durée (BDR - Contract Length)', sel('ob-duree', ['12 Month', '13 Month', '14 Month', '6 Month', '3 Month', 'No Contract'], '12 Month'))
-      + F('Date de signature (Start Date)', '<input id="ob-start" type="date" style="' + champ + '" value="' + isoSig + '">')
-      + F('Renouvellement (BDR - Renewal Date)', '<input id="ob-renouv" type="date" style="' + champ + '" value="' + renouv + '">')
-      + F('Tier (BDR - Tier)', sel('ob-tier', ['', 'Tier 1', 'Tier 2', 'Tier 3', 'Tier 4'], tierN ? 'Tier ' + tierN : ''), !tierN)
-      + F('Frais de mise en service (BDR - Setup Fee)', sel('ob-fms', ['', 'Offerts', 'Facturés', 'Réduits'], String(last.fms || '').toLowerCase() === 'offert' ? 'Offerts' : (last.fms ? 'Facturés' : '')), !last.fms)
-      + F('Add-ons (BDR - Add-ons)', '<input id="ob-addons" style="' + champ + '" placeholder="aucun, ou lesquels et s\'ils sont offerts" value="' + escapeHtml(last.remise ? 'remise : ' + last.remise : '') + '">')
-      + F('Plan (BDR - Plan)', sel('ob-plan', ['', 'Start+', 'Pro+', 'Expert+'], /expert/i.test(last.pack || '') ? 'Expert+' : /pro/i.test(last.pack || '') ? 'Pro+' : /start/i.test(last.pack || '') ? 'Start+' : ''), !last.pack)
-      + '</div><div style="display:grid;grid-template-columns:1fr;gap:8px;margin-top:8px;">'
-      + F('Vidéo de la démo (BDR - Demo Link)', '<input id="ob-demo" style="' + champ + '" placeholder="lien Claap du R1" value="' + escapeHtml(claap || '') + '">', !claap)
-      + F('Lien Stripe (BDR - Stripe Link)', '<div style="display:flex;gap:6px;"><input id="ob-stripe" style="' + champ + '" placeholder="colle le lien de l\'offre ou de l\'abonnement Stripe"><a class="btn btn-sm" style="white-space:nowrap;" href="https://billing.realadvisor.com/realadvisor-france/my-quotes" target="_blank" rel="noopener">Mes offres ↗</a></div>', true)
-      + '</div><div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px;"><button class="btn btn-sm" onclick="fermerModalDoublon()">Annuler</button><button class="btn btn-sm btn-primary" id="ob-ok">Écrire dans Close</button></div></div>';
+    var idDe = function(nom) { return 'ob-' + nom.replace(/[^a-z0-9]+/gi, '-').toLowerCase(); };
+    var html = defs.map(function(d) {
+      var cur = deja[d.nom] != null ? deja[d.nom] : pre[d.nom]; var manque = cur == null || (Array.isArray(cur) ? !cur.length : String(cur).trim() === ''); var id = idDe(d.nom), corps = '';
+      if (d.type === 'choices' && d.multi) corps = '<div style="display:flex;flex-wrap:wrap;gap:6px 12px;padding:4px 0;">' + d.choix.map(function(c) { return '<label style="font-size:12.5px;display:inline-flex;gap:4px;align-items:center;"><input type="checkbox" data-champ="' + escapeHtml(d.nom) + '" value="' + escapeHtml(c) + '"' + ((cur || []).indexOf(c) >= 0 ? ' checked' : '') + ' onchange="fcOnboardingDependances()">' + escapeHtml(c) + '</label>'; }).join('') + '</div>';
+      else if (d.type === 'choices') corps = '<select id="' + id + '" data-champ="' + escapeHtml(d.nom) + '" style="' + champ + '"><option value=""></option>' + d.choix.map(function(c) { return '<option' + (String(cur || '') === c ? ' selected' : '') + '>' + escapeHtml(c) + '</option>'; }).join('') + '</select>';
+      else corps = '<input id="' + id + '" data-champ="' + escapeHtml(d.nom) + '" style="' + champ + '" value="' + escapeHtml(cur || '') + '"' + (/stripe/i.test(d.nom) ? ' placeholder="colle le lien de l\'offre ou de l\'abonnement"' : /demo/i.test(d.nom) ? ' placeholder="lien Claap du R1"' : '') + '>';
+      if (/stripe/i.test(d.nom)) corps = '<div style="display:flex;gap:6px;">' + corps + '<a class="btn btn-sm" style="white-space:nowrap;" href="https://billing.realadvisor.com/realadvisor-france/my-quotes" target="_blank" rel="noopener">Mes offres ↗</a></div>';
+      var dep = /^6\.1/.test(d.nom) ? 'Prospection Map' : /^6\.2/.test(d.nom) ? 'CMA' : /^6\.3/.test(d.nom) ? 'Valuation Widget' : '';
+      return '<div data-dep="' + escapeHtml(dep) + '"' + (dep ? ' style="display:none;"' : '') + '><div class="fc-muted" style="font-size:11px;' + ((manque && !dep) || aVerifier[d.nom] ? 'color:var(--orange);font-weight:700;' : '') + '">' + escapeHtml(d.nom) + (aVerifier[d.nom] ? ' · à vérifier' : (manque && !dep ? ' · à compléter' : '')) + '</div>' + corps + '</div>';
+    }).join('');
+    m.innerHTML = '<div class="fc-dup" style="width:min(720px,92vw);max-width:100%;box-sizing:border-box;"><div style="font-size:16px;font-weight:700;">🚀 Onboarding — ' + escapeHtml(_fc.nom) + '</div><div class="fc-muted" style="margin:4px 0 10px;">' + (opp ? 'Opportunité Close « ' + escapeHtml(opp.statut || '') + ' »' + (opp.valeur ? ' · ' + escapeHtml(opp.valeur) : '') + '. ' : '<b style="color:var(--red)">Aucune opportunité trouvée sur la fiche Close : crée-la (ou passe-la en Won) avant d\'écrire.</b> ') + 'Relis, complète l\'orange, puis valide : les champs sont écrits sur l\'opportunité.</div>'
+      + '<div id="ob-champs" style="display:grid;grid-template-columns:1fr 1fr;gap:8px 12px;">' + html + '</div>'
+      + '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px;"><button class="btn btn-sm" onclick="fermerModalDoublon()">Annuler</button><button class="btn btn-sm btn-primary" id="ob-ok"' + (opp ? '' : ' disabled') + '>Écrire dans Close</button></div></div>';
+    fcOnboardingDependances();
     document.getElementById('ob-ok').onclick = function() {
-      var b = this; b.disabled = true; b.textContent = 'Écriture…'; var V = function(id) { var e = document.getElementById(id); return e ? String(e.value || '').trim() : ''; };
-      var champs = { 'BDR - Contract': V('ob-contrat'), 'BDR - Payment Frequency': V('ob-freq'), 'BDR - Contract Length': V('ob-duree'), 'Start Date': V('ob-start'), 'BDR - Renewal Date': V('ob-renouv'), 'BDR - Tier': V('ob-tier'), 'BDR - Setup Fee': V('ob-fms'), 'BDR - Add-ons': V('ob-addons'), 'BDR - Plan': V('ob-plan'), 'BDR - Demo Link': V('ob-demo'), 'BDR - Stripe Link': V('ob-stripe') };
-      rlPost('/close/onboarding', { lead: lead, nom: _fc.nom, email: _fc.email || '', champs: champs }).then(function(j) {
+      var b = this; b.disabled = true; b.textContent = 'Écriture…'; var champs = {};
+      defs.forEach(function(d) { var boite = m.querySelector('[data-dep="' + (/^6\.1/.test(d.nom) ? 'Prospection Map' : /^6\.2/.test(d.nom) ? 'CMA' : /^6\.3/.test(d.nom) ? 'Valuation Widget' : '') + '"]'); if (d.type === 'choices' && d.multi) champs[d.nom] = Array.prototype.map.call(m.querySelectorAll('input[type=checkbox][data-champ="' + d.nom + '"]:checked'), function(c) { return c.value; }); else { var e = document.getElementById(idDe(d.nom)); var cache = e && e.closest('[data-dep]') && e.closest('[data-dep]').getAttribute('data-dep') && e.closest('[data-dep]').style.display === 'none'; champs[d.nom] = (e && !cache) ? String(e.value || '').trim() : ''; } });
+      rlPost('/close/onboarding', { lead: lead, nom: _fc.nom, email: _fc.email || '', opportunite: opp ? opp.id : '', champs: champs }).then(function(jj) {
         fermerModalDoublon();
-        var msg = '✓ Fiche Close mise à jour : ' + (j.ecrits || []).length + ' champ' + ((j.ecrits || []).length > 1 ? 's' : '');
-        if ((j.absents || []).length || (j.invalides || []).length) alert(msg + '\n\n' + ((j.absents || []).length ? 'Champs à créer dans Close (Réglages → Champs personnalisés → Leads) : ' + j.absents.join(', ') + '\n\n' : '') + ((j.invalides || []).length ? 'Non écrits : ' + j.invalides.join('\n') : ''));
+        var msg = '✓ Opportunité Close mise à jour : ' + (jj.ecrits || []).length + ' champ' + ((jj.ecrits || []).length > 1 ? 's' : '');
+        if ((jj.absents || []).length || (jj.invalides || []).length) alert(msg + '\n\n' + ((jj.absents || []).length ? 'Champs inconnus dans Close : ' + jj.absents.join(', ') + '\n\n' : '') + ((jj.invalides || []).length ? 'Non écrits : ' + jj.invalides.join('\n') : ''));
         else if (typeof showCopyToast === 'function') showCopyToast(msg);
         try { var st = loadStore(), r = (st[last._monthKey] || [])[last._storeKey]; if (r) { r.onboardingAt = new Date().toISOString(); saveStore(st); } } catch (e) {}
       }).catch(function(e) { b.disabled = false; b.textContent = 'Écrire dans Close'; alert('Onboarding impossible : ' + (e && e.message || e)); });
     };
-  };
-  if (typeof COPILOT_URL === 'undefined') { rendre(''); return; }
-  fetch(COPILOT_URL + '/close/dernier-contact?' + new URLSearchParams(Object.assign({ rapide: '1' }, lead ? { lead: lead } : { nom: _fc.nom, email: _fc.email || '' })), { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).then(function(j) {
-    var claap = ''; try { var jr = ((j && j.journal) || []).filter(function(a) { return a.claap; }), isoR1 = frVersIsoSd(last.date) || ''; var duR1 = jr.find(function(a) { return String(a.at || '').slice(0, 10) === isoR1; }); var plusAncien = jr.slice().sort(function(a, b) { return String(a.at).localeCompare(String(b.at)); })[0]; claap = (duR1 || plusAncien || {}).claap || ''; /* la vidéo du R1 : celle datée du jour du R1, sinon la plus ancienne (l'onboarding du CSM vient après) */ if (!claap) { var ec = (j && j.echanges) || []; var x = ec.find(function(q) { return q.source && q.source.claap; }); claap = x ? x.source.claap : ''; } } catch (e2) {}
-    rendre(claap);
-  }).catch(function() { rendre(''); });
+  }).catch(function(e) { m.innerHTML = '<div class="fc-dup"><div style="font-weight:700;">🚀 Onboarding</div><div style="color:var(--red);margin-top:8px;">Close illisible : ' + escapeHtml(e && e.message || e) + '</div><div style="margin-top:10px;text-align:right;"><button class="btn btn-sm" onclick="fermerModalDoublon()">Fermer</button></div></div>'; });
+}
+function fcOnboardingDependances() { // 6.1 / 6.2 / 6.3 n'apparaissent que si l'add-on correspondant est coché
+  var m = document.getElementById('fc-dup-modal'); if (!m) return; var coches = Array.prototype.map.call(m.querySelectorAll('input[type=checkbox][data-champ="6 - Add-ons"]:checked'), function(c) { return c.value; });
+  Array.prototype.forEach.call(m.querySelectorAll('[data-dep]'), function(el) { var dep = el.getAttribute('data-dep'); if (dep) el.style.display = coches.indexOf(dep) >= 0 ? '' : 'none'; });
 }
 function fcAppelerDepuisFiche() { var a = document.querySelector('#fc-contact a[href^="tel:"]'); if (a) a.click(); else if (typeof showCopyToast === 'function') showCopyToast('Pas de numéro sur la fiche'); }
 function fcCalerRdvDepuisFiche() { var last = _fc.rows[0] || {}, r2 = SD_INTERESSE.indexOf(String(last.result || '').trim()) >= 0; if (typeof COPILOT_URL === 'undefined') { fcCalendlyDepuisFiche(); return; } var lead = _fc.rows.map(function(r) { return r.closeLead; }).find(Boolean) || sdLeadPour(_fc.nom, _fc.email || '') || ''; sdReserverCalendly({ type: r2 ? 'r2' : 'r1', nom: _fc.nom, email: _fc.email || last.email || '', tel: '', cp: last.cp || '', lead: lead, cle: '' }, function(j) { if (typeof showCopyToast === 'function') showCopyToast('✓ RDV réservé : ' + fcFrDepuisIso(j.date) + ' à ' + j.heure); try { refreshAll(); } catch (e) {} fcRendre(); }); }
