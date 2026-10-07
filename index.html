@@ -4111,9 +4111,11 @@ function fcOnboarding() {
     var defs = (J.champs || []).filter(function(d) { return !/^7\.[234]/.test(d.nom); }), opp = J.opportunite || null, deja = (opp && opp.custom) || {};
     var claap = ''; try { var jr = ((j && j.journal) || []).filter(function(a) { return a.claap; }), isoR1 = frVersIsoSd(last.date) || ''; var duR1 = jr.find(function(a) { return String(a.at || '').slice(0, 10) === isoR1; }); var plusAncien = jr.slice().sort(function(a, b) { return String(a.at).localeCompare(String(b.at)); })[0]; claap = (duR1 || plusAncien || {}).claap || ''; } catch (e2) {}
     var pack = String(last.pack || ''), plan = /expert/i.test(pack) ? 'Expert+' : /pro/i.test(pack) ? 'Pro+' : /start/i.test(pack) ? 'Start+' : '', tierN = (/(\d)/.exec(String(last.tier || '')) || [])[1] || '', fmsOffert = String(last.fms || '').toLowerCase() === 'offert';
-    var fmsDevine = fmsOffert ? '0' : ({ 'Expert+': '1090', 'Pro+': '790', 'Start+': '490' }[plan] || '');
+    // frais de mise en service : 0 si offerts, la moitié si 50 % offerts, le plein tarif du pack sinon (Start+ 490, Pro+ 790, Expert+ 1090)
+    var fmsVal = String(last.fms || '').trim().toLowerCase(), plein = { 'Expert+': 1090, 'Pro+': 790, 'Start+': 490 }[plan] || 0;
+    var fmsDevine = fmsOffert ? '0' : (fmsVal === '50%' && plein ? String(plein / 2) : (fmsVal === '100%' && plein ? String(plein) : (plein ? String(plein) : '')));
     var pre = { '1 - Demo Video Link': claap, '2 - Product': ['Visibility'], '3 - Subscription Plan': plan, '4 - Tier': tierN ? 'Tier ' + tierN : '', '5 - Setup Fee': fmsDevine, '6 - Add-ons': ['No'], '7.1 - Stripe Link (1)': '', '8 - Coupon': [] };
-    var aVerifier = { '5 - Setup Fee': !fmsOffert && !!fmsDevine };
+    var aVerifier = { '5 - Setup Fee': !fmsOffert && !fmsVal && !!fmsDevine }; // sans info FMS sur la ligne : montant proposé, à vérifier
     var champ = 'font-family:var(--font);font-size:13px;padding:7px 9px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);width:100%;box-sizing:border-box;';
     var idDe = function(nom) { return 'ob-' + nom.replace(/[^a-z0-9]+/gi, '-').toLowerCase(); };
     var html = defs.map(function(d) {
