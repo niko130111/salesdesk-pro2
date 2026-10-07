@@ -10075,7 +10075,7 @@ function chargerMaJournee(force) {
     fetch('http://127.0.0.1:3016/api/status', { mode: 'cors', cache: 'no-store', signal: ctrl.signal }).then(function(r) { return r.json(); }).catch(function() { return false; })
   ]).then(function(r) { _mj.copilot = r[0] && r[0].rdvs ? r[0].rdvs : null; _mj.sdRdvs = r[1] && r[1].rdvs ? r[1].rdvs : null; _mj.etat = r[2]; _mj.rappels = r[3]; fin(); }).catch(fin);
   try { chargerVerifClose(false); } catch (e) {} try { chargerSms(false); } catch (e) {} try { chargerControle(false); } catch (e) {} try { chargerAppelsJour(false); } catch (e) {} try { chargerMailsFinR1(false); } catch (e) {} try { chargerNouveautes(false); } catch (e) {} try { chargerAutoJour(false); } catch (e) {}
-  if (!window._mjMinuteurs) { window._mjMinuteurs = true; setInterval(function() { try { chargerControle(true); } catch (e) {} }, 5 * 60000); setInterval(function() { try { chargerAppelsJour(true); chargerMailsFinR1(true); chargerNouveautes(true); chargerAutoJour(true); } catch (e) {} }, 2 * 60000); } // posés une seule fois (ils s'empilaient à chaque lecture)
+  if (!window._mjMinuteurs) { window._mjMinuteurs = true; setInterval(function() { try { chargerControle(true); } catch (e) {} }, 5 * 60000); setInterval(function() { try { chargerAppelsJour(true); chargerMailsFinR1(true); chargerAutoJour(true); } catch (e) {} }, 2 * 60000); setInterval(function() { if (document.visibilityState === 'visible') { try { chargerNouveautes(true); } catch (e) {} } }, 30000); } // posés une seule fois (ils s'empilaient à chaque lecture)
 }
 // ── Contrôle : organe de contrôle (copilot /controle + état SalesDesk), alertes en bandeau dans Quotidien et Mes RDV ──
 var _ctl = null, _ctlAt = 0;
