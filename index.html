@@ -11087,8 +11087,47 @@ function sdVerifDemainValider() {
       renderAujourdhui();
     }).catch(function(e) { alert('Relances non préparées : ' + e.message + '\nLes coches sont enregistrées ; rouvre « Vérifie les RDV de demain » pour réessayer.'); });
 }
+// ── R2 déplacé dans Calendly : la ligne SalesDesk (dateR2, heureR2) et la tâche Close du R2 suivent. Vérification au plus toutes les 30 min, sur les R2 à venir qui ont un e-mail. ──
+var _sdSyncR2At = 0;
+function sdSyncR2Calendly(force) {
+  var cle = (state.calendly && state.calendly.apiKey) || localStorage.getItem('calendly_key'), userUri = (state.calendly && state.calendly.userUri) || localStorage.getItem('calendly_user_uri') || '';
+  if (!cle || !userUri || typeof calendlyListerEvents !== 'function' || window._sdSyncR2EnCours) return;
+  if (!force && Date.now() - _sdSyncR2At < 30 * 60000) return; _sdSyncR2At = Date.now(); window._sdSyncR2EnCours = true;
+  var st = loadStore(), today = rlIso(new Date()), depuis = rlPlus(today, -3), cibles = [];
+  Object.keys(st).forEach(function(k) { if (!/^\d{4}-\d{2}$/.test(k) || !Array.isArray(st[k])) return; st[k].forEach(function(r, i) {
+    if (!r || !r.client || r.source === 'R2' || !r.dateR2 || !r.email || String(r.presenceR2 || '').trim()) return;
+    var d2 = frVersIsoSd(r.dateR2); if (!d2 || d2 < depuis) return;
+    cibles.push({ mk: k, idx: i, email: String(r.email).toLowerCase().trim(), nom: r.client, d2: d2, h2: r.heureR2 || '' }); }); });
+  cibles = cibles.slice(0, 15);
+  var changes = [], suite = Promise.resolve();
+  cibles.forEach(function(c) { suite = suite.then(function() {
+    return calendlyListerEvents(cle, new URLSearchParams({ user: userUri, invitee_email: c.email, status: 'active', min_start_time: new Date(depuis + 'T00:00:00').toISOString(), count: '20' }), 1).then(function(evs) {
+      var ev = (evs || []).filter(function(e) { return e.status !== 'canceled'; }).map(function(e) { return { e: e, src: detecterSourceCalendly(e) }; }).filter(function(x) { return x.src === 'R2'; }).sort(function(a, b) { return String(a.e.start_time).localeCompare(String(b.e.start_time)); })[0];
+      if (!ev) return; var s0 = new Date(ev.e.start_time), dNew = rlIso(s0), hNew = String(s0.getHours()).padStart(2, '0') + ':' + String(s0.getMinutes()).padStart(2, '0');
+      if (dNew === c.d2 && (hNew === c.h2 || !c.h2)) { if (!c.h2) c.heureSeule = hNew; return; }
+      if (dNew < today) return; // un ancien R2 passé : rien à faire
+      changes.push({ c: c, dNew: dNew, hNew: hNew });
+    }).catch(function() {}); }); });
+  suite.then(function() {
+    var st2 = loadStore(), mod = false;
+    cibles.forEach(function(c) { if (c.heureSeule) { var r0 = (st2[c.mk] || [])[c.idx]; if (r0 && !r0.heureR2) { r0.heureR2 = c.heureSeule; mod = true; } } });
+    if (changes.length) { if (typeof sdBackupStore === 'function') sdBackupStore(st2); }
+    changes.forEach(function(x) { var row = (st2[x.c.mk] || [])[x.c.idx]; if (!row) return; row.r2DeplaceDe = row.dateR2 + (row.heureR2 ? ' ' + row.heureR2 : ''); row.dateR2 = fcFrDepuisIso(x.dNew); row.heureR2 = x.hNew; row.r2DeplaceAt = new Date().toISOString(); mod = true; x.row = row; });
+    if (mod) saveStore(st2);
+    changes.forEach(function(x) { if (!x.row) return;
+      var lead = x.row.closeLead || sdLeadPour(x.row.client, x.row.email || '') || '';
+      var taches = (_tachesClose && _tachesClose.taches) || [], t = taches.find(function(t0) { return !t0.fait && t0.lead && t0.lead === lead && /r2|validation|lancement/i.test(t0.texte || ''); });
+      if (!t) { if (typeof showCopyToast === 'function') showCopyToast('🔄 R2 déplacé : ' + x.row.client + ' → ' + x.row.dateR2 + ' à ' + x.hNew + (_tachesClose ? ' · aucune tâche Close « R2 » à déplacer' : '')); return; } // sans tâche R2 connue, on ne touche pas à Close (une autre tâche ouverte aurait été déplacée à tort)
+      var p = rlPost('/close/taches/' + encodeURIComponent(t.id), { action: 'decaler', date: x.dNew, heure: x.hNew, texte: t.texte, motif: 'r2 déplacé dans Calendly' });
+      p.then(function() { try { _tachesCloseAt = 0; } catch (e) {} if (typeof showCopyToast === 'function') showCopyToast('🔄 R2 déplacé : ' + x.row.client + ' → ' + x.row.dateR2 + ' à ' + x.hNew + ' · tâche Close déplacée'); })
+       .catch(function(e) { if (typeof showCopyToast === 'function') showCopyToast('🔄 R2 déplacé : ' + x.row.client + ' → ' + x.row.dateR2 + ' à ' + x.hNew + ' · ⚠️ tâche Close non déplacée (' + e.message + ')'); });
+    });
+    if (mod) { try { refreshAll(); } catch (e) {} try { renderAujourdhui(); } catch (e) {} }
+  }).finally(function() { window._sdSyncR2EnCours = false; });
+}
 function renderAujourdhui() {
   var page = document.getElementById('page-aujourdhui'); if (!page || !page.classList.contains('active')) return;
+  try { sdSyncR2Calendly(false); } catch (e) {}
   var now = new Date(), todayIso = rlIso(now), hhmm = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
   var jour = _auj.jour, estAuj = jour === todayIso, lundi = rlLundiDe(jour), st = loadStore();
   try { togglePeriodSelector(false); } catch (e) {} // le sélecteur de mois ne sert pas ici
