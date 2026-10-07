@@ -4089,7 +4089,7 @@ function fcHtmlSuivi() {
   // Toujours un bouton clair pour se mettre un rappel (sur le dernier RDV R1 du client), quel que soit son résultat
   var cible = _fc.rows.find(function(r) { return r.source !== 'R2'; }) || last;
   var aDeja = cible.relanceDate && !cible.relanceFait;
-  out.push('<button class="btn btn-sm' + (aDeja ? '' : ' btn-primary') + '" style="font-size:12px;padding:4px 10px;" onclick="fcPopupSuivi(' + JSON.stringify(cible._monthKey).replace(/"/g, '&quot;') + ',' + cible._storeKey + ')">' + (aDeja ? '✎ Modifier le rappel' : '📞 Me mettre un rappel') + '</button>');
+  if (aDeja) out.push('<button class="btn btn-sm" style="font-size:12px;padding:4px 10px;" onclick="fcPopupSuivi(' + JSON.stringify(cible._monthKey).replace(/"/g, '&quot;') + ',' + cible._storeKey + ')">✎ Modifier le rappel</button>'); // « Me mettre un rappel » a disparu : « ⏰ Tâche » dans la barre d'actions le remplace
   return out.join('');
 }
 function fcChargerClose() {
