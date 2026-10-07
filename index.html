@@ -2078,7 +2078,7 @@ select.form-input { cursor: pointer; }
 </div>
 <div id="page-relances" class="page">
   <div class="section-header" style="margin-bottom:6px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
-    <div><h1 class="pf-h1" style="margin:0;">Suivi</h1><div style="font-size:13px;color:var(--text2);margin-top:2px;">Tes tâches Close, dans l'ordre où les appeler. Tout ce que tu fais ici est écrit dans Close.</div></div>
+    <div><h1 class="pf-h1" style="margin:0;">Suivi</h1></div>
     <div id="rl-filtres" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
   </div>
   <div id="rl-resume" style="font-size:12px;color:var(--text3);margin-bottom:12px;"></div>
@@ -4139,13 +4139,13 @@ function fcChargerDernierContact(force, leadId) {
 // Les 3 lignes closer (promesse datée · accroche · état du deal) + alertes, puis le détail par échange avec la preuve (audio, mots exacts, Claap)
 // le modèle écrit parfois « vide » / « rien » au lieu de laisser la clé vide : on ne l'affiche pas
 function sdClesPropres(c) { var o = {}; Object.keys(c || {}).forEach(function(k) { var v = String(c[k] == null ? '' : c[k]).trim(); o[k] = /^(vide|rien|aucun[e]?|n\/?a|—|-)\.?$/i.test(v) ? '' : v; }); return o; }
-function fcHtmlCles(j, mode) { // mode 'essentiel' = ce qu'il faut avoir en tête avant de décrocher ; 'reste' = l'accroche et le deal, repliés par défaut ; rien = tout
+function fcHtmlCles(j, mode, rowsRef) { // mode 'essentiel' = ce qu'il faut avoir en tête avant de décrocher ; 'reste' = l'accroche et le deal, repliés par défaut ; rien = tout
   var c = sdClesPropres(j.cles), out = [], ess = mode !== 'reste', reste = mode !== 'essentiel';
   if (ess && c.promesse) out.push('<div class="cle promesse">🤝 ' + escapeHtml(c.promesse) + '</div>');
   if (reste && c.accroche) out.push('<div class="cle">💬 <b>Pour ouvrir :</b> ' + escapeHtml(c.accroche) + '</div>');
   if (reste && c.deal) out.push('<div class="cle">💶 <b>Le deal :</b> ' + escapeHtml(c.deal) + '</div>');
   // promesse d'un collègue : seulement si elle est postérieure à ton dernier RDV avec lui (ou de moins de 45 jours s'il n'y a pas eu de RDV) — une promesse d'avant tes RDV n'apporte rien
-  var promSdrUtile = !!c.promesse_sdr; if (promSdrUtile) { try { var ds = (String(c.promesse_sdr).match(/\b(\d{2})\/(\d{2})\/(\d{4})\b/g) || []).map(function(d) { var p = d.split('/'); return p[2] + '-' + p[1] + '-' + p[0]; }).sort(); var dMax = ds[ds.length - 1] || ''; var dRdv = (_fc.rows || []).filter(function(r) { return r.source !== 'R2' && r.date; }).map(function(r) { return frVersIsoSd(r.date) || ''; }).sort().pop() || ''; var seuil = dRdv || rlPlus(rlIso(new Date()), -45); if (dMax && dMax < seuil) promSdrUtile = false; } catch (e) {} }
+  var promSdrUtile = !!c.promesse_sdr; if (promSdrUtile) { try { var ds = (String(c.promesse_sdr).match(/\b(\d{2})\/(\d{2})\/(\d{4})\b/g) || []).map(function(d) { var p = d.split('/'); return p[2] + '-' + p[1] + '-' + p[0]; }).sort(); var dMax = ds[ds.length - 1] || ''; var dRdv = (rowsRef || _fc.rows || []).filter(function(r) { return r.source !== 'R2' && r.date; }).map(function(r) { return frVersIsoSd(r.date) || ''; }).sort().pop() || ''; var seuil = dRdv || rlPlus(rlIso(new Date()), -45); if (dMax && dMax < seuil) promSdrUtile = false; } catch (e) {} }
   if (ess && promSdrUtile) out.push('<div class="cle alerte">⚠ <b>Promis par un collègue :</b> ' + escapeHtml(c.promesse_sdr) + '</div>');
   if (mode === 'reste') return out.join('');
   var badges = [];
@@ -11642,22 +11642,31 @@ function svRendreFile(items, today) {
       + (t ? '<select title="Changer le motif" onchange="rlClasser(' + JSON.stringify(t.id).replace(/"/g, '&quot;') + ', this.value)" style="height:28px;font-size:12px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text2);"><option value="">Motif : ' + escapeHtml(motifLib) + '</option><option value="r2">R2 sans réponse</option><option value="rdv">Prise de RDV</option><option value="nsin">No-show inbound</option><option value="nsout">No-show outbound</option></select>' : '') + '</div>'
       + rlChipAppels(sel, items.indexOf(sel)) + rlChipRdvPris(sel);
     var j = _sv.ctx[sel.cle];
-    pan += '<div class="sv-sec"><div class="t">Avant d\'appeler</div>';
+    // même carte que sur la fiche : l'essentiel en clair (fait clé, promesse d'un collègue utile, alertes, dernier échange, prochaine étape), le reste sous « Voir tout le dossier »
+    pan += '<div class="fc-dernier" style="margin-top:12px;"><div class="t"><span>🗣 Avant d\'appeler</span>' + (j && j.nom ? '<span class="src">d\'après la fiche Close « ' + escapeHtml(j.nom) + ' »</span>' : '') + '</div>';
     if (j === null || j === undefined) pan += '<div class="fc-muted">Lecture de Close… (30 à 60 s la première fois pour un long RDV)</div>';
     else if (j.error || j.trouve === false || j.configure === false) pan += '<div class="fc-muted">' + (j.error ? 'Close : ' + escapeHtml(j.error) : 'Aucune fiche Close trouvée pour ce nom.') + '</div>';
     else {
-      var c = sdClesPropres(j.cles);
-      if (c.promesse) pan += '<div class="sv-cle p">🤝 ' + escapeHtml(c.promesse) + '</div>';
-      if (c.accroche) pan += '<div class="sv-cle">💬 <b>Pour ouvrir :</b> ' + escapeHtml(c.accroche) + '</div>';
-      if (c.deal) pan += '<div class="sv-cle">💶 <b>Le deal :</b> ' + escapeHtml(c.deal) + '</div>';
-      if (c.promesse_sdr) pan += '<div class="sv-cle" style="color:var(--red);">⚠ <b>Promis par un collègue :</b> ' + escapeHtml(c.promesse_sdr) + '</div>';
-      if (j.tentativesDepuis >= 2) pan += '<div class="sv-cle" style="color:var(--red);">📵 ' + j.tentativesDepuis + ' appels sans réponse' + (j.derniereConversation ? ' depuis le ' + escapeHtml(j.derniereConversation.date) : '') + '</div>';
-      if (!c.promesse && !c.accroche && !c.deal && !(j.synthese || []).length && !(j.echanges || []).length) pan += '<div class="fc-muted">Rien d\'exploitable dans Close (pas de note, pas d\'enregistrement).</div>';
+      var ICO2 = { appel: '📞', rdv: '🤝', mail: '✉', sms: '💬', note: '📝' }, LIB2 = { appel: 'appel', rdv: 'RDV', mail: 'mail', sms: 'SMS', note: 'note' };
+      var bloc = function(e) { return '<div class="ech"><div class="ech-t"><span>' + (ICO2[e.type] || '📞') + ' ' + escapeHtml(e.date || '') + ' · ' + (LIB2[e.type] || 'échange') + (e.par ? ' · <b>' + escapeHtml(e.par) + '</b>' : ' · toi') + '</span></div><ul>' + (e.lignes || []).slice(0, 8).map(function(l) { var m = /^([^:]{2,40}) :\s*(.*)$/.exec(l); return '<li>' + (m ? '<b>' + escapeHtml(m[1]) + ' :</b> ' + escapeHtml(m[2]) : escapeHtml(l)) + '</li>'; }).join('') + '</ul></div>'; };
+      var ech2 = j.echanges || [], rowsRef = sel.row ? [sel.row] : [];
+      var synth2 = (j.synthese || []).length ? '<div class="synth"><div class="st">Le dossier en bref</div>' + j.synthese.map(function(l) { var m = /^([^:]{2,40}) :\s*(.*)$/.exec(l); return '<div class="sl">' + (m ? '<b>' + escapeHtml(m[1]) + '</b><span>' + escapeHtml(m[2]) + '</span>' : '<span>' + escapeHtml(l) + '</span>') + '</div>'; }).join('') + '</div>' : '';
+      var faits2 = []; var sec2 = function(x) { return x >= 60 ? Math.round(x / 60) + ' min' : x + ' s'; }, par2 = function(x) { return x && x.par && !/lapeyre/i.test(x.par) ? ' par ' + x.par : ''; };
+      if (j.derniereConversation) faits2.push((j.derniereConversation.claap ? 'RDV du ' : 'vrai échange le ') + j.derniereConversation.date + par2(j.derniereConversation) + (j.derniereConversation.claap ? ' (compte rendu Claap)' : ' (' + sec2(j.derniereConversation.duree) + ')'));
+      if (j.dernierAppel && !(j.derniereConversation && j.dernierAppel.date === j.derniereConversation.date)) faits2.push('dernier appel ' + j.dernierAppel.date + par2(j.dernierAppel) + (j.dernierAppel.joint ? ' (' + sec2(j.dernierAppel.duree) + ')' : ' sans réponse'));
+      if (j.dernierMail) faits2.push((j.dernierMail.envoye ? 'mail envoyé ' : 'mail reçu ') + j.dernierMail.date + (j.dernierMail.objet ? ' « ' + j.dernierMail.objet + ' »' : ''));
+      var ouvertD2 = false; try { ouvertD2 = localStorage.getItem('sd_fiche_dossier') === '1'; } catch (e) {}
+      pan += fcHtmlCles(j, 'essentiel', rowsRef)
+        + (ech2.length ? '<div class="fc-muted" style="margin-top:8px;font-weight:700;">Ce qu\'on s\'est dit en dernier</div><div class="echs ouvert">' + bloc(ech2[0]) + '</div>' : '')
+        + (j.prochaine ? '<div class="ech-next">➡ ' + escapeHtml(j.prochaine) + '</div>' : '')
+        + (faits2.length ? '<div class="faits">' + faits2.map(escapeHtml).join(' · ') + '</div>' : '')
+        + (!ech2.length && !(j.synthese || []).length && !fcHtmlCles(j, 'reste', rowsRef) ? '<div class="fc-muted" style="margin-top:6px;">Rien d\'exploitable dans Close (pas de note, pas d\'enregistrement).</div>' : '')
+        + '<a class="voirplus" style="display:block;margin-top:8px;" onclick="var e=this.nextElementSibling;var o=e.style.display!==\'none\';e.style.display=o?\'none\':\'\';this.textContent=o?\'Voir tout le dossier ▸\':\'Masquer le dossier ▾\';try{localStorage.setItem(\'sd_fiche_dossier\',o?\'0\':\'1\')}catch(x){}">' + (ouvertD2 ? 'Masquer le dossier ▾' : 'Voir tout le dossier ▸') + '</a>'
+        + '<div style="display:' + (ouvertD2 ? '' : 'none') + ';margin-top:8px;">' + fcHtmlCles(j, 'reste', rowsRef) + synth2 + (ech2.length > 1 ? '<div class="fc-muted" style="margin-top:8px;font-weight:700;">Échanges précédents</div><div class="echs ouvert">' + ech2.slice(1, 4).map(bloc).join('') + '</div>' : '') + '</div>';
       pan += '</div>';
-      if ((j.synthese || []).length) pan += '<div class="sv-sec"><div class="t">Le dossier en bref</div>' + j.synthese.map(function(l) { var m = /^([^:]{2,40}) :\s*(.*)$/.exec(l); return '<div class="sv-sl">' + (m ? '<b>' + escapeHtml(m[1]) + '</b><span>' + escapeHtml(m[2]) + '</span>' : '<span style="grid-column:1/-1">' + escapeHtml(l) + '</span>') + '</div>'; }).join('') + '</div>';
-      if ((j.echanges || []).length) pan += '<div class="sv-sec"><div class="t">Derniers échanges</div>' + j.echanges.slice(0, 3).map(function(e) { return '<div class="sv-ech"><div class="et">' + escapeHtml((e.date || '') + ' · ' + ({ appel: 'appel', rdv: 'RDV', mail: 'mail', sms: 'SMS', note: 'note' }[e.type] || 'échange') + (e.par ? ' · ' + e.par : '')) + '</div><ul>' + (e.lignes || []).slice(0, 8).map(function(l) { var m = /^([^:]{2,40}) :\s*(.*)$/.exec(l); return '<li>' + (m ? '<b>' + escapeHtml(m[1]) + ' :</b> ' + escapeHtml(m[2]) : escapeHtml(l)) + '</li>'; }).join('') + '</ul></div>'; }).join('');
     }
-    pan += '</div><div style="margin-top:12px;font-size:12px;"><a style="color:var(--accent);cursor:pointer;font-weight:600;" onclick="ouvrirFicheClient(' + nomJs + ',' + emailJs + ')">Ouvrir la fiche complète ›</a>' + (t && t.url ? ' · <a style="color:var(--text3);" href="' + escapeHtml(t.url) + '" target="_blank" rel="noopener">voir dans Close ↗</a>' : '') + '</div>';
+    if (j === null || j === undefined || j.error || j.trouve === false || j.configure === false) pan += '</div>';
+    pan += '<div style="margin-top:12px;font-size:12px;"><a style="color:var(--accent);cursor:pointer;font-weight:600;" onclick="ouvrirFicheClient(' + nomJs + ',' + emailJs + ')">Ouvrir la fiche complète ›</a>' + (t && t.url ? ' · <a style="color:var(--text3);" href="' + escapeHtml(t.url) + '" target="_blank" rel="noopener">voir dans Close ↗</a>' : '') + '</div>';
   }
   _sv.visibles = ordre.filter(function(it) { return it.t; }).map(function(it) { return it.cle; });
   _sv.coches = _sv.coches || {}; Object.keys(_sv.coches).forEach(function(c) { if (_sv.visibles.indexOf(c) < 0) delete _sv.coches[c]; });
@@ -11687,7 +11696,7 @@ function renderRelancesPage() {
     document.getElementById('rl-filtres').innerHTML = _bascule + '<button class="btn btn-sm" title="Relire les tâches Close" onclick="chargerTachesClose(rlPlus(_rlLundi,-7), rlPlus(_rlLundi,13), true)">↻</button><button class="btn btn-sm" title="Défaire la dernière action faite dans Close depuis SalesDesk" onclick="rlDefaire(this)">↶ Défaire</button>';
     window._rlItems = items;
     var _et = !_tachesClose ? 'lecture des tâches Close…' : (_tachesClose.error ? '⚠ tâches Close indisponibles (copilot éteint ou à relancer)' : taches.length + ' tâches Close ouvertes');
-    document.getElementById('rl-resume').innerHTML = '<b>' + nbDues + '</b> à traiter · ' + _et + ' · ce soir à 23:00, ce qui reste est déplacé à demain';
+    document.getElementById('rl-resume').innerHTML = '<b>' + nbDues + '</b> à traiter · ' + _et;
     majBadgeSuivi(nbDues);
     document.getElementById('rl-semaine').style.display = 'none'; document.getElementById('rl-colonnes').style.display = 'none'; document.getElementById('sv-file').style.display = '';
     var _ob = document.getElementById('rl-orphelines'); if (_ob) _ob.innerHTML = '';
