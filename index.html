@@ -4196,6 +4196,7 @@ function fcHtmlCles(j, mode, rowsRef) { // mode 'essentiel' = ce qu'il faut avoi
   if (mode === 'reste') return out.join('');
   var badges = [];
   if (c.demo_faite) badges.push('<span class="fc-badge">🎬 Démo déjà faite le ' + escapeHtml(c.demo_faite) + ' — ne pas re-pitcher</span>');
+  if (j.tentativesDepuis === 1 && j.dernierAppel && !j.dernierAppel.joint) { var dA = frVersIsoSd(j.dernierAppel.date), tA = rlIso(new Date()), qA = dA === tA ? 'aujourd\'hui' : dA === rlPlus(tA, -1) ? 'hier' : 'le ' + j.dernierAppel.date; badges.push('<span class="fc-badge" style="background:var(--soft-orange);color:var(--orange);">📵 Appel sans réponse ' + escapeHtml(qA) + (j.dernierAppel.par && !/lapeyre/i.test(j.dernierAppel.par) ? ' par ' + escapeHtml(j.dernierAppel.par) : ' (toi)') + (j.dernierAppel.duree ? ' · ' + j.dernierAppel.duree + ' s' : '') + '</span>'); } // 1re tentative depuis le dernier vrai échange : visible tout de suite, pas seulement dans la ligne grise du bas
   if (j.tentativesDepuis >= 2) badges.push('<span class="fc-badge" style="background:var(--soft-red);color:var(--red);">📵 ' + j.tentativesDepuis + ' appels sans réponse' + (j.derniereConversation ? ' depuis le ' + escapeHtml(j.derniereConversation.date) : '') + ' → tenter SMS / mail</span>');
   if (badges.length) out.push('<div class="fc-badges" style="margin-top:6px;">' + badges.join('') + '</div>');
   return out.join('');
