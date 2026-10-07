@@ -434,7 +434,7 @@ main { max-width: 100%; margin: 0; padding: 6px 8px; }
 .fc-head { background: var(--bg); }
 .fc-bloc { margin-top: 12px; padding: 12px 14px; border-radius: 12px; background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--border); }
 .fc-bloc-t { font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--text3); margin-bottom: 8px; }
-.fc-contact { margin-top: 8px; padding: 6px 10px; border-radius: 10px; background: var(--surface); border: 1px solid var(--border); border-left: 4px solid #9aa3b2; }
+.fc-contact { margin-top: 6px; padding: 0; border: 0; background: transparent; }
 .fc-next { margin-top: 12px; border-left: 4px solid var(--purple); background: var(--surface); }
 .fc-dernier { margin: 12px 0 0; border-left: 4px solid var(--orange); border-radius: 12px; }
 .fc-head .fc-dernier .synth { margin: 12px 0 0; padding: 10px 12px; border-radius: 10px; background: #eef4fb; border: 1px solid #c9d8ea; border-left: 4px solid #185FA5; }
@@ -726,6 +726,7 @@ main { max-width: 100%; margin: 0; padding: 6px 8px; }
 .ctl-sw input:checked + span::before { transform: translateX(16px); }
 .fc-next { margin: 12px 0 4px; padding: 12px 14px; border-radius: 12px; background: var(--surface2); border: 1px solid var(--border); display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
 .fc-next .lab { font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--text3); }
+.fc-next .fc-mini { text-transform: none; letter-spacing: 0; font-weight: 600; font-size: 12px; } .fc-next .fc-mini a { color: var(--accent); text-decoration: none; } .fc-next .fc-mini a.fc-chip { background: transparent; border: 0; padding: 0; font-size: 12px; }
 .fc-next .q { font-size: 15px; font-weight: 700; color: var(--text); }
 .fc-next .d { font-size: 12.5px; color: var(--text2); }
 .fc-next .acts { margin-left: auto; display: flex; gap: 6px; flex-wrap: wrap; }
@@ -3995,14 +3996,20 @@ function fcRendreContact() {
   var mail = _fc.email || mailClose;
   if (tel) chips.push('<a class="fc-chip accent" href="tel:' + escapeHtml(tel.replace(/\s/g, '')) + '" title="Ouvre la fiche dans l\'application Close, numéro copié : un clic sur le numéro dans Close lance l\'appel (loggé et enregistré). Alt+clic = appel via le Mac (FaceTime)." onclick="return fcAppeler(event, ' + JSON.stringify(tel).replace(/"/g, '&quot;') + ', ' + JSON.stringify(url || '').replace(/"/g, '&quot;') + ')">📞 ' + escapeHtml(tel) + '</a>');
   if (mail) chips.push('<a class="fc-chip" href="mailto:' + escapeHtml(mail) + '">✉ ' + escapeHtml(mail) + '</a>');
-  if (url) chips.push('<a class="fc-chip" href="' + escapeHtml(url) + '" target="_blank" rel="noopener">↗ Close' + (statut ? ' <span class="k">' + escapeHtml(statut) + '</span>' : '') + '</a>');
+  // ↗ Close (avec le statut) va sur la ligne du nom ; téléphone et mail en petit à droite de « Prochaine étape » : plus de carte contact qui mangeait l'écran
+  var chipClose = url ? '<a class="fc-badge" id="fc-close-chip" href="' + escapeHtml(url) + '" target="_blank" rel="noopener" style="text-decoration:none;color:var(--accent);" title="Ouvrir la fiche dans Close">↗ Close' + (statut ? ' · ' + escapeHtml(statut) : '') + '</a>' : '';
+  try { var ancien = document.getElementById('fc-close-chip'); if (ancien) ancien.remove(); if (chipClose) document.getElementById('fc-badges').insertAdjacentHTML('beforeend', chipClose); } catch (e) {}
+  _fc.contactMini = chips.join('<span style="opacity:.4;margin:0 6px;">·</span>'); chips = [];
+  try { var nc = document.getElementById('fc-next-contact'); if (nc) nc.innerHTML = _fc.contactMini; } catch (e) {}
   if (c === null) note = 'Close : recherche…';
   else if (c && c.configure === false) note = 'Close : clé absente';
   else if (c && c.error) note = 'Close : ' + c.error;
   else if (c && c.leads && !c.leads.length) note = 'Close : aucune fiche trouvée';
   else if (c === undefined) note = 'Close : copilot éteint';
   else if (c && c.leads && c.leads.length > 1) note = c.leads.length + ' fiches Close (' + (c.par === 'nom' ? 'par nom' : 'par email') + '), la première est affichée';
-  el.innerHTML = '<div class="fc-chips">' + chips.join('') + '</div>' + (note ? '<div class="fc-muted" style="margin-top:6px;">' + escapeHtml(note) + '</div>' : '') + '<div class="fc-suivi" id="fc-suivi">' + fcHtmlSuivi() + '</div>';
+  var suiviHtml = fcHtmlSuivi();
+  el.innerHTML = (note ? '<div class="fc-muted">' + escapeHtml(note) + '</div>' : '') + '<div class="fc-suivi" id="fc-suivi">' + suiviHtml + '</div>';
+  el.style.display = (note || suiviHtml) ? '' : 'none';
   try { fcRendreProchaineEtape(); } catch (e) {}
 }
 // Prochaine étape : la réponse à « que dois-je faire maintenant ? » — RDV à venir, R2 calé, tâche Close / relance datée, ou rien (→ à décider)
@@ -4029,7 +4036,8 @@ function fcItemFiche() {
 }
 function fcRendreProchaineEtape() {
   var el = document.getElementById('fc-next'); if (!el) return;
-  var last = _fc.rows[0]; if (!last) { el.innerHTML = '<div><div class="lab">Prochaine étape</div><div class="q">Aucun RDV dans SalesDesk</div><div class="d">Prospect Close : appeler, prendre un RDV, poser une tâche…</div></div><div class="acts">' + fcBoutonsSuivi(fcItemFiche()) + '</div>'; return; }
+  var labHtml = '<div class="lab" style="display:flex;justify-content:space-between;gap:10px;align-items:baseline;flex-wrap:wrap;"><span>Prochaine étape</span><span class="fc-mini" id="fc-next-contact">' + (_fc.contactMini || '') + '</span></div>';
+  var last = _fc.rows[0]; if (!last) { el.innerHTML = '<div style="width:100%">' + labHtml + '<div class="q">Aucun RDV dans SalesDesk</div><div class="d">Prospect Close : appeler, prendre un RDV, poser une tâche…</div></div><div class="acts">' + fcBoutonsSuivi(fcItemFiche()) + '</div>'; return; }
   var today = new Date(); today.setHours(0, 0, 0, 0); var todayIso = rlIso(new Date());
   var n = fcNormNom(_fc.nom), q = null, lib = '', det = '', acts = [];
   var nomJs = JSON.stringify(_fc.nom).replace(/"/g, '&quot;'), emailJs = JSON.stringify(_fc.email || '').replace(/"/g, '&quot;');
@@ -4053,7 +4061,7 @@ function fcRendreProchaineEtape() {
     else { lib = 'Aucune prochaine étape'; det = SD_INTERESSE.indexOf(String(last.result || '').trim()) >= 0 ? 'Intéressé sans suite : R2 ou rappel ?' : 'À décider'; }
   }
   if (!acts.some(function(x) { return /rlAction\(/.test(x); })) acts.push(fcBoutonsSuivi(fcItemFiche())); // la même barre d'actions sur toute fiche, quel que soit l'état du dossier
-  el.innerHTML = '<div><div class="lab">Prochaine étape</div><div class="q">' + escapeHtml(lib) + '</div>' + (det ? '<div class="d">' + escapeHtml(det) + '</div>' : '') + '</div><div class="acts">' + acts.join('') + '</div>';
+  el.innerHTML = '<div style="width:100%">' + labHtml + '<div class="q">' + escapeHtml(lib) + '</div>' + (det ? '<div class="d">' + escapeHtml(det) + '</div>' : '') + '</div><div class="acts">' + acts.join('') + '</div>';
 }
 // ❌ Il annule : depuis la fiche — même traitement que « RDV annulé » dans la vérification de demain, puis l'onglet Mails s'ouvre avec une réponse prête (signature ajoutée par le copilot)
 function fcAnnulerRdvDepuisFiche() {
