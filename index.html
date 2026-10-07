@@ -3827,6 +3827,21 @@ function sdMemoriserLead(nom, email, lead, store) { // pose closeLead sur les li
   return nb;
 }
 // Toutes les lignes du store à ce nom (tous les mois), avec leur mois
+// ── Une signature notée sur une ligne R2 doit vivre sur le R1 : seul le R1 compte dans Performance (règle « R2 ne pollue jamais les stats R1 »). Report pack / fréquence / tier / FMS / date de signature, et présence au R2. ──
+function sdReporterSignatureR2(st, r2) {
+  if (!r2 || r2.source !== 'R2' || r2.result !== 'Signé' || !r2.client) return null;
+  var n = fcNormNom(r2.client), d2 = parseDateFR(r2.date) || 0, cands = [];
+  Object.keys(st).forEach(function(k) { if (!/^\d{4}-\d{2}$/.test(k) || !Array.isArray(st[k])) return; st[k].forEach(function(x) { if (!x || x.source === 'R2' || fcNormNom(x.client || '') !== n) return; var d1 = parseDateFR(x.date) || 0; if (d1 && d2 && d1 > d2) return; cands.push(x); }); });
+  cands.sort(function(x, y) { return (parseDateFR(y.date) || 0) - (parseDateFR(x.date) || 0); }); var r1 = cands[0]; if (!r1) return null;
+  if (r1.result === 'Signé') return false;
+  r1.result = 'Signé'; r1.presence = r1.presence || 'Show'; r1.pack = r2.pack || r1.pack; r1.freq = r2.freq || r1.freq; r1.tier = r2.tier || r1.tier; r1.fms = r2.fms || r1.fms; if (r2.remise) r1.remise = r2.remise; r1.dateSignature = r2.dateSignature || r1.dateSignature || new Date().toLocaleDateString('fr-FR');
+  r1.dateR2 = r1.dateR2 || r2.date; if (r2.heure && !r1.heureR2) r1.heureR2 = r2.heure; r1.presenceR2 = 'Show'; delete r1.attenteSignature; delete r1.nosignRaison; delete r1.relanceDate; r1.signeViaR2 = r2.date;
+  return r1;
+}
+function sdReporterSignaturesR2(st) { // au démarrage : rattrape les signatures restées sur un R2 (ex. Sonia Lavastre, signée depuis le Suivi sur sa ligne R2 le 07/10/2026)
+  var nb = 0, noms = []; try { Object.keys(st).forEach(function(k) { if (!/^\d{4}-\d{2}$/.test(k) || !Array.isArray(st[k])) return; st[k].forEach(function(r) { if (r && r.source === 'R2' && r.result === 'Signé') { var r1 = sdReporterSignatureR2(st, r); if (r1) { nb++; noms.push(r1.client); } } }); }); } catch (e) {}
+  return { nb: nb, noms: noms };
+}
 function fcLignesDuNom(nom) {
   var store = loadStore(), n = fcNormNom(nom), out = [];
   Object.keys(store).forEach(function(k) {
@@ -4479,7 +4494,7 @@ function rlAction(ix, action, btn) {
           try { var st = loadStore(), row = (it.rel && it.rel.row) || it.row, cible = null;
             if (row) Object.keys(st).forEach(function(k) { if (/^\d{4}-\d{2}$/.test(k)) (st[k] || []).forEach(function(x) { if (x && x.client === row.client && x.date === row.date) cible = x; }); });
             if (!cible) { var rows = fcLignesDuNom(it.nom).filter(function(x) { return x.source !== 'R2'; }); if (rows[0]) cible = (st[rows[0]._monthKey] || [])[rows[0]._storeKey]; }
-            if (cible) { sdBackupStore(st); cible.result = 'Signé'; cible.pack = pack; cible.freq = freq; cible.tier = tier; cible.fms = fms; if (remise) cible.remise = remise; if (!cible.presence) cible.presence = 'Show'; cible.dateSignature = cible.dateSignature || new Date().toLocaleDateString('fr-FR'); delete cible.attenteSignature; delete cible.nosignRaison; delete cible.relanceDate; saveStore(st); }
+            if (cible) { sdBackupStore(st); cible.result = 'Signé'; cible.pack = pack; cible.freq = freq; cible.tier = tier; cible.fms = fms; if (remise) cible.remise = remise; if (!cible.presence) cible.presence = 'Show'; cible.dateSignature = cible.dateSignature || new Date().toLocaleDateString('fr-FR'); delete cible.attenteSignature; delete cible.nosignRaison; delete cible.relanceDate; if (cible.source === 'R2') sdReporterSignatureR2(st, cible); saveStore(st); }
             else if (typeof showCopyToast === 'function') showCopyToast('Aucune ligne de RDV SalesDesk pour ' + it.nom + ' : signature notée dans Close seulement'); } catch (e) {}
           rlPoserSuivi(it, { tentatives: 0, col: 'config', dernier: 'signe', prochaine: dConf }); return rlMajRelance(it, 'abandon', ''); })
         .then(function() { fini('💰 Signé · à configurer demain'); try { refreshAll(); } catch (e) {} try { var stF = loadStore(), rF = null; fcLignesDuNom(it.nom).filter(function(x) { return x.source !== 'R2'; }).forEach(function(x) { if (!rF) rF = (stF[x._monthKey] || [])[x._storeKey]; }); setTimeout(function() { sdFelicitations(it.nom, rF); }, 300); } catch (e) {} }).catch(echec);
@@ -6995,6 +7010,7 @@ function refreshBackupNavDots() {
 // Au chargement de la page
 window.addEventListener('DOMContentLoaded', function() {
   refreshBackupNavDots();
+  try { var stS = loadStore(), rep = sdReporterSignaturesR2(stS); if (rep.nb) { sdBackupStore(stS); saveStore(stS); setTimeout(function() { try { refreshAll(); } catch (e) {} if (typeof showCopyToast === 'function') showCopyToast('💰 ' + rep.nb + ' vente' + (rep.nb > 1 ? 's' : '') + ' reportée' + (rep.nb > 1 ? 's' : '') + ' du R2 vers le R1 : ' + rep.noms.join(', ')); }, 1500); } } catch (e) {}
 });
 // Re-vérifie toutes les heures (au cas où on change de jour pendant que l'app est ouverte)
 setInterval(refreshBackupNavDots, 60 * 60 * 1000);
