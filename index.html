@@ -15538,5 +15538,161 @@ window.addEventListener('load', function() {
     <div class="fc-body" id="fc-body"></div>
   </div>
 </div>
+<!-- ===================== ÉCLAIREUR : assistant de recherche commerciale (mascotte + panneau). Étape 1 : interface avec données fictives, aucune recherche réelle. ===================== -->
+<style>
+/* ── Éclaireur ── */
+.ec-masc { position: fixed; right: 18px; bottom: 18px; width: 54px; height: 54px; border-radius: 50%; border: 0; padding: 0; background: var(--sd-navy); box-shadow: 0 6px 18px rgba(24,54,84,.28); cursor: pointer; z-index: 1210; display: flex; align-items: center; justify-content: center; transition: transform .15s; }
+.ec-masc:hover, .ec-masc:focus-visible { transform: translateY(-2px); outline: 2px solid var(--sd-action); outline-offset: 3px; }
+.ec-masc svg { width: 40px; height: 40px; display: block; }
+.ec-masc .ec-bulle { position: absolute; right: 64px; bottom: 10px; background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 10px; padding: 6px 10px; font-size: 12.5px; font-weight: 600; white-space: nowrap; box-shadow: var(--shadow); opacity: 0; pointer-events: none; transition: opacity .15s; }
+.ec-masc:hover .ec-bulle, .ec-masc:focus-visible .ec-bulle { opacity: 1; }
+.ec-masc.cherche .ec-ant { animation: ec-pulse 1.1s ease-in-out infinite; transform-origin: 32px 7px; }
+.ec-masc.cherche .ec-oeil { animation: ec-scan 1.4s ease-in-out infinite; }
+@keyframes ec-pulse { 0%, 100% { opacity: .6; } 50% { opacity: 1; } }
+@keyframes ec-scan { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(2px); } }
+body.ec-ouvert .ec-masc { display: none; }
+.ec-pan { position: fixed; top: 0; right: 0; bottom: 0; width: 460px; max-width: 100vw; background: var(--surface); border-left: 1px solid var(--border); box-shadow: -12px 0 32px rgba(24,54,84,.14); z-index: 1220; display: flex; flex-direction: column; font-family: var(--font); color: var(--text); }
+.ec-pan[hidden] { display: none; }
+.ec-head { display: flex; align-items: center; gap: 10px; padding: 14px 16px 12px; border-bottom: 1px solid var(--border); background: var(--sd-navy); color: #fff; }
+.ec-head .ec-ico { width: 34px; height: 34px; flex: none; }
+.ec-head .t { font-size: 16px; font-weight: 800; line-height: 1.1; } .ec-head .s { font-size: 12px; color: var(--sd-navy-muted, #9FB4CC); margin-top: 2px; }
+.ec-head .acts { margin-left: auto; display: flex; gap: 6px; }
+.ec-head .btn { height: 30px; padding: 0 10px; font-size: 12px; font-weight: 600; background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.18); color: #fff; border-radius: 8px; }
+.ec-head .btn:hover { background: rgba(255,255,255,.18); }
+.ec-modes { display: flex; gap: 6px; padding: 10px 16px; border-bottom: 1px solid var(--border); background: var(--bg); align-items: center; }
+.ec-modes .lab { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text3); margin-right: 4px; }
+.ec-mode { border: 1px solid var(--border); background: var(--surface); color: var(--sd-action); font-family: var(--font); font-size: 12.5px; font-weight: 600; padding: 5px 11px; border-radius: 999px; cursor: pointer; }
+.ec-mode.on { background: var(--sd-action); border-color: var(--sd-action); color: var(--sd-action-fg); }
+.ec-mode:focus-visible { outline: 2px solid var(--sd-action); outline-offset: 2px; }
+.ec-demo { font-size: 12px; font-weight: 600; color: var(--sd-amber); background: var(--sd-amber-soft); padding: 6px 16px; border-bottom: 1px solid var(--border); display: flex; gap: 6px; align-items: center; }
+.ec-demo svg { width: 14px; height: 14px; flex: none; }
+.ec-conv { flex: 1; overflow-y: auto; padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; }
+.ec-msg { max-width: 100%; }
+.ec-msg.moi { align-self: flex-end; background: var(--sd-action); color: var(--sd-action-fg); padding: 8px 12px; border-radius: 12px 12px 2px 12px; font-size: 13.5px; max-width: 85%; }
+.ec-msg.lui { font-size: 13.5px; line-height: 1.5; }
+.ec-msg.lui .txt { background: var(--bg); border: 1px solid var(--border); border-radius: 12px 12px 12px 2px; padding: 9px 12px; }
+.ec-sugg { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.ec-sugg button { border: 1px solid var(--border); background: var(--surface); color: var(--sd-action); font-family: var(--font); font-size: 12.5px; font-weight: 600; padding: 6px 10px; border-radius: 999px; cursor: pointer; text-align: left; }
+.ec-sugg button:hover { background: var(--sd-action-soft); border-color: var(--sd-action); }
+.ec-etat { display: flex; gap: 8px; align-items: center; font-size: 12.5px; color: var(--text2); padding: 8px 12px; border: 1px dashed var(--border); border-radius: 10px; }
+.ec-etat svg { width: 15px; height: 15px; flex: none; }
+.ec-etat.err { color: var(--sd-red); border-color: var(--sd-red); background: var(--sd-red-soft); border-style: solid; }
+.ec-etat.warn { color: var(--sd-amber); border-color: var(--sd-amber); background: var(--sd-amber-soft); border-style: solid; }
+.ec-card { border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; margin-top: 8px; background: var(--surface); }
+.ec-card .n { font-weight: 700; font-size: 14px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.ec-card .n .tag { font-size: 10.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; padding: 2px 6px; border-radius: 5px; background: var(--sd-grey-soft); color: var(--text2); }
+.ec-card .n .tag.crm { background: var(--sd-action-soft); color: var(--sd-action); } .ec-card .n .tag.web { background: var(--sd-grey-soft); } .ec-card .n .tag.demo { background: var(--sd-amber-soft); color: var(--sd-amber); }
+.ec-card .m { font-size: 12.5px; color: var(--text2); margin-top: 1px; }
+.ec-card .kv { display: grid; grid-template-columns: 112px 1fr; gap: 4px 8px; font-size: 12.5px; margin-top: 8px; }
+.ec-card .kv b { color: var(--text2); font-weight: 600; } .ec-card .kv span { min-width: 0; overflow-wrap: anywhere; }
+.ec-card .src { font-size: 11.5px; color: var(--text3); margin-top: 6px; } .ec-card .src a { color: var(--sd-action); }
+.ec-card .acts { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+.ec-card .acts .btn { height: 28px; padding: 0 10px; font-size: 12px; font-weight: 600; color: var(--sd-action); background: var(--surface); border: 1px solid var(--border); border-radius: 8px; display: inline-flex; align-items: center; }
+.ec-card .acts .btn.btn-primary { background: var(--sd-action); border-color: var(--sd-action); color: var(--sd-action-fg); }
+.ec-card .match { display: inline-flex; gap: 4px; align-items: center; font-size: 11.5px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--sd-grey-soft); color: var(--text2); }
+.ec-card .match.ok { background: var(--sd-green-soft); color: var(--sd-green); } .ec-card .match.warn { background: var(--sd-amber-soft); color: var(--sd-amber); }
+.ec-legende { font-size: 11.5px; color: var(--text3); margin-top: 6px; }
+.ec-saisie { display: flex; gap: 8px; padding: 10px 16px 14px; border-top: 1px solid var(--border); background: var(--surface); align-items: center; }
+.ec-saisie input { flex: 1; min-width: 0; height: 38px; font-family: var(--font); font-size: 13.5px; padding: 0 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); color: var(--text); }
+.ec-saisie input:focus { outline: 2px solid var(--sd-action); outline-offset: 1px; border-color: var(--sd-action); }
+.ec-saisie .btn { height: 38px; padding: 0 14px; font-weight: 600; border-radius: 10px; display: inline-flex; align-items: center; gap: 6px; }
+.ec-saisie .btn.btn-primary { background: var(--sd-action); border-color: var(--sd-action); color: var(--sd-action-fg); }
+.ec-saisie .btn.stop { color: var(--sd-red); border-color: var(--sd-red); background: var(--surface); }
+.ec-pensee { display: flex; gap: 8px; align-items: center; font-size: 13px; color: var(--text2); } .ec-pensee i { width: 6px; height: 6px; border-radius: 50%; background: var(--sd-action); display: inline-block; animation: ec-pulse 1s infinite; } .ec-pensee i:nth-child(2) { animation-delay: .2s; } .ec-pensee i:nth-child(3) { animation-delay: .4s; }
+.auj { padding-bottom: 88px; } .fc-body { padding-bottom: 90px; } #page-relances .sv-grid { padding-bottom: 72px; }
+@media (max-width: 760px) { .ec-pan { width: 100vw; border-left: 0; } .ec-masc { right: 12px; bottom: 12px; } }
+</style>
+<script>
+// ── Éclaireur : mascotte + panneau de conversation. Étape 1 (8 oct. 2026) : interface complète, réponses de DÉMONSTRATION clairement marquées, aucune recherche réelle, aucun appel réseau. ──
+var EC_SVG = '<svg viewBox="0 0 64 64" aria-hidden="true"><g class="ec-ant"><line x1="32" y1="14" x2="32" y2="7" stroke="#9CC9F5" stroke-width="2.5" stroke-linecap="round"/><circle cx="32" cy="6" r="3" fill="#3FD1C9"/></g><rect x="14" y="14" width="36" height="28" rx="11" fill="#9CC9F5"/><rect x="19" y="19" width="26" height="17" rx="8" fill="#183654"/><g class="ec-oeil"><circle cx="27" cy="27.5" r="3.2" fill="#3FD1C9"/><circle cx="37" cy="27.5" r="3.2" fill="#3FD1C9"/><circle cx="28" cy="26.6" r="1" fill="#fff"/><circle cx="38" cy="26.6" r="1" fill="#fff"/></g><path d="M27 32.5c2.8 2 7.2 2 10 0" stroke="#3FD1C9" stroke-width="1.8" stroke-linecap="round" fill="none"/><rect x="20" y="44" width="24" height="12" rx="6" fill="#9CC9F5"/><rect x="29" y="41" width="6" height="4" rx="1.5" fill="#527DB3"/><circle cx="12" cy="50" r="4" fill="#527DB3"/><circle cx="52" cy="50" r="4" fill="#527DB3"/></svg>';
+var EC_DEMO = true; // étape 1 : tout ce que répond Éclaireur est fictif et signalé comme tel
+var _ec = { ouvert: false, mode: '', conv: [], enCours: null, premier: false };
+try { _ec.mode = localStorage.getItem('sd_eclaireur_mode') || ''; var cv = sessionStorage.getItem('sd_eclaireur_conv'); if (cv) _ec.conv = JSON.parse(cv) || []; } catch (e) {}
+var EC_MODES = [['crm', 'Mes données'], ['web', 'Internet'], ['deux', 'Les deux']];
+var EC_SUGG = ['Agents du réseau iad actifs autour d\'Annecy', 'Intéressés sans relance depuis 7 jours', 'Qui attend une signature sans tâche prévue ?'];
+function ecIco(n) { return typeof aujIco === 'function' ? aujIco(n) : ''; }
+function ecInit() {
+  if (document.getElementById('ec-mascotte')) return;
+  var b = document.createElement('button'); b.id = 'ec-mascotte'; b.className = 'ec-masc'; b.type = 'button'; b.setAttribute('aria-label', 'Éclaireur · Une recherche ?'); b.title = 'Éclaireur · Une recherche ?'; b.innerHTML = EC_SVG + '<span class="ec-bulle" aria-hidden="true">Éclaireur · Une recherche ?</span>'; b.onclick = ecOuvrir; document.body.appendChild(b);
+  var p = document.createElement('aside'); p.id = 'ec-panneau'; p.className = 'ec-pan'; p.setAttribute('role', 'dialog'); p.setAttribute('aria-label', 'Éclaireur, assistant de recherche commerciale'); p.hidden = true; document.body.appendChild(p);
+  document.addEventListener('keydown', function(ev) { if (ev.key !== 'Escape' || !_ec.ouvert) return; var dessus = document.querySelector('#fc-dup-overlay.open, .ar-overlay.open'); if (dessus) return; ev.stopImmediatePropagation(); ecFermer(); }, true);
+}
+function ecOuvrir() { ecInit(); _ec.ouvert = true; document.body.classList.add('ec-ouvert'); document.getElementById('ec-panneau').hidden = false; if (!_ec.conv.length) ecAccueil(); ecRendre(); setTimeout(function() { var i = document.getElementById('ec-q'); if (i) i.focus(); }, 50); }
+function ecFermer() { _ec.ouvert = false; document.body.classList.remove('ec-ouvert'); var p = document.getElementById('ec-panneau'); if (p) p.hidden = true; var b = document.getElementById('ec-mascotte'); if (b) b.focus(); }
+function ecNouvelle() { ecInterrompre(); _ec.conv = []; ecAccueil(); ecRendre(); var i = document.getElementById('ec-q'); if (i) i.focus(); }
+function ecAccueil() { _ec.conv.push({ de: 'lui', texte: 'Bonjour Nicolas, que cherches-tu ?', sugg: EC_SUGG, choixMode: !_ec.mode }); ecSauver(); }
+function ecSauver() { try { sessionStorage.setItem('sd_eclaireur_conv', JSON.stringify(_ec.conv.slice(-40))); } catch (e) {} }
+function ecMode(m, depuisChoix) { _ec.mode = m; try { localStorage.setItem('sd_eclaireur_mode', m); } catch (e) {} _ec.conv.forEach(function(x) { x.choixMode = false; }); ecSauver(); ecRendre(); if (depuisChoix) { var i = document.getElementById('ec-q'); if (i) i.focus(); } }
+function ecModeLib(m) { return (EC_MODES.find(function(x) { return x[0] === m; }) || ['', '—'])[1]; }
+function ecRendre() {
+  var p = document.getElementById('ec-panneau'); if (!p || p.hidden) return;
+  var Q = function(v) { return JSON.stringify(v).replace(/"/g, '&quot;'); };
+  var h = '<div class="ec-head"><span class="ec-ico">' + EC_SVG + '</span><div><div class="t">Éclaireur</div><div class="s">Votre assistant de recherche commerciale</div></div><div class="acts"><button class="btn" onclick="ecNouvelle()">Nouvelle recherche</button><button class="btn" aria-label="Fermer" title="Fermer (Échap)" onclick="ecFermer()">✕</button></div></div>'
+    + '<div class="ec-modes"><span class="lab">Mode</span>' + EC_MODES.map(function(m) { return '<button class="ec-mode' + (_ec.mode === m[0] ? ' on' : '') + '" aria-pressed="' + (_ec.mode === m[0]) + '" onclick="ecMode(\'' + m[0] + '\')">' + m[1] + '</button>'; }).join('') + (_ec.mode ? '' : '<span class="fc-muted" style="margin-left:4px;">à choisir</span>') + '</div>'
+    + (EC_DEMO ? '<div class="ec-demo">' + ecIco('alert') + 'Démonstration : réponses fictives, aucune recherche réelle n\'est effectuée.</div>' : '');
+  h += '<div class="ec-conv" id="ec-conv">' + _ec.conv.map(function(m, i) {
+    if (m.de === 'moi') return '<div class="ec-msg moi">' + escapeHtml(m.texte) + '</div>';
+    var x = '<div class="ec-msg lui">';
+    if (m.etat === 'recherche') return x + '<div class="ec-pensee"><i></i><i></i><i></i> ' + escapeHtml(m.texte || 'Recherche en cours…') + '</div></div>';
+    if (m.texte) x += '<div class="txt">' + escapeHtml(m.texte) + '</div>';
+    if (m.choixMode) x += '<div class="ec-sugg">' + EC_MODES.map(function(md) { return '<button onclick="ecMode(\'' + md[0] + '\', true)">' + md[1] + '</button>'; }).join('') + '</div><div class="ec-legende">Où chercher ? Le choix est mémorisé, tu peux le changer en haut du panneau.</div>';
+    if (m.etat && m.etat !== 'ok') { var E = { vide: ['q', 'Aucun résultat pour cette demande dans ' + (m.perimetre || 'ce périmètre') + '.', ''], partiel: ['alert', 'Résultat partiel : ' + (m.detail || 'une source n\'a pas répondu') + '.', 'warn'], indispo: ['alert', 'Source indisponible : ' + (m.detail || 'le copilot ne répond pas') + '. Ce n\'est pas « aucun client trouvé ».', 'warn'], erreur: ['alert', 'Erreur : ' + (m.detail || 'la recherche a échoué') + '.', 'err'], interrompu: ['clock', 'Recherche interrompue.', ''] }[m.etat]; if (E) x += '<div class="ec-etat ' + E[2] + '">' + ecIco(E[0]) + '<span>' + escapeHtml(E[1]) + '</span></div>'; }
+    (m.cartes || []).forEach(function(c) { x += ecCarte(c); });
+    if (m.legende) x += '<div class="ec-legende">' + escapeHtml(m.legende) + '</div>';
+    if (m.sugg && m.sugg.length) x += '<div class="ec-sugg">' + m.sugg.map(function(s) { return '<button onclick="ecPoser(' + Q(s) + ')">' + escapeHtml(s) + '</button>'; }).join('') + '</div>';
+    return x + '</div>';
+  }).join('') + '</div>';
+  h += '<form class="ec-saisie" onsubmit="event.preventDefault();ecEnvoyer()"><input id="ec-q" type="text" placeholder="Posez votre question…" autocomplete="off" maxlength="400"' + (_ec.enCours ? ' disabled' : '') + '>' + (_ec.enCours ? '<button type="button" class="btn stop" onclick="ecInterrompre()">Interrompre</button>' : '<button type="submit" class="btn btn-primary">' + ecIco('arrow') + 'Chercher</button>') + '</form>';
+  p.innerHTML = h;
+  var c = document.getElementById('ec-conv'); if (c) c.scrollTop = c.scrollHeight;
+}
+function ecCarte(c) {
+  var Q = function(v) { return JSON.stringify(v).replace(/"/g, '&quot;'); };
+  var kv = function(k, v) { return v ? '<b>' + k + '</b><span>' + escapeHtml(v) + '</span>' : ''; };
+  var x = '<div class="ec-card"><div class="n">' + escapeHtml(c.nom) + '<span class="tag ' + (c.type === 'crm' ? 'crm' : 'web') + '">' + (c.type === 'crm' ? 'Mon CRM' : 'Internet') + '</span>' + (c.fictif ? '<span class="tag demo">Fictif</span>' : '') + '</div>';
+  if (c.reseau || c.secteur) x += '<div class="m">' + escapeHtml([c.reseau, c.secteur].filter(Boolean).join(' · ')) + '</div>';
+  x += '<div class="kv">' + kv('Pourquoi ici', c.raison) + kv('Infos publiques', c.infos) + kv('Dernier contact', c.dernier) + kv('Prochaine tâche', c.tache) + '</div>';
+  if (c.type === 'web' && c.crm) x += '<div style="margin-top:6px;"><span class="match ' + (c.crm === 'deja' ? 'ok' : c.crm === 'possible' ? 'warn' : '') + '">' + (c.crm === 'deja' ? 'Déjà dans le CRM' : c.crm === 'possible' ? 'Correspondance possible' : 'Non retrouvé dans le CRM') + '</span></div>';
+  if (c.source) x += '<div class="src">Source : ' + (c.lien ? '<a href="' + escapeHtml(c.lien) + '" target="_blank" rel="noopener">' + escapeHtml(c.source) + '</a>' : escapeHtml(c.source)) + (c.date ? ' · ' + escapeHtml(c.date) : '') + '</div>';
+  var acts = [];
+  if (c.type === 'crm') acts.push('<button class="btn btn-primary" onclick="ecOuvrirFiche(' + Q(c.nom) + ',' + Q(c.fictif) + ')">Ouvrir la fiche</button>', '<button class="btn" onclick="ecBrouillon(' + Q(c.nom) + ')">Préparer une relance</button>', '<button class="btn" onclick="ecBrouillon(' + Q(c.nom) + ', true)">Proposer une tâche</button>');
+  else if (c.crm === 'deja') acts.push('<button class="btn btn-primary" onclick="ecOuvrirFiche(' + Q(c.nom) + ',' + Q(c.fictif) + ')">Ouvrir la fiche</button>'); else acts.push('<button class="btn" onclick="ecAjouter(' + Q(c.nom) + ')">Ajouter au CRM (à vérifier)</button>');
+  return x + '<div class="acts">' + acts.join('') + '</div></div>';
+}
+function ecOuvrirFiche(nom, fictif) { if (fictif) { showCopyToast('Démonstration : « ' + nom + ' » est fictif, il n\'a pas de fiche.'); return; } ouvrirFicheClient(nom, ''); }
+function ecBrouillon(nom, tache) { showCopyToast('Démonstration : ' + (tache ? 'la proposition de tâche' : 'le brouillon de relance') + ' arrivera à l\'étape 5 (rien n\'est envoyé ni créé).'); }
+function ecAjouter(nom) { showCopyToast('Démonstration : « Ajouter au CRM » ouvrira une fiche préremplie à vérifier, jamais un enregistrement automatique.'); }
+function ecPoser(q) { var i = document.getElementById('ec-q'); if (i) i.value = q; ecEnvoyer(); }
+function ecEnvoyer() {
+  var i = document.getElementById('ec-q'), q = i ? i.value.trim() : ''; if (!q || _ec.enCours) return;
+  if (!_ec.mode) { _ec.conv.push({ de: 'moi', texte: q }); _ec.conv.push({ de: 'lui', texte: 'Où veux-tu que je cherche ?', choixMode: true }); ecSauver(); ecRendre(); return; }
+  _ec.conv.push({ de: 'moi', texte: q }); var attente = { de: 'lui', etat: 'recherche', texte: 'Recherche ' + ({ crm: 'dans tes données', web: 'sur Internet', deux: 'dans tes données et sur Internet' })[_ec.mode] + '…' }; _ec.conv.push(attente); ecSauver();
+  var b = document.getElementById('ec-mascotte'); if (b) b.classList.add('cherche');
+  _ec.enCours = setTimeout(function() { _ec.enCours = null; if (b) b.classList.remove('cherche'); var idx = _ec.conv.indexOf(attente); var rep = ecRepondreDemo(q, _ec.mode); if (idx >= 0) _ec.conv[idx] = rep; else _ec.conv.push(rep); ecSauver(); ecRendre(); var i2 = document.getElementById('ec-q'); if (i2) i2.focus(); }, 1400);
+  ecRendre(); // le bouton « Interrompre » s'affiche pendant la recherche
+}
+function ecInterrompre() { if (!_ec.enCours) return; clearTimeout(_ec.enCours); _ec.enCours = null; var b = document.getElementById('ec-mascotte'); if (b) b.classList.remove('cherche'); var last = _ec.conv[_ec.conv.length - 1]; if (last && last.etat === 'recherche') { last.etat = 'interrompu'; last.texte = ''; } ecSauver(); ecRendre(); }
+// Réponses de démonstration : données fictives, signalées par « Fictif » sur chaque carte. Les questions contenant « panne », « vide », « partiel » montrent les états correspondants.
+function ecRepondreDemo(q, mode) {
+  var ql = q.toLowerCase(), auj = new Date().toLocaleDateString('fr-FR'), leg = 'Démonstration : cartes fictives pour valider la mise en page. À l\'étape 2, les résultats viendront de tes données ; à l\'étape 3, d\'une vraie recherche Web avec sources.';
+  if (/panne|indisponible/.test(ql)) return { de: 'lui', etat: 'indispo', detail: 'le copilot ne répond pas (simulation)', legende: leg, sugg: ['Réessayer'] };
+  if (/erreur/.test(ql)) return { de: 'lui', etat: 'erreur', detail: 'limite d\'usage atteinte (simulation)', legende: leg };
+  if (/vide|aucun/.test(ql)) return { de: 'lui', etat: 'vide', perimetre: ecModeLib(mode).toLowerCase(), legende: leg, sugg: ['Élargir à 30 km', 'Chercher aussi sur Internet'] };
+  var crm = [
+    { type: 'crm', fictif: true, nom: 'Agent Exemple A', reseau: 'Réseau Démo', secteur: 'Annecy (74)', raison: 'Intéressé le 29/09, aucun appel ni mail depuis 9 jours', dernier: '29/09/2026 · compte rendu de RDV', tache: 'aucune tâche prévue', source: 'compte rendu Claap (fictif)', date: '29/09/2026' },
+    { type: 'crm', fictif: true, nom: 'Agence Exemple B', reseau: 'Réseau Démo', secteur: 'Fontainebleau (77)', raison: 'Attente de signature depuis le 01/10, tâche de relance passée', dernier: '03/10/2026 · mail envoyé', tache: 'Relancer pour signature · 06/10 (dépassée)', source: 'tâche Close (fictive)', date: '06/10/2026' }
+  ];
+  var web = [
+    { type: 'web', fictif: true, nom: 'Agent Exemple C', reseau: 'Réseau Démo', secteur: 'Annecy-le-Vieux (74)', infos: 'Page agent publique, 42 avis (note 4,8), 18 annonces en ligne', raison: 'Critères retenus : réseau demandé, secteur à moins de 20 km, activité récente (annonces datées)', source: 'page réseau (fictive)', lien: 'https://example.com/agent-exemple-c', date: 'consulté le ' + auj + ' · publié 09/2026', crm: 'deja' },
+    { type: 'web', fictif: true, nom: 'Agent Exemple D', reseau: 'Réseau Démo', secteur: 'Seynod (74)', infos: 'Profil professionnel public, 7 annonces en ligne', raison: 'Critères retenus : réseau et secteur ; volume de ventes non vérifiable depuis les sources publiques', source: 'annuaire (fictif)', lien: 'https://example.com/agent-exemple-d', date: 'consulté le ' + auj, crm: 'possible' }
+  ];
+  var perf = /performant|meilleur|top/.test(ql) ? '« Performant » est ambigu : je peux trier par avis publics, nombre d\'annonces en ligne ou ancienneté, mais aucune de ces sources ne prouve un volume de ventes. Quel critère veux-tu ? ' : '';
+  var txt = { crm: perf + 'Dans tes données (démo) : 2 dossiers correspondent. Critère : statut Intéressé ou Attente de signature, aucun échange retrouvé dans les sources accessibles depuis 7 jours, aucune tâche à venir.', web: perf + 'Sur Internet (démo) : 2 profils publics correspondent. Je n\'ai transmis au moteur que le réseau, le secteur et les critères publics.', deux: perf + 'Croisement (démo) : 2 profils publics trouvés, dont 1 déjà dans ton CRM et 1 correspondance possible ; plus 2 dossiers de tes données qui répondent à la demande.' }[mode];
+  var cartes = mode === 'crm' ? crm : mode === 'web' ? web : web.concat(crm);
+  var partiel = /partiel/.test(ql);
+  return { de: 'lui', texte: txt, etat: partiel ? 'partiel' : 'ok', detail: partiel ? 'les mails Close n\'ont pas répondu, les cartes ne tiennent compte que des appels et des tâches (simulation)' : '', cartes: cartes, legende: leg, sugg: ['Seulement les indépendants', 'Dans un rayon de 20 km', 'Lesquels sont déjà dans mon CRM ?'] };
+}
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ecInit); else ecInit();
+</script>
 </body>
 </html>
