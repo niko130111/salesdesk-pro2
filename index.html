@@ -11848,7 +11848,7 @@ function renderAujourdhui() {
   var prepChip = function(p, long) { if (p.etat === 'inconnu') return ''; if (p.etat === 'ok') return '<span class="auj-state ok">' + aujIco('check') + (long ? 'Préparation prête' : 'Prêt') + '</span>'; return '<span class="auj-state warn" title="' + escapeHtml(p.detail || '') + '">' + aujIco('clock') + (p.etat === 'partiel' ? (long ? 'À compléter : ' + escapeHtml(String(p.detail || '').slice(0, 70)) : 'À compléter') : 'À préparer') + '</span>'; }; // la pastille dit ce qui manque (analyse, notes…)
   var statut = function(r, m, p, estProchain) { // un seul mot d'état par ligne : traité > à compléter > en cours > prochain > préparation
     var row = r.row || {}, pres = presDe(r), res = String(row.result || '').trim();
-    if (pres === 'Show') return '<span class="auj-state ok">' + aujIco('check') + (res ? ((row.attenteSignature && res === 'Intéressé') ? 'Attente de signature' : res) : 'Terminé') + '</span>';
+    if (pres === 'Show') return '<span class="auj-state ' + (res === 'Non signé' ? 'bad' : 'ok') + '">' + aujIco(res === 'Non signé' ? 'x' : 'check') + (res ? ((row.attenteSignature && res === 'Intéressé') ? 'Attente de signature' : res) : 'Terminé') + '</span>'; // non signé en rouge clair, pas en vert
     if (pres) return '<span class="auj-state warn">' + aujIco('alert') + pres + '</span>';
     if (m.passe) return '<span class="auj-state warn">' + aujIco('clock') + 'À compléter</span>';
     if (m.enCours) return '<span class="auj-state info">' + aujIco('video') + 'En cours</span>';
