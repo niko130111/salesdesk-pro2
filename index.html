@@ -4494,6 +4494,16 @@ function fcHtmlSuivi() {
   if (aDeja) _fc.rappelArg = JSON.stringify(cible._monthKey).replace(/"/g, '&quot;') + ',' + cible._storeKey; else _fc.rappelArg = ''; // « Modifier le rappel » est dans le menu Plus de la barre, plus en pastille // « Me mettre un rappel » a disparu : « ⏰ Tâche » dans la barre d'actions le remplace
   return out.join('');
 }
+var _orgEnCours = {};
+function sdCompleterOrg(nom, email) { // réseau ou agence + ville lus dans Close via le copilot, mémorisés sur le client (fcClients) ; une seule lecture par prospect et par session
+  if (typeof COPILOT_URL === 'undefined' || !nom) return; var cle = fcCle(nom, email || ''); if (_orgEnCours[cle]) return; _orgEnCours[cle] = 1;
+  fetch(COPILOT_URL + '/close/contact?' + new URLSearchParams({ nom: nom, email: email || '' }), { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).then(function(j) {
+    var leads = (j && j.leads) || []; var choix = sdMeilleurLead(leads, nom, email, sdLeadPour(nom, email || '')); var l = choix && choix.lead || leads[0] || null; var fi = (l && l.fiche) || {};
+    var st = loadStore(), cls = fcClients(st), cl = cls[cle] || (cls[cle] = { nom: nom, email: email || '', notes: '', claap: {} });
+    cl.reseau = String(fi.reseau || '').trim(); cl.ville = String(fi.ville || '').trim(); saveStore(st); // vide = lu, rien trouvé (pas de relecture)
+    try { renderAujourdhui(); } catch (e) {}
+  }).catch(function() { delete _orgEnCours[cle]; });
+}
 function sdMailsFinPour(nom) { // mails de fin de RDV pas encore envoyés pour cette personne (copilot) ; lance la lecture si elle n'a pas encore eu lieu
   if (_mailsFinR1 === null) { try { chargerMailsFinR1(); } catch (e) {} return []; }
   var n = fcNormNom(nom || ''); return (_mailsFinR1 || []).filter(function(m) { return fcNormNom(m.nom || '') === n && ['brouillon', 'sans_cr', 'attente_cr'].indexOf(m.statut) >= 0; }).sort(function(a, b) { return String(b.date).localeCompare(String(a.date)); });
@@ -11850,6 +11860,7 @@ function renderAujourdhui() {
     var connus = function() { // sans analyse générée : ce que Close et SalesDesk savent déjà, pour ne pas afficher une case vide
         var row = (r && r.row) || {}, d = p.d || {}, l = [], clR = {}; try { clR = fcClients(loadStore())[fcCle(r.nom, r.email || '')] || {}; } catch (e) {}
         var typ = row.type || d.reseau || '', reseau = d.reseauClose || clR.reseau || '', ville = d.secteur || clR.ville || row.ville || '';
+        if (!reseau && clR.reseau === undefined) sdCompleterOrg(r.nom, r.email || ''); // pas encore lu dans Close : on va le chercher une fois, la carte se redessine
         var profil = [typ, reseau && reseau.toLowerCase() !== typ.toLowerCase() ? reseau : '', ville].filter(Boolean).join(' · '); // type · réseau Close · ville, sans répéter « Mandataire »
         if (profil) l.push(['Profil', profil]);
         var prise = [row.source && row.source !== 'R2' ? row.source : '', row.datePrise ? 'pris le ' + row.datePrise : '', row.typeSource].filter(Boolean).join(' · '); if (prise) l.push(['RDV', prise]);
