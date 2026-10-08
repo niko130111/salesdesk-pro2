@@ -1523,7 +1523,7 @@ select.form-input { cursor: pointer; }
       <div style="font-size:22px;font-weight:700;color:var(--orange);" id="metric-shows">4/50</div>
       <div style="font-size:11px;color:var(--text3);margin-top:8px;">Closing</div>
       <div style="font-size:16px;font-weight:700;color:var(--orange);" id="metric-closing">50% / 12%</div>
-      <div style="font-size:11px;color:var(--text3);margin-top:8px;">MRR</div>
+      <div style="font-size:11px;color:var(--text3);margin-top:8px;" title="Commissions sur les contrats annuels du mois">Comm. annuels</div>
       <div style="font-size:18px;font-weight:700;color:var(--orange);" id="metric-mrr">249€</div>
     </div>
   </div>
@@ -1562,7 +1562,7 @@ select.form-input { cursor: pointer; }
         </div>
       </div>
       <div style="margin-top:14px;">
-        <div style="font-size:12px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px;">📈 MRR Généré</div>
+        <div style="font-size:12px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px;">📈 Commissions sur contrats annuels</div>
         <div style="font-size:28px;font-weight:700;color:var(--green);" id="mrr-total" contenteditable="true">249 €</div>
       </div>
     </div>
@@ -1675,7 +1675,7 @@ select.form-input { cursor: pointer; }
         <button class="chart-tab active" onclick="switchChartTab('rdv',this)">RDV</button>
         <button class="chart-tab" onclick="switchChartTab('closing',this)">Closing</button>
         <button class="chart-tab" onclick="switchChartTab('commission',this)">Commission</button>
-        <button class="chart-tab" onclick="switchChartTab('mrr',this)">MRR</button>
+        <button class="chart-tab" onclick="switchChartTab('mrr',this)">Annuels</button>
       </div>
     </div>
     <div style="position:relative;height:220px;"><canvas id="histoChart"></canvas></div>
@@ -2525,7 +2525,6 @@ select.form-input { cursor: pointer; }
       <div class="settings-nav-item" onclick="showSettingsSection('commission',this)">💰 Barème commissions</div>
       <div class="settings-nav-item" onclick="showSettingsSection('equipe',this)">👥 Moyennes équipe</div>
       <div class="settings-nav-item" onclick="showSettingsSection('calendly',this)">🔗 Calendly</div>
-      <div class="settings-nav-item" onclick="showSettingsSection('make',this)">⚙️ Make / Automatisations</div>
     </div>
     <div>
       <div class="settings-section active" id="settings-objectifs">
@@ -2906,45 +2905,6 @@ select.form-input { cursor: pointer; }
         </div>
       </div>
 
-      <!-- Section MAKE -->
-      <div class="settings-section" id="settings-make">
-        <div class="settings-card">
-          <h3>⚙️ Make / Automatisations</h3>
-          <p style="font-size:13px;color:var(--text2);margin-bottom:16px;">
-            Configure le webhook Make qui sera declenche lors d'evenements cles (reprogrammation, annulation, R2 planifie) pour modifier automatiquement Google Calendar.
-          </p>
-
-          <div class="form-group" style="margin-bottom:16px;">
-            <label class="form-label">URL du webhook Make</label>
-            <input type="url" class="form-input" id="make-webhook-url" placeholder="https://hook.eu1.make.com/..." style="font-family:var(--mono);font-size:12px;">
-            <div style="font-size:11px;color:var(--text3);margin-top:6px;line-height:1.5;">
-              Cree un scenario Make qui demarre par un module "Webhooks > Custom webhook", copie l'URL et colle-la ici.
-            </div>
-          </div>
-
-          <button class="btn btn-primary" onclick="saveMakeWebhookSettings()">💾 Enregistrer</button>
-
-          <div style="background:var(--soft-orange);border:1px solid var(--orange);border-radius:var(--radius);padding:14px;margin-top:20px;font-size:12px;line-height:1.6;color:var(--orange);">
-            <div style="font-weight:600;margin-bottom:6px;">⚠️ Tests sécurisés (avec données fictives)</div>
-            <div>Ces boutons envoient des payloads <b>de test avec des données bidon</b> à Make pour qu'il découvre la structure des champs. Ils n'affecteront <b>aucun vrai client</b>. Utilise-les avant la première vraie reprogrammation/annulation pour configurer Make.</div>
-          </div>
-
-          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;">
-            <button class="btn" onclick="testMakeWebhook()" style="font-size:12px;">🧪 Test simple (action: test)</button>
-            <button class="btn" onclick="testMakeWebhookReschedule()" style="font-size:12px;background:var(--purple-bg);color:var(--purple);border-color:var(--purple);">🔄 Test Reschedule (sécurisé)</button>
-            <button class="btn" onclick="testMakeWebhookCancel()" style="font-size:12px;background:var(--soft-orange);color:var(--orange);border-color:var(--orange);">🚫 Test Cancel (sécurisé)</button>
-          </div>
-
-          <div style="background:var(--surface2);border-radius:var(--radius);padding:14px;margin-top:20px;font-size:12px;line-height:1.6;color:var(--text2);">
-            <div style="font-weight:600;color:var(--text);margin-bottom:8px;">Evenements envoyes :</div>
-            <ul style="margin:0;padding-left:20px;">
-              <li><b>action: "reschedule"</b> - quand tu reprogrammes un RDV</li>
-              <li><b>action: "cancel"</b> - quand tu annules un RDV</li>
-              <li><b>action: "r2_planned"</b> - quand tu planifies un R2</li>
-            </ul>
-          </div>
-        </div>
-      </div>
 
     </div>
   </div>
@@ -6795,7 +6755,7 @@ function switchChartTab(type, btn) {
     if (type === 'rdv') { d1[m-1]=rows.length; d2[m-1]=kpis.signes; label1='RDV'; label2='Signés'; }
     else if (type === 'closing') { d1[m-1]=kpis.closing; label1='Closing %'; color1='var(--green)'; d2=null; }
     else if (type === 'commission') { d1[m-1]=kpis.commission; label1='Commission €'; color1='var(--orange)'; d2=null; }
-    else if (type === 'mrr') { d1[m-1]=kpis.mrr; label1='MRR €'; color1='var(--soft-violet-line)'; d2=null; }
+    else if (type === 'mrr') { d1[m-1]=kpis.mrr; label1='Commissions annuels €'; color1='var(--soft-violet-line)'; d2=null; }
   }
 
   histoChart.data.datasets = d2
@@ -10662,10 +10622,10 @@ function sdPrechauffer(prospects) { if (typeof COPILOT_URL === 'undefined' || !p
   fetch(COPILOT_URL + '/close/dernier-contact/prechauffer', { method: 'POST', mode: 'cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prospects: prospects.slice(0, 40) }) }).catch(function() {}); }
 function prEcarter(lead, raison, jours, btn) {
   if (btn) btn.disabled = true;
-  rlPost('/listes-appel/ecarter', { lead: lead, raison: raison, jours: jours }).then(function() { var L = (_pr.data && _pr.data.listes[_pr.liste]); if (L) { L.items = L.items.filter(function(i) { return i.id !== lead; }); L.n = L.items.length; } renderProspection(); if (typeof showCopyToast === 'function') showCopyToast(raison === 'appelé' ? '✓ Noté appelé · retiré 30 jours' : '✓ Écarté ' + jours + ' jours'); }).catch(function(e) { if (btn) btn.disabled = false; alert(e.message); });
+  rlPost('/listes-appel/ecarter', { lead: lead, raison: raison, jours: jours }).then(function() { var L = (_pr.data && _pr.data.listes[_pr.liste]); if (L) { L.items = L.items.filter(function(i) { return i.id !== lead; }); L.n = L.items.length; } renderProspection(); if (typeof showCopyToast === 'function') showCopyToast(jours === 30 ? '✓ Noté « ' + raison + ' » · retiré 30 jours' : '✓ Écarté ' + jours + ' jours'); }).catch(function(e) { if (btn) btn.disabled = false; alert(e.message); });
 }
-function prAppeler(ev, tel, url, lead, nom) { // ouvre la fiche Close (numéro copié), l'appel se passe et se logge là-bas ; la fiche sort de la liste 30 jours
-  fcAppeler(ev, tel, url); prEcarter(lead, 'appelé', 30, null); return false;
+function prAppeler(ev, tel, url, lead, nom) { // ouvre la fiche Close (numéro copié) et compose ; le prospect reste dans la liste tant que Nicolas n'a pas dit ce que l'appel a donné (avant : retiré 30 jours dès le clic, même si l'appel échouait)
+  fcAppeler(ev, tel, url); if (!_pr.appeles) _pr.appeles = {}; _pr.appeles[lead] = Date.now(); try { renderProspection(); } catch (e) {} return false;
 }
 function renderProspection() {
   var page = document.getElementById('page-prospection'); if (!page || !page.classList.contains('active')) return;
@@ -10689,7 +10649,7 @@ function renderProspection() {
       + '<div style="font-size:12.5px;margin-top:2px;">' + escapeHtml(i.raisons.join(' · ')) + '</div>'
       + (sdTxt ? '<div class="fc-muted" style="font-size:12px;margin-top:2px;">' + escapeHtml(sdTxt) + '</div>' : '')
       + (i.ownerNom ? '<div class="fc-muted" style="font-size:11.5px;margin-top:2px;">BDR : ' + escapeHtml(i.ownerNom) + (i.ownerInactif ? ' (parti)' : '') + (i.dernierRdv ? ' · dernier RDV ' + escapeHtml(i.dernierRdv.split('-').reverse().join('/')) : '') + '</div>' : '') + '</div>'
-      + '<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;align-items:center;">' + (i.tel ? '<a class="btn btn-sm btn-primary" href="tel:' + escapeHtml(String(i.tel).replace(/\s/g, '')) + '" onclick="return prAppeler(event,' + q(i.tel) + ',' + q(i.url) + ',' + q(i.id) + ',' + q(i.nom) + ')">📞 Appeler</a>' : '<span class="fc-muted" style="font-size:12px;">sans numéro</span>') + '<a class="btn btn-sm" href="' + escapeHtml(i.url) + '" target="_blank" rel="noopener">Close ↗</a><button class="btn btn-sm" title="Retiré des listes 90 jours" onclick="prEcarter(' + q(i.id) + ',\'pas maintenant\',90,this)">Pas maintenant</button></div></div>'; }).join('') + (items.length > 200 ? '<div class="auj-etat">200 premiers affichés : affine avec les filtres.</div>' : '') : '<div class="fc-muted" style="padding:10px 0;">Rien dans cette liste avec ces filtres.</div>') + '</div>';
+      + '<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;align-items:center;">' + ((_pr.appeles || {})[i.id] ? '<span class="auj-chip warn" title="Appel lancé dans Close : dis ce que ça a donné, il sort alors de la liste 30 jours">📞 appel lancé</span><button class="btn btn-sm" onclick="prEcarter(' + q(i.id) + ',\'sans réponse\',30,this)">📭 Sans réponse</button><button class="btn btn-sm" style="color:var(--green);border-color:var(--green);" onclick="prEcarter(' + q(i.id) + ',\'joint\',30,this)">✓ Joint</button>' : (i.tel ? '<a class="btn btn-sm btn-primary" href="tel:' + escapeHtml(String(i.tel).replace(/\s/g, '')) + '" onclick="return prAppeler(event,' + q(i.tel) + ',' + q(i.url) + ',' + q(i.id) + ',' + q(i.nom) + ')">📞 Appeler</a>' : '<span class="fc-muted" style="font-size:12px;">sans numéro</span>')) + '<a class="btn btn-sm" href="' + escapeHtml(i.url) + '" target="_blank" rel="noopener">Close ↗</a><button class="btn btn-sm" title="Retiré des listes 90 jours" onclick="prEcarter(' + q(i.id) + ',\'pas maintenant\',90,this)">Pas maintenant</button></div></div>'; }).join('') + (items.length > 200 ? '<div class="auj-etat">200 premiers affichés : affine avec les filtres.</div>' : '') : '<div class="fc-muted" style="padding:10px 0;">Rien dans cette liste avec ces filtres.</div>') + '</div>';
 }
 // ── Heures au quart d'heure, partout : les champs heure proposent 15 min par 15 min (datalist) et refusent la minute près ──
 (function() {
@@ -11890,7 +11850,7 @@ function svRendreFile(items, today) {
     pan = '<h2 onclick="ouvrirFicheClient(' + nomJs + ',' + emailJs + ')" title="Ouvrir la fiche">' + escapeHtml(sel.nom) + '</h2>'
       + '<div class="meta">' + escapeHtml([motifLib, row.type, row.source, ech, nbT ? nbT + ' appel' + (nbT > 1 ? 's' : '') + ' sans réponse' : ''].filter(Boolean).join(' · ')) + '</div>'
       + (svRaison(sel) ? '<div class="meta" style="color:var(--text);margin-top:6px;">📌 ' + escapeHtml(svRaison(sel)) + '</div>' : '')
-      + '<div class="sv-acts"><button class="btn btn-primary" title="Close compose directement ; Alt + clic = ouvrir la fiche sans appeler" onclick="svAppeler(event,' + cleJs + ')">📞 Appeler' + (tel ? ' ' + escapeHtml(tel) : '') + '</button>'
+      + '<div class="sv-acts"><button class="btn btn-primary" title="Close ouvre la fiche et compose ; Alt + clic = appel via le Mac" onclick="svAppeler(event,' + cleJs + ')">📞 Appeler' + (tel ? ' ' + escapeHtml(tel) : '') + '</button>'
       + (gere ? '<button class="btn sv-orange" title="Appel loggé dans Close, tâche décalée selon la cadence" onclick="rlAction(' + cleJs + ', \'pas_reponse\', this)">📭 Sans réponse</button><button class="btn sv-rouge" title="Pas intéressé : fiche Close en Not interested, opportunité perdue, tâche terminée" onclick="rlAction(' + cleJs + ', \'pas_interesse\', this)">✋ Pas intéressé</button><button class="btn sv-violet" title="Contrat envoyé : tâche « Relancer pour signature » à la date choisie, ligne en attente de signature" onclick="rlAction(' + cleJs + ', \'contrat\', this)">📄 Contrat envoyé</button><button class="btn sv-vert" title="Signé : pack, fréquence, tier, FMS, remise ; tâche « Configurer » demain en tête du Suivi" onclick="rlAction(' + cleJs + ', \'signe\', this)">💰 Signé</button>'
         : (sel.rel && sel.rel.r ? '<button class="btn" onclick="relanceResultat(' + JSON.stringify(String(sel.rel.r.id)).replace(/"/g, '&quot;') + ', this)">Résultat</button>' : '')) + '</div>'
       + '<div class="sv-acts2">' + (t ? '<button class="btn" title="Déplacer au prochain jour ouvré, sans rien changer d\'autre" onclick="svDemain(' + cleJs + ')">⏭ Déplacer à demain</button><button class="btn" title="Déplacer à la date de ton choix" onclick="svDeplacer(' + cleJs + ')">📅 Déplacer au…</button>' : '') + (typeof COPILOT_URL !== 'undefined' ? '<button class="btn" title="Une tâche Close à la date, à l\'heure et avec le texte que tu veux (s\'il a déjà une tâche ouverte à ton nom, elle est déplacée)" onclick="svTache(' + cleJs + ')">⏰ Tâche</button>' : '')
@@ -14292,7 +14252,7 @@ function sendMakeWebhook(payload) {
 // PAQUET 4 : Settings Make
 // =====================================================
 function saveMakeWebhookSettings() {
-  var input = document.getElementById('make-webhook-url');
+  var input = document.getElementById('make-webhook-url'); if (!input) return;
   var url = input ? input.value.trim() : '';
   var store = (typeof loadStore === 'function') ? loadStore() : {};
   if (!store._settings) store._settings = {};
@@ -14304,7 +14264,7 @@ function saveMakeWebhookSettings() {
 function loadMakeWebhookSettings() {
   var store = (typeof loadStore === 'function') ? loadStore() : {};
   var url = (store._settings && store._settings.makeWebhookUrl) || '';
-  var input = document.getElementById('make-webhook-url');
+  var input = document.getElementById('make-webhook-url'); if (!input) return;
   if (input) input.value = url;
 }
 
