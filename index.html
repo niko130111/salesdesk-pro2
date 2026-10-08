@@ -1002,7 +1002,7 @@ nav #nav-more-dot, nav #nav-settings-dot { background: var(--sd-amber) !importan
 .fc-dup .fc-dup-item:hover { border-color: var(--accent); background: var(--accent-bg); }
 @media (max-width: 700px) { .fc-panel { width: 100vw; max-width: 100vw; } }
 .modal-overlay.open { display: flex; }
-.modal-overlay.a-gauche { justify-content: flex-start; padding-left: 24px; } /* fenêtre après appel : à gauche, la fiche prospect reste lisible */
+.modal-overlay.a-gauche { justify-content: flex-start; padding-left: 24px; background: rgba(0,0,0,.14); } /* fenêtre après appel, onboarding : à gauche, la fiche prospect reste lisible */
 .modal { background: var(--surface); border-radius: var(--radius-lg); padding: 24px; width: 480px; max-width: 95vw; max-height: 85vh; overflow-y: auto; box-shadow: 0 20px 50px rgba(0,0,0,0.15); }
 .modal-title { font-size: 16px; font-weight: 600; margin-bottom: 20px; }
 .form-group { margin-bottom: 14px; }
@@ -4052,7 +4052,12 @@ function sdDemanderConfirmation(titre, texte, opts) { // (sdConfirmer existe dé
     setTimeout(function() { try { document.getElementById('sdc-oui').focus(); } catch (e) {} }, 30);
   });
 }
-function fermerModalDoublon() { if (window._sdConfirmResolve) { var _r = window._sdConfirmResolve; window._sdConfirmResolve = null; try { _r(false); } catch (e) {} } try { var _o = document.getElementById('fc-dup-overlay'); if (_o) { _o.classList.remove('a-gauche'); delete _o.dataset.vd; } } catch (e) {} var ov = document.getElementById('fc-dup-overlay'); if (ov) ov.classList.remove('open'); }
+function fcPlacerAGauche(ov) { // fenêtre à gauche de la fiche ouverte : la fiche reste visible ; sur écran moyen la fiche se resserre, sur petit écran la fenêtre reste centrée
+  try { var nav = document.querySelector('nav'), nb = nav ? nav.getBoundingClientRect() : null, sb = (nb && nb.height > nb.width) ? Math.round(nb.width) : 0, vw = window.innerWidth, panel = document.querySelector('#fc-overlay.open .fc-panel'), W = 480;
+    if (!panel) return; var fiche = Math.min(980, vw - sb - W - 36); if (fiche < 560) return;
+    panel.style.width = fiche + 'px'; ov.style.paddingLeft = (sb + 12) + 'px'; ov.classList.add('a-gauche'); ov.dataset.fiche = '1'; } catch (e) {}
+}
+function fermerModalDoublon() { if (window._sdConfirmResolve) { var _r = window._sdConfirmResolve; window._sdConfirmResolve = null; try { _r(false); } catch (e) {} } try { var _o = document.getElementById('fc-dup-overlay'); if (_o) { _o.classList.remove('a-gauche'); delete _o.dataset.vd; if (_o.dataset.fiche) { delete _o.dataset.fiche; _o.style.paddingLeft = ''; var _p = document.querySelector('#fc-overlay .fc-panel'); if (_p) _p.style.width = ''; } } } catch (e) {} var ov = document.getElementById('fc-dup-overlay'); if (ov) ov.classList.remove('open'); }
 function fermerModalPlusTard() { window._sdChaine = false; fermerModalDoublon(); }
 function fermerFicheClient() { document.getElementById('fc-overlay').classList.remove('open'); }
 function fcOnglet(t) { _fc.tab = t; fcRendre(); }
@@ -4201,18 +4206,23 @@ function fcCorrigerNom() {
 function fcRendreContact() {
   var el = document.getElementById('fc-contact'), chips = [], note = '';
   var propre = function(arr) { return (arr || []).map(function(x) { return String(x || '').trim(); }).filter(function(x) { return x && x !== 'null' && x !== 'undefined'; }); };
-  var c = _fc.close, tel = '', mailClose = '', statut = '', url = '';
+  var c = _fc.close, tel = '', mailClose = '', statut = '', url = '', site = '', org = '', ville = '';
   if (c && c.leads && c.leads.length) {
     var l = c.leads[0]; url = l.url || ''; statut = propre([l.statut])[0] || '';
+    var fi = l.fiche || {}; site = propre([fi.site])[0] || ''; ville = propre([fi.ville])[0] || ''; org = propre([fi.reseau])[0] || '';
+    if (!org) { var pers = rlNomFiche(l.nom), segs = String(l.nom || '').split(/\s*[|\/]\s*/).map(function(x) { return x.trim(); }).filter(Boolean); org = segs.filter(function(x) { return x !== pers && fcNormNom(x) !== fcNormNom(_fc.nom); }).join(' · '); } // « Prénom Nom | Réseau » ou « Agence | Prénom Nom » : la partie qui n'est pas la personne
     // le contact qui porte le mail Calendly d'abord, sinon le premier
     var cts = l.contacts || [];
     var ct = cts.filter(function(x) { return propre(x.emails).some(function(e) { return e.toLowerCase() === _fc.email; }); })[0] || cts[0] || {};
     tel = propre(ct.tels)[0] || ''; mailClose = propre(ct.emails)[0] || '';
     if (!tel) cts.some(function(x) { tel = propre(x.tels)[0] || ''; return !!tel; });
   }
-  var mail = _fc.email || mailClose;
+  var mail = _fc.email || mailClose, r0 = _fc.rows[0] || {};
+  if (!org) org = propre([r0.reseau])[0] || ''; if (!ville) ville = propre([r0.ville])[0] || '';
   if (tel) chips.push('<a class="fc-chip accent" href="tel:' + escapeHtml(tel.replace(/\s/g, '')) + '" title="Ouvre la fiche dans l\'application Close, numéro copié : un clic sur le numéro dans Close lance l\'appel (loggé et enregistré). Alt+clic = appel via le Mac (FaceTime)." onclick="return fcAppeler(event, ' + JSON.stringify(tel).replace(/"/g, '&quot;') + ', ' + JSON.stringify(url || '').replace(/"/g, '&quot;') + ')">📞 ' + escapeHtml(tel) + '</a>');
   if (mail) chips.push('<a class="fc-chip" href="mailto:' + escapeHtml(mail) + '">✉ ' + escapeHtml(mail) + '</a>');
+  if (site) { var siteUrl = /^https?:\/\//i.test(site) ? site : 'https://' + site, siteLib = site.replace(/^https?:\/\//i, '').replace(/^www\./i, '').replace(/\/+$/, ''); chips.push('<a class="fc-chip" href="' + escapeHtml(siteUrl) + '" target="_blank" rel="noopener" title="Site internet (fiche Close)">🌐 ' + escapeHtml(siteLib) + '</a>'); } // site de l'agence sous le numéro et le mail
+  try { var ancienOrg = document.getElementById('fc-org-chip'); if (ancienOrg) ancienOrg.remove(); if (org || ville) document.getElementById('fc-badges').insertAdjacentHTML('beforeend', '<span class="fc-badge" id="fc-org-chip" title="Réseau ou agence' + (ville ? ' · ville' : '') + ' (fiche Close)">' + escapeHtml([org, ville].filter(Boolean).join(' · ')) + '</span>'); } catch (e) {} // réseau / agence à côté du nom
   // ↗ Close (avec le statut) va sur la ligne du nom ; téléphone et mail en petit à droite de « Prochaine étape » : plus de carte contact qui mangeait l'écran
   var chipClose = url ? '<a class="fc-badge" id="fc-close-chip" href="' + escapeHtml(url) + '" target="_blank" rel="noopener" style="text-decoration:none;color:var(--accent);" title="Ouvrir la fiche dans Close">↗ Close' + (statut ? ' · ' + escapeHtml(statut) : '') + '</a>' : '';
   try { var ancien = document.getElementById('fc-close-chip'); if (ancien) ancien.remove(); if (chipClose) document.getElementById('fc-badges').insertAdjacentHTML('beforeend', chipClose); } catch (e) {}
@@ -4354,7 +4364,7 @@ function fcOnboarding() {
   var lead = ''; try { lead = _fc.leadChoisi || sdLeadPour(_fc.nom, _fc.email || '') || ((_fc.close && _fc.close.leads && _fc.close.leads[0]) || {}).id || ''; } catch (e) {}
   var ov = document.getElementById('fc-dup-overlay');
   if (!ov) { ov = document.createElement('div'); ov.id = 'fc-dup-overlay'; ov.className = 'modal-overlay'; ov.style.zIndex = '1300'; ov.innerHTML = '<div class="modal" id="fc-dup-modal"></div>'; document.body.appendChild(ov); }
-  ov.onclick = function(ev) { if (ev.target === ov) fermerModalDoublon(); }; ov.classList.add('open');
+  ov.onclick = function(ev) { if (ev.target === ov) fermerModalDoublon(); }; ov.classList.add('open'); fcPlacerAGauche(ov); // à gauche de la fiche : elle reste lisible pendant la configuration
   var m = document.getElementById('fc-dup-modal'); m.innerHTML = '<div class="fc-dup"><div style="font-size:15px;font-weight:700;">🚀 Onboarding — ' + escapeHtml(_fc.nom) + '</div><div class="fc-muted" style="margin-top:8px;">Lecture de Close (champs, opportunité, vidéo du R1)…</div></div>';
   if (typeof COPILOT_URL === 'undefined') { m.innerHTML = '<div class="fc-dup">Copilot éteint : l\'onboarding écrit dans Close via le copilot.<div style="margin-top:10px;text-align:right;"><button class="btn btn-sm" onclick="fermerModalDoublon()">Fermer</button></div></div>'; return; }
   var pChamps = fetch(COPILOT_URL + '/close/onboarding/champs?' + new URLSearchParams(lead ? { lead: lead } : {}), { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); });
