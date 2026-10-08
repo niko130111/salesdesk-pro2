@@ -11817,7 +11817,7 @@ function renderAujourdhui() {
   var sousTitre = function(r) { var row = r.row || {}, cl = cls[fcCle(r.nom, r.email || '')] || {}, parts = [r.r2 ? 'R2' : 'R1']; if (row.type) parts.push(row.type); if (r.source && r.source !== 'R2') parts.push(r.source); if (row.reseau) parts.push(row.reseau); else if (cl.entreprise) parts.push(cl.entreprise); if (row.ville || cl.ville) parts.push(row.ville || cl.ville); return parts.join(' · '); };
   var presDe = function(r) { var p = String((r.row || {}).presence || '').trim(); return (p === 'Reprogrammé' && jour >= todayIso) ? '' : p; };
   var confChip = function(r, m) { var row = r.row || {}; if (!r.row || m.passe || presDe(r)) return ''; if (row.confirme) return '<span class="auj-state ok click" title="Il a confirmé sa venue · clic : retirer" onclick="sdBasculerConfirme(' + Q(row._monthKey) + ',' + row._storeKey + ')">' + aujIco('check') + 'Confirmé</span>'; if (row.relanceVeilleAt) return '<span class="auj-state click" title="Relancé par SMS, pas de réponse · clic : il a confirmé" onclick="sdBasculerConfirme(' + Q(row._monthKey) + ',' + row._storeKey + ')">' + aujIco('q') + 'Sans réponse</span>'; return ''; };
-  var prepChip = function(p, long) { if (p.etat === 'inconnu') return ''; if (p.etat === 'ok') return '<span class="auj-state ok">' + aujIco('check') + (long ? 'Préparation prête' : 'Prêt') + '</span>'; return '<span class="auj-state warn" title="' + escapeHtml(p.detail || '') + '">' + aujIco('clock') + (p.etat === 'partiel' ? (long ? 'Préparation incomplète' : 'Incomplète') : 'À préparer') + '</span>'; };
+  var prepChip = function(p, long) { if (p.etat === 'inconnu') return ''; if (p.etat === 'ok') return '<span class="auj-state ok">' + aujIco('check') + (long ? 'Préparation prête' : 'Prêt') + '</span>'; return '<span class="auj-state warn" title="' + escapeHtml(p.detail || '') + '">' + aujIco('clock') + (p.etat === 'partiel' ? (long ? 'À compléter : ' + escapeHtml(String(p.detail || '').slice(0, 70)) : 'À compléter') : 'À préparer') + '</span>'; }; // la pastille dit ce qui manque (analyse, notes…)
   var statut = function(r, m, p, estProchain) { // un seul mot d'état par ligne : traité > à compléter > en cours > prochain > préparation
     var row = r.row || {}, pres = presDe(r), res = String(row.result || '').trim();
     if (pres === 'Show') return '<span class="auj-state ok">' + aujIco('check') + (res ? ((row.attenteSignature && res === 'Intéressé') ? 'Attente de signature' : res) : 'Terminé') + '</span>';
@@ -11843,15 +11843,23 @@ function renderAujourdhui() {
     if (m.bientot) { if (r.join) return { principal: lienVisio(r, true), plus: plusMenu([prepa, resultat, fiche, assistant]) }; return { principal: prim(prepa), plus: plusMenu([resultat, fiche, assistant]) }; }
     return { principal: (estProchain || r.r2 || p.etat === 'ok') ? prepa : prim(prepa), plus: plusMenu([lienVisio(r, false), resultat, fiche, assistant]) };
   };
-  var briefLignes = function(p, max) { // deux ou trois lignes de préparation ; une donnée absente reste absente, un résumé IA n'est pas un fait
+  var briefLignes = function(p, max, r) { // deux ou trois lignes de préparation ; une donnée absente reste absente, un résumé IA n'est pas un fait
     var out = [], bj = p.d ? aujBrief(p.d) : null;
+    var connus = function() { // sans analyse générée : ce que Close et SalesDesk savent déjà, pour ne pas afficher une case vide
+        var row = (r && r.row) || {}, d = p.d || {}, l = [], profil = [row.type, d.reseau, d.secteur || row.ville].filter(Boolean).join(' · ');
+        if (profil) l.push(['Profil', profil]);
+        var prise = [row.source && row.source !== 'R2' ? row.source : '', row.datePrise ? 'pris le ' + row.datePrise : '', row.typeSource].filter(Boolean).join(' · '); if (prise) l.push(['RDV', prise]);
+        if (bj && bj.notes) l.push(['Mes notes', String(bj.notes).slice(0, 200)]);
+        return l;
+      };
     if (p.etat === 'inconnu') return { lignes: ['<div class="fc-muted">Copilot absent : préparation indisponible.</div>'], vide: true };
     if (p.d && !bj) return { lignes: ['<div class="fc-muted">Lecture de la préparation…</div>'], vide: true };
     var B = bj && bj.briefing;
     if (B) { if (B.mission) out.push(['Objectif', B.mission]); if (B.pieges && B.pieges.length) out.push(['Point sensible', B.pieges[0]]); if (B.questions && B.questions.length) out.push(['À vérifier', B.questions.slice(0, 2).join(' · ')]); if (!out.length && B.angle) out.push(['Angle', B.angle]); if (out.length < 2 && B.il_a_dit && B.il_a_dit.length) out.push(['Il a dit', B.il_a_dit[0]]); }
     else if (bj && bj.notes) out.push(['Mes notes', String(bj.notes).slice(0, 240)]);
     out = out.slice(0, max || 3);
-    if (!out.length) return { lignes: ['<div class="fc-muted">Brief à préparer' + (p.detail ? ' · il manque : ' + escapeHtml(p.detail) : '') + '.</div>'], vide: true };
+    if (!out.length) { var c = connus(); if (!c.length) return { lignes: ['<div class="fc-muted">Brief à préparer' + (p.detail ? ' · il manque : ' + escapeHtml(p.detail) : '') + '.</div>'], vide: true };
+      return { lignes: c.map(function(x) { return '<div class="bl"><b>' + x[0] + ' :</b><span>' + escapeHtml(x[1]) + '</span></div>'; }).concat(['<div class="bl"><b>Il manque :</b><span>' + escapeHtml(p.detail || 'l\'analyse du copilot (à générer)') + '</span></div>', '<div class="src">D\'après Close et SalesDesk ; l\'analyse n\'est pas encore générée.</div>']), vide: true }; }
     var l = out.map(function(x) { return '<div class="bl"><b>' + x[0] + ' :</b><span>' + escapeHtml(x[1]) + '</span></div>'; });
     if (p.etat === 'partiel' && p.detail) l.push('<div class="bl"><b>Il manque :</b><span>' + escapeHtml(p.detail) + '</span></div>');
     l.push('<div class="src">D\'après la préparation du copilot, à confirmer avec lui.</div>');
@@ -11861,7 +11869,7 @@ function renderAujourdhui() {
   var elP = document.getElementById('auj-prochain'), carte = '';
   if (prochainIdx >= 0 && (estAuj || jour > todayIso)) {
     var rp = rdvs[prochainIdx], mp = moments[prochainIdx], pp = prepDe(rp), rowP = rp.row || {}, nomJsP = Q(rp.nom), emailJsP = Q(rp.email || '');
-    var bl = rp.r2 ? { lignes: ['<div class="bl"><b>R2 :</b><span>validation et lancement ; tout le dossier est dans la fiche.</span></div>'], vide: false } : briefLignes(pp, 3);
+    var bl = rp.r2 ? { lignes: ['<div class="bl"><b>R2 :</b><span>validation et lancement ; tout le dossier est dans la fiche.</span></div>'], vide: false } : briefLignes(pp, 3, rp);
     var compteP = mp.enCours ? '' : (estAuj && mp.mins !== null && mp.mins > 0 ? (mp.mins < 60 ? 'dans ' + mp.mins + ' min' : 'dans ' + Math.floor(mp.mins / 60) + ' h' + (mp.mins % 60 ? String(mp.mins % 60).padStart(2, '0') : '')) : '');
     var ficheB = '<button class="btn" onclick="ouvrirFicheClient(' + nomJsP + ',' + emailJsP + ')">' + aujIco('doc') + 'Ouvrir la fiche</button>';
     var prepB = rp.r2 ? '' : '<button class="btn" onclick="' + cible(rp.nom, rp.email, jour) + '">' + aujIco('cal') + (pp.etat === 'ok' ? 'Voir la préparation' : 'Préparer le RDV') + '</button>';
@@ -11897,7 +11905,7 @@ function renderAujourdhui() {
       var peutOuvrir = !pres && !r.r2 && !m.passe && !estProchain && p.etat !== 'inconnu', ouvert = peutOuvrir && cleR === ouvertCle;
       var compte = m.enCours ? 'en cours' : (m.bientot ? 'dans ' + m.mins + ' min' : '');
       var a = actionsDe(r, m, p, estProchain), brief = '';
-      if (ouvert) { var b2 = briefLignes(p, 3); brief = '<div class="auj-brief">' + b2.lignes.join('') + (!b2.vide && p.etat === 'ok' ? '<div class="ba"><a style="color:var(--sd-action);cursor:pointer;font-weight:600;font-size:12.5px;" onclick="' + cible(r.nom, r.email, jour) + '">Voir la préparation complète ›</a></div>' : '') + '</div>'; }
+      if (ouvert) { var b2 = briefLignes(p, 3, r); brief = '<div class="auj-brief">' + b2.lignes.join('') + (!b2.vide && p.etat === 'ok' ? '<div class="ba"><a style="color:var(--sd-action);cursor:pointer;font-weight:600;font-size:12.5px;" onclick="' + cible(r.nom, r.email, jour) + '">Voir la préparation complète ›</a></div>' : '') + '</div>'; }
       return '<div class="auj-row-wrap' + (ouvert ? ' ouvert' : '') + '"><div class="auj-row' + (r.r2 ? ' r2' : '') + (m.passe ? ' passe' : '') + '">'
         + '<div class="h">' + escapeHtml(r.heure || '—') + (compte ? '<div class="cd">' + escapeHtml(compte) + '</div>' : '') + '</div>'
         + '<div class="who"><div class="n" onclick="ouvrirFicheClient(' + Q(r.nom) + ',' + Q(r.email || '') + ')">' + escapeHtml(nomAff(r.nom)) + '</div><div class="sub">' + escapeHtml(sousTitre(r) + (!pres && String(row.presence || '').trim() === 'Reprogrammé' ? ' · reprogrammé à ce jour' : '')) + '</div></div>'
