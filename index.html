@@ -1009,11 +1009,9 @@ select.form-input { cursor: pointer; }
     <div class="nav-more" id="nav-more">
       <button class="nav-tab nav-more-btn" id="nav-more-btn" onclick="navPlus(event)">Plus ▾<span id="nav-more-dot" style="display:none;width:7px;height:7px;border-radius:50%;background:var(--red);margin-left:6px;vertical-align:middle;"></span></button>
       <div class="nav-more-menu" id="nav-more-menu">
-        <div class="nav-more-grp">Mes données</div>
+        <div class="nav-more-grp">Dossiers</div>
         <button class="nav-tab" data-page="pipeline" onclick="showPage('pipeline',this);togglePeriodSelector(false);renderPipeline()"><span class="nav-ico">▤</span>Pipeline <small>kanban</small></button>
-        <button class="nav-tab" data-page="rdvtable" onclick="showPage('rdvtable',this);togglePeriodSelector(true)"><span class="nav-ico">▥</span>RDV Table <small>tableau éditable</small></button>
-        <div class="nav-more-grp">Analyse</div>
-        <button class="nav-tab" data-page="global" onclick="showPage('global',this);renderGlobal();togglePeriodSelector(false)"><span class="nav-ico">◎</span>Global <small>vue annuelle</small></button>
+        <button class="nav-tab" data-page="rdvtable" onclick="showPage('rdvtable',this);togglePeriodSelector(true)"><span class="nav-ico">▥</span>Rendez-vous <small>tableau</small></button>
         <div class="nav-more-grp grp-bas">Réglages</div>
         <button class="nav-tab" data-page="automatisations" onclick="showPage('automatisations',this);togglePeriodSelector(false);renderAutomatisations(true)"><span class="nav-ico">↻</span>Automatisations</button>
         <button class="nav-tab" data-page="controle" onclick="showPage('controle',this);togglePeriodSelector(false);renderControle(true)"><span class="nav-ico">⛨</span>Contrôle<span id="nav-controle-badge" style="display:none;margin-left:6px;background:var(--red);color:#fff;font-size:10px;padding:1px 6px;border-radius:99px;font-weight:700;"></span></button>
@@ -1248,6 +1246,7 @@ select.form-input { cursor: pointer; }
 <!-- ===================== ANALYTICS PAGE ===================== -->
 <div id="page-analytics" class="page">
 <main>
+  <div class="perf-onglets" style="display:flex;gap:6px;margin-bottom:14px;align-items:center;"><span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-right:6px;">Performance</span><button class="btn btn-sm btn-primary" onclick="sdPerfOnglet('mois')">Ce mois</button><button class="btn btn-sm" onclick="sdPerfOnglet('historique')">Historique <small style="opacity:.75">depuis oct. 2025</small></button></div>
 
   <!-- Pilotage du mois en cours (venu de l'ancien Quotidien) : objectif, objectif ajusté aux absences, commission, ce qui reste à faire -->
   <div id="perf-top"></div>
@@ -1695,6 +1694,7 @@ select.form-input { cursor: pointer; }
 <!-- ===================== GLOBAL PAGE ===================== -->
 <div id="page-global" class="page">
 <main>
+  <div class="perf-onglets" style="display:flex;gap:6px;margin-bottom:14px;align-items:center;"><span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-right:6px;">Performance</span><button class="btn btn-sm" onclick="sdPerfOnglet('mois')">Ce mois</button><button class="btn btn-sm btn-primary" onclick="sdPerfOnglet('historique')">Historique <small style="opacity:.75">depuis oct. 2025</small></button></div>
 
   <!-- ════ HEADER ════ -->
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
@@ -10445,6 +10445,8 @@ function sdVerifCloseAppliquer(ignorerAussi) {
   saveStore(store); fermerModalDoublon(); try { refreshAll(); } catch (e) {} renderMaJournee();
   if (typeof showCopyToast === 'function') showCopyToast(n ? '✓ Close : ' + n + ' correction(s) appliquée(s) — ' + msgs.slice(0, 4).join(', ') : 'Rien appliqué');
 }
+// Performance : « Ce mois » (page analytics) et « Historique » (ancienne page Global), un seul onglet dans le menu
+function sdPerfOnglet(q) { var tab = document.querySelector('.nav-tab[data-page="analytics"]'); if (q === 'historique') { showPage('global', tab); togglePeriodSelector(false); try { renderGlobal(); } catch (e) {} } else { showPage('analytics', tab); togglePeriodSelector(false); try { chargerAppelsClose(); renderDaily(); } catch (e) {} setTimeout(function() { try { refreshKpis(); renderPerfTop(); } catch (e) {} }, 60); } }
 function mjAller(page) { if (page === 'Mes RDV') { showPage('mesrdv', null); togglePeriodSelector(false); ouvrirCopilot(); return; } if (page === 'Quotidien') page = 'Aujourd'; var map = { 'Aujourd': 'aujourdhui', 'Automatisations': 'automatisations', 'Relances': 'relances', 'Suivi': 'relances', 'Analytics': 'analytics', 'Performance': 'analytics', 'Mes RDV': 'mesrdv', 'Contrôle': 'controle', 'Pipeline': 'pipeline', 'RDV Table': 'rdvtable', 'Quotidien': 'daily' }; var b = (map[page] && document.querySelector('.nav-tab[data-page="' + map[page] + '"]')) || [...document.querySelectorAll('.nav-tab')].find(function(x) { return x.textContent.indexOf(page) >= 0; }); if (b) b.click(); }
 // ── Mail de fin de R1 : « Terminer » → le copilot attend le compte rendu Claap → brouillon dans Close → ici : Envoyer · Modifier · Annuler ──
 var _mailsFinR1 = null, _mailsFinR1At = 0;
