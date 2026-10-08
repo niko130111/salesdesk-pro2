@@ -4053,12 +4053,12 @@ function sdDemanderConfirmation(titre, texte, opts) { // (sdConfirmer existe dé
     setTimeout(function() { try { document.getElementById('sdc-oui').focus(); } catch (e) {} }, 30);
   });
 }
-function fcPlacerAGauche(ov) { // fenêtre à gauche de la fiche ouverte : la fiche reste visible ; sur écran moyen la fiche se resserre, sur petit écran la fenêtre reste centrée
-  try { var nav = document.querySelector('nav'), nb = nav ? nav.getBoundingClientRect() : null, sb = (nb && nb.height > nb.width) ? Math.round(nb.width) : 0, vw = window.innerWidth, panel = document.querySelector('#fc-overlay.open .fc-panel'), W = 480;
-    if (!panel) return; var fiche = Math.min(980, vw - sb - W - 36); if (fiche < 560) return;
+function fcPlacerAGauche(ov, largeur) { // fenêtre à gauche de la fiche ouverte : la fiche reste visible ; sur écran moyen la fiche se resserre, sur petit écran la fenêtre reste centrée
+  try { var nav = document.querySelector('nav'), nb = nav ? nav.getBoundingClientRect() : null, sb = (nb && nb.height > nb.width) ? Math.round(nb.width) : 0, vw = window.innerWidth, panel = document.querySelector('#fc-overlay.open .fc-panel'), W = largeur || 480;
+    if (!panel) return; var fiche = Math.min(980, vw - sb - W - 36); if (fiche < 520) return;
     panel.style.width = fiche + 'px'; ov.style.paddingLeft = (sb + 12) + 'px'; ov.classList.add('a-gauche'); ov.dataset.fiche = '1'; } catch (e) {}
 }
-function fermerModalDoublon() { if (window._sdConfirmResolve) { var _r = window._sdConfirmResolve; window._sdConfirmResolve = null; try { _r(false); } catch (e) {} } try { var _o = document.getElementById('fc-dup-overlay'); if (_o) { _o.classList.remove('a-gauche'); delete _o.dataset.vd; if (_o.dataset.fiche) { delete _o.dataset.fiche; _o.style.paddingLeft = ''; var _p = document.querySelector('#fc-overlay .fc-panel'); if (_p) _p.style.width = ''; } } } catch (e) {} var ov = document.getElementById('fc-dup-overlay'); if (ov) ov.classList.remove('open'); }
+function fermerModalDoublon() { if (window._sdConfirmResolve) { var _r = window._sdConfirmResolve; window._sdConfirmResolve = null; try { _r(false); } catch (e) {} } try { var _o = document.getElementById('fc-dup-overlay'); if (_o) { _o.classList.remove('a-gauche'); delete _o.dataset.vd; if (_o.dataset.fiche) { delete _o.dataset.fiche; _o.style.paddingLeft = ''; var _p = document.querySelector('#fc-overlay .fc-panel'); if (_p) _p.style.width = ''; } var _m = document.getElementById('fc-dup-modal'); if (_m) _m.style.width = ''; } } catch (e) {} var ov = document.getElementById('fc-dup-overlay'); if (ov) ov.classList.remove('open'); }
 function fermerModalPlusTard() { window._sdChaine = false; fermerModalDoublon(); }
 function fermerFicheClient() { document.getElementById('fc-overlay').classList.remove('open'); }
 function fcOnglet(t) { _fc.tab = t; fcRendre(); }
@@ -4316,6 +4316,7 @@ function fcBoutonsSuivi(it) {
     case 'perdu': principal = [appeler, rdv(aujIco('cal') + 'Reprendre un RDV', 'Tu choisis le créneau, je réserve dans Calendly'), tache]; plus = [mail, manager, ficheClose, corriger, cloturer]; break;
     default: principal = [appeler, rdv(aujIco('cal') + 'Prendre un RDV', 'Tu choisis le créneau, je réserve dans Calendly', 'btn-primary'), tache]; plus = [sansRep, pasInt, mail, manager, ficheClose, corriger, cloturer];
   }
+  try { var mfB = sdMailsFinPour(it.nom || row.client || '').filter(function(m) { return m.statut === 'brouillon'; })[0]; if (mfB) principal.unshift(B('sdVoirMailFinR1(' + JSON.stringify(mfB.cle || (String(mfB.nom || '').toLowerCase() + '|' + mfB.date)).replace(/"/g, '&quot;') + ')', aujIco('mail') + 'Relire le mail', 'btn-primary', 'Mail de fin de RDV prêt dans Close : relis, modifie, envoie')); } catch (e) {} // un mail post-RDV pas envoyé passe devant tout le reste
   principal = principal.filter(Boolean).map(function(b, i) { return i ? b.replace(' btn-primary', '') : b; }); plus = plus.filter(Boolean); // une seule action pleine : la première
   var id = 'fc-plus-' + Math.random().toString(36).slice(2, 7);
   return '<div class="fc-barre" data-etat="' + etat + '" style="display:flex;flex-wrap:wrap;gap:6px;width:100%;align-items:center;">' + principal.join('')
@@ -4380,7 +4381,7 @@ function fcOnboarding() {
   var lead = ''; try { lead = _fc.leadChoisi || sdLeadPour(_fc.nom, _fc.email || '') || ((_fc.close && _fc.close.leads && _fc.close.leads[0]) || {}).id || ''; } catch (e) {}
   var ov = document.getElementById('fc-dup-overlay');
   if (!ov) { ov = document.createElement('div'); ov.id = 'fc-dup-overlay'; ov.className = 'modal-overlay'; ov.style.zIndex = '1300'; ov.innerHTML = '<div class="modal" id="fc-dup-modal"></div>'; document.body.appendChild(ov); }
-  ov.onclick = function(ev) { if (ev.target === ov) fermerModalDoublon(); }; ov.classList.add('open'); fcPlacerAGauche(ov); // à gauche de la fiche : elle reste lisible pendant la configuration
+  ov.onclick = function(ev) { if (ev.target === ov) fermerModalDoublon(); }; ov.classList.add('open'); document.getElementById('fc-dup-modal').style.width = 'min(640px, 94vw)'; fcPlacerAGauche(ov, 640); // à gauche de la fiche, plus large que le cadre standard : elle reste lisible pendant la configuration
   var m = document.getElementById('fc-dup-modal'); m.innerHTML = '<div class="fc-dup"><div style="font-size:15px;font-weight:700;">🚀 Onboarding — ' + escapeHtml(_fc.nom) + '</div><div class="fc-muted" style="margin-top:8px;">Lecture de Close (champs, opportunité, vidéo du R1)…</div></div>';
   if (typeof COPILOT_URL === 'undefined') { m.innerHTML = '<div class="fc-dup">Copilot éteint : l\'onboarding écrit dans Close via le copilot.<div style="margin-top:10px;text-align:right;"><button class="btn btn-sm" onclick="fermerModalDoublon()">Fermer</button></div></div>'; return; }
   var pChamps = fetch(COPILOT_URL + '/close/onboarding/champs?' + new URLSearchParams(lead ? { lead: lead } : {}), { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); });
@@ -4486,10 +4487,15 @@ function fcHtmlSuivi() {
   if (dern) out.push('<span class="r2" style="background:var(--surface2);color:var(--text)">➡ ' + escapeHtml(dern.apresRdv.prochaine_action.quoi) + (dern.apresRdv.prochaine_action.echeance ? ' · ' + escapeHtml(fcFrDepuisIso(dern.apresRdv.prochaine_action.echeance)) : '') + '</span>');
   if (!out.length && classifyRow(last) === 'interested') out.push('<span class="manque" onclick="fcPopupSuivi(' + JSON.stringify(last._monthKey).replace(/"/g, '&quot;') + ',' + last._storeKey + ')">⚠ Intéressé sans suite : R2 ou relance ?</span>');
   // Toujours un bouton clair pour se mettre un rappel (sur le dernier RDV R1 du client), quel que soit son résultat
+  try { var mfs = sdMailsFinPour(_fc.nom); mfs.forEach(function(mf) { var cle = JSON.stringify(mf.cle || (String(mf.nom || '').toLowerCase() + '|' + mf.date)).replace(/"/g, '&quot;'); if (mf.statut === 'brouillon') out.push('<span class="rel due" style="cursor:pointer;" title="Brouillon prêt dans Close : relis, modifie, envoie" onclick="sdVoirMailFinR1(' + cle + ')">✉ Mail post-RDV à relire et envoyer · RDV du ' + escapeHtml(fcFrDepuisIso(mf.date)) + '</span>'); else if (mf.statut === 'sans_cr') out.push('<span class="rel due" style="cursor:pointer;" title="Pas de compte rendu Claap dans Close : écris-le toi-même" onclick="fcRepondreMail(\'\', \'\')">✉ Mail post-RDV à écrire · pas de compte rendu · RDV du ' + escapeHtml(fcFrDepuisIso(mf.date)) + '</span>'); else if (mf.statut === 'attente_cr') out.push('<span class="rel" title="Le mail s\'écrira dès que le compte rendu Claap arrive dans Close">⏳ Mail post-RDV en attente du compte rendu · RDV du ' + escapeHtml(fcFrDepuisIso(mf.date)) + '</span>'); }); } catch (e) {} // le mail de fin de RDV reste visible ici tant qu'il n'est pas envoyé
   var cible = _fc.rows.find(function(r) { return r.source !== 'R2'; }) || last;
   var aDeja = cible.relanceDate && !cible.relanceFait;
   if (aDeja) _fc.rappelArg = JSON.stringify(cible._monthKey).replace(/"/g, '&quot;') + ',' + cible._storeKey; else _fc.rappelArg = ''; // « Modifier le rappel » est dans le menu Plus de la barre, plus en pastille // « Me mettre un rappel » a disparu : « ⏰ Tâche » dans la barre d'actions le remplace
   return out.join('');
+}
+function sdMailsFinPour(nom) { // mails de fin de RDV pas encore envoyés pour cette personne (copilot) ; lance la lecture si elle n'a pas encore eu lieu
+  if (_mailsFinR1 === null) { try { chargerMailsFinR1(); } catch (e) {} return []; }
+  var n = fcNormNom(nom || ''); return (_mailsFinR1 || []).filter(function(m) { return fcNormNom(m.nom || '') === n && ['brouillon', 'sans_cr', 'attente_cr'].indexOf(m.statut) >= 0; }).sort(function(a, b) { return String(b.date).localeCompare(String(a.date)); });
 }
 function sdMeilleurLead(leads, nom, email, sdLead) { // parmi les fiches Close candidates : celle dont un contact porte ce nom ou cet e-mail (c'est elle qui a les appels), sinon celle de SalesDesk, sinon la première
   leads = leads || []; var nn = fcNormNom(nom || ''), em = String(email || '').toLowerCase().trim();
@@ -4627,7 +4633,7 @@ function rlJourOuvre(iso, n) { var d = iso; var k = n || 1; while (k > 0) { d = 
 function rlCleSuivi(it) { return it.t && it.t.lead ? it.t.lead : 'n:' + fcNormNom(it.nom); }
 function rlSuivi(it) { var st = (window._rlStoreCache || loadStore()); return (st._tachesCloseSuivi || {})[rlCleSuivi(it)] || {}; }
 function rlPoserSuivi(it, patch) { var st = loadStore(); if (!st._tachesCloseSuivi) st._tachesCloseSuivi = {}; var k = rlCleSuivi(it); st._tachesCloseSuivi[k] = Object.assign({}, st._tachesCloseSuivi[k] || {}, patch, { nom: it.nom, at: new Date().toISOString() }); saveStore(st); return st._tachesCloseSuivi[k]; }
-function rlPost(chemin, corps) { try { if (corps && corps.nom && !corps.lead) { var _l = sdLeadPour(corps.nom, corps.email || ''); if (_l) corps = Object.assign({}, corps, { lead: _l }); } } catch (e) {} return fetch(COPILOT_URL + chemin, { method: 'POST', mode: 'cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corps || {}) }).then(function(r) { return r.json().then(function(j) { if (!r.ok || j.ok === false) throw new Error(j.error || ('HTTP ' + r.status)); return j; }); }); }
+function rlPost(chemin, corps) { try { if (corps && corps.nom && !corps.lead) { var _l = sdLeadPour(corps.nom, corps.email || ''); if (_l) corps = Object.assign({}, corps, { lead: _l }); } } catch (e) {} return fetch(COPILOT_URL + chemin, { method: 'POST', mode: 'cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corps || {}) }).then(function(r) { return r.json().catch(function() { throw new Error(r.status === 404 ? 'le copilot ne connaît pas encore cette action : redémarre-le (Objectifs & Config › Sauvegardes et diagnostic), puis réessaie' : 'réponse illisible du copilot (HTTP ' + r.status + ')'); }).then(function(j) { if (!r.ok || j.ok === false) throw new Error(j.error || ('HTTP ' + r.status)); return j; }); }); }
 // La relance SalesDesk (locale ou copilot) suit la même date / le même résultat
 function rlMajRelance(it, resultat, quand) {
   var rel = it.rel, r = rel && rel.r;
@@ -10883,7 +10889,7 @@ function chargerMailsFinR1(force) {
   fetch(COPILOT_URL + '/mails-fin-r1', { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).then(function(j) {
     var avant = {}; (_mailsFinR1 || []).forEach(function(m) { avant[m.cle || (m.nom + '|' + m.date)] = m.statut; });
     var prets = _mailsFinR1 ? (j.mails || []).filter(function(m) { var k = m.cle || (m.nom + '|' + m.date); return m.statut === 'brouillon' && avant[k] && avant[k] !== 'brouillon'; }) : [];
-    _mailsFinR1 = j.mails || []; _mailsFinR1At = Date.now(); renderMaJournee();
+    _mailsFinR1 = j.mails || []; _mailsFinR1At = Date.now(); renderMaJournee(); try { var fo = document.getElementById('fc-overlay'); if (fo && fo.classList.contains('open') && _fc && _fc.nom) fcRendre(); } catch (e) {}
     if (prets.length) sdAlerteMailPret(prets); // il vient de passer de « en attente du compte rendu » à « prêt »
   }).catch(function() {});
 }
@@ -10908,9 +10914,10 @@ function sdVoirMailFinR1(cle) {
     if (!ov) { ov = document.createElement('div'); ov.id = 'fc-dup-overlay'; ov.className = 'modal-overlay'; ov.style.zIndex = '1300'; ov.innerHTML = '<div class="modal" id="fc-dup-modal"></div>'; document.body.appendChild(ov); }
     ov.onclick = function(ev) { if (ev.target === ov) fermerModalDoublon(); };
     var cleJs = JSON.stringify(cle).replace(/"/g, '&quot;');
-    document.getElementById('fc-dup-modal').innerHTML = '<div class="fc-dup" style="max-width:720px;"><div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline;margin-bottom:6px;"><div style="font-size:15px;font-weight:700;">✉ ' + escapeHtml(m.nom) + ' <span style="font-weight:500;color:var(--text3);">→ ' + escapeHtml(m.to || '') + '</span></div><a class="tag" href="' + escapeHtml(m.url || '#') + '" target="_blank" rel="noopener">↗ Close</a></div>'
+    document.getElementById('fc-dup-modal').style.width = 'min(980px, 94vw)'; // large : le mail se relit confortablement
+    document.getElementById('fc-dup-modal').innerHTML = '<div class="fc-dup" style="max-width:100%;"><div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline;margin-bottom:6px;"><div style="font-size:17px;font-weight:700;">✉ ' + escapeHtml(m.nom) + ' <span style="font-weight:500;color:var(--text3);">→ ' + escapeHtml(m.to || '') + '</span></div><a class="tag" href="' + escapeHtml(m.url || '#') + '" target="_blank" rel="noopener">↗ Close</a></div>'
       + '<label style="font-size:12px;font-weight:600;">Objet</label><input class="input" id="mfr-objet" value="' + escapeHtml(m.objet || '') + '" style="width:100%;margin:4px 0 10px;">'
-      + '<div style="font-size:12px;font-weight:600;margin-bottom:4px;">Aperçu — clique dans le texte pour le modifier avant l\'envoi</div><div id="mfr-html" contenteditable="true" style="border:1px solid var(--border);border-radius:10px;padding:14px;background:#fff;color:var(--text);max-height:52vh;overflow:auto;">' + (m.html || '') + '</div>'
+      + '<div style="font-size:12px;font-weight:600;margin-bottom:4px;">Aperçu — clique dans le texte pour le modifier avant l\'envoi</div><div id="mfr-html" contenteditable="true" style="border:1px solid var(--border);border-radius:10px;padding:14px;background:#fff;color:var(--text);max-height:66vh;min-height:40vh;overflow:auto;">' + (m.html || '') + '</div>'
       + '<div style="display:flex;gap:8px;align-items:center;margin-top:12px;flex-wrap:wrap;"><select id="mfr-res" class="input" style="font-size:12px;"><option value="">Changer la suite…</option><option value="r2">R2 calé</option><option value="interesse">Intéressé, décision à venir</option><option value="decideur">Décideur absent</option><option value="plus_tard">Pas maintenant</option><option value="signe">Signé</option></select><input class="input" id="mfr-r2" placeholder="date du R2 / rappel (texte)" style="font-size:12px;width:200px;"><input class="input" id="mfr-hon" inputmode="numeric" placeholder="honoraires moyens / vente (€)" title="Fait apparaître le bloc « une vente couvre la première année »" value="' + escapeHtml(m.honoraires ? String(m.honoraires) : '') + '" style="font-size:12px;width:190px;"><input class="input" id="mfr-sect" placeholder="phrase secteur (ex. Un seul agent visible à Montargis)" title="Ajoutée dans la carte « Votre secteur »" value="' + escapeHtml(m.phraseSecteur || '') + '" style="font-size:12px;flex:1;min-width:220px;"><button class="btn btn-sm" onclick="sdActionMailFinR1(' + cleJs + ', \'regenerer\', this)">Régénérer</button><span style="flex:1"></span><button class="btn btn-sm" onclick="sdActionMailFinR1(' + cleJs + ', \'annuler\', this)">✕ Annuler</button><button class="btn btn-sm" onclick="fermerModalDoublon()">Fermer</button><button class="btn btn-sm btn-primary" onclick="sdActionMailFinR1(' + cleJs + ', \'envoyer\', this)">Envoyer</button></div></div>';
     ov.classList.add('open');
   }).catch(function() { alert('Copilot injoignable.'); });
