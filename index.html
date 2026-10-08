@@ -3040,6 +3040,21 @@ select.form-input { cursor: pointer; }
           <p style="font-size:13px;color:var(--text2);margin-bottom:12px;">Close, OpenAI, Deepgram, Calendly, SMS Gate, PandaDoc… se règlent ici, sans ouvrir le fichier .env. Colle la valeur, Enregistrer : le copilot la prend en compte tout de suite.</p>
           <div id="cfg-cles"><div class="fc-muted">Lecture du copilot…</div></div>
         </div>
+        <div class="settings-card" id="cfg-appel-air">
+          <h3>📞 Appel automatique depuis cet ordinateur</h3>
+          <p style="font-size:13px;color:var(--text2);margin-bottom:10px;">Sur le Mac du copilot, « Appeler » ouvre la fiche dans Close et compose tout seul. Sur un autre ordinateur (MacBook Air), le navigateur ne peut pas piloter l'app Close : un raccourci macOS « Appel Close » le fait à sa place (il appuie sur ⌘⇧D dans Close). Réglage propre à cet ordinateur.</p>
+          <label style="display:flex;gap:8px;align-items:center;font-size:13px;cursor:pointer;margin-bottom:10px;"><input type="checkbox" id="cfg-appel-raccourci" onchange="try{localStorage.setItem('sd_appel_raccourci',this.checked?'1':'0')}catch(e){};showCopyToast(this.checked?'✓ Appel automatique via le raccourci « Appel Close »':'Appel automatique désactivé : la fiche s\'ouvre, tu cliques sur le numéro')"> Composer automatiquement via le raccourci « Appel Close »</label>
+          <details><summary style="cursor:pointer;font-size:13px;font-weight:600;color:var(--sd-action);">Créer le raccourci (une fois, 2 minutes)</summary>
+            <ol style="font-size:13px;color:var(--text2);line-height:1.6;margin:8px 0 0 18px;">
+              <li>Ouvre l'app <b>Raccourcis</b> (macOS) → <b>+</b> nouveau raccourci → nomme-le exactement <b>Appel Close</b>.</li>
+              <li>Ajoute l'action <b>« Exécuter un script AppleScript »</b> et colle :<pre style="font-size:12px;background:var(--surface2);padding:8px 10px;border-radius:8px;margin:6px 0;white-space:pre-wrap;">tell application "Close" to activate
+delay 1
+tell application "System Events" to keystroke "d" using {command down, shift down}</pre></li>
+              <li>Lance-le une fois avec ▶ : macOS demande d'autoriser Raccourcis dans <b>Accessibilité</b> (Réglages Système › Confidentialité et sécurité). Accepte.</li>
+              <li>Coche la case ci-dessus. Au premier « Appeler », le navigateur demande « Ouvrir Raccourcis ? » : coche « Toujours autoriser ».</li>
+            </ol>
+          </details>
+        </div>
         <div class="settings-card">
           <h3>🔄 Copilot</h3>
           <p style="font-size:13px;color:var(--text2);margin-bottom:12px;">Après une mise à jour du code du copilot, un redémarrage suffit : il se relance tout seul, sans terminal.</p>
@@ -4153,7 +4168,9 @@ function fcAppeler(ev, tel, closeUrl) { // clic : la fiche s'ouvre DANS l'applic
     var mL = /lead_[A-Za-z0-9]+/.exec(closeUrl);
     if (typeof sdPosteDistant === 'function' && sdPosteDistant()) { // depuis l'Air : la fiche Close s'ouvre dans ce navigateur-ci, pas dans l'app Close de l'autre Mac
       try { window.open(closeUrl, '_blank', 'noopener'); } catch (e) {}
-      if (typeof showCopyToast === 'function') showCopyToast('📞 Fiche Close ouverte ici' + (num ? ' · numéro copié : ' + num : '') + ' · clique sur le numéro dans Close pour appeler');
+      var auto = false; try { auto = localStorage.getItem('sd_appel_raccourci') === '1'; } catch (e) {}
+      if (auto) { setTimeout(function() { try { window.location.href = 'shortcuts://run-shortcut?name=' + encodeURIComponent('Appel Close'); } catch (e) {} }, 2500); if (typeof showCopyToast === 'function') showCopyToast('📞 Close ouvre la fiche, le raccourci « Appel Close » compose' + (num ? ' ' + num : '') + '…'); } // le raccourci macOS fait ⌘⇧D dans Close, comme le copilot sur l'autre Mac
+      else if (typeof showCopyToast === 'function') showCopyToast('📞 Fiche Close ouverte ici' + (num ? ' · numéro copié : ' + num : '') + ' · clique sur le numéro dans Close pour appeler (appel automatique : Config › Connexions)');
       return false;
     }
     if (mL && typeof COPILOT_URL !== 'undefined' && typeof rlPost === 'function') { // le copilot ouvre la fiche dans l'app Close et lui envoie ⌘⇧D : l'appel part tout seul
@@ -7231,6 +7248,7 @@ function majCarteRegimePrime() {
 // ── Config › Clés API et connexions : réglées ici, stockées par le copilot sur le Mac (jamais dans le navigateur ni dans le dépôt), appliquées tout de suite ──
 var _cfgCles = null;
 function cfgClesCharger() {
+  try { var cb = document.getElementById('cfg-appel-raccourci'); if (cb) cb.checked = localStorage.getItem('sd_appel_raccourci') === '1'; var carte = document.getElementById('cfg-appel-air'); if (carte) carte.style.display = (typeof sdPosteDistant === 'function' && sdPosteDistant()) ? '' : 'none'; } catch (e) {} // bloc visible seulement sur un autre ordinateur que celui du copilot
   var el = document.getElementById('cfg-cles'); if (!el) return;
   if (typeof COPILOT_URL === 'undefined') { el.innerHTML = '<div class="fc-muted">Copilot non configuré sur cet appareil.</div>'; return; }
   fetch(COPILOT_URL + '/reglages/cles', { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).then(function(j) { _cfgCles = j; cfgClesRendre(); })
