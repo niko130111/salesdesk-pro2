@@ -664,7 +664,7 @@ main { max-width: 100%; margin: 0; padding: 6px 8px; }
 .auj-hors .auj-chip { margin-left: auto; }
 .auj-card-head a { color: var(--text2); } .auj-card-head a:hover { color: var(--accent); }
 .auj-count { background: var(--surface2); color: var(--text2); }
-#controle-alerte-auj { margin: 0 0 8px; padding: 7px 10px; font-size: 12px; border-radius: 10px; gap: 8px; }
+#controle-alerte-auj { margin: 0; }
 #controle-alerte-auj .btn { height: 24px; padding: 0 8px; font-size: 11.5px; }
 .theme-pick button[data-t="system"] { width: auto; padding: 0 8px; font-size: 11px; font-weight: 600; }
 .auj-nav { display: inline-flex; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
@@ -721,25 +721,65 @@ main { max-width: 100%; margin: 0; padding: 6px 8px; }
 .auj-bar > div { height: 100%; background: var(--primary); border-radius: 999px; }
 .auj-etat { font-size: 12px; color: var(--text3); margin-top: 6px; }
 /* ── Palette commune Aujourd'hui + fiche client (8 oct. 2026) : bleu d'action, vert = confirmé / réussi, ambre = attention, rouge = erreur / destructif. Les composants existants lisent --accent / --primary / --purple… : on les remappe dans ces deux périmètres au lieu de recolorer chaque élément. ── */
-:root { --sd-action: #527DB3; --sd-action-h: #44699A; --sd-action-fg: #FFFFFF; --sd-action-soft: #E8F0FA; --sd-grey-soft: #EEF2F6; --sd-green: #1F7A4D; --sd-green-soft: #E3F3EA; --sd-amber: #9A6414; --sd-amber-soft: #FBF1DC; --sd-red: #B3261E; --sd-red-soft: #FBE5E3; }
-[data-theme="dark"] { --sd-action: #7FA6D9; --sd-action-h: #96B7E2; --sd-action-fg: #0B1A2E; --sd-action-soft: #1E3553; --sd-grey-soft: #1F3048; --sd-green: #5CC48F; --sd-green-soft: #1C3A2B; --sd-amber: #E2B35A; --sd-amber-soft: #3A3120; --sd-red: #F08A84; --sd-red-soft: #432224; }
-.auj, .fc-overlay, #fc-dup-overlay, .cp-overlay { --accent: var(--sd-action); --accent-bg: var(--sd-action-soft); --accent-soft: var(--sd-action-soft); --primary: var(--sd-action); --primary-hover: var(--sd-action-h); --purple: var(--text2); --purple-bg: var(--sd-grey-soft); --soft-violet: var(--sd-grey-soft); --soft-violet-line: var(--border); --green: var(--sd-green); --soft-green: var(--sd-green-soft); --green-bg: var(--sd-green-soft); --orange: var(--sd-amber); --soft-orange: var(--sd-amber-soft); --orange-bg: var(--sd-amber-soft); --red: var(--sd-red); --soft-red: var(--sd-red-soft); --red-bg: var(--sd-red-soft); --soft-yellow: var(--surface2); --focus-ring: 0 0 0 3px rgba(82,125,179,.3); }
-.auj .btn, .fc-overlay .btn, #fc-dup-overlay .btn { color: var(--sd-action); background: var(--surface); border-color: var(--border); }
-.auj .btn:hover, .fc-overlay .btn:hover, #fc-dup-overlay .btn:hover { background: var(--sd-action-soft); border-color: var(--sd-action); }
-.auj .btn-primary, .fc-overlay .btn-primary, #fc-dup-overlay .btn-primary { background: var(--sd-action); border-color: var(--sd-action); color: var(--sd-action-fg); }
-.auj .btn-primary:hover, .fc-overlay .btn-primary:hover, #fc-dup-overlay .btn-primary:hover { background: var(--sd-action-h); border-color: var(--sd-action-h); color: var(--sd-action-fg); }
+:root { --sd-title: #183654; --sd-action: #527DB3; --sd-action-h: #44699A; --sd-action-fg: #FFFFFF; --sd-action-soft: #E8F0FA; --sd-grey-soft: #EEF2F6; --sd-green: #1F7A4D; --sd-green-soft: #E3F3EA; --sd-amber: #9A6414; --sd-amber-soft: #FBF1DC; --sd-red: #B3261E; --sd-red-soft: #FBE5E3; }
+[data-theme="dark"] { --sd-title: var(--text); --sd-action: #7FA6D9; --sd-action-h: #96B7E2; --sd-action-fg: #0B1A2E; --sd-action-soft: #1E3553; --sd-grey-soft: #1F3048; --sd-green: #5CC48F; --sd-green-soft: #1C3A2B; --sd-amber: #E2B35A; --sd-amber-soft: #3A3120; --sd-red: #F08A84; --sd-red-soft: #432224; }
+.auj, .fc-overlay, #fc-dup-overlay, .cp-overlay, #page-relances { --accent: var(--sd-action); --accent-bg: var(--sd-action-soft); --accent-soft: var(--sd-action-soft); --primary: var(--sd-action); --primary-hover: var(--sd-action-h); --purple: var(--text2); --purple-bg: var(--sd-grey-soft); --soft-violet: var(--sd-grey-soft); --soft-violet-line: var(--border); --green: var(--sd-green); --soft-green: var(--sd-green-soft); --green-bg: var(--sd-green-soft); --orange: var(--sd-amber); --soft-orange: var(--sd-amber-soft); --orange-bg: var(--sd-amber-soft); --red: var(--sd-red); --soft-red: var(--sd-red-soft); --red-bg: var(--sd-red-soft); --soft-yellow: var(--surface2); --focus-ring: 0 0 0 3px rgba(82,125,179,.3); }
+.auj .btn, .fc-overlay .btn, #fc-dup-overlay .btn, #page-relances .btn { color: var(--sd-action); background: var(--surface); border-color: var(--border); }
+.auj .btn:hover, .fc-overlay .btn:hover, #fc-dup-overlay .btn:hover, #page-relances .btn:hover { background: var(--sd-action-soft); border-color: var(--sd-action); }
+.auj .btn-primary, .fc-overlay .btn-primary, #fc-dup-overlay .btn-primary, #page-relances .btn-primary { background: var(--sd-action); border-color: var(--sd-action); color: var(--sd-action-fg); }
+.auj .btn-primary:hover, .fc-overlay .btn-primary:hover, #fc-dup-overlay .btn-primary:hover, #page-relances .btn-primary:hover { background: var(--sd-action-h); border-color: var(--sd-action-h); color: var(--sd-action-fg); }
 .auj .btn[disabled], .fc-overlay .btn[disabled] { opacity: .5; }
 .fc-overlay .fc-h1, .fc-overlay h1, .fc-overlay h2, .fc-card-t, .auj-card-head h2 { color: var(--text); }
 textarea.fc-notes { background: var(--surface2); }
 .fc-next { border-left-color: var(--sd-action); }
 .fc-head .fc-dernier .synth { background: var(--sd-action-soft); border-color: var(--border); border-left-color: var(--sd-action); } .fc-head .fc-dernier .synth .st { color: var(--sd-action); }
+/* ── Menu latéral bleu marine, élément choisi en bleu d'action ; alerte incidents compacte ; répartition des couleurs selon la maquette du 8 oct. 2026 ── */
+:root { --sd-navy: #183654; --sd-navy-2: #234A74; --sd-navy-text: #E6EEF7; --sd-navy-muted: #9FB4CC; --sd-navy-line: rgba(255,255,255,.10); }
+[data-theme="dark"] { --sd-navy: #0E1F35; --sd-navy-2: #1A3453; --sd-navy-text: #E6EEF7; --sd-navy-muted: #8EA3BC; --sd-navy-line: rgba(255,255,255,.08); }
+nav { background: var(--sd-navy); border-color: var(--sd-navy-line); color: var(--sd-navy-text); }
+[data-theme="dark"] nav { border-bottom-color: var(--sd-navy-line); }
+nav .nav-logo { color: var(--sd-navy-text); } nav .nav-logo small { color: var(--sd-navy-muted); }
+.nav-tab { color: var(--sd-navy-text); }
+.nav-tab:hover { background: var(--sd-navy-2); color: #FFFFFF; }
+.nav-tab.active, .nav-more-btn.sub { background: var(--sd-action); color: #FFFFFF; }
+.nav-ico { opacity: .7; } .nav-tab.active .nav-ico { opacity: 1; }
+.nav-more-grp { color: var(--sd-navy-muted); } .nav-more-grp.grp-bas { border-top-color: var(--sd-navy-line); }
+.nav-more-menu { background: var(--sd-navy); border-color: var(--sd-navy-line); }
+.nav-more-menu .nav-tab small { color: var(--sd-navy-muted); }
+.fc-search input, .fc-search input:focus { background: var(--sd-navy-2); border-color: var(--sd-navy-line); color: var(--sd-navy-text); }
+.fc-search input::placeholder { color: var(--sd-navy-muted); } .fc-search input:focus { border-color: var(--sd-action); }
+nav .period-select select { background: var(--sd-navy-2); border-color: var(--sd-navy-line); color: var(--sd-navy-text); }
+nav .theme-pick { background: var(--sd-navy-2); border-color: var(--sd-navy-line); } nav .theme-pick button { color: var(--sd-navy-muted); } nav .theme-pick button.on { background: var(--sd-action); color: #FFFFFF; box-shadow: none; }
+nav .sync-status, nav .sync-status * { color: var(--sd-navy-muted) !important; }
+nav .avatar { background: var(--sd-action); }
+nav #nav-relances-badge { background: rgba(255,255,255,.18) !important; color: #FFFFFF !important; }
+nav #nav-more-dot, nav #nav-settings-dot { background: var(--sd-amber) !important; }
+.controle-alerte, .controle-alerte.orange { margin: 0 0 12px; padding: 7px 12px; border-radius: 8px; background: var(--sd-amber-soft); border: 0; border-left: 3px solid var(--sd-amber); color: var(--sd-amber); font-size: 12.5px; font-weight: 600; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.controle-alerte.rouge { background: var(--sd-red-soft); border-left-color: var(--sd-red); color: var(--sd-red); }
+.controle-alerte svg { width: 14px; height: 14px; flex: none; }
+.controle-alerte .t { flex: 1; min-width: 0; }
+.controle-alerte .det { font-weight: 500; color: var(--text2); flex-basis: 100%; }
+.controle-alerte a { color: var(--sd-action); cursor: pointer; font-weight: 600; white-space: nowrap; }
+.controle-alerte .btn { height: 26px; padding: 0 10px; font-size: 12px; }
+/* fiche client : mêmes composants (chips d'état, cartes, barre) */
+.fc-badge { background: var(--sd-grey-soft); color: var(--text2); font-weight: 600; }
+.fc-badge.won { background: var(--sd-green-soft); color: var(--sd-green); } .fc-badge.lost { background: var(--sd-red-soft); color: var(--sd-red); } .fc-badge.hot { background: var(--sd-amber-soft); color: var(--sd-amber); }
+.fc-head { background: var(--surface); }
+.fc-next { background: var(--bg); border-color: var(--border); border-left: 3px solid var(--sd-action); }
+.fc-pill.ok { background: var(--sd-green-soft); color: var(--sd-green); } .fc-pill.warn { background: var(--sd-amber-soft); color: var(--sd-amber); }
+.fc-dup .fc-dup-item:hover { border-color: var(--sd-action); background: var(--sd-action-soft); }
+/* Suivi : le panneau est la même fiche (Synthèse) */
+.sv-fiche { margin-top: 12px; } .sv-fiche .fc-synth { gap: 12px; }
+@media (max-width: 1300px) { .sv-fiche .fc-synth { grid-template-columns: 1fr; } }
+.sv-chip.on { background: var(--sd-action-soft); border-color: var(--sd-action); color: var(--sd-action); } .sv-chip.on b { color: var(--sd-action); }
+.sv-l.on { background: var(--sd-action-soft); }
 /* ── Aujourd'hui, refonte du 8 oct. 2026 : en-tête léger, prochain RDV, agenda, priorités, demain, utilitaires repliés ── */
 .auj .btn-primary { background: var(--sd-action); border-color: var(--sd-action); color: var(--sd-action-fg); }
 .auj .btn-primary:hover { background: var(--sd-action-h); border-color: var(--sd-action-h); }
 .auj .btn:focus-visible, .auj button:focus-visible, .auj a:focus-visible { outline: 2px solid var(--sd-action); outline-offset: 2px; }
 .auj .btn > svg { width: 15px; height: 15px; margin-right: 6px; vertical-align: -3px; flex: none; }
 .auj .btn > svg:only-child { margin-right: 0; }
-.auj-h1 { color: var(--sd-navy); font-size: 27px; }
+.auj-h1 { color: var(--sd-title); font-size: 27px; }
 .auj-date { font-size: 15px; font-weight: 500; }
 .auj-resume { font-size: 12.5px; color: var(--text3); margin-top: 2px; } .auj-resume:empty { display: none; }
 .auj-head { margin-bottom: 14px; }
@@ -756,13 +796,13 @@ textarea.fc-notes { background: var(--surface2); }
 .auj-ind .bar > i { display: block; height: 100%; background: var(--sd-action); border-radius: 999px; }
 .auj-ind.ok > svg { color: var(--sd-green); } .auj-ind.ok .bar > i { background: var(--sd-green); }
 .auj-card { padding: 18px 20px; margin-bottom: 16px; }
-.auj-card-head h2 { color: var(--sd-navy); font-size: 17px; }
+.auj-card-head h2 { color: var(--sd-title); font-size: 17px; }
 .auj-main, .auj-side { min-width: 0; }
 .auj-util { display: flex; flex-direction: column; gap: 8px; }
 /* prochain rendez-vous */
 .auj-next .lab { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--text3); margin-bottom: 8px; }
 .auj-next .top { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-.auj-next .hh { font-size: 28px; font-weight: 800; letter-spacing: -.02em; color: var(--sd-navy); font-variant-numeric: tabular-nums; line-height: 1; }
+.auj-next .hh { font-size: 28px; font-weight: 800; letter-spacing: -.02em; color: var(--sd-title); font-variant-numeric: tabular-nums; line-height: 1; }
 .auj-next .sep { width: 1px; height: 22px; background: var(--border); }
 .auj-next .etat { margin-left: auto; display: flex; gap: 6px; flex-wrap: wrap; }
 .auj-next .nom { font-size: 21px; font-weight: 800; color: var(--text); margin: 8px 0 4px; cursor: pointer; line-height: 1.2; text-wrap: balance; }
@@ -828,7 +868,7 @@ textarea.fc-notes { background: var(--surface2); }
 .auj-prio-pied svg { width: 13px; height: 13px; }
 /* demain */
 .auj-dem-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin-bottom: 6px; }
-.auj-dem-head h2 { margin: 0; font-size: 17px; color: var(--sd-navy); font-weight: 700; }
+.auj-dem-head h2 { margin: 0; font-size: 17px; color: var(--sd-title); font-weight: 700; }
 .auj-dem-head .quand { font-size: 13px; color: var(--text2); margin-top: 2px; }
 .auj-dem { border-top: 1px solid var(--border); } .auj-dem:first-of-type { border-top: 0; }
 .auj-dem .l { display: flex; gap: 10px; align-items: center; padding: 9px 0; cursor: pointer; }
@@ -1209,10 +1249,9 @@ select.form-input { cursor: pointer; }
         <div id="auj-nouv"></div>
         <div class="auj-card" id="auj-prio"><div class="auj-card-head"><h2>Mes priorités <span class="auj-count" id="auj-prio-count">0</span></h2></div><div id="auj-suivre"></div></div>
         <div id="auj-demain"></div>
-        <div id="controle-alerte-auj" class="controle-alerte" style="display:none;"></div>
       </aside>
     </div>
-    <div class="auj-util"><div id="auj-auto"></div><div class="auj-sync" id="auj-sync"></div></div>
+    <div class="auj-util"><div id="auj-auto"></div><div id="controle-alerte-auj" class="controle-alerte" style="display:none;"></div><div class="auj-sync" id="auj-sync"></div></div>
   </div>
 </div>
 <!-- ===================== DAILY PAGE ===================== -->
@@ -10395,9 +10434,9 @@ function dessinerAlertesControle() {
   ['controle-alerte-daily', 'controle-alerte-mesrdv', 'controle-alerte-auj'].forEach(function(id) {
     var el = document.getElementById(id); if (!el) return;
     if (!p.length) { el.style.display = 'none'; return; }
-    el.className = 'controle-alerte' + (rouges.length ? '' : ' orange'); el.style.display = '';
+    el.className = 'controle-alerte' + (rouges.length ? ' rouge' : ''); el.style.display = '';
     var aVerif = p.some(function(x) { return x.zone === 'verif'; });
-    el.innerHTML = '<span>' + (rouges.length ? '🔴' : '🟠') + ' ' + p.length + ' chose(s) à regarder :</span><span style="font-weight:500;flex:1;">' + escapeHtml(p.slice(0, 2).map(function(x) { return x.quoi; }).join(' · ')) + (p.length > 2 ? ' · …' : '') + '</span>' + (aVerif ? '<button class="btn btn-sm btn-primary" onclick="sdPopupVerifClose()">Corriger ici</button>' : '') + '<button class="btn btn-sm" onclick="mjAller(\'Contrôle\')">Voir</button>';
+    el.innerHTML = (typeof aujIco === 'function' ? aujIco('alert') : '') + '<span class="t">' + p.length + ' incident' + (p.length > 1 ? 's' : '') + ' à vérifier</span>' + (aVerif ? '<button class="btn btn-sm" onclick="sdPopupVerifClose()">Corriger ici</button>' : '') + '<a onclick="mjAller(\'Contrôle\')">→ Contrôle</a>' + (rouges.length ? '<span class="det">' + escapeHtml(rouges[0].quoi) + '</span>' : '');
   });
   if (document.getElementById('page-controle') && document.getElementById('page-controle').classList.contains('active')) renderControle(false);
 }
@@ -11604,7 +11643,7 @@ function renderAujourdhui() {
     var resultat = r.row ? Bt('sdResultatRdv(' + Q(row._monthKey) + ',' + row._storeKey + ')', (m.passe || m.enCours) ? 'Résultat du RDV' : 'Annulé ou reprogrammé', '', (m.passe || m.enCours) ? 'Show, No show, Annulé ou Reprogrammé' : 'Le prospect annule ou déplace son rendez-vous') : '';
     var prepa = r.r2 ? Bt('ouvrirFicheClient(' + nomJs + ',' + emailJs + ')', 'Revoir le dossier', '', 'Tout ce qui s\'est dit au R1 et depuis') : Bt(cible(r.nom, r.email, jour), p.etat === 'ok' ? 'Voir la préparation' : 'Préparer', '', 'La préparation du rendez-vous dans le copilot');
     var assistant = (!SD_PAUSE_LIVE && !pres && !m.passe) ? Bt('sdAssistantFenetre(' + nomJs + ',' + Q(jour) + ')', 'Assistant live (fenêtre à part)') : '';
-    var prim = function(b) { return b.replace('class="btn btn-sm"', 'class="btn btn-sm btn-primary"'); };
+    var prim = function(b) { return b; }; // dans l'agenda, tout est secondaire : le seul bouton plein est dans la carte du prochain RDV
     if (pres) return { principal: fiche, plus: '' };
     if (m.passe) return { principal: resultat ? prim(resultat) : fiche, plus: plusMenu([resultat ? fiche : '', p.d ? prepa : '']) };
     if (m.enCours || m.bientot) { if (r.join) return { principal: lienVisio(r, true), plus: plusMenu([prepa, resultat, fiche, assistant]) }; return { principal: prim(prepa), plus: plusMenu([resultat, fiche, assistant]) }; }
@@ -12178,6 +12217,26 @@ function svDeplacerVers(cles, date, heure) {
   };
   suite();
 }
+// ── Suivi : le panneau du prospect choisi est la même fiche que partout (même Synthèse, mêmes cartes, mêmes données Close), rendue sur place. Les liens vers les autres onglets ouvrent la fiche complète. ──
+function svFicheHtml(sel, email) {
+  var nom = sel.nom, rows = fcLignesDuNom(nom); if (email) rows = rows.filter(function(r) { var e = String(r.email || '').toLowerCase().trim(); return !e || e === email; });
+  var Q = function(v) { return JSON.stringify(v).replace(/"/g, '&quot;'); }, cle = fcCle(nom, email), nomJs = Q(nom), emailJs = Q(email || '');
+  var saved = _fc, next = document.getElementById('fc-next'), avant = next ? next.innerHTML : '', html = '';
+  _fc = { cle: cle, nom: nom, email: email || '', rows: rows, tab: 'synthese', dossiers: null, close: null, date: '', dernier: _sv.ctx[sel.cle] || null, contactMini: '' };
+  try { try { fcRendreProchaineEtape(); } catch (e) {} html = fcHtmlSynthese(); }
+  catch (e) { html = '<div class="fc-muted">Synthèse indisponible : ' + escapeHtml(e.message) + '</div>'; }
+  finally { _fc = saved; if (next) next.innerHTML = avant; }
+  return '<div class="sv-fiche">' + html
+    .replace(/onclick="fcOnglet\(\\'(\w+)\\'\)"/g, function(m, t) { return 'onclick="svFicheOnglet(' + nomJs + ',' + emailJs + ',\'' + t + '\')"'; })
+    .replace('oninput="fcNotesInput(this.value)"', 'oninput="svNotesInput(this.value,' + Q(cle) + ',' + nomJs + ',' + emailJs + ')"')
+    .replace(/id="fc-notes"/g, 'id="sv-notes"').replace(/id="fc-notes-etat"/g, 'id="sv-notes-etat"')
+    .replace('onclick="fcChargerDernierContact(false)"', 'onclick="delete _sv.ctx[' + Q(sel.cle) + '];renderRelancesPage()"') + '</div>';
+}
+function svFicheOnglet(nom, email, tab) { ouvrirFicheClient(nom, email); if (_fc && fcNormNom(_fc.nom || '') === fcNormNom(nom)) { _fc.tab = tab; fcRendre(); } }
+function svNotesInput(v, cle, nom, email) { // même note que dans la fiche (même clé client), enregistrée après une courte pause
+  clearTimeout(_fcNotesTimer); var et = document.getElementById('sv-notes-etat'); if (et) et.textContent = '…';
+  _fcNotesTimer = setTimeout(function() { var store = loadStore(), cls = fcClients(store), cl = cls[cle] || { nom: nom, email: email, notes: '', claap: {} }; cl.notes = v; cl.nom = nom; cl.email = email; cls[cle] = cl; saveStore(store); var et2 = document.getElementById('sv-notes-etat'); if (et2) et2.textContent = '✓ enregistré'; }, 700);
+}
 function svTache(cle) { var it = (window._rlItems || []).find(function(i) { return i.cle === cle; }); if (!it) return; var id = rlIdentite(it); fcTacheClose({ nom: id.nom || it.nom, email: id.email || '', lead: id.lead || '', cle: it.cle }); }
 function svDemain(cle) { svDeplacerVers([cle], rlJourOuvre(rlIso(new Date()), 1), ''); }
 function svDeplacer(cle) { var it = (window._rlItems || []).find(function(i) { return i.cle === cle; }); if (!it) return; rlDateModal('Déplacer ' + it.nom, 'La tâche Close passe à cette date. Rien d\'autre ne change.', rlJourOuvre(rlIso(new Date()), 1), function(d, h) { svDeplacerVers([cle], d, h); }, true); }
@@ -12239,31 +12298,7 @@ function svRendreFile(items, today) {
       + '<div class="sv-acts" style="flex-wrap:wrap;">' + fcBoutonsSuivi(sel) + '</div>'
       + (t ? '<div class="sv-acts2">' + (t ? '<select title="Changer le motif" onchange="rlClasser(' + JSON.stringify(t.id).replace(/"/g, '&quot;') + ', this.value)" style="height:28px;font-size:12px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text2);"><option value="">Motif : ' + escapeHtml(motifLib) + '</option><option value="r2">R2 sans réponse</option><option value="rdv">Prise de RDV</option><option value="nsin">No-show inbound</option><option value="nsout">No-show outbound</option></select>' : '') + '</div>' : '')
       + rlChipAppels(sel, items.indexOf(sel)) + rlChipRdvPris(sel);
-    var j = _sv.ctx[sel.cle];
-    // même carte que sur la fiche : l'essentiel en clair (fait clé, promesse d'un collègue utile, alertes, dernier échange, prochaine étape), le reste sous « Voir tout le dossier »
-    pan += '<div class="fc-dernier" style="margin-top:12px;"><div class="t"><span>🗣 Avant d\'appeler</span>' + (j && j.nom ? '<span class="src">d\'après la fiche Close « ' + escapeHtml(j.nom) + ' »</span>' : '') + '</div>';
-    if (j === null || j === undefined) pan += '<div class="fc-muted">Lecture de Close… (30 à 60 s la première fois pour un long RDV)</div>';
-    else if (j.error || j.trouve === false || j.configure === false) pan += '<div class="fc-muted">' + (j.error ? 'Close : ' + escapeHtml(j.error) : 'Aucune fiche Close trouvée pour ce nom.') + '</div>';
-    else {
-      var ICO2 = { appel: '📞', rdv: '🤝', mail: '✉', sms: '💬', note: '📝' }, LIB2 = { appel: 'appel', rdv: 'RDV', mail: 'mail', sms: 'SMS', note: 'note' };
-      var bloc = function(e) { return '<div class="ech"><div class="ech-t"><span>' + (ICO2[e.type] || '📞') + ' ' + escapeHtml(e.date || '') + ' · ' + (LIB2[e.type] || 'échange') + (e.par ? ' · <b>' + escapeHtml(e.par) + '</b>' : ' · toi') + '</span></div><ul>' + (e.lignes || []).slice(0, 8).map(function(l) { var m = /^([^:]{2,40}) :\s*(.*)$/.exec(l); return '<li>' + (m ? '<b>' + escapeHtml(m[1]) + ' :</b> ' + escapeHtml(m[2]) : escapeHtml(l)) + '</li>'; }).join('') + '</ul></div>'; };
-      var finJ2 = new Date(); finJ2.setHours(23, 59, 59, 0); var ech2 = (j.echanges || []).filter(function(e) { var d = parseDateFR(e.date); return !d || d <= finJ2; }), rowsRef = sel.row ? [sel.row] : [];
-      var synth2 = (j.synthese || []).length ? '<div class="synth"><div class="st">Le dossier en bref</div>' + j.synthese.map(function(l) { var m = /^([^:]{2,40}) :\s*(.*)$/.exec(l); return '<div class="sl">' + (m ? '<b>' + escapeHtml(m[1]) + '</b><span>' + escapeHtml(m[2]) + '</span>' : '<span>' + escapeHtml(l) + '</span>') + '</div>'; }).join('') + '</div>' : '';
-      var faits2 = []; var sec2 = function(x) { return x >= 60 ? Math.round(x / 60) + ' min' : x + ' s'; }, par2 = function(x) { return x && x.par && !/lapeyre/i.test(x.par) ? ' par ' + x.par : ''; };
-      if (j.derniereConversation) faits2.push((j.derniereConversation.claap ? 'RDV du ' : 'vrai échange le ') + j.derniereConversation.date + par2(j.derniereConversation) + (j.derniereConversation.claap ? ' (compte rendu Claap)' : ' (' + sec2(j.derniereConversation.duree) + ')'));
-      if (j.dernierAppel && !(j.derniereConversation && j.dernierAppel.date === j.derniereConversation.date)) faits2.push('dernier appel ' + j.dernierAppel.date + par2(j.dernierAppel) + (j.dernierAppel.joint ? ' (' + sec2(j.dernierAppel.duree) + ')' : ' sans réponse'));
-      if (j.dernierMail) faits2.push((j.dernierMail.envoye ? 'mail envoyé ' : 'mail reçu ') + j.dernierMail.date + (j.dernierMail.objet ? ' « ' + j.dernierMail.objet + ' »' : ''));
-      var ouvertD2 = false; try { ouvertD2 = localStorage.getItem('sd_fiche_dossier') === '1'; } catch (e) {}
-      pan += fcHtmlCles(j, 'essentiel', rowsRef)
-        + (ech2.length ? '<div class="fc-muted" style="margin-top:8px;font-weight:700;">Ce qu\'on s\'est dit en dernier</div><div class="echs ouvert">' + bloc(ech2[0]) + '</div>' : '')
-        + (j.prochaine ? '<div class="ech-next">➡ ' + escapeHtml(j.prochaine) + '</div>' : '')
-        + (faits2.length ? '<div class="faits">' + faits2.map(escapeHtml).join(' · ') + '</div>' : '')
-        + (!ech2.length && !(j.synthese || []).length && !fcHtmlCles(j, 'reste', rowsRef) ? '<div class="fc-muted" style="margin-top:6px;">Rien d\'exploitable dans Close (pas de note, pas d\'enregistrement).</div>' : '')
-        + '<a class="voirplus" style="display:block;margin-top:8px;" onclick="var e=this.nextElementSibling;var o=e.style.display!==\'none\';e.style.display=o?\'none\':\'\';this.textContent=o?\'Voir tout le dossier ▸\':\'Masquer le dossier ▾\';try{localStorage.setItem(\'sd_fiche_dossier\',o?\'0\':\'1\')}catch(x){}">' + (ouvertD2 ? 'Masquer le dossier ▾' : 'Voir tout le dossier ▸') + '</a>'
-        + '<div style="display:' + (ouvertD2 ? '' : 'none') + ';margin-top:8px;">' + fcHtmlCles(j, 'reste', rowsRef) + synth2 + (ech2.length > 1 ? '<div class="fc-muted" style="margin-top:8px;font-weight:700;">Échanges précédents</div><div class="echs ouvert">' + ech2.slice(1, 4).map(bloc).join('') + '</div>' : '') + '</div>';
-      pan += '</div>';
-    }
-    if (j === null || j === undefined || j.error || j.trouve === false || j.configure === false) pan += '</div>';
+    pan += svFicheHtml(sel, email);
     pan += '<div style="margin-top:12px;font-size:12px;"><a style="color:var(--accent);cursor:pointer;font-weight:600;" onclick="ouvrirFicheClient(' + nomJs + ',' + emailJs + ')">Ouvrir la fiche complète ›</a>' + (t && t.url ? ' · <a style="color:var(--text3);" href="' + escapeHtml(t.url) + '" target="_blank" rel="noopener">voir dans Close ↗</a>' : '') + '</div>';
   }
   _sv.visibles = ordre.filter(function(it) { return it.t; }).map(function(it) { return it.cle; });
