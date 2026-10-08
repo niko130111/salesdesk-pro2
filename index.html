@@ -11832,7 +11832,8 @@ function renderAujourdhui() {
     var prim = function(b) { return b; }; // dans l'agenda, tout est secondaire : le seul bouton plein est dans la carte du prochain RDV
     if (pres) return { principal: fiche, plus: '' };
     if (m.passe) return { principal: resultat ? prim(resultat) : fiche, plus: plusMenu([resultat ? fiche : '', p.d ? prepa : '']) };
-    if (m.enCours || m.bientot) { if (r.join) return { principal: lienVisio(r, true), plus: plusMenu([prepa, resultat, fiche, assistant]) }; return { principal: prim(prepa), plus: plusMenu([resultat, fiche, assistant]) }; }
+    if (m.enCours) { if (r.join) return { principal: lienVisio(r, true) + resultat, plus: plusMenu([prepa, fiche, assistant]) }; return { principal: resultat || prim(prepa), plus: plusMenu([resultat ? prepa : '', fiche, assistant]) }; } // en cours : le résultat (no show, show…) se note tout de suite
+    if (m.bientot) { if (r.join) return { principal: lienVisio(r, true), plus: plusMenu([prepa, resultat, fiche, assistant]) }; return { principal: prim(prepa), plus: plusMenu([resultat, fiche, assistant]) }; }
     return { principal: (estProchain || r.r2 || p.etat === 'ok') ? prepa : prim(prepa), plus: plusMenu([lienVisio(r, false), resultat, fiche, assistant]) };
   };
   var briefLignes = function(p, max) { // deux ou trois lignes de préparation ; une donnée absente reste absente, un résumé IA n'est pas un fait
@@ -11859,7 +11860,9 @@ function renderAujourdhui() {
     var prepB = rp.r2 ? '' : '<button class="btn" onclick="' + cible(rp.nom, rp.email, jour) + '">' + aujIco('cal') + (pp.etat === 'ok' ? 'Voir la préparation' : 'Préparer le RDV') + '</button>';
     var visioB = rp.join ? '<a class="btn" style="text-decoration:none;" href="' + escapeHtml(rp.join) + '" target="_blank" rel="noopener">' + aujIco('video') + 'Rejoindre</a>' : '';
     var primP = function(b) { return b.replace('class="btn"', 'class="btn btn-primary"'); }, actsP;
-    if ((mp.enCours || mp.bientot) && rp.join) actsP = [primP(visioB), prepB, ficheB];
+    var resB = (mp.enCours && rp.row) ? '<button class="btn" onclick="sdResultatRdv(' + Q(rowP._monthKey) + ',' + rowP._storeKey + ')" title="Show, No show, Annulé ou Reprogrammé">' + aujIco('check') + 'Résultat du RDV</button>' : '';
+    if ((mp.enCours || mp.bientot) && rp.join) actsP = [primP(visioB), resB, prepB, ficheB];
+    else if (mp.enCours && resB) actsP = [primP(resB), prepB, ficheB];
     else if (rp.r2) actsP = [primP(ficheB).replace('Ouvrir la fiche', 'Revoir le dossier'), visioB];
     else actsP = [primP(prepB), ficheB, visioB];
     var note = (!rp.join && mp.start && !mp.passe) ? '<span class="note">' + aujIco('alert') + 'Aucun lien de visio dans l\'invitation' + (rp.uri ? ' Calendly' : '') + '</span>' : '';
