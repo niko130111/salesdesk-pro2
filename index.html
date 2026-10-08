@@ -3844,7 +3844,21 @@ function fcPopupDoublon(nom, emails, rows) {
   if (!ov) { ov = document.createElement('div'); ov.id = 'fc-dup-overlay'; ov.className = 'modal-overlay'; ov.style.zIndex = '1300'; ov.innerHTML = '<div class="modal" id="fc-dup-modal"></div>'; document.body.appendChild(ov); ov.onclick = function(ev) { if (ev.target === ov) fermerModalDoublon(); }; }
   document.getElementById('fc-dup-modal').innerHTML = html; ov.classList.add('open');
 }
-function fermerModalDoublon() { try { var _o = document.getElementById('fc-dup-overlay'); if (_o) { _o.classList.remove('a-gauche'); delete _o.dataset.vd; } } catch (e) {} var ov = document.getElementById('fc-dup-overlay'); if (ov) ov.classList.remove('open'); }
+// Confirmation dans la fenêtre de l'application (plus de boîte grise du navigateur) : résout true si on confirme, false si on ferme, Échap compris
+function sdDemanderConfirmation(titre, texte, opts) { // (sdConfirmer existe déjà : il confirme un RDV)
+  opts = opts || {};
+  return new Promise(function(resolve) {
+    var ov = document.getElementById('fc-dup-overlay');
+    if (!ov) { ov = document.createElement('div'); ov.id = 'fc-dup-overlay'; ov.className = 'modal-overlay'; ov.style.zIndex = '1300'; ov.innerHTML = '<div class="modal" id="fc-dup-modal"></div>'; document.body.appendChild(ov); }
+    ov.onclick = function(ev) { if (ev.target === ov) fermerModalDoublon(); }; ov.classList.add('open');
+    window._sdConfirmResolve = resolve;
+    document.getElementById('fc-dup-modal').innerHTML = '<div class="fc-dup" style="width:min(460px,84vw);max-width:100%;box-sizing:border-box;"><div style="font-size:16px;font-weight:700;">' + escapeHtml(titre) + '</div>' + (texte ? '<div class="fc-muted" style="margin:6px 0 14px;line-height:1.45;">' + escapeHtml(texte) + '</div>' : '<div style="height:10px"></div>') + '<div style="display:flex;gap:8px;justify-content:flex-end;"><button class="btn btn-sm" id="sdc-non">Fermer</button><button class="btn btn-sm ' + (opts.danger ? 'sv-rouge' : 'btn-primary') + '" id="sdc-oui">' + escapeHtml(opts.ok || 'Confirmer') + '</button></div></div>';
+    document.getElementById('sdc-non').onclick = function() { fermerModalDoublon(); };
+    document.getElementById('sdc-oui').onclick = function() { window._sdConfirmResolve = null; fermerModalDoublon(); resolve(true); };
+    setTimeout(function() { try { document.getElementById('sdc-oui').focus(); } catch (e) {} }, 30);
+  });
+}
+function fermerModalDoublon() { if (window._sdConfirmResolve) { var _r = window._sdConfirmResolve; window._sdConfirmResolve = null; try { _r(false); } catch (e) {} } try { var _o = document.getElementById('fc-dup-overlay'); if (_o) { _o.classList.remove('a-gauche'); delete _o.dataset.vd; } } catch (e) {} var ov = document.getElementById('fc-dup-overlay'); if (ov) ov.classList.remove('open'); }
 function fermerModalPlusTard() { window._sdChaine = false; fermerModalDoublon(); }
 function fermerFicheClient() { document.getElementById('fc-overlay').classList.remove('open'); }
 function fcOnglet(t) { _fc.tab = t; fcRendre(); }
@@ -4474,9 +4488,9 @@ function rlAction(ix, action, btn) {
     return;
   }
   if (action === 'supprimer') {
-    if (!confirm('Supprimer cette relance ? La tâche Close sera terminée.')) return;
-    occupe(true);
-    terminerClose().then(function() { rlPoserSuivi(it, { col: it.col, dernier: 'abandon' }); return rlMajRelance(it, 'abandon', ''); }).then(function() { fini('🗑 Relance supprimée'); }).catch(echec);
+    sdDemanderConfirmation('Clôturer la tâche de ' + it.nom + ' ?', 'La tâche Close est terminée et la relance s\'arrête. Rien n\'est envoyé au prospect.', { ok: '✅ Clôturer' }).then(function(ok) { if (!ok) return;
+      occupe(true);
+      terminerClose().then(function() { rlPoserSuivi(it, { col: it.col, dernier: 'abandon' }); return rlMajRelance(it, 'abandon', ''); }).then(function() { fini('🗑 Relance supprimée'); }).catch(echec); });
     return;
   }
   if (action === 'signe') { // signé : la ligne SalesDesk passe en Signé (pack, fréquence, tier, FMS, remise), une tâche « Configurer » demain en tête du Suivi
@@ -4517,9 +4531,9 @@ function rlAction(ix, action, btn) {
     return;
   }
   if (action === 'pas_interesse') {
-    if (!confirm(it.nom + ' : pas intéressé ? La fiche Close passe en « Not interested », l\'opportunité en perdue, la tâche est terminée.')) return;
+    sdDemanderConfirmation(it.nom + ' : pas intéressé ?', 'La fiche Close passe en « Not interested », l\'opportunité en perdue, la tâche est terminée.', { ok: '✋ Pas intéressé', danger: true }).then(function(ok) { if (!ok) return;
     occupe(true);
-    terminerClose().then(function() { try { sdStatutClose({ client: it.nom, email: id.email || '', closeLead: id.lead || '' }, 'pas_interesse'); } catch (e) {} rlPoserSuivi(it, { col: it.col, dernier: 'pas_interesse' }); rlPost('/sms/annuler-pour', { nom: it.nom, raison: 'pas intéressé' }).catch(function() {}); return rlMajRelance(it, 'abandon', ''); }).then(function() { fini('✋ Pas intéressé · Close à jour, tâche terminée'); }).catch(echec);
+    terminerClose().then(function() { try { sdStatutClose({ client: it.nom, email: id.email || '', closeLead: id.lead || '' }, 'pas_interesse'); } catch (e) {} rlPoserSuivi(it, { col: it.col, dernier: 'pas_interesse' }); rlPost('/sms/annuler-pour', { nom: it.nom, raison: 'pas intéressé' }).catch(function() {}); return rlMajRelance(it, 'abandon', ''); }).then(function() { fini('✋ Pas intéressé · Close à jour, tâche terminée'); }).catch(echec); });
     return;
   }
   if (action === 'manager') { rlEscalader(it, id, suivi); return; }
@@ -11155,7 +11169,6 @@ function sdVerifDemainValider() {
     if (C[i] === 'oui') { row.confirme = true; row.confirmeAt = row.confirmeAt || new Date().toISOString(); } else { delete row.confirme; delete row.confirmeAt; }
     if (C[i] === 'relance' && !row.relanceVeilleAt && new Date().getHours() >= 13) aRelancer.push({ r: r, row: row });
     if (C[i] === 'annule') annules.push({ r: r, row: row }); });
-  if (aRelancer.length && !confirm('Envoyer maintenant le SMS de relance à ' + aRelancer.map(function(x) { return x.r.nom; }).join(', ') + ' ?')) return;
   if (annules.length && !confirm(annules.map(function(x) { return x.r.nom; }).join(', ') + ' : RDV annulé ? Noté no-show (Annulé), annulé dans Calendly (le prospect reçoit le mail d\'annulation, les rappels s\'arrêtent), statut Close posé, et une tâche de relance dans 2 jours ouvrés.')) return;
   // RDV annulés : ligne en Annulé (compte comme no-show), Calendly annulé, Close à jour, relance dans 2 jours ouvrés (lundi-vendredi)
   if (annules.length) { if (typeof sdBackupStore === 'function') sdBackupStore(st); var cleCal = (state.calendly && state.calendly.apiKey) || localStorage.getItem('calendly_key'), dRel = rlJourOuvre(rlIso(new Date()), 2);
