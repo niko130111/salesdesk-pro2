@@ -4223,6 +4223,7 @@ function fcRendreContact() {
   if (tel) chips.push('<a class="fc-chip accent" href="tel:' + escapeHtml(tel.replace(/\s/g, '')) + '" title="Ouvre la fiche dans l\'application Close, numéro copié : un clic sur le numéro dans Close lance l\'appel (loggé et enregistré). Alt+clic = appel via le Mac (FaceTime)." onclick="return fcAppeler(event, ' + JSON.stringify(tel).replace(/"/g, '&quot;') + ', ' + JSON.stringify(url || '').replace(/"/g, '&quot;') + ')">📞 ' + escapeHtml(tel) + '</a>');
   if (mail) chips.push('<a class="fc-chip" href="mailto:' + escapeHtml(mail) + '">✉ ' + escapeHtml(mail) + '</a>');
   if (site) { var siteUrl = /^https?:\/\//i.test(site) ? site : 'https://' + site, siteLib = site.replace(/^https?:\/\//i, '').replace(/^www\./i, '').replace(/\/+$/, ''); chips.push('<a class="fc-chip" href="' + escapeHtml(siteUrl) + '" target="_blank" rel="noopener" title="Site internet (fiche Close)">🌐 ' + escapeHtml(siteLib) + '</a>'); } // site de l'agence sous le numéro et le mail
+  try { if (org || ville) { var stM = loadStore(), clsM = fcClients(stM), clM = clsM[_fc.cle]; if (clM && (clM.reseau !== org || clM.ville !== ville)) { clM.reseau = org; clM.ville = ville; saveStore(stM); } } } catch (e) {} // réseau / ville de Close gardés sur le client
   try { var ancienOrg = document.getElementById('fc-org-chip'); if (ancienOrg) ancienOrg.remove(); if (org || ville) document.getElementById('fc-badges').insertAdjacentHTML('beforeend', '<span class="fc-badge" id="fc-org-chip" title="Réseau ou agence' + (ville ? ' · ville' : '') + ' (fiche Close)">' + escapeHtml([org, ville].filter(Boolean).join(' · ')) + '</span>'); } catch (e) {} // réseau / agence à côté du nom
   // ↗ Close (avec le statut) va sur la ligne du nom ; téléphone et mail en petit à droite de « Prochaine étape » : plus de carte contact qui mangeait l'écran
   var chipClose = url ? '<a class="fc-badge" id="fc-close-chip" href="' + escapeHtml(url) + '" target="_blank" rel="noopener" style="text-decoration:none;color:var(--accent);" title="Ouvrir la fiche dans Close">↗ Close' + (statut ? ' · ' + escapeHtml(statut) : '') + '</a>' : '';
@@ -11847,7 +11848,9 @@ function renderAujourdhui() {
   var briefLignes = function(p, max, r) { // deux ou trois lignes de préparation ; une donnée absente reste absente, un résumé IA n'est pas un fait
     var out = [], bj = p.d ? aujBrief(p.d) : null;
     var connus = function() { // sans analyse générée : ce que Close et SalesDesk savent déjà, pour ne pas afficher une case vide
-        var row = (r && r.row) || {}, d = p.d || {}, l = [], profil = [row.type, d.reseau, d.secteur || row.ville].filter(Boolean).join(' · ');
+        var row = (r && r.row) || {}, d = p.d || {}, l = [], clR = {}; try { clR = fcClients(loadStore())[fcCle(r.nom, r.email || '')] || {}; } catch (e) {}
+        var typ = row.type || d.reseau || '', reseau = d.reseauClose || clR.reseau || '', ville = d.secteur || clR.ville || row.ville || '';
+        var profil = [typ, reseau && reseau.toLowerCase() !== typ.toLowerCase() ? reseau : '', ville].filter(Boolean).join(' · '); // type · réseau Close · ville, sans répéter « Mandataire »
         if (profil) l.push(['Profil', profil]);
         var prise = [row.source && row.source !== 'R2' ? row.source : '', row.datePrise ? 'pris le ' + row.datePrise : '', row.typeSource].filter(Boolean).join(' · '); if (prise) l.push(['RDV', prise]);
         if (bj && bj.notes) l.push(['Mes notes', String(bj.notes).slice(0, 200)]);
