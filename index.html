@@ -4151,6 +4151,11 @@ function fcAppeler(ev, tel, closeUrl) { // clic : la fiche s'ouvre DANS l'applic
   if (ev && ev.altKey && num) { window.location.href = 'tel:' + num; if (typeof showCopyToast === 'function') showCopyToast('📞 Appel via le Mac (FaceTime) : ' + num); return false; }
   if (closeUrl) {
     var mL = /lead_[A-Za-z0-9]+/.exec(closeUrl);
+    if (typeof sdPosteDistant === 'function' && sdPosteDistant()) { // depuis l'Air : la fiche Close s'ouvre dans ce navigateur-ci, pas dans l'app Close de l'autre Mac
+      try { window.open(closeUrl, '_blank', 'noopener'); } catch (e) {}
+      if (typeof showCopyToast === 'function') showCopyToast('📞 Fiche Close ouverte ici' + (num ? ' · numéro copié : ' + num : '') + ' · clique sur le numéro dans Close pour appeler');
+      return false;
+    }
     if (mL && typeof COPILOT_URL !== 'undefined' && typeof rlPost === 'function') { // le copilot ouvre la fiche dans l'app Close et lui envoie ⌘⇧D : l'appel part tout seul
       if (typeof showCopyToast === 'function') showCopyToast('📞 Close ouvre la fiche et compose…');
       rlPost('/close/appeler', { lead: mL[0] }).then(function() { if (typeof showCopyToast === 'function') showCopyToast('📞 Close compose' + (num ? ' ' + num : '') + ' · numéro copié'); })
@@ -6780,6 +6785,7 @@ function ouvrirCopilot() {
 // « Terminer le RDV ». Il n'écrit JAMAIS lui-même : il envoie un message, c'est le SalesDesk qui
 // enregistre avec ses règles, puis renvoie l'état de tous les RDV au copilot. Un seul écrivain.
 const COPILOT_ORIGINE = COPILOT_URL;
+function sdPosteDistant() { return COPILOT_URL === location.origin && !/^(127\.0\.0\.1|localhost)$/.test(location.hostname); } // SalesDesk ouvert depuis un autre ordinateur (MacBook Air) : le copilot tourne sur l'autre Mac, on n'y ouvre pas Close
 function copilotFenetre() { const f = document.getElementById('copilot-frame'); return f && f.contentWindow; }
 function frDepuisIso(iso) { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); return m ? m[3] + '/' + m[2] + '/' + m[1] : ''; }
 function isoDepuisFrSd(fr) { const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(fr || ''); return m ? m[3] + '-' + m[2] + '-' + m[1] : ''; }
