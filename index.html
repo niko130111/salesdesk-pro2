@@ -4024,7 +4024,7 @@ function fcEtatDossier(it) {
   var row = fcDerniereLigne(it); if (!row || !row.client) return 'prospect';
   var pres = String(row.presence || '').trim(), res = String(row.result || '').trim(), iso = frVersIsoSd(row.date) || '', today = rlIso(new Date());
   if (res === 'Signé') return 'signe';
-  if (!pres) return iso && iso < today ? 'rdv_passe' : 'rdv_avenir';
+  if (!pres) return sdRdvAVenir(iso, row.heure) ? 'rdv_avenir' : 'rdv_passe';
   if (['No Show', 'Annulé', 'Reprogrammé'].indexOf(pres) >= 0) return 'noshow';
   if (row.attenteSignature) return 'attente';
   if (SD_INTERESSE.indexOf(res) >= 0) return 'interesse';
@@ -9886,6 +9886,7 @@ function renderPipeline() {
     r._monthKey = currentKey;
     if (r.pipelineMasque) return; // ancienne carte d'un client revenu : hors Pipeline, toujours dans les stats
     var cat = classifyRow(r);
+    if (cat === 'untreated' && sdRdvAVenir(frVersIsoSd(r.date) || '', r.heure)) return; // un RDV qui n'a pas encore eu lieu n'est pas « à finaliser »
     if (cat !== 'interested' && !(cat === 'nosigned' && raisonNS(r) && raisonNS(r) !== 'pasinteresse')) { // non signés classés (sauf Pas intéressé) : gérés dans la boucle multi-mois
       cols[cat].push(r);
     }
@@ -10673,7 +10674,8 @@ function renderProspection() {
   // ce que SalesDesk sait prime : un prospect que Nicolas a noté « pas intéressé » ou « ghost » après son RDV ne revient pas dans une liste
   var L = j.listes[_pr.liste], items = L.items.filter(function(i) { var sd = prInfosSalesDesk(i.nom.split('|')[0].trim(), i.email); if (sd && /pas intéressé|ghost/.test(sd.raison)) return false; return (!_pr.cat || i.cat === _pr.cat) && (!_pr.bdrParti || i.ownerInactif) && (!_pr.q || (i.nom + ' ' + i.ville + ' ' + i.reseau).toLowerCase().indexOf(_pr.q) >= 0); });
   var sel = function(v, lib) { return '<button class="btn btn-sm' + (_pr.cat === v ? ' btn-primary' : '') + '" onclick="_pr.cat=\'' + v + '\';renderProspection()">' + lib + '</button>'; };
-  F.innerHTML = '<span class="fc-muted" style="margin-right:4px;">' + escapeHtml(L.pourquoi) + '</span><span style="flex:1"></span>' + sel('', 'Tous') + sel('Mandataire', 'Mandataires') + sel('Agence', 'Agences') + '<button class="btn btn-sm' + (_pr.bdrParti ? ' btn-primary' : '') + '" onclick="_pr.bdrParti=!_pr.bdrParti;renderProspection()">BDR parti</button><input type="search" placeholder="Nom, ville, réseau…" value="' + escapeHtml(_pr.q) + '" oninput="_pr.q=this.value.toLowerCase();renderProspection()" style="font-family:var(--font);font-size:13px;padding:6px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg);color:var(--text);min-width:200px;"><span class="fc-muted">' + items.length + ' / ' + L.n + ' · à jour du ' + new Date(j.at).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) + '</span>';
+  F.innerHTML = '<span class="fc-muted" style="margin-right:4px;">' + escapeHtml(L.pourquoi) + '</span><span style="flex:1"></span>' + sel('', 'Tous') + sel('Mandataire', 'Mandataires') + sel('Agence', 'Agences') + '<button class="btn btn-sm' + (_pr.bdrParti ? ' btn-primary' : '') + '" onclick="_pr.bdrParti=!_pr.bdrParti;renderProspection()">BDR parti</button><input type="search" placeholder="Nom, ville, réseau…" value="' + escapeHtml(_pr.q) + '" oninput="_pr.q=this.value.toLowerCase();_pr.focusQ=1;renderProspection()" style="font-family:var(--font);font-size:13px;padding:6px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg);color:var(--text);min-width:200px;"><span class="fc-muted">' + items.length + ' / ' + L.n + ' · à jour du ' + new Date(j.at).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) + '</span>';
+  if (_pr.focusQ) { _pr.focusQ = 0; var qi = F.querySelector('input[oninput]'); if (qi) { qi.focus(); var qL = qi.value.length; try { qi.setSelectionRange(qL, qL); } catch (e) {} } } // la barre de filtres est redessinée à chaque frappe : sans ça, le curseur sortait du champ
   var q = function(v) { return JSON.stringify(v).replace(/"/g, '&quot;'); };
   sdPrechauffer(items.slice(0, 8).map(function(i) { return { lead: i.id, nom: i.nom, email: i.email || '' }; }));
   C.innerHTML = '<div class="auj-card" style="padding:6px 18px;">' + (items.length ? items.slice(0, 200).map(function(i) {
@@ -10684,7 +10686,7 @@ function renderProspection() {
       + '<div style="font-size:12.5px;margin-top:2px;">' + escapeHtml(i.raisons.join(' · ')) + '</div>'
       + (sdTxt ? '<div class="fc-muted" style="font-size:12px;margin-top:2px;">' + escapeHtml(sdTxt) + '</div>' : '')
       + (i.ownerNom ? '<div class="fc-muted" style="font-size:11.5px;margin-top:2px;">BDR : ' + escapeHtml(i.ownerNom) + (i.ownerInactif ? ' (parti)' : '') + (i.dernierRdv ? ' · dernier RDV ' + escapeHtml(i.dernierRdv.split('-').reverse().join('/')) : '') + '</div>' : '') + '</div>'
-      + '<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;align-items:center;">' + ((_pr.appeles || {})[i.id] ? '<span class="auj-chip warn" title="Appel lancé dans Close : dis ce que ça a donné, il sort alors de la liste 30 jours">📞 appel lancé</span><button class="btn btn-sm" onclick="prEcarter(' + q(i.id) + ',\'sans réponse\',30,this)">📭 Sans réponse</button><button class="btn btn-sm" style="color:var(--green);border-color:var(--green);" onclick="prEcarter(' + q(i.id) + ',\'joint\',30,this)">✓ Joint</button>' : (i.tel ? '<a class="btn btn-sm btn-primary" href="tel:' + escapeHtml(String(i.tel).replace(/\s/g, '')) + '" onclick="return prAppeler(event,' + q(i.tel) + ',' + q(i.url) + ',' + q(i.id) + ',' + q(i.nom) + ')">📞 Appeler</a>' : '<span class="fc-muted" style="font-size:12px;">sans numéro</span>')) + '<a class="btn btn-sm" href="' + escapeHtml(i.url) + '" target="_blank" rel="noopener">Close ↗</a><button class="btn btn-sm" title="Retiré des listes 90 jours" onclick="prEcarter(' + q(i.id) + ',\'pas maintenant\',90,this)">Pas maintenant</button></div></div>'; }).join('') + (items.length > 200 ? '<div class="auj-etat">200 premiers affichés : affine avec les filtres.</div>' : '') : '<div class="fc-muted" style="padding:10px 0;">Rien dans cette liste avec ces filtres.</div>') + '</div>';
+      + '<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;align-items:center;">' + ((_pr.appeles || {})[i.id] ? '<span class="auj-chip warn" title="Appel lancé dans Close : dis ce que ça a donné, il sort alors de la liste 30 jours">📞 appel lancé</span><button class="btn btn-sm" onclick="prEcarter(' + q(i.id) + ',\'sans réponse\',30,this)">📭 Sans réponse</button><button class="btn btn-sm" style="color:var(--green);border-color:var(--green);" title="Retiré de la liste 30 jours, et la fiche s\'ouvre pour noter la suite" onclick="prEcarter(' + q(i.id) + ',\'joint\',30,this);ouvrirFicheClient(' + q(i.nom.split('|')[0].trim()) + ',' + q(i.email || '') + ')">✓ Joint</button>' : (i.tel ? '<a class="btn btn-sm btn-primary" href="tel:' + escapeHtml(String(i.tel).replace(/\s/g, '')) + '" onclick="return prAppeler(event,' + q(i.tel) + ',' + q(i.url) + ',' + q(i.id) + ',' + q(i.nom) + ')">📞 Appeler</a>' : '<span class="fc-muted" style="font-size:12px;">sans numéro</span>')) + '<a class="btn btn-sm" href="' + escapeHtml(i.url) + '" target="_blank" rel="noopener">Close ↗</a><button class="btn btn-sm" title="Retiré des listes 90 jours" onclick="prEcarter(' + q(i.id) + ',\'pas maintenant\',90,this)">Pas maintenant</button></div></div>'; }).join('') + (items.length > 200 ? '<div class="auj-etat">200 premiers affichés : affine avec les filtres.</div>' : '') : '<div class="fc-muted" style="padding:10px 0;">Rien dans cette liste avec ces filtres.</div>') + '</div>';
 }
 // ── Heures au quart d'heure, partout : les champs heure proposent 15 min par 15 min (datalist) et refusent la minute près ──
 (function() {
@@ -11067,8 +11069,10 @@ function sdAnnulationChoix(o) { // o = { nom, iso, heure, mk, idx, motif, apres 
 }
 // ── Bouton « Show / No show » dans Mes rendez-vous : le résultat du RDV comme dans le copilot — Show (on finalise), No show (tâche de rappel ou rien), Annulé (rappel, reprogrammer, rien), Reprogrammé (nouveau créneau) ──
 function sdResultatRdv(mk, idx) { var st = loadStore(), row = (st[mk] || [])[idx]; if (!row) return; sdResultatJour(mk, idx, row.client, frVersIsoSd(row.date) || rlIso(new Date()), row.heure || ''); } // entrée unique : fiche, Aujourd'hui, tableau
+function sdHeureMaintenant() { var d = new Date(); return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); }
+function sdRdvAVenir(iso, heure) { var today = rlIso(new Date()); return iso > today || (iso === today && !!heure && String(heure).slice(0, 5) > sdHeureMaintenant()); } // RDV pas encore eu lieu : date future, ou aujourd'hui à une heure non passée
 function sdResultatJour(mk, idx, nom, iso, heure) {
-  var aVenir = iso > rlIso(new Date());
+  var aVenir = sdRdvAVenir(iso, heure);
   var ov = document.getElementById('fc-dup-overlay');
   if (!ov) { ov = document.createElement('div'); ov.id = 'fc-dup-overlay'; ov.className = 'modal-overlay'; ov.style.zIndex = '1300'; ov.innerHTML = '<div class="modal" id="fc-dup-modal"></div>'; document.body.appendChild(ov); }
   ov.onclick = function(ev) { if (ev.target === ov) fermerModalDoublon(); }; ov.classList.add('open');
@@ -11269,7 +11273,7 @@ function renderAujourdhui() {
       var compte = enCours ? 'en cours' : (bientot ? 'dans ' + mins + ' min' : (estAuj && mins !== null && mins > 15 && idx === prochainIdx ? (mins < 60 ? 'dans ' + mins + ' min' : 'dans ' + Math.floor(mins / 60) + ' h' + (mins % 60 ? String(mins % 60).padStart(2, '0') : '')) : ''));
       var rejoindre = r.join ? '<a class="btn btn-sm' + (enCours || bientot ? ' btn-primary' : '') + '" style="text-decoration:none;" href="' + escapeHtml(r.join) + '" target="_blank" rel="noopener" title="Ouvrir la visio">Rejoindre</a>' : (!passe && !pres && r.start ? '<span class="auj-chip" title="Pas de lien de visio dans l\'événement Calendly">lien visio absent</span>' : '');
       var assistant = (!SD_PAUSE_LIVE && !pres && !passe) ? '<button class="btn btn-sm auj-ico" title="Assistant live dans une fenêtre à part (second écran), sur ce RDV" onclick="sdAssistantFenetre(' + nomJs + ',' + jourJs + ')">⧉</button>' : '';
-      var noshow = (r.row && !pres) ? '<button class="btn btn-sm" style="background:var(--accent);border-color:var(--accent);color:#fff;" title="' + (jour > todayIso ? 'Le prospect annule ou déplace : Annulé, Reprogrammé' : 'Le résultat du rendez-vous : Show, No show, Annulé ou Reprogrammé') + '" onclick="sdResultatRdv(' + JSON.stringify(row._monthKey).replace(/"/g, '&quot;') + ',' + row._storeKey + ')">Résultat du RDV</button>' : '';
+      var noshow = (r.row && !pres) ? '<button class="btn btn-sm" style="background:var(--accent);border-color:var(--accent);color:#fff;" title="' + (sdRdvAVenir(jour, r.heure) ? 'Le prospect annule ou déplace : Annulé, Reprogrammé' : 'Le résultat du rendez-vous : Show, No show, Annulé ou Reprogrammé') + '" onclick="sdResultatRdv(' + JSON.stringify(row._monthKey).replace(/"/g, '&quot;') + ',' + row._storeKey + ')">Résultat du RDV</button>' : '';
       rejoindre += noshow;
       var actions = pres ? '<button class="btn btn-sm" onclick="ouvrirFicheClient(' + nomJs + ',' + emailJs + ')">Fiche</button>'
         : passe ? noshow + '<button class="btn btn-sm" onclick="ouvrirFicheClient(' + nomJs + ',' + emailJs + ')">Fiche</button>'
@@ -14245,7 +14249,9 @@ function confirmR2Date() {
   _currentR2Card = null;
 }
 
-function sendMakeWebhook(payload) {
+function sendMakeWebhook(payload) { // Make n'est plus utilisé (annulations et reprogrammations passent par Calendly via le copilot) : plus aucun envoi, et l'ancienne adresse est effacée des réglages
+  try { var st0 = loadStore(); if (st0._settings && st0._settings.makeWebhookUrl) { delete st0._settings.makeWebhookUrl; saveStore(st0); } } catch (e) {}
+  return false;
   var store = (typeof loadStore === 'function') ? loadStore() : {};
   var url = (store._settings && store._settings.makeWebhookUrl) || '';
   if (!url) {
