@@ -442,6 +442,16 @@ main { max-width: 100%; margin: 0; padding: 6px 8px; }
 .fc-head .fc-dernier .synth { margin: 12px 0 0; padding: 10px 12px; border-radius: 10px; background: #eef4fb; border: 1px solid #c9d8ea; border-left: 4px solid #185FA5; }
 .fc-head .fc-dernier .synth .st { color: #0C447C; }
 .fc-tabs { margin-top: 12px; }
+.fc-synth { display: grid; grid-template-columns: 1.6fr 1fr; gap: 14px; align-items: start; }
+@media (max-width: 900px) { .fc-synth { grid-template-columns: 1fr; } }
+.fc-col { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.fc-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; }
+.fc-card-t { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; font-size: 14px; font-weight: 700; margin-bottom: 6px; } .fc-card-t a { font-size: 12px; font-weight: 600; color: var(--accent); cursor: pointer; text-decoration: none; }
+.fc-kv { display: grid; grid-template-columns: 150px 1fr; gap: 10px; padding: 7px 0; border-top: 1px solid var(--border); font-size: 13.5px; line-height: 1.45; } .fc-kv .k { color: var(--text2); font-weight: 600; } .fc-kv .v { color: var(--text); min-width: 0; }
+.fc-aclarifier { color: var(--orange); font-weight: 600; } .fc-src { font-size: 11px; color: var(--text3); font-weight: 500; }
+.fc-big { font-size: 20px; font-weight: 800; color: var(--accent); margin: 2px 0 4px; line-height: 1.2; }
+.fc-pill { display: inline-block; font-size: 11.5px; font-weight: 700; padding: 2px 9px; border-radius: 999px; white-space: nowrap; } .fc-pill.ok { background: var(--soft-green); color: var(--green); } .fc-pill.warn { background: var(--soft-orange); color: var(--orange); }
+.fc-card .ech { font-size: 13.5px; line-height: 1.45; } .fc-card .ech-t { font-size: 12.5px; color: var(--text2); display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; } .fc-card .ech ul { margin: 6px 0 0 18px; padding: 0; } .fc-card .preuves a { color: var(--accent); cursor: pointer; margin-left: 10px; font-size: 12px; text-decoration: none; }
 
 /* Après le RDV : un écran, trois colonnes (ce qui s'est dit · résultat & suite · message), un bouton qui écrit partout */
 .ar-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.3); z-index: 1250; align-items: center; justify-content: center; padding: 18px; }
@@ -808,7 +818,7 @@ main { max-width: 100%; margin: 0; padding: 6px 8px; }
 .fc-sec-t { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--text3); margin-bottom: 4px; }
 .fc-sec ul { margin: 0; padding-left: 18px; } .fc-sec li { margin-bottom: 2px; }
 .fc-pre { white-space: pre-wrap; font-family: var(--font); font-size: 12.5px; background: var(--surface2); border-radius: 8px; padding: 8px 10px; max-height: 260px; overflow: auto; }
-.fc-notes { width: 100%; min-height: 220px; resize: vertical; font-family: var(--font); font-size: 13.5px; line-height: 1.5; padding: 10px 12px; border: 1px solid #e9c46a; border-radius: 8px; background: #fffaf0; color: var(--text); box-sizing: border-box; }
+.fc-notes { width: 100%; min-height: 220px; resize: vertical; font-family: var(--font); font-size: 13.5px; line-height: 1.5; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: #fffaf0; color: var(--text); box-sizing: border-box; }
 .fc-empty { color: var(--text3); font-style: italic; padding: 8px 0; }
 .fc-nomlien { cursor: pointer; } .fc-nomlien:hover { color: var(--accent); text-decoration: underline; }
 .fc-dup .fc-dup-item { display: block; width: 100%; text-align: left; border: 1px solid var(--border); background: var(--surface2); border-radius: var(--radius); padding: 10px 12px; margin-top: 8px; cursor: pointer; font-family: var(--font); font-size: 13px; }
@@ -3767,7 +3777,7 @@ const state = {
 // FICHE CLIENT — un nom cliqué n'importe où ouvre le panneau : identité, Close (via copilot), RDV + lien Claap, prépa copilot, notes client
 // Données propres : store._clients[cle] = { nom, email, notes, claap: { 'DD/MM/YYYY': url } } ; cle = 'e:' + email ou 'n:' + nom normalisé
 // ============================================================
-var _fc = { cle: null, nom: '', email: '', rows: [], tab: 'rdv', dossiers: null, close: null };
+var _fc = { cle: null, nom: '', email: '', rows: [], tab: 'synthese', dossiers: null, close: null };
 function fcNormNom(x) { return String(x || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\s+/g, ' ').trim(); }
 function fcCle(nom, email) { return email ? 'e:' + String(email).toLowerCase().trim() : 'n:' + fcNormNom(nom); }
 function fcClients(store) { if (!store._clients) store._clients = {}; return store._clients; }
@@ -3828,7 +3838,7 @@ function ouvrirFicheClient(nom, email, date) {
   if (!email && distincts.length > 1) { fcPopupDoublon(nom, emails, rows); return; }
   if (!email && distincts.length === 1) email = distincts[0];
   if (email && distincts.length > 1) { rows = rows.filter(function(r) { var e = String(r.email || '').toLowerCase().trim(); return !e || e === email; }); } // cet email + les lignes sans email
-  _fc = { cle: fcCle(nom, email), nom: nom, email: email, rows: rows, tab: 'rdv', dossiers: null, close: null, date: date || '' };
+  _fc = { cle: fcCle(nom, email), nom: nom, email: email, rows: rows, tab: 'synthese', dossiers: null, close: null, date: date || '' };
   fcRendre();
   document.getElementById('fc-overlay').classList.add('open');
   fcChargerClose(); fcChargerDossiers(); fcChargerDernierContact();
@@ -3882,9 +3892,11 @@ function fcRendre() {
   fcRendreContact();
   document.querySelectorAll('.fc-tab').forEach(function(b) { b.classList.toggle('on', b.dataset.tab === _fc.tab); });
   var body = document.getElementById('fc-body');
-  if (_fc.tab === 'rdv') body.innerHTML = fcHtmlRdv();
+  if (_fc.tab === 'synthese') body.innerHTML = fcHtmlSynthese();
+  else if (_fc.tab === 'rdv') body.innerHTML = fcHtmlRdvListe();
   else if (_fc.tab === 'prepa') body.innerHTML = fcHtmlPrepa();
   else if (_fc.tab === 'mails') body.innerHTML = fcHtmlMails();
+  else if (_fc.tab === 'offre') body.innerHTML = fcHtmlOffreTab();
   else body.innerHTML = fcHtmlNotes();
 }
 // ── Onglet Mails de la fiche : les derniers échanges lus dans Close (reçus et envoyés), et la rédaction d'un mail envoyé par Close depuis ta boîte, toujours avec ta signature ──
@@ -4076,6 +4088,7 @@ function fcBoutonsSuivi(it) {
   var manager = A('manager', '👔 Passer au manager', '', 'Note épinglée + tâche pour ' + RL_MANAGER + ', ligne dans le Cockpit');
   var ficheClose = fiche ? B('fcChangerFicheClose()', '↔ Relier à une autre fiche Close', '', 'Colle le lien de la bonne fiche Close') : '';
   var corriger = fiche ? B('fcCorrigerNom()', '✎ Corriger le nom', '', 'Corriger l\'orthographe ou fusionner avec une autre fiche') : '';
+  var rappel = fiche && _fc.rappelArg ? B('fcPopupSuivi(' + _fc.rappelArg + ')', '✎ Modifier le rappel', '', 'Changer la date ou la condition du rappel SalesDesk') : '';
   var cloturer = it.t ? A('supprimer', '✅ Clôturer la tâche', '', 'La tâche Close est terminée, la relance s\'arrête') : '';
   var sansRep = A('pas_reponse', '📭 Sans réponse', '', 'Appel loggé dans Close, tâche décalée selon la cadence');
   var pasInt = A('pas_interesse', '✋ Pas intéressé', '', 'Close en Not interested' + (it.t ? ', tâche terminée' : ''));
@@ -4088,9 +4101,9 @@ function fcBoutonsSuivi(it) {
   switch (etat) {
     case 'rdv_avenir': principal = [preparer, appeler, resultat]; plus = [tache, mail, manager, ficheClose, corriger, cloturer]; break;
     case 'rdv_passe': principal = [resultat, appeler, tache]; plus = [mail, manager, ficheClose, corriger, cloturer]; break;
-    case 'interesse': principal = [appeler, rdv('📆 Prendre un R2', 'Tu choisis le créneau R2, je réserve dans Calendly', 'btn-primary'), tache]; plus = [contrat, sansRep, pasInt, mail, manager, ficheClose, corriger, cloturer]; break;
-    case 'attente': principal = [appeler, signe, tache]; plus = [contrat, sansRep, pasInt, mail, manager, ficheClose, corriger, cloturer]; break;
-    case 'noshow': principal = [appeler, rdv('🔄 Reprogrammer', 'Nouveau créneau Calendly, la tâche est terminée', 'btn-primary'), tache]; plus = [sansRep, perdu, mail, manager, ficheClose, corriger, cloturer]; break;
+    case 'interesse': principal = [appeler, rdv('📆 Prendre un R2', 'Tu choisis le créneau R2, je réserve dans Calendly', 'btn-primary'), tache]; plus = [contrat, sansRep, pasInt, rappel, mail, manager, ficheClose, corriger, cloturer]; break;
+    case 'attente': principal = [appeler, signe, tache]; plus = [contrat, sansRep, pasInt, rappel, mail, manager, ficheClose, corriger, cloturer]; break;
+    case 'noshow': principal = [appeler, rdv('🔄 Reprogrammer', 'Nouveau créneau Calendly, la tâche est terminée', 'btn-primary'), tache]; plus = [sansRep, perdu, rappel, mail, manager, ficheClose, corriger, cloturer]; break;
     case 'signe': principal = [onboarding, appeler, tache]; plus = [mail, manager, ficheClose, corriger, cloturer]; break;
     case 'perdu': principal = [appeler, rdv('📆 Reprendre un RDV', 'Tu choisis le créneau, je réserve dans Calendly'), tache]; plus = [mail, manager, ficheClose, corriger, cloturer]; break;
     default: principal = [appeler, rdv('📆 Prendre un RDV', 'Tu choisis le créneau, je réserve dans Calendly', 'btn-primary'), tache]; plus = [sansRep, pasInt, mail, manager, ficheClose, corriger, cloturer];
@@ -4130,6 +4143,7 @@ function fcRendreProchaineEtape() {
     else { lib = 'Aucune prochaine étape'; det = SD_INTERESSE.indexOf(String(last.result || '').trim()) >= 0 ? 'Intéressé sans suite : R2 ou rappel ?' : 'À décider'; }
   }
   if (!itS) { try { var t2 = (_tachesClose && _tachesClose.taches || []).find(function(x) { return [x.fiche, x.contact].concat(x.contacts || []).some(function(y) { var yn = fcNormNom(y || ''); return yn && (yn === n || rlMemePersonne(yn, n)); }); }); if (t2) itS = fcItemSuiviPour(t2); } catch (e) {} } // la tâche Close ouverte, s'il y en a une, est connue de la barre (Clôturer, Reporter)
+  _fc.etape = { lib: lib, det: det };
   el.innerHTML = '<div style="width:100%">' + labHtml + '<div class="q">' + escapeHtml(lib) + '</div>' + (det ? '<div class="d">' + escapeHtml(det) + '</div>' : '') + '</div><div class="acts">' + fcBoutonsSuivi(itS || fcItemFiche()) + '</div>';
 }
 
@@ -4232,7 +4246,7 @@ function fcHtmlSuivi() {
   // Toujours un bouton clair pour se mettre un rappel (sur le dernier RDV R1 du client), quel que soit son résultat
   var cible = _fc.rows.find(function(r) { return r.source !== 'R2'; }) || last;
   var aDeja = cible.relanceDate && !cible.relanceFait;
-  if (aDeja) out.push('<button class="btn btn-sm" style="font-size:12px;padding:4px 10px;" onclick="fcPopupSuivi(' + JSON.stringify(cible._monthKey).replace(/"/g, '&quot;') + ',' + cible._storeKey + ')">✎ Modifier le rappel</button>'); // « Me mettre un rappel » a disparu : « ⏰ Tâche » dans la barre d'actions le remplace
+  if (aDeja) _fc.rappelArg = JSON.stringify(cible._monthKey).replace(/"/g, '&quot;') + ',' + cible._storeKey; else _fc.rappelArg = ''; // « Modifier le rappel » est dans le menu Plus de la barre, plus en pastille // « Me mettre un rappel » a disparu : « ⏰ Tâche » dans la barre d'actions le remplace
   return out.join('');
 }
 function fcChargerClose() {
@@ -4244,15 +4258,16 @@ function fcChargerClose() {
 }
 // « La dernière fois » : 4-6 lignes condensées par le copilot depuis Close (appels, mails, compte rendu Claap) — jamais inventées
 function fcChargerDernierContact(force, leadId) {
-  var cle = _fc.cle, el = document.getElementById('fc-dernier'); if (!el) return;
-  el.innerHTML = '<div class="t"><span>🗣 Avant d\'appeler</span></div><div class="fc-muted">lecture de Close' + (force ? ' et transcription des appels enregistrés (10-20 s)' : '') + '…</div>';
+  var cle = _fc.cle, el = document.getElementById('fc-dernier'); // la carte jaune n'existe plus : la synthèse lit _fc.dernier
+  if (el) el.innerHTML = '<div class="t"><span>🗣 Avant d\'appeler</span></div><div class="fc-muted">lecture de Close' + (force ? ' et transcription des appels enregistrés (10-20 s)' : '') + '…</div>';
+  if (force) { _fc.dernier = null; try { if (_fc.tab === 'synthese') fcRendre(); } catch (e) {} }
   var ctrl = new AbortController(); setTimeout(function() { ctrl.abort(); }, 90000);
   var q = { email: _fc.email || '', nom: _fc.nom, force: force ? '1' : '0' }; if (leadId) { q.lead = leadId; _fc.leadChoisi = leadId; } else if (_fc.leadChoisi) q.lead = _fc.leadChoisi; else { var _lk = sdLeadPour(_fc.nom, _fc.email || ''); if (_lk) q.lead = _lk; }
   // en deux temps : les faits tout de suite (dernier appel, journal, sans attendre le modèle), puis la synthèse complète
-  if (!force) fetch(COPILOT_URL + '/close/dernier-contact?' + new URLSearchParams(Object.assign({}, q, { rapide: '1' })), { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).then(function(j) { if (_fc.cle === cle && !_fc.dernier && j && j.trouve) { _fc.dernier = j; fcRendreDernierContact(j); if (_fc.tab === 'prepa') fcRendre(); } }).catch(function() {});
+  if (!force) fetch(COPILOT_URL + '/close/dernier-contact?' + new URLSearchParams(Object.assign({}, q, { rapide: '1' })), { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).then(function(j) { if (_fc.cle === cle && !_fc.dernier && j && j.trouve) { _fc.dernier = j; fcRendreDernierContact(j); if (_fc.tab === 'prepa' || _fc.tab === 'synthese') fcRendre(); } }).catch(function() {});
   fetch(COPILOT_URL + '/close/dernier-contact?' + new URLSearchParams(q), { mode: 'cors', cache: 'no-store', signal: ctrl.signal })
-    .then(function(r) { return r.json(); }).then(function(j) { if (_fc.cle === cle) { _fc.dernier = j; fcRendreDernierContact(j); if (_fc.tab === 'prepa') fcRendre(); } })
-    .catch(function() { if (_fc.cle === cle) { _fc.dernier = { error: 'copilot sans réponse' }; if (_fc.tab === 'prepa') fcRendre(); } if (_fc.cle === cle) el.innerHTML = '<div class="t"><span>🗣 Avant d\'appeler</span><a onclick="fcChargerDernierContact(true)">↻ réessayer</a></div><div class="fc-muted">Le copilot n\'a pas répondu à temps (appels longs à transcrire ?) — réessaie dans quelques secondes.</div>'; });
+    .then(function(r) { return r.json(); }).then(function(j) { if (_fc.cle === cle) { _fc.dernier = j; fcRendreDernierContact(j); if (_fc.tab === 'prepa' || _fc.tab === 'synthese') fcRendre(); } })
+    .catch(function() { if (_fc.cle === cle) { _fc.dernier = { error: 'copilot sans réponse' }; if (_fc.tab === 'prepa' || _fc.tab === 'synthese') fcRendre(); } if (_fc.cle === cle) el.innerHTML = '<div class="t"><span>🗣 Avant d\'appeler</span><a onclick="fcChargerDernierContact(true)">↻ réessayer</a></div><div class="fc-muted">Le copilot n\'a pas répondu à temps (appels longs à transcrire ?) — réessaie dans quelques secondes.</div>'; });
 }
 // Les 3 lignes closer (promesse datée · accroche · état du deal) + alertes, puis le détail par échange avec la preuve (audio, mots exacts, Claap)
 // le modèle écrit parfois « vide » / « rien » au lieu de laisser la clé vide : on ne l'affiche pas
@@ -4724,7 +4739,65 @@ function fcChargerDossiers() {
   var cidRow = (_fc.rows.find(function(r) { return r.contactId; }) || {}).contactId || '';
   fetch(COPILOT_URL + '/clients/dossiers?' + new URLSearchParams({ nom: _fc.nom, email: _fc.email || '', contactId: cidRow }), { mode: 'cors', cache: 'no-store', signal: ctrl.signal })
     .then(function(r) { return r.json(); }).then(function(j) { if (_fc.cle === cle) { _fc.dossiers = j.dossiers || []; _fc.contact = j.contact || null; fcRendre(); } })
-    .catch(function() { if (_fc.cle === cle) { _fc.dossiers = false; if (_fc.tab === 'prepa') fcRendre(); } });
+    .catch(function() { if (_fc.cle === cle) { _fc.dossiers = false; if (_fc.tab === 'prepa' || _fc.tab === 'synthese') fcRendre(); } });
+}
+// ── Synthèse : ce qu'il faut savoir en dix secondes. Contexte (depuis Close, par l'IA), dernier échange réel, ma note ; à droite prochaine étape, offre, à vérifier. Rien d'inventé : ce qui manque est « À clarifier ». ──
+function fcBlocEchangeHtml(e, i) {
+  var ICO = { appel: '📞', rdv: '🤝', mail: '✉', sms: '💬', note: '📝' }, LIB = { appel: 'appel', rdv: 'RDV', mail: 'mail', sms: 'SMS', note: 'note' }, sec = function(n) { return n >= 60 ? Math.round(n / 60) + ' min' : n + ' s'; };
+  var sidx = JSON.stringify(String(i)).replace(/"/g, '&quot;'), src = e.source || {}, preuves = [];
+  if (src.audio && src.id) preuves.push('<a onclick="fcEcouter(' + sidx + ', this)">▶ écouter' + (src.duree ? ' (' + sec(src.duree) + ')' : '') + '</a>');
+  if (src.extrait) preuves.push('<a onclick="fcMotsExacts(' + sidx + ', this)">“ mots exacts</a>');
+  if (src.claap) preuves.push('<a href="' + escapeHtml(src.claap) + '" target="_blank" rel="noopener">Compte rendu ↗</a>');
+  return '<div class="ech" id="fc-ech-' + i + '"><div class="ech-t"><span>' + (ICO[e.type] || '📞') + ' ' + escapeHtml(e.date || '') + ' · ' + (LIB[e.type] || 'appel') + (e.par ? ' · <b>' + escapeHtml(e.par) + '</b>' : ' · toi') + '</span><span class="preuves">' + preuves.join('') + '</span></div><ul>' + (e.lignes || []).slice(0, 3).map(function(l) { var m = /^([^:]{2,40}) :\s*(.*)$/.exec(l); return '<li>' + (m ? '<b>' + escapeHtml(m[1]) + ' :</b> ' + escapeHtml(m[2]) : escapeHtml(l)) + '</li>'; }).join('') + '</ul><div class="ech-plus"></div></div>';
+}
+function fcHtmlSynthese() {
+  var j = _fc.dernier || null, last = _fc.rows[0] || null, r1 = _fc.rows.find(function(x) { return x.source !== 'R2'; }) || last;
+  var cles = (j && j.cles) || {}, syn = (j && j.synthese) || [];
+  var trouve = function(re) { var l = syn.find(function(x) { return re.test(String(x).split(':')[0]); }); return l ? String(l).replace(/^[^:]*:\s*/, '').trim() : ''; };
+  var kv = function(lab, val, src) { return '<div class="fc-kv"><span class="k">' + lab + '</span><span class="v' + (val ? '' : ' fc-aclarifier') + '">' + (val ? escapeHtml(val) : 'À clarifier') + (src ? ' <span class="fc-src">' + escapeHtml(src) + '</span>' : '') + '</span></div>'; };
+  var dossierClos = _fc.rows.some(function(r) { return r.result === 'Signé' || (r.result === 'Non signé' && r.nosignRaison === 'pasinteresse'); });
+  var etatLecture = !j ? '<div class="fc-muted">Lecture de Close…</div>' : (j.error ? '<div class="fc-muted">Close : ' + escapeHtml(j.error) + ' · <a style="color:var(--accent);cursor:pointer" onclick="fcChargerDernierContact(false)">Réessayer</a></div>' : (j.trouve === false ? '<div class="fc-muted">Aucune fiche Close trouvée pour ce nom ou cet e-mail.</div>' : ''));
+  var contexte = '<div class="fc-card"><div class="fc-card-t"><span>Le contexte en 30 secondes</span>' + (j && j.trouve ? '<a onclick="fcOnglet(\'prepa\')">Voir les sources ↗</a>' : '') + '</div>'
+    + (etatLecture || (kv('Son besoin', trouve(/cherche|besoin/i)) + kv('Sa situation', trouve(/situation/i) || trouve(/^\s*qui\b/i)) + kv('Point à clarifier', trouve(/bloque|objection|frein/i)) + kv('Engagement convenu', trouve(/convenu/i) || cles.promesse)))
+    + (j && j.partiel ? '<div class="fc-muted" style="margin-top:6px;">synthèse en cours…</div>' : '') + '</div>';
+  var finJour = new Date(); finJour.setHours(23, 59, 59, 0); var tous = (j && j.echanges) || [], ech = tous.filter(function(e) { var d = parseDateFR(e.date); return !d || d <= finJour; }), e0 = ech[0];
+  var dernier = '<div class="fc-card"><div class="fc-card-t"><span>Dernier échange réel</span>' + (ech.length > 1 ? '<a onclick="fcOnglet(\'prepa\')">Voir tous les échanges</a>' : '') + '</div>'
+    + (e0 ? fcBlocEchangeHtml(e0, tous.indexOf(e0)) : (j && j.trouve ? '<div class="fc-muted">Rien d\'exploitable dans Close : pas de note, pas d\'enregistrement, pas de compte rendu.</div>' : (etatLecture ? '<div class="fc-muted">…</div>' : '')))
+    + (j && j.dernierAppel && !j.dernierAppel.joint && !dossierClos && j.tentativesDepuis ? '<div class="fc-muted" style="margin-top:8px;">📵 ' + j.tentativesDepuis + ' appel' + (j.tentativesDepuis > 1 ? 's' : '') + ' sans réponse depuis, le dernier le ' + escapeHtml(j.dernierAppel.date) + '</div>' : '') + '</div>';
+  var cl = fcClients(loadStore())[_fc.cle] || {};
+  var note = '<div class="fc-card"><div class="fc-card-t"><span>Ma note</span><span class="fc-muted" id="fc-notes-etat" style="font-weight:500;font-size:11px;"></span></div><textarea class="fc-notes" id="fc-notes" style="min-height:86px;" placeholder="Ce que je sais de lui, ce qu\'on s\'est dit, quoi lui proposer la prochaine fois…" oninput="fcNotesInput(this.value)">' + escapeHtml(cl.notes || '') + '</textarea></div>';
+  var et = _fc.etape || { lib: '', det: '' };
+  var next = '<div class="fc-card"><div class="fc-card-t"><span>Prochaine étape</span></div><div class="fc-big">' + escapeHtml(et.lib || '—') + '</div>' + (et.det ? '<div class="fc-muted" style="margin-bottom:6px;">' + escapeHtml(et.det) + '</div>' : '')
+    + (j && j.prochaine ? '<div class="fc-kv"><span class="k">Objectif</span><span class="v">' + escapeHtml(j.prochaine) + '</span></div>' : '') + '<div class="fc-kv"><span class="k">Responsable</span><span class="v">Nicolas</span></div></div>';
+  var offre = '';
+  if (r1 && (r1.pack || r1.freq || r1.attenteSignature || r1.result === 'Signé' || cles.deal)) {
+    var pill = r1.result === 'Signé' ? '<span class="fc-pill ok">Offre validée</span>' : (r1.attenteSignature ? '<span class="fc-pill warn">Contrat envoyé · attente de signature</span>' : '<span class="fc-pill warn">Proposition à confirmer</span>');
+    offre = '<div class="fc-card"><div class="fc-card-t"><span>Offre ' + (r1.result === 'Signé' ? 'validée' : 'discutée') + '</span>' + pill + '</div>'
+      + (r1.pack ? '<div class="fc-big" style="font-size:18px;">' + escapeHtml(r1.pack) + (r1.freq ? ' · ' + escapeHtml(r1.freq) : '') + (r1.tier ? ' · ' + escapeHtml(r1.tier) : '') + '</div>' : '')
+      + (r1.fms ? '<div class="fc-kv"><span class="k">Mise en service</span><span class="v">' + escapeHtml(r1.fms) + '</span></div>' : '') + (r1.remise ? '<div class="fc-kv"><span class="k">Remise</span><span class="v">' + escapeHtml(String(r1.remise)) + ' €</span></div>' : '')
+      + (r1.dateSignature && r1.result === 'Signé' ? '<div class="fc-kv"><span class="k">Signé le</span><span class="v">' + escapeHtml(r1.dateSignature) + '</span></div>' : '')
+      + (cles.deal ? '<div class="fc-kv"><span class="k">D\'après Close</span><span class="v">' + escapeHtml(cles.deal) + '</span></div>' : '')
+      + '<div style="text-align:right;margin-top:6px;"><a style="font-size:12px;color:var(--accent);cursor:pointer;" onclick="fcOnglet(\'offre\')">Détail →</a></div></div>';
+  }
+  var av = [];
+  if (cles.promesse_sdr) av.push('Promis par un collègue : ' + cles.promesse_sdr);
+  if (cles.demo_faite) av.push('Démo déjà faite le ' + cles.demo_faite + ' : ne pas re-pitcher');
+  if (j && j.trouve && !j.prochaine && !dossierClos) av.push('Prochaine étape à définir avec lui');
+  var verif = av.length ? '<div class="fc-card"><div class="fc-card-t"><span>À vérifier</span></div>' + av.map(function(x) { return '<div class="fc-kv" style="grid-template-columns:18px 1fr;"><span class="k" style="color:var(--orange);">●</span><span class="v">' + escapeHtml(x) + '</span></div>'; }).join('') + '</div>' : '';
+  return '<div class="fc-synth"><div class="fc-col">' + contexte + dernier + note + '</div><div class="fc-col">' + next + offre + verif + '</div></div>';
+}
+function fcHtmlOffreTab() {
+  var rows = _fc.rows.filter(function(x) { return x.source !== 'R2'; }), cles = (_fc.dernier && _fc.dernier.cles) || {};
+  if (!rows.length) return '<div class="fc-empty">Aucun rendez-vous, donc aucune offre discutée.</div>';
+  var out = rows.map(function(r) {
+    var statut = r.result === 'Signé' ? '<span class="fc-pill ok">Offre validée' + (r.dateSignature ? ' le ' + escapeHtml(r.dateSignature) : '') + '</span>' : r.attenteSignature ? '<span class="fc-pill warn">Contrat envoyé · attente de signature' + (r.attenteDepuis ? ' depuis le ' + escapeHtml(fcFrDepuisIso(r.attenteDepuis)) : '') + '</span>' : (r.pack ? '<span class="fc-pill warn">Proposition</span>' : '<span class="fc-muted">pas d\'offre discutée</span>');
+    var kv = function(k, v) { return v ? '<div class="fc-kv"><span class="k">' + k + '</span><span class="v">' + escapeHtml(String(v)) + '</span></div>' : ''; };
+    return '<div class="fc-card" style="margin-bottom:12px;"><div class="fc-card-t"><span>RDV du ' + escapeHtml(r.date) + (r.heure ? ' à ' + escapeHtml(r.heure) : '') + ' · ' + escapeHtml(r.result || r.presence || 'sans résultat') + '</span>' + statut + '</div>'
+      + kv('Pack', r.pack) + kv('Fréquence', r.freq) + kv('Tier', r.tier) + kv('Mise en service', r.fms) + kv('Remise', r.remise ? r.remise + ' €' : '') + kv('One shot', r.oneshot === 'O' ? 'oui' : '') + kv('Onboarding fait', r.onboardingAt ? fcFrDepuisIso(String(r.onboardingAt).slice(0, 10)) : '')
+      + (r.result === 'Signé' && typeof getComm === 'function' ? '<div class="fc-kv"><span class="k">Commission <span class="fc-src">(interne)</span></span><span class="v">' + Math.round(getComm(r)).toLocaleString('fr-FR') + ' €</span></div>' : '') + '</div>';
+  }).join('');
+  if (cles.deal) out += '<div class="fc-card"><div class="fc-card-t"><span>D\'après Close</span></div><div class="v" style="font-size:13.5px;">' + escapeHtml(cles.deal) + '</div></div>';
+  return out;
 }
 function fcHtmlOffre() {
   var r = _fc.rows.find(function(x) { return x.source !== 'R2'; }) || _fc.rows[0]; if (!r) return '';
@@ -4882,7 +4955,7 @@ function fcChargerHistorique() {
   ]).then(function(res) {
     if (_fc.cle !== cle) return; var n = fcNormNom(nom);
     _fcHisto = { cle: cle, data: { ecritures: (res[0].ecritures || []).filter(function(e) { return m ? e.lead === m[0] : fcNormNom(e.nom || '') === n; }), sms: (res[1].sms || []).filter(function(x) { return fcNormNom(x.nom || '') === n; }), mails: (res[2].mails || []).filter(function(x) { return fcNormNom(x.nom || '') === n; }) } };
-    if (_fc.tab === 'prepa') fcRendre();
+    if (_fc.tab === 'prepa' || _fc.tab === 'synthese') fcRendre();
   });
 }
 // Un dossier copilot (prépa, notes, après-RDV, coach) — compact = dans la chronologie (replié sous un résumé)
@@ -15186,13 +15259,13 @@ window.addEventListener('load', function() {
       <div class="fc-nom"><span id="fc-nom"></span><div class="fc-badges" id="fc-badges"></div><button class="fc-close" onclick="fermerFicheClient()" title="Fermer">✕</button></div>
       <div class="fc-contact" id="fc-contact"></div>
       <div class="fc-next" id="fc-next"></div>
-      <div class="fc-dernier" id="fc-dernier"></div>
     </div>
     <div class="fc-tabs">
-      <button class="fc-tab on" data-tab="rdv" onclick="fcOnglet('rdv')">Vue d'ensemble</button>
-      <button class="fc-tab" data-tab="prepa" onclick="fcOnglet('prepa')">Historique</button>
+      <button class="fc-tab on" data-tab="synthese" onclick="fcOnglet('synthese')">Synthèse</button>
+      <button class="fc-tab" data-tab="prepa" onclick="fcOnglet('prepa')">Échanges</button>
       <button class="fc-tab" data-tab="mails" onclick="fcOnglet('mails')">Mails</button>
-      <button class="fc-tab" data-tab="notes" onclick="fcOnglet('notes')">Notes</button>
+      <button class="fc-tab" data-tab="offre" onclick="fcOnglet('offre')">Offre</button>
+      <button class="fc-tab" data-tab="rdv" onclick="fcOnglet('rdv')">Rendez-vous</button>
     </div>
     <div class="fc-body" id="fc-body"></div>
   </div>
