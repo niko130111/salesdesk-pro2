@@ -894,6 +894,7 @@ nav #nav-more-dot, nav #nav-settings-dot { background: var(--sd-amber) !importan
 /* utilitaires */
 .auj-util #auj-auto .auj-card { padding: 12px 18px; margin-bottom: 0; }
 .auj-sync { padding: 6px 4px 20px; }
+.settings-section.active + .settings-section.active { margin-top: 18px; }
 @media (max-width: 1000px) { .auj-row { grid-template-columns: 52px minmax(0, 1fr) 26px; } .auj-row .st, .auj-row .act { grid-column: 2; justify-content: flex-start; } .auj-row-wrap .auj-brief { margin-left: 0; } .auj-next .hh { font-size: 24px; } .auj-next .etat { margin-left: 0; } }
 
 
@@ -1225,7 +1226,7 @@ select.form-input { cursor: pointer; }
     </div>
     <div class="theme-pick" id="theme-pick" title="Thème"><button data-t="light" onclick="setTheme('light')" title="Clair">☀️</button><button data-t="dark" onclick="setTheme('dark')" title="Bleu nuit">🌙</button><button data-t="system" onclick="setTheme('system')" title="Suit le thème de l'appareil">Auto</button></div>
     <span class="sync-status" style="font-size:11px;font-weight:600;margin-left:8px;transition:color .3s;"></span>
-    <button class="btn btn-sm btn-primary" id="nav-nouveau-rdv" style="display:none" onclick="openModal('newRdvModal')">+ Ajouter un RDV</button>
+    <button class="btn btn-sm btn-primary" id="nav-nouveau-rdv" style="display:none" onclick="openModal('newRdvModal')" title="Enregistrer un RDV déjà passé ou pris hors Calendly">+ Saisir un RDV passé</button>
     <div class="avatar" onclick="showPage('settings', document.querySelector('.nav-tab[data-page=settings]'))">N</div>
   </div>
 </nav>
@@ -1238,7 +1239,7 @@ select.form-input { cursor: pointer; }
       <div class="auj-head-actions">
         <div class="auj-nav"><button class="btn" title="Jour précédent" aria-label="Jour précédent" onclick="aujAller(-1)">‹</button><button class="btn" onclick="aujAller('auj')">Aujourd'hui</button><button class="btn" title="Jour suivant" aria-label="Jour suivant" onclick="aujAller(1)">›</button></div>
         <div class="auj-seg" id="auj-seg"><button class="on" onclick="aujVue('jour')">Jour</button><button onclick="aujVue('semaine')">Semaine</button></div>
-        <button class="btn" onclick="openModal('newRdvModal')">+ Ajouter un RDV</button>
+        <button class="btn" onclick="openModal('newRdvModal')" title="Enregistrer un RDV déjà passé ou pris hors Calendly. Un nouveau rendez-vous se prend dans Calendly.">+ Saisir un RDV passé</button>
       </div>
     </header>
     <div class="auj-ligne" id="auj-pilot"></div>
@@ -2284,7 +2285,7 @@ select.form-input { cursor: pointer; }
       <div style="font-size:11px;color:var(--text3);margin-top:2px;">Mois sélectionné · Intéressés, À relancer, Pas de budget, Si promo, Ghost : mois en cours + reliquat depuis mars 2026 · Pas intéressé et No Shows : mois en cours seulement</div>
     </div>
     <span class="sync-status" style="font-size:11px;font-weight:600;margin-left:8px;transition:color .3s;"></span>
-    <button class="btn btn-sm btn-primary" onclick="openModal('newRdvModal')">+ Ajouter un RDV</button>
+    <button class="btn btn-sm btn-primary" onclick="openModal('newRdvModal')" title="Enregistrer un RDV déjà passé ou pris hors Calendly">+ Saisir un RDV passé</button>
   </div>
 
   <!-- Résumé rapide -->
@@ -2426,7 +2427,7 @@ select.form-input { cursor: pointer; }
     <div class="section-title">RDV — <span id="rdvtable-period">Avril 2026</span> <span style="font-size:10px;font-weight:400;color:var(--text3);text-transform:none;letter-spacing:0;">· Double-clic pour modifier une ligne</span></div>
     <div class="flex gap-8">
     <span class="sync-status" style="font-size:11px;font-weight:600;margin-left:8px;transition:color .3s;"></span>
-    <button class="btn btn-sm btn-primary" onclick="openModal('newRdvModal')">+ Ajouter un RDV</button>
+    <button class="btn btn-sm btn-primary" onclick="openModal('newRdvModal')" title="Enregistrer un RDV déjà passé ou pris hors Calendly">+ Saisir un RDV passé</button>
     </div>
   </div>
 
@@ -2478,7 +2479,7 @@ select.form-input { cursor: pointer; }
       </thead>
       <tbody id="rdv-tbody"></tbody>
     </table>
-    <button class="add-row-btn" onclick="openModal('newRdvModal')">+ Ajouter un RDV</button>
+    <button class="add-row-btn" onclick="openModal('newRdvModal')">+ Saisir un RDV passé</button>
   </div>
 </main>
 </div>
@@ -2697,16 +2698,11 @@ select.form-input { cursor: pointer; }
   </div>
   <div class="settings-grid">
     <div class="settings-nav">
-      <div class="settings-nav-item active" onclick="showSettingsSection('objectifs',this)">🎯 Objectifs</div>
-      <div class="settings-nav-item" onclick="showSettingsSection('backup',this)">💾 Backup local <span id="settings-nav-backup-dot" style="display:none;width:8px;height:8px;border-radius:50%;background:var(--red);margin-left:4px;vertical-align:middle;"></span></div>
-      <div class="settings-nav-item" onclick="showSettingsSection('online',this)">🌐 Sauvegarde en ligne</div>
-      <div class="settings-nav-item" data-sec="etat" onclick="showSettingsSection('etat',this)">🩺 État</div>
-      <div class="settings-nav-item" onclick="showSettingsSection('profil',this)">👤 Profil</div>
-      <div class="settings-nav-item" onclick="showSettingsSection('commission',this)">💰 Barème commissions</div>
-      <div class="settings-nav-item" onclick="showSettingsSection('equipe',this)">👥 Moyennes équipe</div>
-      <div class="settings-nav-item" onclick="showSettingsSection('calendly',this)">🔗 Calendly</div>
-      <div class="settings-nav-item" onclick="showSettingsSection('modeles',this)">🤖 Modèles IA</div>
-      <div class="settings-nav-item" onclick="showSettingsSection('cles',this)">🔑 Clés API et copilot</div>
+      <div class="settings-nav-item active" data-grp="profil" onclick="showSettingsGroupe('profil',this)">🎯 Profil et objectifs</div>
+      <div class="settings-nav-item" data-grp="connexions" onclick="showSettingsGroupe('connexions',this)">🔑 Connexions et clés</div>
+      <div class="settings-nav-item" data-grp="ia" onclick="showSettingsGroupe('ia',this)">🤖 IA et dépense</div>
+      <div class="settings-nav-item" data-grp="sauvegardes" onclick="showSettingsGroupe('sauvegardes',this)">💾 Sauvegardes et diagnostic <span id="settings-nav-backup-dot" style="display:none;width:8px;height:8px;border-radius:50%;background:var(--sd-amber);margin-left:6px;vertical-align:middle;"></span></div>
+      <div style="font-size:11.5px;color:var(--text3);padding:10px 12px 0;line-height:1.4;">Profil et objectifs : objectifs, profil, barème, moyennes équipe.<br>Connexions : clés API, copilot, Calendly.<br>IA : modèles et dépense.<br>Sauvegardes : backup local, en ligne, état du système.</div>
     </div>
     <div>
       <div class="settings-section active" id="settings-objectifs">
@@ -3117,7 +3113,8 @@ select.form-input { cursor: pointer; }
 <!-- NEW RDV MODAL -->
 <div class="modal-overlay" id="newRdvModal">
   <div class="modal">
-    <div class="modal-title">+ Ajouter un RDV</div>
+    <div class="modal-title">Saisir un RDV passé</div>
+    <div style="font-size:12.5px;color:var(--text2);margin:-6px 0 12px;line-height:1.45;">Pour <b>prendre</b> un rendez-vous, passe par Calendly (depuis la fiche : « Prendre un RDV ») : le prospect reçoit l'invitation et l'agenda suit. Cette fenêtre sert à <b>enregistrer</b> un rendez-vous déjà tenu ou pris hors Calendly, pour les statistiques et le suivi.</div>
     <div class="form-row">
       <div class="form-group">
         <label class="form-label">Client</label>
@@ -4417,11 +4414,11 @@ function fcContratBloc(lead) { // bloc inséré dans la fenêtre Onboarding, cac
 function fcContratChercher(lead, documentId) {
   var c = document.getElementById('ob-contrat-corps'); if (!c) return; c.innerHTML = '<span class="fc-muted">Lecture de PandaDoc et de Drive…</span>';
   rlPost('/close/onboarding/contrat', { lead: lead || '', nom: _fc.nom, email: _fc.email || '', documentId: documentId || '', ranger: false }).then(function(j) { fcContratRendre(j, lead); })
-    .catch(function(e) { var msg = (e && e.message) || String(e); c.innerHTML = '<div style="color:var(--sd-amber);font-weight:600;">' + escapeHtml(msg) + '</div>' + (/réglages manquants/.test(msg) ? '<div class="fc-muted" style="margin-top:4px;">À coller dans Objectifs & Config › Clés API : clé PandaDoc, adresse du script Drive, jeton, identifiant du dossier Sales › Clients. <a style="color:var(--sd-action);cursor:pointer;font-weight:600;" onclick="fermerModalDoublon();showPage(\'settings\');var n=[...document.querySelectorAll(\'.settings-nav-item\')].find(function(x){return /Clés API/.test(x.innerText)});if(n)n.click();">Ouvrir Config</a></div>' : '') + '<div style="margin-top:8px;"><button class="btn btn-sm" onclick="fcContratChercher(' + JSON.stringify(lead || '').replace(/"/g, '&quot;') + ')">Réessayer</button></div>'; });
+    .catch(function(e) { var msg = (e && e.message) || String(e); c.innerHTML = '<div style="color:var(--sd-amber);font-weight:600;">' + escapeHtml(msg) + '</div>' + (/réglages manquants/.test(msg) ? '<div class="fc-muted" style="margin-top:4px;">À coller dans Objectifs & Config › Clés API : clé PandaDoc, adresse du script Drive, jeton, identifiant du dossier Sales › Clients. <a style="color:var(--sd-action);cursor:pointer;font-weight:600;" onclick="fermerModalDoublon();showPage(\'settings\');showSettingsSection(\'cles\');">Ouvrir Config</a></div>' : '') + '<div style="margin-top:8px;"><button class="btn btn-sm" onclick="fcContratChercher(' + JSON.stringify(lead || '').replace(/"/g, '&quot;') + ')">Réessayer</button></div>'; });
 }
 function fcContratRendre(j, lead) {
   var c = document.getElementById('ob-contrat-corps'); if (!c) return; var Q = function(v) { return JSON.stringify(v).replace(/"/g, '&quot;'); };
-  if (!j || j.ok === false) { var msg0 = (j && j.error) || 'échec'; c.innerHTML = '<div style="color:var(--sd-amber);font-weight:600;">' + escapeHtml(msg0) + '</div>' + (/réglages manquants/.test(msg0) ? '<div class="fc-muted" style="margin-top:4px;">À coller dans Objectifs & Config › Clés API : clé PandaDoc, adresse du script Drive, jeton, identifiant du dossier Sales › Clients. <a style="color:var(--sd-action);cursor:pointer;font-weight:600;" onclick="fermerModalDoublon();showPage(\'settings\');var n=[...document.querySelectorAll(\'.settings-nav-item\')].find(function(x){return /Clés API/.test(x.innerText)});if(n)n.click();">Ouvrir Config</a></div>' : '') + '<div style="margin-top:8px;"><button class="btn btn-sm" onclick="fcContratChercher(' + Q(lead || '') + ')">Réessayer</button></div>'; return; }
+  if (!j || j.ok === false) { var msg0 = (j && j.error) || 'échec'; c.innerHTML = '<div style="color:var(--sd-amber);font-weight:600;">' + escapeHtml(msg0) + '</div>' + (/réglages manquants/.test(msg0) ? '<div class="fc-muted" style="margin-top:4px;">À coller dans Objectifs & Config › Clés API : clé PandaDoc, adresse du script Drive, jeton, identifiant du dossier Sales › Clients. <a style="color:var(--sd-action);cursor:pointer;font-weight:600;" onclick="fermerModalDoublon();showPage(\'settings\');showSettingsSection(\'cles\');">Ouvrir Config</a></div>' : '') + '<div style="margin-top:8px;"><button class="btn btn-sm" onclick="fcContratChercher(' + Q(lead || '') + ')">Réessayer</button></div>'; return; }
   var d = j.document, docs = j.documents || [], dr = j.drive || {};
   var h = '<div class="fc-kv" style="grid-template-columns:120px 1fr;border-top:0;padding-top:0;"><span class="k">Contrat PandaDoc</span><span class="v">' + (d ? '<b>' + escapeHtml(d.nom) + '</b>' + (d.signeLe ? ' · signé le ' + escapeHtml(d.signeLe.split('-').reverse().join('/')) : '') + (d.emailOk === true ? ' <span class="auj-state ok">destinataire : cet e-mail</span>' : d.emailOk === false ? ' <span class="auj-state warn">destinataire : autre e-mail, à vérifier</span>' : '') : '<span style="color:var(--sd-amber);font-weight:600;">aucun contrat signé trouvé pour ce nom</span>') + '</span>'
     + (docs.length > 1 ? '<span class="k">Autres documents</span><span class="v">' + docs.slice(1, 5).map(function(x) { return '<a style="cursor:pointer;color:var(--sd-action);" onclick="fcContratChercher(' + Q(lead || '') + ',' + Q(x.id) + ')">' + escapeHtml(x.nom) + (x.signeLe ? ' (' + x.signeLe.split('-').reverse().join('/') + ')' : '') + '</a>'; }).join(' · ') + '</span>' : '')
@@ -5549,7 +5546,7 @@ function sdApresRdvPour(nom, date) { // date : jj/mm/aaaa ou aaaa-mm-jj ; sans d
       if (!st[mk]) st[mk] = []; st[mk].push(ligne);
       if (r1) { var o = (st[r1._monthKey] || [])[r1._storeKey]; if (o) { o.dateR2 = fr; if (ev.heure) o.heureR2 = ev.heure; if (!o.presenceR2 || o.presenceR2 === 'Programmé') o.presenceR2 = 'Programmé'; delete o.r2Attendu; } }
       saveStore(st); sdApresRdv(mk, st[mk].length - 1); return; }
-    if (ev) { if (typeof showCopyToast === 'function') showCopyToast('Ce RDV vient de Calendly sans ligne SalesDesk : ajoute-le avec « + Ajouter un RDV »'); return; } }
+    if (ev) { if (typeof showCopyToast === 'function') showCopyToast('Ce RDV vient de Calendly sans ligne SalesDesk : enregistre-le avec « + Saisir un RDV passé »'); return; } }
   if (!r) { var today = new Date(); today.setHours(23, 59, 59, 0); r = rows.find(function(x) { var d = parseDateFR(x.date); return d && d <= today; }); }
   if (!r) { if (typeof showCopyToast === 'function') showCopyToast('Pas de ligne SalesDesk pour ' + nom + (fr ? ' le ' + fr : '') + ' — synchronise Calendly ou ajoute le RDV'); return; }
   sdApresRdv(r._monthKey, r._storeKey);
@@ -7214,16 +7211,19 @@ function cfgCopilotRedemarrer(btn) {
   });
 }
 // ====== SETTINGS ======
-function showSettingsSection(id, el) {
-  document.querySelectorAll('.settings-section').forEach(s => s.classList.remove('active'));
-  document.querySelectorAll('.settings-nav-item').forEach(n => n.classList.remove('active'));
-  document.getElementById('settings-'+id).classList.add('active');
-  el.classList.add('active');
-  if (id === 'modeles') { try { ctlRemplirExtras(); } catch (e) {} }
-  if (id === 'cles') { try { cfgClesCharger(); } catch (e) {} }
-  // Refresh backup status quand on ouvre la section
-  if (id === 'backup') refreshBackupStatus();
-  if (id === 'etat') renderEtatSysteme(true);
+// Objectifs & Config en quatre groupes : chaque groupe empile ses sections (les sections existantes ne bougent pas)
+var SETTINGS_GROUPES = { profil: ['objectifs', 'profil', 'commission', 'equipe'], connexions: ['cles', 'calendly'], ia: ['modeles'], sauvegardes: ['backup', 'online', 'etat'] };
+function showSettingsGroupe(g, el) {
+  var ids = SETTINGS_GROUPES[g] || SETTINGS_GROUPES.profil;
+  document.querySelectorAll('.settings-section').forEach(function(x) { x.classList.remove('active'); });
+  document.querySelectorAll('.settings-nav-item').forEach(function(n) { n.classList.remove('active'); });
+  ids.forEach(function(id) { var x = document.getElementById('settings-' + id); if (x) x.classList.add('active'); });
+  if (!el) el = document.querySelector('.settings-nav-item[data-grp="' + g + '"]'); if (el) el.classList.add('active');
+  ids.forEach(function(id) { try { if (id === 'modeles') ctlRemplirExtras(); if (id === 'cles') cfgClesCharger(); if (id === 'backup') refreshBackupStatus(); if (id === 'etat') renderEtatSysteme(true); } catch (e) {} });
+}
+function showSettingsSection(id, el) { // compatibilité : ouvre le groupe qui contient la section, puis y descend
+  var g = Object.keys(SETTINGS_GROUPES).find(function(k) { return SETTINGS_GROUPES[k].indexOf(id) >= 0; }) || 'profil';
+  showSettingsGroupe(g); var x = document.getElementById('settings-' + id); if (x) setTimeout(function() { try { x.scrollIntoView({ block: 'start', behavior: 'smooth' }); } catch (e) {} }, 60);
 }
 
 // ═══════════════════════════════════════════════
