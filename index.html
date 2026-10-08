@@ -2716,7 +2716,7 @@ select.form-input { cursor: pointer; }
           <div style="background:var(--accent-bg);border:2px solid var(--accent);border-radius:var(--radius);padding:14px;margin-bottom:16px;display:flex;align-items:center;gap:16px;">
             <div style="flex:1;">
               <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--accent);margin-bottom:4px;">Objectif mensuel principal (€)</div>
-              <div style="font-size:11px;color:var(--text3);">Pilote automatiquement la page Quotidien</div>
+              <div style="font-size:11px;color:var(--text3);">Pilote Aujourd'hui (objectif outbound du jour) et Performance</div>
             </div>
             <div style="display:flex;align-items:center;gap:8px;">
               <input type="number" value="8000" min="0" step="500" class="form-input" id="target-ca" style="width:110px;font-size:18px;font-weight:700;text-align:center;color:var(--accent);border-color:var(--accent);">
@@ -3371,7 +3371,7 @@ select.form-input { cursor: pointer; }
     </div>
     <div class="modal-body">
       <div style="background:var(--purple-bg);border-radius:var(--radius);padding:10px 14px;margin-bottom:14px;font-size:12px;color:var(--text2);line-height:1.5;">
-        La nouvelle date sera enregistree dans SalesDesk. Si tu as configure le webhook Make, l'evenement Google Calendar sera modifie et le prospect recevra l'invitation mise a jour.
+        La nouvelle date est enregistrée dans SalesDesk. Pour déplacer l'événement et prévenir le prospect, passe par « Résultat du RDV › Reprogrammé » : c'est Calendly qui met l'agenda à jour.
       </div>
       <div id="reschedule-detecte" style="display:none;background:var(--green-bg);border:1px solid var(--green);border-radius:var(--radius);padding:10px 14px;margin-bottom:14px;font-size:13px;font-weight:600;color:var(--green);"></div>
       <div class="form-row">
@@ -5735,7 +5735,7 @@ function arPlan() {
     if (a.presence === 'No Show' && (a.nsChoix === 'demain' || a.nsChoix === 'date')) L.push('Close : tâche no-show le ' + fcFrDepuisIso(a.nsChoix === 'demain' ? rlJourOuvre(rlIso(new Date()), 1) : a.nsDate) + ' · file de relance');
     if (a.presence === 'Show' && !(a.result === 'Non signé' && a.raison === 'pasinteresse') && a.result) L.push('Copilot : mail de fin de RDV à préparer');
   }
-  L.push('Quotidien : RDV marqué traité');
+  L.push('Aujourd\'hui : RDV marqué traité');
   return { lignes: L, manque: M };
 }
 function arRendreEcrit() {
@@ -10567,9 +10567,8 @@ function chargerAutomatisations(force) {
 // les SMS de relance proposés dans Suivi prennent le texte modifié ici
 function rlAppliquerModeles() { try { var M = {}; ((_au.data && _au.data.modeles) || []).forEach(function(m) { M[m.id] = m.texte; }); [['nsin', 'appel2', 'relance_nsin_2'], ['nsin', 'appel4', 'relance_nsin_4'], ['nsin', 'dernier', 'relance_nsin_fin'], ['nsout', 'appel2', 'relance_nsout_2'], ['nsout', 'appel4', 'relance_nsout_4'], ['nsout', 'dernier', 'relance_nsout_fin']].forEach(function(x) { if (M[x[2]] && RL_SMS[x[0]]) RL_SMS[x[0]][x[1]] = M[x[2]]; }); } catch (e) {} }
 function auBasculer(cle, valeur, el) {
-  var danger = cle === 'MAIL_MODE_OUTBOX' || cle === 'SMS_MODE_AUTO', make = cle === 'SMS_R1_VEILLE' || cle === 'MAIL_R1_JOUR';
+  var danger = cle === 'MAIL_MODE_OUTBOX' || cle === 'SMS_MODE_AUTO';
   if (valeur && danger && !confirm(cle === 'MAIL_MODE_OUTBOX' ? 'Les mails allumés partiront RÉELLEMENT depuis ta boîte, sans relecture. Confirmer ?' : 'Les SMS allumés partiront RÉELLEMENT par SMS Gate, sans relecture. Confirmer ?')) { el.checked = false; return; }
-  if (valeur && make && !confirm('Ce message est aujourd\'hui envoyé par Make. Si Make tourne encore, le prospect le recevra en double. As-tu coupé ce scénario dans Make ?')) { el.checked = false; return; }
   fetch(COPILOT_URL + '/reglages', { method: 'PUT', mode: 'cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ interrupteur: cle, valeur: !!valeur }) }).then(function(r) { return r.json(); })
     .then(function(j) { if (!j.ok) throw new Error('refus'); if (_au.data) _au.data.interrupteurs = j.interrupteurs; if (typeof showCopyToast === 'function') showCopyToast(valeur ? '🟢 Allumé' : '⚪ Éteint'); renderAutomatisations(false); })
     .catch(function() { el.checked = !valeur; alert('Le copilot n\'a pas pris le réglage.'); });
@@ -13446,7 +13445,7 @@ function renderAllProcessedSection() {
 }
 
 function unarchiveProcessedRdv(rdvId) {
-  if (!confirm('Désarchiver ce RDV ? Il réapparaîtra dans la liste active du Quotidien.')) return;
+  if (!confirm('Désarchiver ce RDV ? Il réapparaîtra dans Aujourd\'hui et dans les tableaux.')) return;
   const store = loadStore();
   if (!store._processedRdvs) return;
   delete store._processedRdvs[rdvId];
