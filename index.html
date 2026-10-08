@@ -779,7 +779,8 @@ nav #nav-more-dot, nav #nav-settings-dot { background: var(--sd-amber) !importan
 .auj .btn:focus-visible, .auj button:focus-visible, .auj a:focus-visible { outline: 2px solid var(--sd-action); outline-offset: 2px; }
 .auj .btn > svg { width: 15px; height: 15px; margin-right: 6px; vertical-align: -3px; flex: none; }
 .auj .btn > svg:only-child { margin-right: 0; }
-.fc-overlay .btn > svg, #page-relances .btn > svg, .fc-plus-menu .btn > svg, #fc-dup-overlay .btn > svg, .modal .btn > svg { width: 15px; height: 15px; margin-right: 6px; vertical-align: -3px; flex: none; }
+.fc-overlay .btn > svg, #page-relances .btn > svg, .fc-plus-menu .btn > svg, #fc-dup-overlay .fc-dup .ico-ligne > svg { width: 18px; height: 18px; flex: none; }
+#fc-dup-overlay .btn > svg, .modal .btn > svg { width: 15px; height: 15px; margin-right: 6px; vertical-align: -3px; flex: none; }
 .auj-h1 { color: var(--sd-title); font-size: 27px; }
 .auj-date { font-size: 15px; font-weight: 500; }
 .auj-resume { font-size: 12.5px; color: var(--text3); margin-top: 2px; } .auj-resume:empty { display: none; }
@@ -4262,6 +4263,19 @@ function fcR2AVenir(it) { // le R2 à venir d'un R1 (dateR2 sur la ligne R1, tan
 }
 
 function sdDepuisFiche(nom, email, fn) { ouvrirFicheClient(nom, email || ''); var t0 = Date.now(); (function att() { if (document.querySelector('.fc-barre') && fcNormNom(_fc.nom || '') === fcNormNom(nom)) { try { fn(); } catch (e) {} return; } if (Date.now() - t0 < 15000) setTimeout(att, 300); })(); }
+function sdTerminerConfigurationPour(nom, email) { sdDepuisFiche(nom, email, function() { fcTerminerConfiguration(); }); }
+function fcTerminerConfiguration(btn) { // clôture la tâche Close « Configurer » du client signé et marque la ligne configurée (fin du closing)
+  var signe = _fc.rows.filter(function(r) { return r.result === 'Signé' && r.source !== 'R2'; })[0] || _fc.rows[0]; if (!signe || !signe.client) return;
+  var lead = ''; try { lead = _fc.leadChoisi || sdLeadPour(_fc.nom, _fc.email || '') || ((_fc.close && _fc.close.leads && _fc.close.leads[0]) || {}).id || ''; } catch (e) {}
+  if (btn) { btn.disabled = true; btn.textContent = 'Clôture…'; }
+  var marquer = function() { try { var st = loadStore(), r = (st[signe._monthKey] || [])[signe._storeKey]; if (r) { r.configureAt = new Date().toISOString(); if (!r.onboardingAt) r.onboardingAt = r.configureAt; saveStore(st); signe.configureAt = r.configureAt; signe.onboardingAt = r.onboardingAt; } } catch (e) {} };
+  var finir = function(txt) { marquer(); fermerModalDoublon(); if (typeof showCopyToast === 'function') showCopyToast(txt); try { fcRendre(); } catch (e) {} try { refreshAll(); } catch (e) {} try { if (typeof renderRelancesPage === 'function') renderRelancesPage(); } catch (e) {} };
+  if (typeof COPILOT_URL === 'undefined') { finir('✓ Client configuré (copilot éteint : la tâche Close reste à clôturer à la main)'); return; }
+  rlPost('/close/onboarding/terminer', { lead: lead, nom: _fc.nom, email: _fc.email || '' }).then(function(j) {
+    var ids = (j.terminees || []).map(function(t) { return t.id; }); try { if (_tachesClose && _tachesClose.taches) _tachesClose.taches = _tachesClose.taches.filter(function(t) { return ids.indexOf(t.id) < 0; }); } catch (e) {}
+    finir('✓ Client configuré' + (ids.length ? ' · tâche Close « ' + String((j.terminees[0] || {}).texte || 'Configurer').slice(0, 40) + ' » clôturée' : ' · aucune tâche Close « Configurer » ouverte'));
+  }).catch(function(e) { if (btn) { btn.disabled = false; btn.innerHTML = aujIco('check') + 'Terminer la configuration'; } alert('Clôture impossible : ' + ((e && e.message) || e)); });
+}
 function sdOnboardingPour(nom, email) { sdDepuisFiche(nom, email, function() { fcOnboarding(); }); }
 function sdMailPour(nom, email) { sdDepuisFiche(nom, email, function() { fcRepondreMail('', ''); }); }
 function fcBoutonsSuivi(it) {
@@ -4290,6 +4304,7 @@ function fcBoutonsSuivi(it) {
   var contrat = A('contrat', aujIco('doc') + 'Contrat envoyé', '', 'Tâche « Relancer pour signature » à la date et à l\'heure choisies ; ligne en attente de signature');
   var signe = A('signe', aujIco('euro') + 'Signé', 'btn-primary', 'Pack, fréquence, tier, FMS, remise ; tâche « Configurer » demain');
   var onboarding = fiche ? B('fcOnboarding()', aujIco('gear') + 'Configurer le client', 'btn-primary', 'Remplit les champs Close de l\'opportunité et de la fiche (onboarding)') : B('sdOnboardingPour(' + nomJs + ',' + emailJs + ')', aujIco('gear') + 'Configurer le client', 'btn-primary', 'Remplit les champs Close de l\'opportunité et de la fiche (onboarding)');
+  var terminer = fiche ? B('fcTerminerConfiguration(this)', aujIco('check') + 'Terminer la configuration', 'btn-primary', 'Clôture la tâche Close « Configurer » et marque le client configuré') : B('sdTerminerConfigurationPour(' + nomJs + ',' + emailJs + ')', aujIco('check') + 'Terminer la configuration', 'btn-primary', 'Clôture la tâche Close « Configurer » et marque le client configuré');
   var principal, plus;
   switch (etat) {
     case 'rdv_avenir': principal = [preparer, appeler, resultat]; plus = [tache, mail, manager, ficheClose, corriger, cloturer]; break;
@@ -4297,7 +4312,7 @@ function fcBoutonsSuivi(it) {
     case 'interesse': principal = [appeler, rdv(aujIco('cal') + 'Prendre un R2', 'Tu choisis le créneau R2, je réserve dans Calendly', 'btn-primary'), tache]; plus = [contrat, sansRep, pasInt, rappel, mail, manager, ficheClose, corriger, cloturer]; break;
     case 'attente': principal = [appeler, signe, tache]; plus = [contrat, sansRep, pasInt, rappel, mail, manager, ficheClose, corriger, cloturer]; break;
     case 'noshow': principal = [appeler, rdv(aujIco('refresh') + 'Reprogrammer', 'Nouveau créneau Calendly, la tâche est terminée', 'btn-primary'), tache]; plus = [sansRep, perdu, rappel, mail, manager, ficheClose, corriger, cloturer]; break;
-    case 'signe': principal = [onboarding, appeler, tache]; plus = [mail, manager, ficheClose, corriger, cloturer]; break;
+    case 'signe': if (row.configureAt) { principal = [appeler, tache]; plus = [onboarding, mail, manager, ficheClose, corriger, cloturer]; } else if (row.onboardingAt) { principal = [terminer, appeler, tache]; plus = [onboarding, mail, manager, ficheClose, corriger, cloturer]; } else { principal = [onboarding, appeler, tache]; plus = [terminer, mail, manager, ficheClose, corriger, cloturer]; } break; // configuré : plus d'action pleine ; champs écrits : il reste à terminer ; sinon : configurer (terminer reste accessible dans Plus)
     case 'perdu': principal = [appeler, rdv(aujIco('cal') + 'Reprendre un RDV', 'Tu choisis le créneau, je réserve dans Calendly'), tache]; plus = [mail, manager, ficheClose, corriger, cloturer]; break;
     default: principal = [appeler, rdv(aujIco('cal') + 'Prendre un RDV', 'Tu choisis le créneau, je réserve dans Calendly', 'btn-primary'), tache]; plus = [sansRep, pasInt, mail, manager, ficheClose, corriger, cloturer];
   }
@@ -4321,7 +4336,8 @@ function fcRendreProchaineEtape() {
   var today = new Date(); today.setHours(0, 0, 0, 0); var todayIso = rlIso(new Date());
   var n = fcNormNom(_fc.nom), lib = '', det = '', itS = null, pres = String(last.presence || '').trim();
   var dRdv = parseDateFR(last.date), signe = _fc.rows.find(function(r) { return r.result === 'Signé' && r.source !== 'R2'; }), r2 = fcR2AVenir({ nom: _fc.nom });
-  if (signe) { lib = 'Client signé' + (signe.dateSignature ? ' le ' + signe.dateSignature : ''); det = 'Configuration et vitrine côté RealAdvisor'; }
+  if (signe && signe.configureAt) { lib = 'Client configuré le ' + fcFrDepuisIso(String(signe.configureAt).slice(0, 10)); det = 'Closing terminé' + (signe.dateSignature ? ' · signé le ' + signe.dateSignature : '') + ' · vitrine côté RealAdvisor'; }
+  else if (signe) { lib = 'Client signé' + (signe.dateSignature ? ' le ' + signe.dateSignature : ''); det = signe.onboardingAt ? 'Champs Close écrits le ' + fcFrDepuisIso(String(signe.onboardingAt).slice(0, 10)) + ' · reste à terminer la configuration' : 'Configuration et vitrine côté RealAdvisor'; }
   else if (dRdv && sdRdvPasse(last) && !pres) { lib = (last.source === 'R2' ? 'R2' : 'Rendez-vous') + ' du ' + last.date + ' à terminer'; det = 'Présence, résultat, suite : tout s\'écrit d\'un coup'; }
   else if (r2) { lib = 'R2 le ' + r2.date + (r2.heure ? ' à ' + r2.heure : ''); det = 'Validation & lancement'; }
   else if (dRdv && dRdv >= today && (!pres || pres === 'Reprogrammé')) { lib = (last.source === 'R2' ? 'R2' : 'Rendez-vous') + (dRdv.getTime() === today.getTime() ? ' aujourd\'hui' : ' le ' + last.date) + (last.heure ? ' à ' + last.heure : ''); det = 'À préparer'; }
@@ -4407,11 +4423,14 @@ function fcOnboarding() {
       var b = this; b.disabled = true; b.textContent = 'Écriture…'; var champs = {}, champsLead = {};
       var collecter = function(defsX, cible) { defsX.forEach(function(d) { var boite = m.querySelector('[data-dep="' + (/^6\.1/.test(d.nom) ? 'Prospection Map' : /^6\.2/.test(d.nom) ? 'CMA' : /^6\.3/.test(d.nom) ? 'Valuation Widget' : '') + '"]'); if (d.type === 'choices' && d.multi) cible[d.nom] = Array.prototype.map.call(m.querySelectorAll('input[type=checkbox][data-champ="' + d.nom + '"]:checked'), function(c) { return c.value; }); else { var e = document.getElementById(idDe(d.nom)); var cache = e && e.closest('[data-dep]') && e.closest('[data-dep]').getAttribute('data-dep') && e.closest('[data-dep]').style.display === 'none'; cible[d.nom] = (e && !cache) ? String(e.value || '').trim() : ''; } }); }; collecter(defs, champs); collecter(defsLead, champsLead);
       rlPost('/close/onboarding', { lead: lead, nom: _fc.nom, email: _fc.email || '', opportunite: opp ? opp.id : '', champs: champs, champsLead: champsLead }).then(function(jj) {
-        fermerModalDoublon();
         var msg = '✓ Opportunité Close mise à jour : ' + (jj.ecrits || []).length + ' champ' + ((jj.ecrits || []).length > 1 ? 's' : '') + ((jj.ecritsLead || []).length ? ' · fiche : ' + jj.ecritsLead.length + ' champ' + (jj.ecritsLead.length > 1 ? 's' : '') + ' BDR' : '');
         if ((jj.absents || []).length || (jj.invalides || []).length) alert(msg + '\n\n' + ((jj.absents || []).length ? 'Champs inconnus dans Close : ' + jj.absents.join(', ') + '\n\n' : '') + ((jj.invalides || []).length ? 'Non écrits : ' + jj.invalides.join('\n') : ''));
         else if (typeof showCopyToast === 'function') showCopyToast(msg);
-        try { var st = loadStore(), r = (st[last._monthKey] || [])[last._storeKey]; if (r) { r.onboardingAt = new Date().toISOString(); saveStore(st); } } catch (e) {}
+        try { var st = loadStore(), r = (st[last._monthKey] || [])[last._storeKey]; if (r) { r.onboardingAt = new Date().toISOString(); saveStore(st); last.onboardingAt = r.onboardingAt; } } catch (e) {}
+        try { fcRendre(); } catch (e) {}
+        // dernière étape : clôturer la tâche Close « Configurer » et marquer le client configuré
+        m.innerHTML = '<div class="fc-dup" style="width:min(520px,92vw);max-width:100%;box-sizing:border-box;"><div class="ico-ligne" style="font-size:16px;font-weight:700;display:flex;gap:8px;align-items:center;">' + aujIco('check') + 'Champs écrits dans Close</div><div class="fc-muted" style="margin:6px 0 12px;line-height:1.45;">' + escapeHtml(msg.replace(/^✓\s*/, '')) + '.<br>Quand la configuration est faite (champs, offre, vitrine), termine-la : la tâche Close « Configurer » est clôturée, la fiche passe en « Client configuré » et sort de « À configurer ».</div><div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;"><button class="btn btn-sm" onclick="fermerModalDoublon()">Plus tard</button><button class="btn btn-sm btn-primary" id="ob-fin">' + aujIco('check') + 'Terminer la configuration</button></div></div>';
+        document.getElementById('ob-fin').onclick = function() { fcTerminerConfiguration(this); };
       }).catch(function(e) { b.disabled = false; b.textContent = 'Écrire dans Close'; alert('Onboarding impossible : ' + (e && e.message || e)); });
     };
   }).catch(function(e) { m.innerHTML = '<div class="fc-dup"><div style="font-weight:700;">🚀 Onboarding</div><div style="color:var(--red);margin-top:8px;">Close illisible : ' + escapeHtml(e && e.message || e) + '</div><div style="margin-top:10px;text-align:right;"><button class="btn btn-sm" onclick="fermerModalDoublon()">Fermer</button></div></div>'; });
@@ -5042,7 +5061,7 @@ function fcHtmlOffreTab() {
     var statut = r.result === 'Signé' ? '<span class="fc-pill ok">Offre validée' + (r.dateSignature ? ' le ' + escapeHtml(r.dateSignature) : '') + '</span>' : r.attenteSignature ? '<span class="fc-pill warn">Contrat envoyé · attente de signature' + (r.attenteDepuis ? ' depuis le ' + escapeHtml(fcFrDepuisIso(r.attenteDepuis)) : '') + '</span>' : (r.pack ? '<span class="fc-pill warn">Proposition</span>' : '<span class="fc-muted">pas d\'offre discutée</span>');
     var kv = function(k, v) { return v ? '<div class="fc-kv"><span class="k">' + k + '</span><span class="v">' + escapeHtml(String(v)) + '</span></div>' : ''; };
     return '<div class="fc-card" style="margin-bottom:12px;"><div class="fc-card-t"><span>RDV du ' + escapeHtml(r.date) + (r.heure ? ' à ' + escapeHtml(r.heure) : '') + ' · ' + escapeHtml(r.result || r.presence || 'sans résultat') + '</span>' + statut + '</div>'
-      + kv('Pack', r.pack) + kv('Fréquence', r.freq) + kv('Tier', r.tier) + kv('Mise en service', r.fms) + kv('Remise', r.remise ? r.remise + ' €' : '') + kv('One shot', r.oneshot === 'O' ? 'oui' : '') + kv('Onboarding fait', r.onboardingAt ? fcFrDepuisIso(String(r.onboardingAt).slice(0, 10)) : '')
+      + kv('Pack', r.pack) + kv('Fréquence', r.freq) + kv('Tier', r.tier) + kv('Mise en service', r.fms) + kv('Remise', r.remise ? r.remise + ' €' : '') + kv('One shot', r.oneshot === 'O' ? 'oui' : '') + kv('Onboarding fait', r.onboardingAt ? fcFrDepuisIso(String(r.onboardingAt).slice(0, 10)) : '') + kv('Configuré le', r.configureAt ? fcFrDepuisIso(String(r.configureAt).slice(0, 10)) : '')
       + (r.result === 'Signé' && typeof getComm === 'function' ? '<div class="fc-kv"><span class="k">Commission <span class="fc-src">(interne)</span></span><span class="v">' + Math.round(getComm(r)).toLocaleString('fr-FR') + ' €</span></div>' : '') + '</div>';
   }).join('');
   if (cles.deal) out += '<div class="fc-card"><div class="fc-card-t"><span>D\'après Close</span></div><div class="v" style="font-size:13.5px;">' + escapeHtml(cles.deal) + '</div></div>';
