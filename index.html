@@ -15607,7 +15607,7 @@ body.ec-ouvert .ec-masc { display: none; }
 var EC_SVG = '<svg viewBox="0 0 64 64" aria-hidden="true"><g class="ec-ant"><line x1="32" y1="14" x2="32" y2="7" stroke="#9CC9F5" stroke-width="2.5" stroke-linecap="round"/><circle cx="32" cy="6" r="3" fill="#3FD1C9"/></g><rect x="14" y="14" width="36" height="28" rx="11" fill="#9CC9F5"/><rect x="19" y="19" width="26" height="17" rx="8" fill="#183654"/><g class="ec-oeil"><circle cx="27" cy="27.5" r="3.2" fill="#3FD1C9"/><circle cx="37" cy="27.5" r="3.2" fill="#3FD1C9"/><circle cx="28" cy="26.6" r="1" fill="#fff"/><circle cx="38" cy="26.6" r="1" fill="#fff"/></g><path d="M27 32.5c2.8 2 7.2 2 10 0" stroke="#3FD1C9" stroke-width="1.8" stroke-linecap="round" fill="none"/><rect x="20" y="44" width="24" height="12" rx="6" fill="#9CC9F5"/><rect x="29" y="41" width="6" height="4" rx="1.5" fill="#527DB3"/><circle cx="12" cy="50" r="4" fill="#527DB3"/><circle cx="52" cy="50" r="4" fill="#527DB3"/></svg>';
 var _ec = { ouvert: false, mode: '', conv: [], enCours: null, premier: false };
 try { _ec.mode = localStorage.getItem('sd_eclaireur_mode') || ''; var cv = sessionStorage.getItem('sd_eclaireur_conv'); if (cv) _ec.conv = JSON.parse(cv) || []; } catch (e) {}
-var EC_MODES = [['crm', 'Mes données'], ['web', 'Internet'], ['deux', 'Les deux']];
+var EC_MODES = [['crm', 'Close + SalesDesk'], ['web', 'Internet'], ['deux', 'Les deux']];
 var EC_SUGG = ['Agents du réseau iad actifs autour d\'Annecy', 'Intéressés sans relance depuis 7 jours', 'Qui attend une signature sans tâche prévue ?'];
 function ecIco(n) { return typeof aujIco === 'function' ? aujIco(n) : ''; }
 function ecInit() {
@@ -15621,7 +15621,10 @@ function ecFermer() { _ec.ouvert = false; document.body.classList.remove('ec-ouv
 function ecNouvelle() { ecInterrompre(); _ec.conv = []; ecAccueil(); ecRendre(); var i = document.getElementById('ec-q'); if (i) i.focus(); }
 function ecAccueil() { _ec.conv.push({ de: 'lui', texte: 'Bonjour Nicolas, que cherches-tu ?', sugg: EC_SUGG, choixMode: !_ec.mode }); ecSauver(); }
 function ecSauver() { try { sessionStorage.setItem('sd_eclaireur_conv', JSON.stringify(_ec.conv.slice(-40))); } catch (e) {} }
-function ecMode(m, depuisChoix) { _ec.mode = m; try { localStorage.setItem('sd_eclaireur_mode', m); } catch (e) {} _ec.conv.forEach(function(x) { x.choixMode = false; }); ecSauver(); ecRendre(); if (depuisChoix) { var i = document.getElementById('ec-q'); if (i) i.focus(); } }
+function ecMode(m, depuisChoix) { _ec.mode = m; try { localStorage.setItem('sd_eclaireur_mode', m); } catch (e) {} _ec.conv.forEach(function(x) { x.choixMode = false; });
+  var n = _ec.conv.length, dern = _ec.conv[n - 1], avant = _ec.conv[n - 2]; // une question attendait le mode : elle part maintenant
+  if (dern && dern.interne && avant && avant.de === 'moi' && avant.enAttente && !_ec.enCours) { _ec.conv.splice(n - 2, 2); ecSauver(); ecRendre(); ecPoser(avant.texte); return; }
+  ecSauver(); ecRendre(); if (depuisChoix) { var i = document.getElementById('ec-q'); if (i) i.focus(); } }
 function ecModeLib(m) { return (EC_MODES.find(function(x) { return x[0] === m; }) || ['', '—'])[1]; }
 function ecRendre() {
   var p = document.getElementById('ec-panneau'); if (!p || p.hidden) return;
@@ -15652,6 +15655,7 @@ function ecCarte(c) {
   var x = '<div class="ec-card"><div class="n">' + escapeHtml(c.nom) + '<span class="tag ' + (c.type === 'crm' ? 'crm' : 'web') + '">' + (c.type === 'crm' ? 'Mon CRM' : 'Internet') + '</span>' + (c.fictif ? '<span class="tag demo">Fictif</span>' : '') + '</div>';
   if (c.reseau || c.secteur || c.statut) x += '<div class="m">' + escapeHtml([c.statut, c.reseau, c.secteur].filter(Boolean).join(' · ')) + '</div>';
   x += '<div class="kv">' + kv('Pourquoi ici', c.raison) + kv('Infos publiques', c.infos) + kv('Dernier contact', c.dernier) + kv('Prochaine tâche', c.tache) + '</div>';
+  if (c.indices && c.indices.length) x += '<div class="kv" style="margin-top:6px;">' + c.indices.slice(0, 3).map(function(i2) { return '<b>Indice</b><span>« ' + escapeHtml(i2.texte) + ' »<br><span class="fc-muted">' + escapeHtml((i2.source || '') + (i2.date ? ' · ' + i2.date : '')) + '</span></span>'; }).join('') + '</div>';
   if (c.type === 'web' && c.crm && c.crm !== 'non_verifie') x += '<div style="margin-top:6px;"><span class="match ' + (c.crm === 'deja' ? 'ok' : c.crm === 'possible' ? 'warn' : '') + '" title="' + escapeHtml(c.crmDetail || '') + '">' + (c.crm === 'deja' ? 'Déjà dans le CRM' + (c.crmNom ? ' · ' + escapeHtml(c.crmNom) : '') : c.crm === 'possible' ? 'Correspondance possible' : c.crm === 'inconnu' ? 'CRM non vérifiable' : 'Non retrouvé dans le CRM') + '</span>' + (c.crmDetail ? ' <span class="fc-muted">' + escapeHtml(c.crmDetail) + '</span>' : '') + '</div>';
   if (c.sources && c.sources.length) x += '<div class="src">Sources : ' + c.sources.map(function(s2) { return '<a href="' + escapeHtml(s2.url) + '" target="_blank" rel="noopener">' + escapeHtml(s2.titre || s2.url.replace(/^https?:\/\//, '').slice(0, 50)) + '</a>'; }).join(' · ') + (c.date ? ' · ' + escapeHtml(c.date) : '') + '</div>';
   else if (c.source) x += '<div class="src">Source : ' + (c.lien ? '<a href="' + escapeHtml(c.lien) + '" target="_blank" rel="noopener">' + escapeHtml(c.source) + '</a>' : escapeHtml(c.source)) + (c.date ? ' · ' + escapeHtml(c.date) : '') + '</div>';
@@ -15666,9 +15670,9 @@ function ecPoser(q) { var i = document.getElementById('ec-q'); if (i) i.value = 
 var EC_DEMO = /[?&]eclaireur=demo\b/.test(location.search); // démonstration seulement sur demande explicite ; sinon, recherches réelles via le copilot
 function ecEnvoyer() {
   var i = document.getElementById('ec-q'), q = i ? i.value.trim() : ''; if (!q || _ec.enCours) return;
-  if (!_ec.mode) { _ec.conv.push({ de: 'moi', texte: q }); _ec.conv.push({ de: 'lui', texte: 'Où veux-tu que je cherche ?', choixMode: true }); ecSauver(); ecRendre(); return; }
-  var hist = _ec.conv.filter(function(m) { return (m.de === 'moi' || (m.de === 'lui' && m.texte && m.etat !== 'recherche')) && !m.choixMode; }).slice(-6).map(function(m) { return { role: m.de === 'moi' ? 'user' : 'assistant', content: m.texte }; });
-  _ec.conv.push({ de: 'moi', texte: q }); var attente = { de: 'lui', etat: 'recherche', texte: 'Recherche ' + ({ crm: 'dans tes données', web: 'sur Internet', deux: 'dans tes données et sur Internet' })[_ec.mode] + '…' }; _ec.conv.push(attente); ecSauver();
+  if (!_ec.mode) { _ec.conv.push({ de: 'moi', texte: q, enAttente: true }); _ec.conv.push({ de: 'lui', texte: 'Où veux-tu que je cherche ?', choixMode: true, interne: true }); ecSauver(); ecRendre(); return; }
+  var hist = _ec.conv.filter(function(m) { return (m.de === 'moi' || (m.de === 'lui' && m.texte && m.etat !== 'recherche')) && !m.choixMode && !m.interne && !m.enAttente; }).slice(-6).map(function(m) { return { role: m.de === 'moi' ? 'user' : 'assistant', content: m.texte }; });
+  _ec.conv.push({ de: 'moi', texte: q }); var attente = { de: 'lui', etat: 'recherche', texte: 'Recherche ' + ({ crm: 'dans Close et SalesDesk', web: 'sur Internet', deux: 'dans Close, SalesDesk et sur Internet' })[_ec.mode] + '…' }; _ec.conv.push(attente); ecSauver();
   var b = document.getElementById('ec-mascotte'); if (b) b.classList.add('cherche');
   var fini = function(rep) { _ec.enCours = null; if (b) b.classList.remove('cherche'); var idx = _ec.conv.indexOf(attente); if (idx >= 0) _ec.conv[idx] = rep; else _ec.conv.push(rep); ecSauver(); ecRendre(); var i2 = document.getElementById('ec-q'); if (i2) i2.focus(); };
   if (EC_DEMO) { _ec.enCours = { demo: setTimeout(function() { fini(ecRepondreDemo(q, _ec.mode)); }, 1400) }; ecRendre(); return; }
