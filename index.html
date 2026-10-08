@@ -11343,12 +11343,30 @@ function aujBrief(d) { // brief complet d'un dossier (chargé une fois)
 }
 // ── Déplacer ou annuler un RDV depuis Aujourd'hui. C'est Calendly qui fait foi : il met à jour Google Agenda et prévient le prospect ; Close suit ton agenda. SalesDesk note le résultat et pose le statut Close. ──
 var _dp = null;
-function sdDeplacerAnnuler(nom, jourIso, heure) {
-  var r = aujRdvsDu(jourIso).find(function(x) { return fcNormNom(x.nom) === fcNormNom(nom) && (!heure || (x.heure || '') === heure); }); if (!r) return;
-  _dp = { r: r, jour: jourIso, invite: null, erreur: '', date: '', creneaux: null, choix: '', choixH: '', cErr: '' };
+function sdDpMajR1(st, r, jourIso, fn) { // les lignes R1 dont la date R2 est ce rendez-vous (R2 sans ligne propre)
+  var fr = jourIso.split('-').reverse().join('/'), n = fcNormNom(r.nom), touche = 0;
+  Object.keys(st).forEach(function(k) { if (!/^\d{4}-\d{2}$/.test(k)) return; (st[k] || []).forEach(function(x) { if (x && x.source !== 'R2' && x.dateR2 === fr && fcNormNom(x.client || '') === n) { fn(x); touche++; } }); });
+  return touche;
+}
+function sdDeplacerAnnuler(nom, jourIso, heure, deuxieme) {
   var ov = document.getElementById('fc-dup-overlay');
   if (!ov) { ov = document.createElement('div'); ov.id = 'fc-dup-overlay'; ov.className = 'modal-overlay'; ov.style.zIndex = '1300'; ov.innerHTML = '<div class="modal" id="fc-dup-modal"></div>'; document.body.appendChild(ov); }
   ov.onclick = function(ev) { if (ev.target === ov) fermerModalDoublon(); }; ov.classList.add('open');
+  var r = aujRdvsDu(jourIso).find(function(x) { return fcNormNom(x.nom) === fcNormNom(nom) && (!heure || (x.heure || '') === heure); });
+  if (!r) {
+    var lundi = rlLundiDe(jourIso), etat = (_auj.calEtat || {})[lundi], cleCal = (state.calendly && state.calendly.apiKey) || localStorage.getItem('calendly_key');
+    if (!deuxieme && cleCal && etat !== 'ok' && etat !== 'erreur') { // la semaine du RDV n'est pas encore lue dans Calendly (le bouton ne faisait rien pour un R2 de la semaine suivante) : on la charge puis on réessaie
+      document.getElementById('fc-dup-modal').innerHTML = '<div class="fc-dup"><div style="font-size:17px;font-weight:800;">' + escapeHtml(nom) + '</div><div class="fc-muted" style="margin-top:8px;">Lecture de Calendly pour cette semaine…</div></div>';
+      try { aujChargerSemaine(lundi); } catch (e) {}
+      var t0 = Date.now(); (function att() { var e2 = (_auj.calEtat || {})[lundi]; if (e2 === 'ok' || e2 === 'erreur' || Date.now() - t0 > 10000) { sdDeplacerAnnuler(nom, jourIso, heure, true); return; } setTimeout(att, 300); })();
+      return;
+    }
+    // R2 connu seulement par la date R2 de la ligne R1 (pas d'événement Calendly lisible) : fenêtre « pas pris par Calendly », le résultat se note sur la ligne R1
+    var frJ = jourIso.split('-').reverse().join('/'), r1 = null; try { r1 = fcLignesDuNom(nom).find(function(x) { return x.source !== 'R2' && x.dateR2 === frJ && ['Show', 'No Show', 'Annulé'].indexOf(String(x.presenceR2 || '').trim()) < 0; }) || null; } catch (e) {}
+    if (!r1) { fermerModalDoublon(); if (typeof showCopyToast === 'function') showCopyToast('Rendez-vous introuvable : ' + nom + ' le ' + frJ); return; }
+    r = { nom: nom, email: String(r1.email || '').toLowerCase(), heure: heure || r1.heureR2 || '', source: 'R2', r2: true, row: null, join: '', start: null, end: null };
+  }
+  _dp = { r: r, jour: jourIso, invite: null, erreur: '', date: '', creneaux: null, choix: '', choixH: '', cErr: '' };
   sdDpRendre();
   var cle = (state.calendly && state.calendly.apiKey) || localStorage.getItem('calendly_key');
   if (r.uri && cle) fetch(r.uri + '/invitees?count=20', { headers: { Authorization: 'Bearer ' + cle } }).then(function(x) { if (!x.ok) throw new Error('Calendly ' + x.status); return x.json(); })
@@ -11406,6 +11424,7 @@ function sdDpDeplacer() { // le copilot réserve le nouveau créneau puis annule
       if (!dejaLa) { var neuf = { date: fr, heure: j.heure || '', client: row.client, email: row.email || '', source: row.source || 'Inbound', type: row.type || 'Mandataire', presence: '', result: '', pack: '', freq: '', tier: row.tier || '', fms: row.fms || '', oneshot: 'N', commission: 0, remise: '', dateR2: '', heureR2: '', datePrise: row.datePrise || '', closeLead: row.closeLead || '', typeSource: row.typeSource || '', deplaceDe: row.date, _calendlyImported: true }; (st[mkN] = st[mkN] || []).push(neuf); }
       if (j.surMonLien && j.nouveau) { st._calDeplaces = st._calDeplaces || {}; st._calDeplaces[j.nouveau] = { source: row.source || 'Inbound', de: row.date, at: new Date().toISOString() }; window._calDeplacesMem = st._calDeplaces; }
       saveStore(st); try { sdStatutClose(Object.assign({}, row), 'reprogramme'); } catch (e) {} }
+    else if (r.r2) { if (sdDpMajR1(st, r, d.jour, function(x) { x.dateR2 = fr; x.heureR2 = j.heure || ''; delete x.presenceR2; })) saveStore(st); } // R2 sans ligne propre : la date R2 de la ligne R1 suit
     fermerModalDoublon(); _dp = null;
     if (j.avertissement) alert(j.avertissement);
     if (typeof showCopyToast === 'function') showCopyToast('✓ Déplacé au ' + new Date(j.date + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }) + ' à ' + j.heure);
@@ -11423,6 +11442,7 @@ function sdDpAnnuler(btn) {
 function sdDpFait(presence, parCalendly) { // SalesDesk note le résultat sur la ligne, Close reçoit le statut ; l'agenda est relu
   var d = _dp; if (!d) return; var r = d.r, st = loadStore(), row = r.row ? (st[r.row._monthKey] || [])[r.row._storeKey] : null;
   if (row) { row.presence = presence; if (presence !== 'Show') row.result = ''; saveStore(st); try { sdStatutClose(Object.assign({}, row), presence === 'Annulé' ? 'annule' : 'reprogramme'); } catch (e) {} }
+  else if (r.r2) { if (sdDpMajR1(st, r, d.jour, function(x) { x.presenceR2 = presence; })) saveStore(st); } // R2 sans ligne propre : présence R2 notée sur la ligne R1 (le statut Close du R1 ne bouge pas)
   fermerModalDoublon(); _dp = null;
   if (typeof showCopyToast === 'function') showCopyToast(presence === 'Annulé' ? '✓ Rendez-vous annulé' + (parCalendly ? ' dans Calendly et ton agenda' : ' (noté)') : '✓ Rendez-vous déplacé : le nouveau créneau arrive de Calendly');
   try { _auj.calEtat = {}; _auj.cal = {}; } catch (e) {} try { refreshAll(); } catch (e) {} renderAujourdhui();
