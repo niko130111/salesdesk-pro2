@@ -6760,7 +6760,7 @@ function mkTextMK(val, idx, field, placeholder, w, monthKey) {
 
 // ====== NAVIGATION ======
 // Onglet Mes RDV : charge le copilot local dans l'iframe si le serveur tourne, sinon affiche la marche à suivre.
-const COPILOT_URL = 'http://127.0.0.1:3015';
+const COPILOT_URL = (/^\/salesdesk(\/|$)/.test(location.pathname) && /^https?:$/.test(location.protocol) && location.hostname !== 'niko130111.github.io') ? location.origin : 'http://127.0.0.1:3015'; // servi par le copilot (http://<ip du Mac>:3015/salesdesk/ depuis le MacBook Air) : même origine ; sinon le copilot de cette machine
 let _copilotCharge = false;
 function ouvrirCopilot() {
   const frame = document.getElementById('copilot-frame'), off = document.getElementById('copilot-off');
