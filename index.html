@@ -1039,7 +1039,7 @@ select.form-input { cursor: pointer; }
     </div>
     <div class="theme-pick" id="theme-pick" title="Thème"><button data-t="light" onclick="setTheme('light')" title="Clair">☀️</button><button data-t="dark" onclick="setTheme('dark')" title="Bleu nuit">🌙</button><button data-t="system" onclick="setTheme('system')" title="Suit le thème de l'appareil">Auto</button></div>
     <span class="sync-status" style="font-size:11px;font-weight:600;margin-left:8px;transition:color .3s;"></span>
-    <button class="btn btn-sm btn-primary" id="nav-nouveau-rdv" style="display:none" onclick="openModal('newRdvModal')">+ Nouveau RDV</button>
+    <button class="btn btn-sm btn-primary" id="nav-nouveau-rdv" style="display:none" onclick="openModal('newRdvModal')">+ Ajouter un RDV</button>
     <div class="avatar" onclick="showPage('settings', document.querySelector('.nav-tab[data-page=settings]'))">N</div>
   </div>
 </nav>
@@ -2104,7 +2104,7 @@ select.form-input { cursor: pointer; }
       <div style="font-size:11px;color:var(--text3);margin-top:2px;">Mois sélectionné · Intéressés, À relancer, Pas de budget, Si promo, Ghost : mois en cours + reliquat depuis mars 2026 · Pas intéressé et No Shows : mois en cours seulement</div>
     </div>
     <span class="sync-status" style="font-size:11px;font-weight:600;margin-left:8px;transition:color .3s;"></span>
-    <button class="btn btn-sm btn-primary" onclick="openModal('newRdvModal')">+ Nouveau RDV</button>
+    <button class="btn btn-sm btn-primary" onclick="openModal('newRdvModal')">+ Ajouter un RDV</button>
   </div>
 
   <!-- Résumé rapide -->
@@ -2246,7 +2246,7 @@ select.form-input { cursor: pointer; }
     <div class="section-title">RDV — <span id="rdvtable-period">Avril 2026</span> <span style="font-size:10px;font-weight:400;color:var(--text3);text-transform:none;letter-spacing:0;">· Double-clic pour modifier une ligne</span></div>
     <div class="flex gap-8">
     <span class="sync-status" style="font-size:11px;font-weight:600;margin-left:8px;transition:color .3s;"></span>
-    <button class="btn btn-sm btn-primary" onclick="openModal('newRdvModal')">+ Nouveau RDV</button>
+    <button class="btn btn-sm btn-primary" onclick="openModal('newRdvModal')">+ Ajouter un RDV</button>
     </div>
   </div>
 
@@ -2916,7 +2916,7 @@ select.form-input { cursor: pointer; }
 <!-- NEW RDV MODAL -->
 <div class="modal-overlay" id="newRdvModal">
   <div class="modal">
-    <div class="modal-title">+ Nouveau RDV</div>
+    <div class="modal-title">+ Ajouter un RDV</div>
     <div class="form-row">
       <div class="form-group">
         <label class="form-label">Client</label>
@@ -4442,7 +4442,7 @@ function rlAction(ix, action, btn) {
     rlPost('/close/appel-sans-reponse', { lead: id.lead, nom: id.nom, email: id.email, note: 'Pas de réponse · ' + lib + ' · appel ' + n + ' (SalesDesk)' }).catch(function() {})
       .then(function() { return tacheClose(date, lib + ' · appel ' + (n + 1) + (it.col !== 'r2' ? '/' + cad.length : '') + ''); })
       .then(function() { rlPoserSuivi(it, { tentatives: n, col: it.col, dernier: 'pas_de_reponse', prochaine: date }); return rlMajRelance(it, 'pas_de_reponse', date); })
-      .then(function() { fini('📵 Pas de réponse (' + n + ') → ' + fcFrDepuisIso(date) + (it.col === 'r2' && n >= 3 ? ' · pense à passer la main (👔)' : '')); if (it.col !== 'r2' && (n === 2 || n === 4)) rlProposerSms(it, id, n === 2 ? 'appel2' : 'appel4'); })
+      .then(function() { fini('📭 Sans réponse (' + n + ') → ' + fcFrDepuisIso(date) + (it.col === 'r2' && n >= 3 ? ' · pense à passer la main (👔)' : '')); if (it.col !== 'r2' && (n === 2 || n === 4)) rlProposerSms(it, id, n === 2 ? 'appel2' : 'appel4'); })
       .catch(echec);
     return;
   }
@@ -5174,7 +5174,7 @@ function fcPopupRaison(monthKey, idx) {
   var html = '<div class="fc-dup"><div style="font-size:16px;font-weight:700;margin-bottom:2px;">' + escapeHtml(r.client) + ' — pourquoi non signé ?</div>'
     + '<div style="font-size:12px;color:var(--text3);margin-bottom:10px;">' + escapeHtml(r.date || '') + ' · un non signé a toujours une raison, c\'est sa colonne dans le Pipeline.</div>'
     + choix.map(function(c) { return '<button class="fc-dup-item" style="font-weight:700;color:' + c[2] + ';" onclick="fcRaisonChoisir(' + JSON.stringify(monthKey).replace(/"/g, '&quot;') + ',' + idx + ',\'' + c[0] + '\')">' + c[1] + '</button>'; }).join('')
-    + '<div style="text-align:right;margin-top:12px;"><button class="btn btn-sm" onclick="fermerModalPlusTard()">Plus tard</button></div></div>';
+    + '<div style="text-align:right;margin-top:12px;"><button class="btn btn-sm" onclick="fermerModalPlusTard()">Fermer</button></div></div>';
   var ov = document.getElementById('fc-dup-overlay');
   if (!ov) { ov = document.createElement('div'); ov.id = 'fc-dup-overlay'; ov.className = 'modal-overlay'; ov.style.zIndex = '1300'; ov.innerHTML = '<div class="modal" id="fc-dup-modal"></div>'; document.body.appendChild(ov); }
   ov.onclick = function(ev) { if (ev.target === ov) fermerModalPlusTard(); };
@@ -5509,7 +5509,7 @@ function fcDetecterDoublonsPipeline(cols) {
       + '<div style="font-size:12px;color:var(--text3);margin:2px 0 6px;">Récent : ' + escapeHtml(g.recent.date) + ' · ' + escapeHtml(g.recent.result || g.recent.presence || '—') + ' &nbsp;|&nbsp; Ancien : ' + g.anciens.map(function(a) { return escapeHtml(a.date) + ' · ' + escapeHtml(a.result || a.presence || '—'); }).join(', ') + '</div>'
       + '<div style="display:flex;gap:6px;"><button class="btn btn-sm btn-primary" style="font-size:11px;" onclick="fcSupprimerAnciens(' + i + ')">Retirer l\'ancienne carte</button><button class="btn btn-sm" style="font-size:11px;" onclick="fcGarderDoublon(' + i + ')">Garder les deux</button></div></div>';
   });
-  html += '<div style="text-align:right;margin-top:12px;"><button class="btn btn-sm" onclick="fermerModalDoublon()">Plus tard</button></div></div>';
+  html += '<div style="text-align:right;margin-top:12px;"><button class="btn btn-sm" onclick="fermerModalDoublon()">Fermer</button></div></div>';
   window._fcGroupes = groupes;
   var ov = document.getElementById('fc-dup-overlay');
   if (!ov) { ov = document.createElement('div'); ov.id = 'fc-dup-overlay'; ov.className = 'modal-overlay'; ov.style.zIndex = '1300'; ov.innerHTML = '<div class="modal" id="fc-dup-modal"></div>'; document.body.appendChild(ov); ov.onclick = function(ev) { if (ev.target === ov) fermerModalDoublon(); }; }
@@ -10805,7 +10805,7 @@ function sdAqRendre() {
     + '<div class="ar-lab">Que fais-tu ?</div><div class="ar-pills">' + P('auj', '📞 Je le rappelle aujourd\'hui') + P('demain', '📅 Relance demain') + P('date', '📅 À une date') + P('stop', '✋ Laisser tomber') + '</div>'
     + (q.choix === 'date' ? '<div class="ar-row"><input type="date" min="' + auj + '" value="' + escapeHtml(q.date) + '" onchange="_aq.date=this.value;sdAqRendre()"></div>' : '')
     + (q.choix ? '<div class="ar-row"><input type="text" id="aq-mot" placeholder="Un mot pour la note Close (facultatif)" value="' + escapeHtml(q.mot) + '" oninput="_aq.mot=this.value" style="flex:1;"></div><div class="fc-muted" style="margin-top:8px;">Ce qui sera fait :<br>• ' + fera.map(escapeHtml).join('<br>• ') + '</div>' : '')
-    + '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px;"><button class="btn" onclick="fermerModalDoublon()">Plus tard</button><button class="btn btn-primary"' + ((!q.choix || q.enCours || (q.choix === 'date' && !q.date)) ? ' disabled' : '') + ' onclick="sdAqValider()">' + (q.enCours ? 'Écriture dans Close…' : 'Valider') + '</button></div></div>';
+    + '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px;"><button class="btn" onclick="fermerModalDoublon()">Fermer</button><button class="btn btn-primary"' + ((!q.choix || q.enCours || (q.choix === 'date' && !q.date)) ? ' disabled' : '') + ' onclick="sdAqValider()">' + (q.enCours ? 'Écriture dans Close…' : 'Valider') + '</button></div></div>';
   document.getElementById('fc-dup-modal').innerHTML = h;
 }
 function sdAqValider() {
@@ -11025,7 +11025,7 @@ function sdVerifDemainMaj() {
   var html = '<div class="fc-dup" style="width:min(620px,88vw);max-width:100%;box-sizing:border-box;"><div style="font-size:17px;font-weight:800;margin-bottom:2px;">Vérifie les RDV de ' + escapeHtml(rdvs.every(function(r) { return r.jour === rdvs[0].jour; }) ? jour : 'ces prochains jours') + '</div>'
     + '<div class="fc-muted" style="margin-bottom:12px;">Pour chacun, dis ce que tu veux. <b>Seuls ceux marqués « Relancer par SMS » reçoivent un message.</b> Sans choix, il ne se passe rien pour lui.</div>'
     + lignes
-    + '<div style="display:flex;gap:8px;justify-content:flex-end;align-items:center;margin-top:14px;flex-wrap:wrap;"><span class="fc-muted" style="margin-right:auto;">' + nOui + ' confirmé' + (nOui > 1 ? 's' : '') + ' · <b>' + nRel + ' SMS de relance</b> à envoyer' + (nAnn ? ' · <b style="color:var(--red)">' + nAnn + ' annulé' + (nAnn > 1 ? 's' : '') + '</b> (no-show, Calendly annulé, relance dans 2 jours ouvrés)' : '') + (tot ? ' · relances possibles à partir de 13 h' : '') + '</span><button class="btn" onclick="fermerModalDoublon()">Plus tard</button><button class="btn btn-primary" onclick="sdVerifDemainValider()">' + (nRel ? 'Valider et envoyer ' + nRel + ' SMS' : nAnn ? 'Valider' : 'Valider (aucun SMS)') + '</button></div></div>';
+    + '<div style="display:flex;gap:8px;justify-content:flex-end;align-items:center;margin-top:14px;flex-wrap:wrap;"><span class="fc-muted" style="margin-right:auto;">' + nOui + ' confirmé' + (nOui > 1 ? 's' : '') + ' · <b>' + nRel + ' SMS de relance</b> à envoyer' + (nAnn ? ' · <b style="color:var(--red)">' + nAnn + ' annulé' + (nAnn > 1 ? 's' : '') + '</b> (no-show, Calendly annulé, relance dans 2 jours ouvrés)' : '') + (tot ? ' · relances possibles à partir de 13 h' : '') + '</span><button class="btn" onclick="fermerModalDoublon()">Fermer</button><button class="btn btn-primary" onclick="sdVerifDemainValider()">' + (nRel ? 'Valider et envoyer ' + nRel + ' SMS' : nAnn ? 'Valider' : 'Valider (aucun SMS)') + '</button></div></div>';
   var ovV = document.getElementById('fc-dup-overlay'); if (ovV && ovV.classList.contains('open') && ovV.dataset.vd === '1' && document.getElementById('fc-dup-modal')) document.getElementById('fc-dup-modal').innerHTML = html; // seulement si c'est bien la fenêtre de vérification qui est ouverte (sinon elle écrasait la fenêtre en cours)
   aujRendreDemain(faireLignes(true), nOui, nRel, nAnn, tot, jour);
 }
@@ -11078,7 +11078,7 @@ function sdResultatJour(mk, idx, nom, iso, heure) {
     + (aVenir ? '' : B('rj-noshow', '👻 No show', 'il n\'est pas venu : ligne en No Show, statut Close, puis tâche de rappel au lendemain, rien, ou perdu', 'var(--red)'))
     + B('rj-annule', '✖ Annulé', 'il a annulé : rappel à une date, reprogrammer, ou rien ; Calendly et Close mis à jour')
     + B('rj-repro', '🔄 Reprogrammé', 'tu choisis le nouveau créneau, la ligne passe en Reprogrammé')
-    + '<div style="text-align:right;margin-top:12px;"><button class="btn btn-sm" onclick="fermerModalDoublon()">Plus tard</button></div></div>';
+    + '<div style="text-align:right;margin-top:12px;"><button class="btn btn-sm" onclick="fermerModalDoublon()">Fermer</button></div></div>';
   if (!aVenir) { document.getElementById('rj-show').onclick = function() { fermerModalDoublon(); sdApresRdvPour(nom, iso); }; document.getElementById('rj-noshow').onclick = function() { fermerModalDoublon(); setTimeout(function() { sdNoShowDepuisJour(mk, idx); }, 150); }; }
   document.getElementById('rj-annule').onclick = function() { fermerModalDoublon(); setTimeout(function() { sdAnnulationChoix({ nom: nom, iso: iso, heure: heure || '', mk: mk, idx: idx, motif: 'rdv annulé (aujourd\'hui)', apres: function() { try { renderAujourdhui(); } catch (e) {} } }); }, 150); };
   document.getElementById('rj-repro').onclick = function() { fermerModalDoublon(); try { sdDeplacerAnnuler(nom, iso, heure || ''); } catch (e) { alert('Déplacement impossible : ' + e.message); } };
@@ -11801,24 +11801,6 @@ function svCharger(it) { // contexte Close du prospect choisi (une fois par pros
     .then(function(j) { var l = (j.leads || []).find(function(x) { return !lead || x.id === lead; }) || (j.leads || [])[0]; var tel = ''; if (l) (l.contacts || []).some(function(c) { tel = ((c.tels || [])[0]) || ''; return !!tel; }); _sv.tel[cle] = { tel: tel, url: l ? l.url : '' }; if (_sv.sel === cle) renderRelancesPage(); }).catch(function() {});
 }
 function svAppeler(ev, cle) { var x = _sv.tel[cle] || {}, it = (window._rlItems || []).find(function(i) { return i.cle === cle; }); var url = x.url || (it && it.t && it.t.lead ? 'https://app.close.com/lead/' + it.t.lead + '/' : ''); if (!url && !x.tel) { if (typeof showCopyToast === 'function') showCopyToast('Fiche Close introuvable pour cet appel'); return; } fcAppeler(ev, x.tel || '', url); }
-// Après « Appeler » : une seule fenêtre pour dire ce qui s'est passé (sans réponse, joint, RDV pris, clôturer, manager). Elle reste ouverte pendant l'appel ; « Plus tard » la ferme sans rien faire.
-function svApresAppel(cle) {
-  var it = (window._rlItems || []).find(function(i) { return i.cle === cle; }); if (!it) return;
-  var cleJs = JSON.stringify(cle).replace(/"/g, '&quot;'), nb = (rlSuivi(it).tentatives || 0);
-  var B = function(action, lib, det, cls) { return '<button class="fc-dup-item" onclick="fermerModalDoublon();rlAction(' + cleJs + ', \'' + action + '\', null)"><b' + (cls ? ' style="color:' + cls + '"' : '') + '>' + lib + '</b><div style="font-size:12px;color:var(--text3);">' + det + '</div></button>'; };
-  var html = '<div class="fc-dup" style="width:min(520px,84vw);max-width:100%;box-sizing:border-box;"><div style="font-size:16px;font-weight:800;margin-bottom:2px;">📞 ' + escapeHtml(it.nom) + '</div><div class="fc-muted" style="margin-bottom:12px;">' + escapeHtml(RL_LIBELLES[it.col] || it.col) + (nb ? ' · ' + nb + ' appel' + (nb > 1 ? 's' : '') + ' déjà passé' + (nb > 1 ? 's' : '') : '') + ' — qu\'est-ce que ça a donné ?</div>'
-    + B('pas_reponse', '📭 Sans réponse', 'nouvelle tâche à la prochaine étape de la cadence, SMS si prévu')
-    + B('joint', '📞 Joint, on avance', 'tu choisis la date du prochain rappel')
-    + B('rdv_pris', '📆 Prendre un RDV', 'tu choisis le créneau, je réserve dans Calendly, la tâche est terminée', 'var(--green)')
-    + B('supprimer', '✅ Clôturer la tâche', 'la tâche Close est terminée, la relance s\'arrête')
-    + B('manager', '👔 Passer au manager', 'note épinglée + tâche pour ' + RL_MANAGER + ' dans Close')
-    + '<div style="text-align:right;margin-top:12px;"><button class="btn btn-sm" onclick="fermerModalDoublon()">Plus tard</button></div></div>';
-  var ov = document.getElementById('fc-dup-overlay');
-  if (!ov) { ov = document.createElement('div'); ov.id = 'fc-dup-overlay'; ov.className = 'modal-overlay'; ov.style.zIndex = '1300'; ov.innerHTML = '<div class="modal" id="fc-dup-modal"></div>'; document.body.appendChild(ov); }
-  ov.onclick = function(ev) { if (ev.target === ov) fermerModalDoublon(); };
-  document.getElementById('fc-dup-modal').innerHTML = html; ov.classList.add('open'); ov.classList.add('a-gauche'); // la fiche reste visible à droite
-}
-// Déplacer (le « snooze » de Close) : une tâche ou toutes celles cochées, au jour choisi. Rien d'autre ne change (texte, cadence, compteur d'appels). L'heure d'une tâche est gardée.
 function svDeplacerVers(cles, date, heure) {
   var its = cles.map(function(c) { return (window._rlItems || []).find(function(i) { return i.cle === c; }); }).filter(function(i) { return i && i.t; });
   if (!its.length) { if (typeof showCopyToast === 'function') showCopyToast('Aucune tâche Close à déplacer dans la sélection'); return; }
@@ -11921,7 +11903,7 @@ function svRendreFile(items, today) {
   _sv.visibles = ordre.filter(function(it) { return it.t; }).map(function(it) { return it.cle; });
   _sv.coches = _sv.coches || {}; Object.keys(_sv.coches).forEach(function(c) { if (_sv.visibles.indexOf(c) < 0) delete _sv.coches[c]; });
   var nC = svCochees().length;
-  var selbar = '<div class="sv-selbar" id="sv-selbar" style="display:' + (nC ? 'flex' : 'none') + ';"><b id="sv-selbar-n">' + nC + ' tâche' + (nC > 1 ? 's' : '') + ' cochée' + (nC > 1 ? 's' : '') + '</b><button class="btn btn-sm btn-primary" onclick="svDeplacerCochees(\'demain\')">Déplacer à demain</button><button class="btn btn-sm" onclick="svDeplacerCochees(\'date\')">Déplacer au…</button><button class="btn btn-sm" onclick="svToutCocher(false)">Décocher</button></div>';
+  var selbar = '<div class="sv-selbar" id="sv-selbar" style="display:' + (nC ? 'flex' : 'none') + ';"><b id="sv-selbar-n">' + nC + ' tâche' + (nC > 1 ? 's' : '') + ' cochée' + (nC > 1 ? 's' : '') + '</b><button class="btn btn-sm btn-primary" onclick="svDeplacerCochees(\'demain\')">Reporter à demain</button><button class="btn btn-sm" onclick="svDeplacerCochees(\'date\')">Reporter au…</button><button class="btn btn-sm" onclick="svToutCocher(false)">Décocher</button></div>';
   var tete = '<div class="sv-tete"><label><input type="checkbox" class="sv-ck"' + (nC && nC === _sv.visibles.length ? ' checked' : '') + ' onclick="svToutCocher(this.checked)"> Tout cocher (' + _sv.visibles.length + ')</label></div>';
   var posListe = (document.getElementById('sv-liste') || {}).scrollTop || 0;
   el.innerHTML = bar + '<div class="sv-grid"><div><div class="sv-liste" id="sv-liste">' + tete + selbar + liste + '</div></div><div class="sv-pan">' + pan + '</div></div>';
@@ -15133,7 +15115,7 @@ window.addEventListener('load', function() {
       <div class="ar-col" id="ar-c2"></div>
       <div class="ar-col" id="ar-c3"></div>
     </div>
-    <div class="ar-foot"><div class="ar-ecrit" id="ar-ecrit"></div><button class="btn" onclick="arFermer()">Plus tard</button><button class="btn btn-primary" id="ar-valider" onclick="arValiderSuivi()">✓ Valider le suivi</button></div>
+    <div class="ar-foot"><div class="ar-ecrit" id="ar-ecrit"></div><button class="btn" onclick="arFermer()">Fermer</button><button class="btn btn-primary" id="ar-valider" onclick="arValiderSuivi()">✓ Valider le suivi</button></div>
   </div>
 </div>
 <div id="fc-overlay" class="fc-overlay" onclick="if(event.target===this)fermerFicheClient()">
