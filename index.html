@@ -4349,7 +4349,7 @@ function fcRendreProchaineEtape() {
     var dateRel = (t && t.date) || (last.relanceDate && !last.relanceFait ? last.relanceDate : '');
     if (sv && sv.escalade) { lib = 'Passé à ' + (sv.escalade.a || RL_MANAGER); det = 'le ' + fcFrDepuisIso(sv.escalade.date) + ' — en attente de son retour'; }
     else if (dateRel) { var ret = dateRel < todayIso; lib = (ret ? '⏰ À rappeler depuis le ' : 'À rappeler le ') + fcFrDepuisIso(dateRel); det = (t && t.texte && !/^follow ?up/i.test(t.texte) ? t.texte : (last.relanceCond || '')) + (sv && sv.tentatives ? (det ? ' · ' : '') + sv.tentatives + ' appel(s) sans réponse' : ''); itS = t ? fcItemSuiviPour(t) : null; }
-    else if (last.result === 'Non signé' && last.nosignRaison === 'pasinteresse') { lib = 'Pas intéressé'; det = 'Dossier clos'; }
+    else if (last.result === 'Non signé' && last.nosignRaison === 'pasinteresse') { lib = 'Pas intéressé'; det = (last.relanceDate && !last.relanceFait) ? 'Rappel prévu le ' + fcFrDepuisIso(last.relanceDate) + (last.relanceCond ? ' · ' + last.relanceCond : '') : 'Dossier clos'; }
     else if (['No Show', 'Annulé', 'Reprogrammé'].indexOf(pres) >= 0) { lib = pres + ' le ' + last.date; det = 'Aucune relance posée'; }
     else { lib = 'Aucune prochaine étape'; det = SD_INTERESSE.indexOf(String(last.result || '').trim()) >= 0 ? 'Intéressé sans suite : R2 ou rappel ?' : 'À décider'; }
   }
@@ -4560,7 +4560,7 @@ function fcHtmlCles(j, mode, rowsRef) { // mode 'essentiel' = ce qu'il faut avoi
   if (mode === 'reste') return out.join('');
   var badges = [];
   if (c.demo_faite) badges.push('<span class="fc-badge">🎬 Démo déjà faite le ' + escapeHtml(c.demo_faite) + ' — ne pas re-pitcher</span>');
-  var dossierClos = (rowsRef || _fc.rows || []).some(function(r) { return r && (r.result === 'Signé' || (r.result === 'Non signé' && r.nosignRaison === 'pasinteresse')); });
+  var dossierClos = (rowsRef || _fc.rows || []).some(function(r) { return r && (r.result === 'Signé' || (r.result === 'Non signé' && r.nosignRaison === 'pasinteresse' && !(r.relanceDate && !r.relanceFait))); });
   if (!dossierClos && j.tentativesDepuis === 1 && j.dernierAppel && !j.dernierAppel.joint) { var dA = frVersIsoSd(j.dernierAppel.date), tA = rlIso(new Date()), qA = dA === tA ? 'aujourd\'hui' : dA === rlPlus(tA, -1) ? 'hier' : 'le ' + j.dernierAppel.date; badges.push('<span class="fc-badge" style="background:var(--soft-orange);color:var(--orange);">📵 Appel sans réponse ' + escapeHtml(qA) + (j.dernierAppel.par && !/lapeyre/i.test(j.dernierAppel.par) ? ' par ' + escapeHtml(j.dernierAppel.par) : ' (toi)') + (j.dernierAppel.duree ? ' · ' + j.dernierAppel.duree + ' s' : '') + '</span>'); } // 1re tentative depuis le dernier vrai échange : visible tout de suite, pas seulement dans la ligne grise du bas
   if (!dossierClos && j.tentativesDepuis >= 2) badges.push('<span class="fc-badge" style="background:var(--soft-red);color:var(--red);">📵 ' + j.tentativesDepuis + ' appels sans réponse' + (j.derniereConversation ? ' depuis le ' + escapeHtml(j.derniereConversation.date) : '') + ' → tenter SMS / mail</span>');
   if (badges.length) out.push('<div class="fc-badges" style="margin-top:6px;">' + badges.join('') + '</div>');
@@ -5036,7 +5036,7 @@ function fcHtmlSynthese() {
   var trouveS = function(re, seulementClient) { var l = ss.find(function(x) { return re.test(String(x.texte).split(':')[0]) && (!seulementClient || x.qui === 'client' || x.qui === 'collegue'); }); return l ? { val: contenu(l), src: srcDe(l), ligne: l } : null; };
   var trouve = function(re) { if (ss.length) { var t = trouveS(re, false); return t ? t.val : ''; } var l = syn.find(function(x) { return re.test(String(x).split(':')[0]); }); return l ? contenu(l) : ''; };
   var kv = function(lab, val, src) { return '<div class="fc-kv"><span class="k">' + lab + '</span><span class="v' + (val ? '' : ' fc-aclarifier') + '">' + (val ? escapeHtml(val) : 'À clarifier') + (src ? '<div class="fc-src">' + escapeHtml(src) + '</div>' : '') + '</span></div>'; };
-  var dossierClos = _fc.rows.some(function(r) { return r.result === 'Signé' || (r.result === 'Non signé' && r.nosignRaison === 'pasinteresse'); });
+  var dossierClos = _fc.rows.some(function(r) { return r.result === 'Signé' || (r.result === 'Non signé' && r.nosignRaison === 'pasinteresse' && !(r.relanceDate && !r.relanceFait)); });
   var etatLecture = !j ? '<div class="fc-muted">Lecture de Close…</div>' : (j.error ? '<div class="fc-muted">Close : ' + escapeHtml(j.error) + ' · <a style="color:var(--accent);cursor:pointer" onclick="fcChargerDernierContact(false)">Réessayer</a></div>' : (j.trouve === false ? '<div class="fc-muted">Aucune fiche Close trouvée pour ce nom ou cet e-mail.</div>' : ''));
   var contexte = '<div class="fc-card"><div class="fc-card-t"><span>Le contexte en 30 secondes</span>' + (j && j.trouve ? '<a onclick="fcOnglet(\'prepa\')">Voir les sources ↗</a>' : '') + '</div>'
     + (etatLecture || (ss.length ? (function() {
@@ -5675,11 +5675,12 @@ function arRendreC2() {
     if (a.result === 'Non signé') {
       out += '<div class="ar-lab">Pourquoi</div><div class="ar-pills">' + arPill('raison', 'pasinteresse', '✗ Pas intéressé', 'ko') + arPill('raison', 'relancer', '🔁 À rappeler', 'warn') + arPill('raison', 'pasbudget', '💸 Pas de budget', 'warn') + arPill('raison', 'promo', '💡 Si promo', '') + arPill('raison', 'carte', '🗺️ Carte de prospection', '') + arPill('raison', 'rent', '🏢 Au RENT', '') + arPill('raison', 'ghost', '🫥 Ghost', 'warn') + '</div>';
     }
-    var veutSuite = arInt(a) || (a.result === 'Non signé' && ['pasbudget', 'promo', 'carte', 'rent', 'relancer'].indexOf(a.raison) >= 0);
+    var clos = a.result === 'Non signé' && (a.raison === 'pasinteresse' || a.raison === 'ghost'); // dossier clos côté Close, mais un rappel reste possible (« pas maintenant » ne veut pas dire « jamais »)
+    var veutSuite = arInt(a) || (a.result === 'Non signé' && ['pasbudget', 'promo', 'carte', 'rent', 'relancer', 'pasinteresse', 'ghost'].indexOf(a.raison) >= 0);
     if (veutSuite) {
-      out += '<div class="ar-lab">Suite</div><div class="ar-pills">' + ((a.estR2 || a.result === 'Attente') ? '' : arPill('suite', 'r2', '📅 R2 calé', '')) + arPill('suite', 'rel', '📞 Me rappeler', '') + (arInt(a) ? '' : arPill('suite', '', 'Rien pour l\'instant', '')) + '</div>';
+      out += '<div class="ar-lab">Suite</div><div class="ar-pills">' + ((a.estR2 || a.result === 'Attente' || clos) ? '' : arPill('suite', 'r2', '📅 R2 calé', '')) + arPill('suite', 'rel', clos ? '📞 Me rappeler quand même' : '📞 Me rappeler', '') + (arInt(a) ? '' : arPill('suite', '', clos ? 'Rien, dossier clos' : 'Rien pour l\'instant', '')) + '</div>';
       if (a.suite === 'r2') out += arBlocR2(a);
-      if (a.suite === 'rel') out += '<div class="ar-row"><input type="date" value="' + escapeHtml(a.relDate) + '" onchange="arChamp(\'relDate\', this.value)"><input type="text" placeholder="Condition / ce qu\'il a dit (optionnel)" value="' + escapeHtml(a.relCond) + '" oninput="arChamp(\'relCond\', this.value)"></div><div class="fc-muted" style="margin-top:4px;">Une tâche Close à cette date, et il entre dans ta file.</div>';
+      if (a.suite === 'rel') out += '<div class="ar-row"><input type="date" value="' + escapeHtml(a.relDate) + '" onchange="arChamp(\'relDate\', this.value)"><input type="text" placeholder="Condition / ce qu\'il a dit (optionnel)" value="' + escapeHtml(a.relCond) + '" oninput="arChamp(\'relCond\', this.value)"></div><div class="fc-muted" style="margin-top:4px;">' + (clos ? 'Close passe quand même en « Not interested » ; une tâche de rappel à cette date, et il entre dans ta file.' : 'Une tâche Close à cette date, et il entre dans ta file.') + '</div>';
     }
   }
   if (['No Show', 'Annulé', 'Reprogrammé'].indexOf(a.presence) >= 0) {
@@ -5777,7 +5778,7 @@ function arPlan() {
     if (a.presence === 'No Show' && a.nsChoix === 'stop') ev = 'Lost - Cancelled';
     if (a.presence === 'Show' && a.result === 'Attente') ev = 'Contract Sent / Offer Sent';
     if (ev && !(a.presence === 'Show' && a.result === 'Signé')) L.push('Close : opportunité → ' + ev);
-    if (a.presence === 'Show' && a.suite === 'rel' && a.relDate) L.push('Close : tâche « ' + (a.result === 'Attente' ? 'Relancer : en attente de signature' : arInt(a) ? 'R2 sans réponse' : 'Prise de RDV') + ' » le ' + fcFrDepuisIso(a.relDate));
+    if (a.presence === 'Show' && a.suite === 'rel' && a.relDate) L.push('Close : tâche « ' + (a.result === 'Attente' ? 'Relancer : en attente de signature' : arInt(a) ? 'R2 sans réponse' : ((a.raison === 'pasinteresse' || a.raison === 'ghost') ? 'Rappel' : 'Prise de RDV')) + ' » le ' + fcFrDepuisIso(a.relDate));
     if (a.presence === 'No Show' && (a.nsChoix === 'demain' || a.nsChoix === 'date')) L.push('Close : tâche no-show le ' + fcFrDepuisIso(a.nsChoix === 'demain' ? rlJourOuvre(rlIso(new Date()), 1) : a.nsDate) + ' · file de relance');
     if (a.presence === 'Show' && !(a.result === 'Non signé' && a.raison === 'pasinteresse') && a.result) L.push('Copilot : mail de fin de RDV à préparer');
   }
@@ -5828,7 +5829,7 @@ function arValiderSuivi() {
   // Close : tâche de rappel (+ SMS « rappel promis » préparé si automatisation allumée)
   if (a.presence === 'Show' && a.suite === 'rel' && a.relDate && typeof rlPost === 'function') {
     var colR = arInt(a) ? 'r2' : 'rdv';
-    rlPost('/close/taches', { nom: r.client, email: r.email || '', date: a.relDate, texte: (a.result === 'Attente' ? 'Relancer : en attente de signature' + ((a.relCond && a.relCond !== 'En attente de signature') ? ' · ' + a.relCond : '') : (RL_LIBELLES[colR] || 'Relance') + (a.relCond ? ' · ' + a.relCond : '')) + '', motif: 'rappel' }).then(function(j) { var st = loadStore(); if (!st._tachesCloseSuivi) st._tachesCloseSuivi = {}; var k = (j.tache && j.tache.lead) ? j.tache.lead : 'n:' + fcNormNom(r.client); st._tachesCloseSuivi[k] = Object.assign({}, st._tachesCloseSuivi[k] || {}, { nom: r.client, col: colR, tentatives: 0, dernier: 'rappel', prochaine: a.relDate, at: new Date().toISOString() }); saveStore(st); }).catch(function(e) { if (typeof showCopyToast === 'function') showCopyToast('Tâche Close non créée : ' + e.message); });
+    rlPost('/close/taches', { nom: r.client, email: r.email || '', date: a.relDate, texte: (a.result === 'Attente' ? 'Relancer : en attente de signature' + ((a.relCond && a.relCond !== 'En attente de signature') ? ' · ' + a.relCond : '') : ((a.raison === 'pasinteresse' || a.raison === 'ghost') ? 'Rappel' : (RL_LIBELLES[colR] || 'Relance')) + (a.relCond ? ' · ' + a.relCond : '')) + '', motif: 'rappel' }).then(function(j) { var st = loadStore(); if (!st._tachesCloseSuivi) st._tachesCloseSuivi = {}; var k = (j.tache && j.tache.lead) ? j.tache.lead : 'n:' + fcNormNom(r.client); st._tachesCloseSuivi[k] = Object.assign({}, st._tachesCloseSuivi[k] || {}, { nom: r.client, col: colR, tentatives: 0, dernier: 'rappel', prochaine: a.relDate, at: new Date().toISOString() }); saveStore(st); }).catch(function(e) { if (typeof showCopyToast === 'function') showCopyToast('Tâche Close non créée : ' + e.message); });
     try { sdSmsRappelPromis(copie, arInt(a) ? a.relDate : ''); } catch (e) {}
   }
   // No-show : relance (tâche + file + brouillon SMS) ou rien
