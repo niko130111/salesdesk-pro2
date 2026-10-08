@@ -4936,7 +4936,15 @@ function fcNotesInput(v) {
     var et2 = document.getElementById('fc-notes-etat'); if (et2) et2.textContent = '✓ enregistré';
   }, 700);
 }
-document.addEventListener('keydown', function(ev) { if (ev.key === 'Escape') { fermerFicheClient(); fermerModalDoublon(); fcFermerRecherche(); } });
+function sdModalOuverte() { return !!document.querySelector('.modal-overlay.open, #fc-overlay.open, #ar-overlay.open, #cp-overlay.open'); } // une fenêtre est déjà à l'écran : une ouverture automatique attend
+document.addEventListener('keydown', function(ev) { // Échap : la fenêtre du dessus seulement, sans valider ; puis la fiche ; puis la recherche
+  if (ev.key !== 'Escape') return;
+  var dup = document.getElementById('fc-dup-overlay'); if (dup && dup.classList.contains('open')) { fermerModalDoublon(); return; }
+  var ouverts = Array.prototype.slice.call(document.querySelectorAll('.modal-overlay.open, #ar-overlay.open, #cp-overlay.open')).filter(function(o) { return o.id !== 'fc-dup-overlay' && o.id !== 'fc-overlay'; });
+  if (ouverts.length) { var o = ouverts[ouverts.length - 1]; if (o.id === 'ar-overlay') arFermer(); else if (o.id === 'cp-overlay') cpFermer(); else o.classList.remove('open'); return; }
+  var fo = document.getElementById('fc-overlay'); if (fo && fo.classList.contains('open')) { fermerFicheClient(); return; }
+  fcFermerRecherche();
+});
 // Recherche client dans la barre du haut : tape un nom → liste (tous les mois, regroupés par personne) → clic = fiche client
 var _fcSearchSel = -1, _fcSearchRes = [];
 function fcRechercher(q) {
@@ -11076,7 +11084,8 @@ function sdAnnulationChoix(o) { // o = { nom, iso, heure, mk, idx, motif, apres 
     + '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;"><button class="btn btn-primary" id="an-rappel">📅 Tâche de rappel le</button><input type="date" id="an-date" style="' + champ + '" value="' + (rlJourOuvre(o.iso, 1) >= today ? rlJourOuvre(o.iso, 1) : rlJourOuvre(today, 1)) + '" min="' + today + '"><span class="fc-muted" style="font-size:12px;">lendemain du RDV par défaut · ligne en Annulé (no-show) + tâche Close</span></div>'
     + '<div style="display:flex;gap:8px;align-items:center;"><button class="btn" id="an-repro">🔄 Reprogrammer maintenant</button><span class="fc-muted" style="font-size:12px;">tu choisis le créneau, la ligne passe en Reprogrammé avec la nouvelle date</span></div>'
     + '<div style="display:flex;gap:8px;align-items:center;"><button class="btn" id="an-rien">✖ Ne rien faire</button><span class="fc-muted" style="font-size:12px;">ligne en Annulé (no-show), aucune tâche</span></div>'
-    + '</div><div style="text-align:right;margin-top:14px;"><button class="btn btn-sm" onclick="fermerModalDoublon()">Fermer</button></div></div>';
+    + '</div><div style="display:flex;justify-content:space-between;margin-top:14px;">' + (o.retour ? '<button class="btn btn-sm" id="an-retour">← Retour</button>' : '<span></span>') + '<button class="btn btn-sm" onclick="fermerModalDoublon()">Fermer</button></div></div>';
+  if (o.retour) document.getElementById('an-retour').onclick = function() { fermerModalDoublon(); setTimeout(o.retour, 120); };
   var appliquer = function(rappel) {
     var st = loadStore(), row = (st[o.mk] || [])[o.idx]; if (!row) { fermerModalDoublon(); return; }
     if (typeof sdBackupStore === 'function') sdBackupStore(st);
@@ -11107,12 +11116,12 @@ function sdResultatJour(mk, idx, nom, iso, heure) {
     + B('rj-annule', '✖ Annulé', 'il a annulé : rappel à une date, reprogrammer, ou rien ; Calendly et Close mis à jour')
     + B('rj-repro', '🔄 Reprogrammé', 'tu choisis le nouveau créneau, la ligne passe en Reprogrammé')
     + '<div style="text-align:right;margin-top:12px;"><button class="btn btn-sm" onclick="fermerModalDoublon()">Fermer</button></div></div>';
-  if (!aVenir) { document.getElementById('rj-show').onclick = function() { fermerModalDoublon(); sdApresRdvPour(nom, iso); }; document.getElementById('rj-noshow').onclick = function() { fermerModalDoublon(); setTimeout(function() { sdNoShowDepuisJour(mk, idx); }, 150); }; }
-  document.getElementById('rj-annule').onclick = function() { fermerModalDoublon(); setTimeout(function() { sdAnnulationChoix({ nom: nom, iso: iso, heure: heure || '', mk: mk, idx: idx, motif: 'rdv annulé (aujourd\'hui)', apres: function() { try { renderAujourdhui(); } catch (e) {} } }); }, 150); };
+  if (!aVenir) { document.getElementById('rj-show').onclick = function() { fermerModalDoublon(); sdApresRdvPour(nom, iso); }; document.getElementById('rj-noshow').onclick = function() { fermerModalDoublon(); setTimeout(function() { sdNoShowDepuisJour(mk, idx, { retour: function() { sdResultatRdv(mk, idx); } }); }, 150); }; }
+  document.getElementById('rj-annule').onclick = function() { fermerModalDoublon(); setTimeout(function() { sdAnnulationChoix({ nom: nom, iso: iso, heure: heure || '', mk: mk, idx: idx, motif: 'rdv annulé (aujourd\'hui)', retour: function() { sdResultatRdv(mk, idx); }, apres: function() { try { renderAujourdhui(); } catch (e) {} } }); }, 150); };
   document.getElementById('rj-repro').onclick = function() { fermerModalDoublon(); try { sdDeplacerAnnuler(nom, iso, heure || ''); } catch (e) { alert('Déplacement impossible : ' + e.message); } };
 }
 // ── Bouton « No show » dans Mes rendez-vous : fenêtre tâche de rappel (2 jours ouvrés par défaut, date libre) ou ne rien faire ; dans les deux cas la ligne passe en No Show et Close est mis à jour ──
-function sdNoShowDepuisJour(mk, idx) {
+function sdNoShowDepuisJour(mk, idx, opts) {
   var st0 = loadStore(), row0 = (st0[mk] || [])[idx]; if (!row0) return;
   var ov = document.getElementById('fc-dup-overlay');
   if (!ov) { ov = document.createElement('div'); ov.id = 'fc-dup-overlay'; ov.className = 'modal-overlay'; ov.style.zIndex = '1300'; ov.innerHTML = '<div class="modal" id="fc-dup-modal"></div>'; document.body.appendChild(ov); }
@@ -11123,7 +11132,8 @@ function sdNoShowDepuisJour(mk, idx) {
     + '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;"><button class="btn btn-primary" id="ns-rappel">📞 Tâche de rappel le</button><input type="date" id="ns-date" style="' + champ + '" value="' + defaut + '" min="' + today + '"><span class="fc-muted" style="font-size:12px;">lendemain du RDV par défaut · tâche Close + relance dans ta file</span></div>'
     + '<div style="display:flex;gap:8px;align-items:center;"><button class="btn" id="ns-rien">✖ Ne rien faire</button><span class="fc-muted" style="font-size:12px;">no-show noté, aucune tâche</span></div>'
     + '<div style="display:flex;gap:8px;align-items:center;"><button class="btn" id="ns-perdu" style="color:var(--red);border-color:var(--red);">✋ Perdu</button><span class="fc-muted" style="font-size:12px;">no-show noté, fiche Close en « Lost », aucune tâche</span></div>'
-    + '</div><div style="text-align:right;margin-top:14px;"><button class="btn btn-sm" onclick="fermerModalDoublon()">Fermer</button></div></div>';
+    + '</div><div style="display:flex;justify-content:space-between;margin-top:14px;">' + (opts && opts.retour ? '<button class="btn btn-sm" id="ns-retour">← Retour</button>' : '<span></span>') + '<button class="btn btn-sm" onclick="fermerModalDoublon()">Fermer</button></div></div>';
+  if (opts && opts.retour) document.getElementById('ns-retour').onclick = function() { fermerModalDoublon(); setTimeout(opts.retour, 120); };
   var appliquer = function(rappel, perdu) {
     var st = loadStore(), row = (st[mk] || [])[idx]; if (!row) { fermerModalDoublon(); return; }
     if (typeof sdBackupStore === 'function') sdBackupStore(st);
