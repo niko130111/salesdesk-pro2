@@ -11811,7 +11811,7 @@ function renderAujourdhui() {
   var metaAg = document.getElementById('auj-agenda-meta'); if (metaAg) metaAg.textContent = horsJour.length ? rdvs.length + ' maintenu' + (rdvs.length > 1 ? 's' : '') + ' + ' + libHors : '';
   var elR = document.getElementById('auj-rdvs');
   var moments = rdvs.map(function(r) { return aujMoment(r, now, jour); });
-  var prochainIdx = -1; if (estAuj) rdvs.forEach(function(r, i) { if (prochainIdx < 0 && !moments[i].passe) prochainIdx = i; }); else if (jour > todayIso && rdvs.length) prochainIdx = 0;
+  var prochainIdx = -1; if (estAuj) rdvs.forEach(function(r, i) { var pr = String((r.row || {}).presence || '').trim(); if (prochainIdx < 0 && !moments[i].passe && (!pr || pr === 'Reprogrammé')) prochainIdx = i; }); else if (jour > todayIso && rdvs.length) prochainIdx = 0; // un RDV dont le résultat est déjà noté (no show, annulé, show…) laisse la place au suivant
   var cible = function(nom, email, date) { return 'sdOuvrirCopilotSur(' + Q(nom) + ',' + Q(date) + ",'prepa')"; };
   var cls = fcClients(st);
   var sousTitre = function(r) { var row = r.row || {}, cl = cls[fcCle(r.nom, r.email || '')] || {}, parts = [r.r2 ? 'R2' : 'R1']; if (row.type) parts.push(row.type); if (r.source && r.source !== 'R2') parts.push(r.source); if (row.reseau) parts.push(row.reseau); else if (cl.entreprise) parts.push(cl.entreprise); if (row.ville || cl.ville) parts.push(row.ville || cl.ville); return parts.join(' · '); };
