@@ -4485,7 +4485,7 @@ function fcChargerClose(apres) { // apres : lancé une fois la fiche Close chois
       try { if (_fcMails && _fcMails.cle === cle && _fcMails.lead !== (_fc.leadChoisi || '') && (_fcMails.data || _fcMails.enCours)) { _fcMails.data = null; _fcMails.erreur = ''; fcChargerMails(); } } catch (e) {}
       try { if (_fc.dernier && _fc.dernier.lead && _fc.leadChoisi && _fc.dernier.lead !== _fc.leadChoisi) fcChargerDernierContact(false, _fc.leadChoisi); } catch (e) {}
       fcRendreContact(); fini(); })
-    .catch(function() { if (_fc.cle === cle) { _fc.close = undefined; fcRendreContact(); } fini(); });
+    .catch(function() { if (_fc.cle !== cle) { fini(); return; } if (!_fc.closeEssai2) { _fc.closeEssai2 = true; setTimeout(function() { if (_fc.cle === cle) fcChargerClose(apres); }, 2500); apres = null; return; } _fc.close = undefined; fcRendreContact(); fini(); }); // un second essai 2,5 s plus tard : le copilot peut être en train de redémarrer
 }
 // « La dernière fois » : 4-6 lignes condensées par le copilot depuis Close (appels, mails, compte rendu Claap) — jamais inventées
 function fcChargerDernierContact(force, leadId) {
