@@ -15605,7 +15605,6 @@ body.ec-ouvert .ec-masc { display: none; }
 <script>
 // ── Éclaireur : mascotte + panneau de conversation. Étape 1 (8 oct. 2026) : interface complète, réponses de DÉMONSTRATION clairement marquées, aucune recherche réelle, aucun appel réseau. ──
 var EC_SVG = '<svg viewBox="0 0 64 64" aria-hidden="true"><g class="ec-ant"><line x1="32" y1="14" x2="32" y2="7" stroke="#9CC9F5" stroke-width="2.5" stroke-linecap="round"/><circle cx="32" cy="6" r="3" fill="#3FD1C9"/></g><rect x="14" y="14" width="36" height="28" rx="11" fill="#9CC9F5"/><rect x="19" y="19" width="26" height="17" rx="8" fill="#183654"/><g class="ec-oeil"><circle cx="27" cy="27.5" r="3.2" fill="#3FD1C9"/><circle cx="37" cy="27.5" r="3.2" fill="#3FD1C9"/><circle cx="28" cy="26.6" r="1" fill="#fff"/><circle cx="38" cy="26.6" r="1" fill="#fff"/></g><path d="M27 32.5c2.8 2 7.2 2 10 0" stroke="#3FD1C9" stroke-width="1.8" stroke-linecap="round" fill="none"/><rect x="20" y="44" width="24" height="12" rx="6" fill="#9CC9F5"/><rect x="29" y="41" width="6" height="4" rx="1.5" fill="#527DB3"/><circle cx="12" cy="50" r="4" fill="#527DB3"/><circle cx="52" cy="50" r="4" fill="#527DB3"/></svg>';
-var EC_DEMO = true; // étape 1 : tout ce que répond Éclaireur est fictif et signalé comme tel
 var _ec = { ouvert: false, mode: '', conv: [], enCours: null, premier: false };
 try { _ec.mode = localStorage.getItem('sd_eclaireur_mode') || ''; var cv = sessionStorage.getItem('sd_eclaireur_conv'); if (cv) _ec.conv = JSON.parse(cv) || []; } catch (e) {}
 var EC_MODES = [['crm', 'Mes données'], ['web', 'Internet'], ['deux', 'Les deux']];
@@ -15638,6 +15637,7 @@ function ecRendre() {
     if (m.choixMode) x += '<div class="ec-sugg">' + EC_MODES.map(function(md) { return '<button onclick="ecMode(\'' + md[0] + '\', true)">' + md[1] + '</button>'; }).join('') + '</div><div class="ec-legende">Où chercher ? Le choix est mémorisé, tu peux le changer en haut du panneau.</div>';
     if (m.etat && m.etat !== 'ok') { var E = { vide: ['q', 'Aucun résultat pour cette demande dans ' + (m.perimetre || 'ce périmètre') + '.', ''], partiel: ['alert', 'Résultat partiel : ' + (m.detail || 'une source n\'a pas répondu') + '.', 'warn'], indispo: ['alert', 'Source indisponible : ' + (m.detail || 'le copilot ne répond pas') + '. Ce n\'est pas « aucun client trouvé ».', 'warn'], erreur: ['alert', 'Erreur : ' + (m.detail || 'la recherche a échoué') + '.', 'err'], interrompu: ['clock', 'Recherche interrompue.', ''] }[m.etat]; if (E) x += '<div class="ec-etat ' + E[2] + '">' + ecIco(E[0]) + '<span>' + escapeHtml(E[1]) + '</span></div>'; }
     (m.cartes || []).forEach(function(c) { x += ecCarte(c); });
+    if (m.brouillon) x += ecBrouillonHtml(m.brouillon);
     if (m.legende) x += '<div class="ec-legende">' + escapeHtml(m.legende) + '</div>';
     if (m.sugg && m.sugg.length) x += '<div class="ec-sugg">' + m.sugg.map(function(s) { return '<button onclick="ecPoser(' + Q(s) + ')">' + escapeHtml(s) + '</button>'; }).join('') + '</div>';
     return x + '</div>';
@@ -15650,28 +15650,57 @@ function ecCarte(c) {
   var Q = function(v) { return JSON.stringify(v).replace(/"/g, '&quot;'); };
   var kv = function(k, v) { return v ? '<b>' + k + '</b><span>' + escapeHtml(v) + '</span>' : ''; };
   var x = '<div class="ec-card"><div class="n">' + escapeHtml(c.nom) + '<span class="tag ' + (c.type === 'crm' ? 'crm' : 'web') + '">' + (c.type === 'crm' ? 'Mon CRM' : 'Internet') + '</span>' + (c.fictif ? '<span class="tag demo">Fictif</span>' : '') + '</div>';
-  if (c.reseau || c.secteur) x += '<div class="m">' + escapeHtml([c.reseau, c.secteur].filter(Boolean).join(' · ')) + '</div>';
+  if (c.reseau || c.secteur || c.statut) x += '<div class="m">' + escapeHtml([c.statut, c.reseau, c.secteur].filter(Boolean).join(' · ')) + '</div>';
   x += '<div class="kv">' + kv('Pourquoi ici', c.raison) + kv('Infos publiques', c.infos) + kv('Dernier contact', c.dernier) + kv('Prochaine tâche', c.tache) + '</div>';
-  if (c.type === 'web' && c.crm) x += '<div style="margin-top:6px;"><span class="match ' + (c.crm === 'deja' ? 'ok' : c.crm === 'possible' ? 'warn' : '') + '">' + (c.crm === 'deja' ? 'Déjà dans le CRM' : c.crm === 'possible' ? 'Correspondance possible' : 'Non retrouvé dans le CRM') + '</span></div>';
-  if (c.source) x += '<div class="src">Source : ' + (c.lien ? '<a href="' + escapeHtml(c.lien) + '" target="_blank" rel="noopener">' + escapeHtml(c.source) + '</a>' : escapeHtml(c.source)) + (c.date ? ' · ' + escapeHtml(c.date) : '') + '</div>';
+  if (c.type === 'web' && c.crm && c.crm !== 'non_verifie') x += '<div style="margin-top:6px;"><span class="match ' + (c.crm === 'deja' ? 'ok' : c.crm === 'possible' ? 'warn' : '') + '" title="' + escapeHtml(c.crmDetail || '') + '">' + (c.crm === 'deja' ? 'Déjà dans le CRM' + (c.crmNom ? ' · ' + escapeHtml(c.crmNom) : '') : c.crm === 'possible' ? 'Correspondance possible' : c.crm === 'inconnu' ? 'CRM non vérifiable' : 'Non retrouvé dans le CRM') + '</span>' + (c.crmDetail ? ' <span class="fc-muted">' + escapeHtml(c.crmDetail) + '</span>' : '') + '</div>';
+  if (c.sources && c.sources.length) x += '<div class="src">Sources : ' + c.sources.map(function(s2) { return '<a href="' + escapeHtml(s2.url) + '" target="_blank" rel="noopener">' + escapeHtml(s2.titre || s2.url.replace(/^https?:\/\//, '').slice(0, 50)) + '</a>'; }).join(' · ') + (c.date ? ' · ' + escapeHtml(c.date) : '') + '</div>';
+  else if (c.source) x += '<div class="src">Source : ' + (c.lien ? '<a href="' + escapeHtml(c.lien) + '" target="_blank" rel="noopener">' + escapeHtml(c.source) + '</a>' : escapeHtml(c.source)) + (c.date ? ' · ' + escapeHtml(c.date) : '') + '</div>';
   var acts = [];
-  if (c.type === 'crm') acts.push('<button class="btn btn-primary" onclick="ecOuvrirFiche(' + Q(c.nom) + ',' + Q(c.fictif) + ')">Ouvrir la fiche</button>', '<button class="btn" onclick="ecBrouillon(' + Q(c.nom) + ')">Préparer une relance</button>', '<button class="btn" onclick="ecBrouillon(' + Q(c.nom) + ', true)">Proposer une tâche</button>');
-  else if (c.crm === 'deja') acts.push('<button class="btn btn-primary" onclick="ecOuvrirFiche(' + Q(c.nom) + ',' + Q(c.fictif) + ')">Ouvrir la fiche</button>'); else acts.push('<button class="btn" onclick="ecAjouter(' + Q(c.nom) + ')">Ajouter au CRM (à vérifier)</button>');
+  if (c.type === 'crm') acts.push('<button class="btn btn-primary" onclick="ecOuvrirFiche(' + Q(c.nom) + ',' + Q(!!c.fictif) + ',' + Q(c.email || '') + ')">Ouvrir la fiche</button>', '<button class="btn" onclick="ecBrouillon(' + Q(c.nom) + ',\'mail\',' + Q(c.email || '') + ')">Préparer une relance</button>', '<button class="btn" onclick="ecBrouillon(' + Q(c.nom) + ',\'tache\',' + Q(c.email || '') + ')">Proposer une tâche</button>');
+  else if (c.crm === 'deja' && c.crmNom) acts.push('<button class="btn btn-primary" onclick="ecOuvrirFiche(' + Q(c.crmNom) + ',false,' + Q(c.crmEmail || '') + ')">Ouvrir la fiche</button>');
   return x + '<div class="acts">' + acts.join('') + '</div></div>';
 }
 function ecOuvrirFiche(nom, fictif) { if (fictif) { showCopyToast('Démonstration : « ' + nom + ' » est fictif, il n\'a pas de fiche.'); return; } ouvrirFicheClient(nom, ''); }
 function ecBrouillon(nom, tache) { showCopyToast('Démonstration : ' + (tache ? 'la proposition de tâche' : 'le brouillon de relance') + ' arrivera à l\'étape 5 (rien n\'est envoyé ni créé).'); }
-function ecAjouter(nom) { showCopyToast('Démonstration : « Ajouter au CRM » ouvrira une fiche préremplie à vérifier, jamais un enregistrement automatique.'); }
 function ecPoser(q) { var i = document.getElementById('ec-q'); if (i) i.value = q; ecEnvoyer(); }
+var EC_DEMO = /[?&]eclaireur=demo\b/.test(location.search); // démonstration seulement sur demande explicite ; sinon, recherches réelles via le copilot
 function ecEnvoyer() {
   var i = document.getElementById('ec-q'), q = i ? i.value.trim() : ''; if (!q || _ec.enCours) return;
   if (!_ec.mode) { _ec.conv.push({ de: 'moi', texte: q }); _ec.conv.push({ de: 'lui', texte: 'Où veux-tu que je cherche ?', choixMode: true }); ecSauver(); ecRendre(); return; }
+  var hist = _ec.conv.filter(function(m) { return (m.de === 'moi' || (m.de === 'lui' && m.texte && m.etat !== 'recherche')) && !m.choixMode; }).slice(-6).map(function(m) { return { role: m.de === 'moi' ? 'user' : 'assistant', content: m.texte }; });
   _ec.conv.push({ de: 'moi', texte: q }); var attente = { de: 'lui', etat: 'recherche', texte: 'Recherche ' + ({ crm: 'dans tes données', web: 'sur Internet', deux: 'dans tes données et sur Internet' })[_ec.mode] + '…' }; _ec.conv.push(attente); ecSauver();
   var b = document.getElementById('ec-mascotte'); if (b) b.classList.add('cherche');
-  _ec.enCours = setTimeout(function() { _ec.enCours = null; if (b) b.classList.remove('cherche'); var idx = _ec.conv.indexOf(attente); var rep = ecRepondreDemo(q, _ec.mode); if (idx >= 0) _ec.conv[idx] = rep; else _ec.conv.push(rep); ecSauver(); ecRendre(); var i2 = document.getElementById('ec-q'); if (i2) i2.focus(); }, 1400);
-  ecRendre(); // le bouton « Interrompre » s'affiche pendant la recherche
+  var fini = function(rep) { _ec.enCours = null; if (b) b.classList.remove('cherche'); var idx = _ec.conv.indexOf(attente); if (idx >= 0) _ec.conv[idx] = rep; else _ec.conv.push(rep); ecSauver(); ecRendre(); var i2 = document.getElementById('ec-q'); if (i2) i2.focus(); };
+  if (EC_DEMO) { _ec.enCours = { demo: setTimeout(function() { fini(ecRepondreDemo(q, _ec.mode)); }, 1400) }; ecRendre(); return; }
+  if (typeof COPILOT_URL === 'undefined') { fini({ de: 'lui', etat: 'indispo', detail: 'copilot non configuré sur cet appareil' }); return; }
+  var ctrl = new AbortController(); _ec.enCours = { ctrl: ctrl }; var mt = setTimeout(function() { ctrl.abort(); }, 120000); ecRendre();
+  fetch(COPILOT_URL + '/eclaireur', { method: 'POST', mode: 'cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question: q, mode: _ec.mode, historique: hist }), signal: ctrl.signal })
+    .then(function(r) { return r.json().catch(function() { return { ok: false, error: 'réponse illisible (' + r.status + ')' }; }).then(function(j) { if (!r.ok && !j.error) j.error = 'HTTP ' + r.status; return j; }); })
+    .then(function(j) { clearTimeout(mt); if (!j.ok) { fini({ de: 'lui', etat: j.etat === 'erreur' ? 'erreur' : 'indispo', detail: j.error || 'le copilot a refusé la demande' }); return; }
+      fini({ de: 'lui', texte: j.clarification || j.texte || '', etat: j.etat === 'ok' && j.clarification && !(j.cartes || []).length ? 'ok' : j.etat, detail: j.detail || '', perimetre: ecModeLib(_ec.mode).toLowerCase(), cartes: j.cartes || [], sugg: j.suggestions || [], legende: (j.requetesWeb && j.requetesWeb.length ? 'Requête envoyée au moteur de recherche : « ' + j.requetesWeb.join(' » · « ') + ' ». ' : '') + (j.modele ? 'Modèle : ' + j.modele + '.' : '') }); })
+    .catch(function(e) { clearTimeout(mt); if (_ec.enCours === null) return; fini({ de: 'lui', etat: e.name === 'AbortError' ? 'erreur' : 'indispo', detail: e.name === 'AbortError' ? 'pas de réponse en 2 minutes' : 'copilot injoignable (' + e.message + ')' }); });
 }
-function ecInterrompre() { if (!_ec.enCours) return; clearTimeout(_ec.enCours); _ec.enCours = null; var b = document.getElementById('ec-mascotte'); if (b) b.classList.remove('cherche'); var last = _ec.conv[_ec.conv.length - 1]; if (last && last.etat === 'recherche') { last.etat = 'interrompu'; last.texte = ''; } ecSauver(); ecRendre(); }
+function ecInterrompre() { if (!_ec.enCours) return; var c = _ec.enCours; _ec.enCours = null; if (c.demo) clearTimeout(c.demo); if (c.ctrl) try { c.ctrl.abort(); } catch (e) {} var b = document.getElementById('ec-mascotte'); if (b) b.classList.remove('cherche'); var last = _ec.conv[_ec.conv.length - 1]; if (last && last.etat === 'recherche') { last.etat = 'interrompu'; last.texte = ''; } ecSauver(); ecRendre(); }
+function ecOuvrirFiche(nom, fictif, email) { if (fictif) { showCopyToast('Démonstration : « ' + nom + ' » est fictif, il n\'a pas de fiche.'); return; } ecFermer(); ouvrirFicheClient(nom, email || ''); }
+function ecBrouillon(nom, type, email) { // brouillon préparé par le copilot : affiché ici, jamais envoyé ni créé sans toi
+  if (EC_DEMO) { showCopyToast('Démonstration : pas de brouillon réel.'); return; }
+  if (typeof COPILOT_URL === 'undefined') { showCopyToast('Copilot éteint : pas de brouillon possible.'); return; }
+  var attente = { de: 'lui', etat: 'recherche', texte: (type === 'tache' ? 'Proposition de tâche' : type === 'sms' ? 'Brouillon de SMS' : 'Brouillon de mail') + ' pour ' + nom + '…' }; _ec.conv.push(attente); ecRendre();
+  fetch(COPILOT_URL + '/eclaireur/brouillon', { method: 'POST', mode: 'cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nom: nom, email: email || '', type: type }) }).then(function(r) { return r.json(); }).then(function(j) {
+    var idx = _ec.conv.indexOf(attente); var rep;
+    if (!j.ok) rep = { de: 'lui', etat: 'erreur', detail: j.error || 'brouillon impossible' };
+    else rep = { de: 'lui', brouillon: Object.assign({ type: type, nom: j.nom, email: j.email, base: j.base }, j.brouillon || {}), legende: 'Brouillon à relire : rien n\'est envoyé ni créé tant que tu ne le fais pas toi-même. Base : ' + (j.base || '') + '.' };
+    if (idx >= 0) _ec.conv[idx] = rep; else _ec.conv.push(rep); ecSauver(); ecRendre();
+  }).catch(function(e) { var idx = _ec.conv.indexOf(attente); var rep = { de: 'lui', etat: 'indispo', detail: 'copilot injoignable (' + e.message + ')' }; if (idx >= 0) _ec.conv[idx] = rep; ecSauver(); ecRendre(); });
+}
+function ecBrouillonHtml(b) {
+  var Q = function(v) { return JSON.stringify(v).replace(/"/g, '&quot;'); };
+  var titre = b.type === 'tache' ? 'Tâche proposée' : b.type === 'sms' ? 'Brouillon de SMS' : 'Brouillon de mail', corps = b.type === 'tache' ? (b.date ? b.date.split('-').reverse().join('/') : '') + (b.heure ? ' à ' + b.heure : '') + ' · ' + (b.texte || '') + (b.pourquoi ? '\n' + b.pourquoi : '') : (b.objet ? 'Objet : ' + b.objet + '\n\n' : '') + (b.texte || '');
+  var acts = b.type === 'tache' ? '<button class="btn btn-primary" onclick="ecCreerTache(' + Q(b.nom) + ',' + Q(b.email || '') + ',' + Q(b.date || '') + ',' + Q(b.heure || '') + ',' + Q(b.texte || '') + ')">Créer la tâche (fenêtre à valider)</button>' : '<button class="btn" onclick="ecCopier(this)" data-texte="' + escapeHtml(corps) + '">Copier</button>' + (b.type === 'mail' ? '<button class="btn btn-primary" onclick="ecFermer();sdMailPour(' + Q(b.nom) + ',' + Q(b.email || '') + ')">Écrire le mail dans la fiche</button>' : '');
+  return '<div class="ec-card"><div class="n">' + titre + ' · ' + escapeHtml(b.nom) + '</div><div style="white-space:pre-wrap;font-size:13px;line-height:1.5;margin-top:6px;">' + escapeHtml(corps) + '</div><div class="acts">' + acts + '</div></div>';
+}
+function ecCopier(btn) { var t = btn.getAttribute('data-texte') || ''; try { navigator.clipboard.writeText(t).then(function() { showCopyToast('Copié'); }); } catch (e) { showCopyToast('Copie impossible'); } }
+function ecCreerTache(nom, email, date, heure, texte) { ecFermer(); sdDepuisFiche(nom, email, function() { fcTacheClose(); setTimeout(function() { var d = document.getElementById('fc-tc-date'), h = document.getElementById('fc-tc-heure'), t = document.getElementById('fc-tc-texte'); if (d && date) d.value = date; if (h && heure) h.value = heure; if (t && texte) t.value = texte; }, 120); }); }
 // Réponses de démonstration : données fictives, signalées par « Fictif » sur chaque carte. Les questions contenant « panne », « vide », « partiel » montrent les états correspondants.
 function ecRepondreDemo(q, mode) {
   var ql = q.toLowerCase(), auj = new Date().toLocaleDateString('fr-FR'), leg = 'Démonstration : cartes fictives pour valider la mise en page. À l\'étape 2, les résultats viendront de tes données ; à l\'étape 3, d\'une vraie recherche Web avec sources.';
