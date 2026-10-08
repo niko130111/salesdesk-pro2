@@ -4018,20 +4018,60 @@ function fcRendreContact() {
 // Prochaine étape : la réponse à « que dois-je faire maintenant ? » — RDV à venir, R2 calé, tâche Close / relance datée, ou rien (→ à décider)
 // Depuis la fiche : les mêmes boutons que dans le Suivi, sur la tâche Close de la personne (appeler, sans réponse, joint, pas intéressé, déplacer, prendre un RDV, manager, clôturer)
 function fcItemSuiviPour(t) { try { var it = (window._rlItems || []).find(function(x) { return x.t && x.t.id === t.id; }); if (!it) { window._rlItems = rlConstruireItems(rlIso(new Date())).items; it = window._rlItems.find(function(x) { return x.t && x.t.id === t.id; }); } return it || null; } catch (e) { return null; } }
-function fcBoutonsSuivi(it) { // la même barre partout où une fiche s'ouvre : Appeler, Prendre un RDV, puis le résultat de l'appel, Contrat envoyé et Signé à la fin
-  var cleJs = JSON.stringify(it.cle).replace(/"/g, '&quot;'), A = function(action, lib, cls, titre) { return '<button class="btn btn-sm' + (cls ? ' ' + cls : '') + '" title="' + escapeHtml(titre || '') + '" onclick="rlAction(' + cleJs + ', \'' + action + '\', this);setTimeout(function(){try{fcRendre()}catch(e){}},1500)">' + lib + '</button>'; };
-  var aTache = !!(it.t || it.rel);
-  return '<div class="fc-barre" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:6px;width:100%;">'
-    + '<button class="btn btn-sm btn-primary" title="Close ouvre la fiche et compose ; Alt + clic = appel via le Mac" onclick="svAppeler(event,' + cleJs + ')">📞 Appeler</button>'
-    + A('rdv_pris', '📆 Prendre un RDV', 'btn-primary', 'Tu choisis le créneau, je réserve dans Calendly' + (aTache ? ', la tâche est terminée' : ''))
-    + (typeof COPILOT_URL !== 'undefined' ? '<button class="btn btn-sm" title="Un mail depuis ta boîte Close, avec ta signature" onclick="fcRepondreMail(\'\', \'\')">✉ Écrire un mail</button>' : '')
-    + A('pas_reponse', '📭 Sans réponse', 'sv-orange', 'Appel loggé dans Close, tâche décalée selon la cadence') + A('pas_interesse', '✋ Pas intéressé', 'sv-rouge', 'Close en Not interested' + (aTache ? ', tâche terminée' : ''))
-    + (aTache ? '<button class="btn btn-sm" onclick="svDemain(' + cleJs + ');setTimeout(function(){try{fcRendre()}catch(e){}},1500)">⏭ Déplacer à demain</button><button class="btn btn-sm" onclick="svDeplacer(' + cleJs + ')">📅 Déplacer au…</button>' : '')
-    + (typeof COPILOT_URL !== 'undefined' ? '<button class="btn btn-sm" title="Une tâche Close à la date, à l\'heure et avec le texte que tu veux" onclick="fcTacheClose()">⏰ Tâche</button>' : '')
-    + A('manager', '👔 Passer au manager', 'sv-bleu', 'Note épinglée + tâche pour ' + RL_MANAGER) + (it.t ? A('supprimer', '✅ Clôturer la tâche', '', 'La tâche Close est terminée') : '')
-    + A('contrat', '📄 Contrat envoyé', 'sv-violet', 'Tâche « Relancer pour signature », ligne en attente de signature') + A('signe', '💰 Signé', 'sv-vert', 'Pack, fréquence, tier, FMS, remise ; tâche « Configurer » demain') + '</div>';
+// ── L'état du dossier décide des boutons (3 à 5 visibles, le reste sous « Plus ») : prospect, RDV à venir, RDV passé sans résultat, intéressé, attente de signature, no-show / annulé, signé, perdu ──
+function fcDerniereLigne(it) { var row = (it.rel && it.rel.row) || it.row || null; if (row && row.client) return row; try { var rows = fcLignesDuNom(it.nom || '').sort(function(x, y) { return (parseDateFR(y.date) || 0) - (parseDateFR(x.date) || 0); }); return rows[0] || null; } catch (e) { return null; } }
+function fcEtatDossier(it) {
+  var row = fcDerniereLigne(it); if (!row || !row.client) return 'prospect';
+  var pres = String(row.presence || '').trim(), res = String(row.result || '').trim(), iso = frVersIsoSd(row.date) || '', today = rlIso(new Date());
+  if (res === 'Signé') return 'signe';
+  if (!pres) return iso && iso < today ? 'rdv_passe' : 'rdv_avenir';
+  if (['No Show', 'Annulé', 'Reprogrammé'].indexOf(pres) >= 0) return 'noshow';
+  if (row.attenteSignature) return 'attente';
+  if (SD_INTERESSE.indexOf(res) >= 0) return 'interesse';
+  if (res === 'Non signé' || res === 'Promo') return 'perdu';
+  return 'interesse';
 }
-// Fiche sans tâche Close ni relance : un élément de suivi « de fiche » pour que la même barre d'actions fonctionne partout
+function sdDepuisFiche(nom, email, fn) { ouvrirFicheClient(nom, email || ''); var t0 = Date.now(); (function att() { if (document.querySelector('.fc-barre') && fcNormNom(_fc.nom || '') === fcNormNom(nom)) { try { fn(); } catch (e) {} return; } if (Date.now() - t0 < 15000) setTimeout(att, 300); })(); }
+function sdOnboardingPour(nom, email) { sdDepuisFiche(nom, email, function() { fcOnboarding(); }); }
+function sdMailPour(nom, email) { sdDepuisFiche(nom, email, function() { fcRepondreMail('', ''); }); }
+function fcBoutonsSuivi(it) {
+  var cleJs = JSON.stringify(it.cle).replace(/"/g, '&quot;'), etat = fcEtatDossier(it), row = fcDerniereLigne(it) || {}, fiche = it.type === 'fiche', copilot = typeof COPILOT_URL !== 'undefined';
+  var nomJs = JSON.stringify(it.nom || row.client || '').replace(/"/g, '&quot;'), emailJs = JSON.stringify(it.email || row.email || '').replace(/"/g, '&quot;');
+  var A = function(action, lib, cls, titre) { return '<button class="btn btn-sm' + (cls ? ' ' + cls : '') + '" title="' + escapeHtml(titre || '') + '" onclick="rlAction(' + cleJs + ', \'' + action + '\', this);setTimeout(function(){try{fcRendre()}catch(e){}},1500)">' + lib + '</button>'; };
+  var B = function(onclick, lib, cls, titre) { return '<button class="btn btn-sm' + (cls ? ' ' + cls : '') + '" title="' + escapeHtml(titre || '') + '" onclick="' + onclick + '">' + lib + '</button>'; };
+  var appeler = '<button class="btn btn-sm btn-primary" title="Close ouvre la fiche et compose ; Alt + clic = appel via le Mac" onclick="svAppeler(event,' + cleJs + ')">📞 Appeler</button>';
+  var resultat = (row._monthKey !== undefined && row._storeKey !== undefined) ? B('sdResultatRdv(' + JSON.stringify(row._monthKey).replace(/"/g, '&quot;') + ',' + row._storeKey + ')', '✅ Résultat du RDV', 'btn-primary', 'Show, No show, Annulé ou Reprogrammé') : B('sdApresRdvPour(' + nomJs + ',' + JSON.stringify(row.date || '').replace(/"/g, '&quot;') + ')', '✅ Résultat du RDV', 'btn-primary', 'Show, No show, Annulé ou Reprogrammé');
+  var preparer = B('sdOuvrirCopilotSur(' + nomJs + ',' + JSON.stringify(frVersIsoSd(row.date || '') || '').replace(/"/g, '&quot;') + ",'prepa')", '📋 Préparer', '', 'La préparation du rendez-vous dans le copilot');
+  var tache = copilot ? B('svTache(' + cleJs + ')', '⏰ Tâche', '', 'Une tâche Close : date, heure et texte (rappel, mail, relance…) ; une tâche déjà ouverte est déplacée') : '';
+  var mail = copilot ? (fiche ? B("fcRepondreMail('', '')", '✉ Écrire un mail', '', 'Un mail depuis ta boîte Close, avec ta signature') : B('sdMailPour(' + nomJs + ',' + emailJs + ')', '✉ Écrire un mail', '', 'Un mail depuis ta boîte Close, avec ta signature')) : '';
+  var manager = A('manager', '👔 Passer au manager', 'sv-bleu', 'Note épinglée + tâche pour ' + RL_MANAGER + ', ligne dans le Cockpit');
+  var ficheClose = fiche ? B('fcChangerFicheClose()', '↔ Fiche Close', '', 'Relier cette personne à une autre fiche Close') : '';
+  var corriger = fiche ? B('fcCorrigerNom()', '✎ Corriger le nom', '', 'Corriger l\'orthographe ou fusionner avec une autre fiche') : '';
+  var cloturer = it.t ? A('supprimer', '✅ Clôturer la tâche', '', 'La tâche Close est terminée, la relance s\'arrête') : '';
+  var sansRep = A('pas_reponse', '📭 Sans réponse', 'sv-orange', 'Appel loggé dans Close, tâche décalée selon la cadence');
+  var pasInt = A('pas_interesse', '✋ Pas intéressé', 'sv-rouge', 'Close en Not interested' + (it.t ? ', tâche terminée' : ''));
+  var perdu = A('pas_interesse', '✋ Perdu', 'sv-rouge', 'Close en Not interested' + (it.t ? ', tâche terminée' : ''));
+  var rdv = function(lib, titre) { return A('rdv_pris', lib, 'btn-primary', titre); };
+  var contrat = A('contrat', '📄 Contrat envoyé', 'sv-violet', 'Tâche « Relancer pour signature » à la date et à l\'heure choisies ; ligne en attente de signature');
+  var signe = A('signe', '💰 Signé', 'sv-vert', 'Pack, fréquence, tier, FMS, remise ; tâche « Configurer » demain');
+  var onboarding = fiche ? B('fcOnboarding()', '🚀 Onboarding', 'btn-primary', 'Remplit les champs Close de l\'opportunité et de la fiche') : B('sdOnboardingPour(' + nomJs + ',' + emailJs + ')', '🚀 Onboarding', 'btn-primary', 'Remplit les champs Close de l\'opportunité et de la fiche');
+  var principal, plus;
+  switch (etat) {
+    case 'rdv_avenir': principal = [preparer, resultat, tache]; plus = [appeler, mail, manager, ficheClose, corriger, cloturer]; break;
+    case 'rdv_passe': principal = [resultat, tache]; plus = [appeler, mail, manager, ficheClose, corriger, cloturer]; break;
+    case 'interesse': principal = [appeler, rdv('📆 Prendre un R2', 'Tu choisis le créneau R2, je réserve dans Calendly'), contrat, sansRep, tache]; plus = [pasInt, mail, manager, ficheClose, corriger, cloturer]; break;
+    case 'attente': principal = [appeler, signe, sansRep, tache]; plus = [pasInt, mail, manager, ficheClose, corriger, cloturer]; break;
+    case 'noshow': principal = [appeler, rdv('🔄 Reprogrammer', 'Nouveau créneau Calendly, la tâche est terminée'), perdu, tache]; plus = [mail, manager, ficheClose, corriger, cloturer]; break;
+    case 'signe': principal = [onboarding, appeler, tache]; plus = [mail, manager, ficheClose, corriger, cloturer]; break;
+    case 'perdu': principal = [appeler, rdv('📆 Prendre un RDV', 'Tu choisis le créneau, je réserve dans Calendly'), tache]; plus = [mail, manager, ficheClose, corriger, cloturer]; break;
+    default: principal = [appeler, rdv('📆 Prendre un RDV', 'Tu choisis le créneau, je réserve dans Calendly'), sansRep, pasInt, tache]; plus = [mail, manager, ficheClose, corriger, cloturer];
+  }
+  principal = principal.filter(Boolean); plus = plus.filter(Boolean);
+  var id = 'fc-plus-' + Math.random().toString(36).slice(2, 7);
+  return '<div class="fc-barre" data-etat="' + etat + '" style="display:flex;flex-wrap:wrap;gap:6px;width:100%;align-items:center;">' + principal.join('')
+    + (plus.length ? '<button class="btn btn-sm" style="color:var(--text3);" title="Les autres actions" onclick="var p=document.getElementById(\'' + id + '\');var o=p.style.display==\'none\';p.style.display=o?\'flex\':\'none\';this.textContent=o?\'Moins ▴\':\'Plus ▾\'">Plus ▾</button>' : '') + '</div>'
+    + (plus.length ? '<div id="' + id + '" class="fc-barre fc-barre-plus" style="display:none;flex-wrap:wrap;gap:6px;width:100%;margin-top:6px;">' + plus.join('') + '</div>' : '');
+}
 function fcItemFiche() {
   var last = _fc.rows[0] || {}, p = String(last.presence || '').trim(), col = SD_INTERESSE.indexOf(String(last.result || '').trim()) >= 0 ? 'r2' : (['No Show', 'Annulé', 'Reprogrammé'].indexOf(p) >= 0 ? (last.source === 'Outbound' ? 'nsout' : 'nsin') : 'rdv');
   var it = { type: 'fiche', t: null, rel: null, row: last, nom: _fc.nom, email: _fc.email || last.email || '', date: rlIso(new Date()), col: col, cle: 'fiche|' + fcNormNom(_fc.nom) };
@@ -4462,14 +4502,14 @@ function rlAction(ix, action, btn) {
     return;
   }
   if (action === 'contrat') { // contrat envoyé : Close en « Contract Sent », ligne SalesDesk en attente de signature, et une tâche « Relancer pour signature » à la date choisie (2 jours ouvrés par défaut)
-    rlDateModal(it.nom + ' — contrat envoyé : relancer pour signature le', 'La tâche actuelle est déplacée à cette date avec le texte « Relancer pour signature » ; la ligne passe en attente de signature. Close est déjà en Offer Sent depuis le mail de fin de RDV, il y reste.', rlJourOuvre(today, 2), function(d) {
+    rlDateModal(it.nom + ' — contrat envoyé : relancer pour signature le', 'La tâche actuelle est déplacée à cette date avec le texte « Relancer pour signature » ; la ligne passe en attente de signature. Close est déjà en Offer Sent depuis le mail de fin de RDV, il y reste.', rlJourOuvre(today, 2), function(d, h) {
       occupe(true);
-      rlPost('/close/taches', { lead: id.lead, nom: id.nom, email: id.email, date: d, texte: 'Relancer pour signature (contrat envoyé le ' + fcFrDepuisIso(today) + ')', motif: 'contrat envoyé' })
+      rlPost('/close/taches', { lead: id.lead, nom: id.nom, email: id.email, date: d, heure: h || '', texte: 'Relancer pour signature (contrat envoyé le ' + fcFrDepuisIso(today) + ')', motif: 'contrat envoyé' })
         .then(function() { try { sdStatutClose({ client: it.nom, email: id.email || '', closeLead: id.lead || '' }, 'mail_envoye'); } catch (e) {}
           try { var st = loadStore(), row = (it.rel && it.rel.row) || it.row, cible = null; if (row) Object.keys(st).forEach(function(k) { if (/^\d{4}-\d{2}$/.test(k)) (st[k] || []).forEach(function(x) { if (x && x.client === row.client && x.date === row.date) cible = x; }); }); if (cible) { cible.result = 'Intéressé'; cible.attenteSignature = true; cible.attenteDepuis = cible.attenteDepuis || today; cible.relanceDate = d; cible.relanceFait = false; cible.relanceCond = 'Contrat envoyé, relancer pour signature'; saveStore(st); } } catch (e) {}
           rlPoserSuivi(it, { tentatives: 0, col: it.col, dernier: 'contrat', prochaine: d }); return rlMajRelance(it, 'joint', d); })
         .then(function() { fini('📄 Contrat envoyé · relance signature le ' + fcFrDepuisIso(d)); try { refreshAll(); } catch (e) {} }).catch(echec);
-    });
+    }, true);
     return;
   }
   if (action === 'pas_interesse') {
@@ -4978,6 +5018,7 @@ function fcTacheClose(ctx) { // ctx facultatif { nom, email, lead } : depuis le 
   var champ = 'font-family:var(--font);font-size:13.5px;padding:8px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg);color:var(--text);';
   var html = '<div class="fc-dup" style="width:min(460px,84vw);max-width:100%;box-sizing:border-box;"><div style="font-size:16px;font-weight:700;margin-bottom:2px;">⏰ Tâche Close — ' + escapeHtml(c.nom) + '</div><div class="fc-muted" style="margin-bottom:12px;">Elle apparaîtra dans ton Suivi à cette date. S\'il a déjà une tâche ouverte à ton nom, elle est déplacée.</div>'
     + '<div style="display:flex;gap:8px;margin-bottom:8px;"><input type="date" id="fc-tc-date" value="' + rlJourOuvre(rlIso(new Date()), 1) + '" min="' + rlIso(new Date()) + '" style="' + champ + 'flex:1;"><input type="time" id="fc-tc-heure" style="' + champ + 'width:110px;" title="Heure (facultatif)"></div>'
+    + '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;"><button class="btn btn-sm" onclick="fcTcDate(1)">Demain</button><button class="btn btn-sm" onclick="fcTcDate(2)">+2 j ouvrés</button><button class="btn btn-sm" onclick="fcTcDate(5)">+1 semaine</button><span style="width:10px"></span><button class="btn btn-sm" onclick="fcTcTexte(\'Rappeler\')">Rappeler</button><button class="btn btn-sm" onclick="fcTcTexte(\'Envoyer un mail\')">Envoyer un mail</button><button class="btn btn-sm" onclick="fcTcTexte(\'Relancer pour signature\')">Relancer pour signature</button></div>'
     + '<input type="text" id="fc-tc-texte" value="Rappeler" style="' + champ + 'width:100%;box-sizing:border-box;margin-bottom:12px;" placeholder="Quoi faire">'
     + '<div style="display:flex;justify-content:flex-end;gap:6px;"><button class="btn btn-sm" onclick="fermerModalDoublon()">Annuler</button><button class="btn btn-sm btn-primary" id="fc-tc-ok" onclick="fcTacheCloseCreer(this)">Créer la tâche</button></div></div>';
   var ov = document.getElementById('fc-dup-overlay');
@@ -4986,6 +5027,8 @@ function fcTacheClose(ctx) { // ctx facultatif { nom, email, lead } : depuis le 
   document.getElementById('fc-dup-modal').innerHTML = html; ov.classList.add('open');
   setTimeout(function() { var e = document.getElementById('fc-tc-texte'); if (e) { e.focus(); e.select(); } }, 50);
 }
+function fcTcDate(n) { var e = document.getElementById('fc-tc-date'); if (e) e.value = rlJourOuvre(rlIso(new Date()), n); }
+function fcTcTexte(t) { var e = document.getElementById('fc-tc-texte'); if (e) { e.value = t; e.focus(); } }
 function fcTacheCloseCreer(btn) {
   var date = (document.getElementById('fc-tc-date') || {}).value || '', heure = (document.getElementById('fc-tc-heure') || {}).value || '', texte = ((document.getElementById('fc-tc-texte') || {}).value || '').trim() || 'Rappeler';
   if (!date) { alert('Il manque la date.'); return; } btn.disabled = true; btn.textContent = 'Création…';
@@ -11845,14 +11888,8 @@ function svRendreFile(items, today) {
     pan = '<h2 onclick="ouvrirFicheClient(' + nomJs + ',' + emailJs + ')" title="Ouvrir la fiche">' + escapeHtml(sel.nom) + '</h2>'
       + '<div class="meta">' + escapeHtml([motifLib, row.type, row.source, ech, nbT ? nbT + ' appel' + (nbT > 1 ? 's' : '') + ' sans réponse' : ''].filter(Boolean).join(' · ')) + '</div>'
       + (svRaison(sel) ? '<div class="meta" style="color:var(--text);margin-top:6px;">📌 ' + escapeHtml(svRaison(sel)) + '</div>' : '')
-      + '<div class="sv-acts"><button class="btn btn-primary" title="Close ouvre la fiche et compose ; Alt + clic = appel via le Mac" onclick="svAppeler(event,' + cleJs + ')">📞 Appeler' + (tel ? ' ' + escapeHtml(tel) : '') + '</button>'
-      + (gere ? '<button class="btn sv-orange" title="Appel loggé dans Close, tâche décalée selon la cadence" onclick="rlAction(' + cleJs + ', \'pas_reponse\', this)">📭 Sans réponse</button><button class="btn sv-rouge" title="Pas intéressé : fiche Close en Not interested, opportunité perdue, tâche terminée" onclick="rlAction(' + cleJs + ', \'pas_interesse\', this)">✋ Pas intéressé</button><button class="btn sv-violet" title="Contrat envoyé : tâche « Relancer pour signature » à la date choisie, ligne en attente de signature" onclick="rlAction(' + cleJs + ', \'contrat\', this)">📄 Contrat envoyé</button><button class="btn sv-vert" title="Signé : pack, fréquence, tier, FMS, remise ; tâche « Configurer » demain en tête du Suivi" onclick="rlAction(' + cleJs + ', \'signe\', this)">💰 Signé</button>'
-        : (sel.rel && sel.rel.r ? '<button class="btn" onclick="relanceResultat(' + JSON.stringify(String(sel.rel.r.id)).replace(/"/g, '&quot;') + ', this)">Résultat</button>' : '')) + '</div>'
-      + '<div class="sv-acts2">' + (t ? '<button class="btn" title="Déplacer au prochain jour ouvré, sans rien changer d\'autre" onclick="svDemain(' + cleJs + ')">⏭ Déplacer à demain</button><button class="btn" title="Déplacer à la date de ton choix" onclick="svDeplacer(' + cleJs + ')">📅 Déplacer au…</button>' : '') + (typeof COPILOT_URL !== 'undefined' ? '<button class="btn" title="Une tâche Close à la date, à l\'heure et avec le texte que tu veux (s\'il a déjà une tâche ouverte à ton nom, elle est déplacée)" onclick="svTache(' + cleJs + ')">⏰ Tâche</button>' : '')
-      + '<button class="btn btn-primary" title="Tu choisis le créneau, je réserve dans Calendly (' + (sel.col === 'r2' ? 'R2 Validation' : 'R1 sur ton lien') + ') ; la tâche Close est terminée" onclick="rlAction(' + cleJs + ', \'rdv_pris\', this)">📆 Prendre un RDV</button>'
-      + (gere ? '<button class="btn sv-bleu" title="Note épinglée + tâche pour ' + RL_MANAGER + ' dans Close" onclick="rlAction(' + cleJs + ', \'manager\', this)">👔 Passer au manager</button><button class="btn" title="La tâche Close est terminée, la relance s\'arrête" onclick="rlAction(' + cleJs + ', \'supprimer\', this)">✅ Clôturer la tâche</button>' : '')
-      + (email ? '<a class="btn" style="text-decoration:none;" href="mailto:' + escapeHtml(email) + '">✉ Mail</a>' : '')
-      + (t ? '<select title="Changer le motif" onchange="rlClasser(' + JSON.stringify(t.id).replace(/"/g, '&quot;') + ', this.value)" style="height:28px;font-size:12px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text2);"><option value="">Motif : ' + escapeHtml(motifLib) + '</option><option value="r2">R2 sans réponse</option><option value="rdv">Prise de RDV</option><option value="nsin">No-show inbound</option><option value="nsout">No-show outbound</option></select>' : '') + '</div>'
+      + '<div class="sv-acts" style="flex-wrap:wrap;">' + fcBoutonsSuivi(sel) + '</div>'
+      + (t ? '<div class="sv-acts2">' + (t ? '<select title="Changer le motif" onchange="rlClasser(' + JSON.stringify(t.id).replace(/"/g, '&quot;') + ', this.value)" style="height:28px;font-size:12px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text2);"><option value="">Motif : ' + escapeHtml(motifLib) + '</option><option value="r2">R2 sans réponse</option><option value="rdv">Prise de RDV</option><option value="nsin">No-show inbound</option><option value="nsout">No-show outbound</option></select>' : '') + '</div>' : '')
       + rlChipAppels(sel, items.indexOf(sel)) + rlChipRdvPris(sel);
     var j = _sv.ctx[sel.cle];
     // même carte que sur la fiche : l'essentiel en clair (fait clé, promesse d'un collègue utile, alertes, dernier échange, prochaine étape), le reste sous « Voir tout le dossier »
