@@ -11582,6 +11582,19 @@ function sdAnnulationChoix(o) { // o = { nom, iso, heure, mk, idx, motif, apres 
   document.getElementById('an-repro').onclick = function() { fermerModalDoublon(); try { sdDeplacerAnnuler(o.nom, o.iso, o.heure || ''); } catch (e) { alert('Déplacement impossible : ' + e.message); } };
 }
 // ── Bouton « Show / No show » dans Mes rendez-vous : le résultat du RDV comme dans le copilot — Show (on finalise), No show (tâche de rappel ou rien), Annulé (rappel, reprogrammer, rien), Reprogrammé (nouveau créneau) ──
+function sdResultatR2Sans(nom, email, iso, heure) { // R2 venu de Calendly sans ligne SalesDesk : on crée la ligne R2 (comme pour un R2 déplacé), puis le résultat se note dessus
+  var st = loadStore(), fr = iso.split('-').reverse().join('/'), mk = iso.slice(0, 7), n = fcNormNom(nom);
+  var idx = (st[mk] || []).findIndex(function(r) { return r && r.source === 'R2' && r.date === fr && fcNormNom(r.client || '') === n; });
+  if (idx < 0) {
+    var r1 = fcLignesDuNom(nom).filter(function(r) { return r.source !== 'R2'; }).sort(function(a, b) { return (parseDateFR(b.date) || 0) - (parseDateFR(a.date) || 0); })[0] || {};
+    sdBackupStore(st);
+    var neuf = { date: fr, heure: heure || '', client: nom, email: String(email || r1.email || '').toLowerCase(), source: 'R2', type: r1.type || 'Mandataire', presence: '', result: '', pack: '', freq: '', tier: r1.tier || '', fms: r1.fms || '', oneshot: 'N', commission: 0, remise: '', dateR2: '', heureR2: '', datePrise: r1.datePrise || '', closeLead: r1.closeLead || '', typeSource: r1.typeSource || '', _calendlyImported: true };
+    (st[mk] = st[mk] || []).push(neuf); idx = st[mk].length - 1;
+    try { if (r1._monthKey !== undefined && !String(r1.dateR2 || '').trim()) { var rr = (st[r1._monthKey] || [])[r1._storeKey]; if (rr) { rr.dateR2 = fr; rr.heureR2 = heure || ''; } } } catch (e) {} // la ligne R1 garde la trace du R2
+    saveStore(st); try { refreshAll(); } catch (e) {}
+  }
+  sdResultatRdv(mk, idx);
+}
 function sdResultatRdv(mk, idx) { var st = loadStore(), row = (st[mk] || [])[idx]; if (!row) return; sdResultatJour(mk, idx, row.client, frVersIsoSd(row.date) || rlIso(new Date()), row.heure || ''); } // entrée unique : fiche, Aujourd'hui, tableau
 function sdHeureMaintenant() { var d = new Date(); return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); }
 function sdRdvAVenir(iso, heure) { var today = rlIso(new Date()); return iso > today || (iso === today && !!heure && String(heure).slice(0, 5) > sdHeureMaintenant()); } // RDV pas encore eu lieu : date future, ou aujourd'hui à une heure non passée
@@ -11847,7 +11860,8 @@ function renderAujourdhui() {
   var actionsDe = function(r, m, p, estProchain) { // une action principale par ligne selon l'état réel, le reste sous « ··· »
     var row = r.row || {}, pres = presDe(r), nomJs = Q(r.nom), emailJs = Q(r.email || '');
     var fiche = Bt('ouvrirFicheClient(' + nomJs + ',' + emailJs + ')', 'Ouvrir la fiche');
-    var resultat = r.row ? Bt('sdResultatRdv(' + Q(row._monthKey) + ',' + row._storeKey + ')', (m.passe || m.enCours) ? 'Résultat du RDV' : 'Annulé ou reprogrammé', '', (m.passe || m.enCours) ? 'Show, No show, Annulé ou Reprogrammé' : 'Le prospect annule ou déplace son rendez-vous') : '';
+    var resultat = r.row ? Bt('sdResultatRdv(' + Q(row._monthKey) + ',' + row._storeKey + ')', (m.passe || m.enCours) ? 'Résultat du RDV' : 'Annulé ou reprogrammé', '', (m.passe || m.enCours) ? 'Show, No show, Annulé ou Reprogrammé' : 'Le prospect annule ou déplace son rendez-vous')
+      : (r.r2 ? Bt('sdResultatR2Sans(' + nomJs + ',' + emailJs + ',' + Q(jour) + ',' + Q(r.heure || '') + ')', (m.passe || m.enCours) ? 'Résultat du RDV' : 'Annulé ou reprogrammé', '', 'R2 pris dans Calendly sans ligne SalesDesk : la ligne R2 est créée, puis Show, No show, Annulé ou Reprogrammé') : ''); // un R2 Calendly sans ligne : on la crée au moment du résultat
     var prepa = r.r2 ? Bt('ouvrirFicheClient(' + nomJs + ',' + emailJs + ')', 'Revoir le dossier', '', 'Tout ce qui s\'est dit au R1 et depuis') : Bt(cible(r.nom, r.email, jour), p.etat === 'ok' ? 'Voir la préparation' : 'Préparer', '', 'La préparation du rendez-vous dans le copilot');
     var assistant = (!SD_PAUSE_LIVE && !pres && !m.passe) ? Bt('sdAssistantFenetre(' + nomJs + ',' + Q(jour) + ')', 'Assistant live (fenêtre à part)') : '';
     var prim = function(b) { return b; }; // dans l'agenda, tout est secondaire : le seul bouton plein est dans la carte du prochain RDV
@@ -11889,7 +11903,7 @@ function renderAujourdhui() {
     var prepB = rp.r2 ? '' : '<button class="btn" onclick="' + cible(rp.nom, rp.email, jour) + '">' + aujIco('cal') + (pp.etat === 'ok' ? 'Voir la préparation' : 'Préparer le RDV') + '</button>';
     var visioB = rp.join ? '<a class="btn" style="text-decoration:none;" href="' + escapeHtml(rp.join) + '" target="_blank" rel="noopener">' + aujIco('video') + 'Rejoindre</a>' : '';
     var primP = function(b) { return b.replace('class="btn"', 'class="btn btn-primary"'); }, actsP;
-    var resB = (mp.enCours && rp.row) ? '<button class="btn" onclick="sdResultatRdv(' + Q(rowP._monthKey) + ',' + rowP._storeKey + ')" title="Show, No show, Annulé ou Reprogrammé">' + aujIco('check') + 'Résultat du RDV</button>' : '';
+    var resB = (mp.enCours && (rp.row || rp.r2)) ? '<button class="btn" onclick="' + (rp.row ? 'sdResultatRdv(' + Q(rowP._monthKey) + ',' + rowP._storeKey + ')' : 'sdResultatR2Sans(' + nomJsP + ',' + emailJsP + ',' + Q(jour) + ',' + Q(rp.heure || '') + ')') + '" title="Show, No show, Annulé ou Reprogrammé">' + aujIco('check') + 'Résultat du RDV</button>' : '';
     if ((mp.enCours || mp.bientot) && rp.join) actsP = [primP(visioB), resB, prepB, ficheB];
     else if (mp.enCours && resB) actsP = [primP(resB), prepB, ficheB];
     else if (rp.r2) actsP = [primP(ficheB).replace('Ouvrir la fiche', 'Revoir le dossier'), visioB];
