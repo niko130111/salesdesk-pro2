@@ -4023,7 +4023,7 @@ function ouvrirFicheClient(nom, email, date) {
   _fc = { cle: fcCle(nom, email), nom: nom, email: email, rows: rows, tab: 'synthese', dossiers: null, close: null, leadChoisi: (function() { try { return sdLeadPour(nom, email) || ''; } catch (e) { return ''; } })(), date: date || '' };
   fcRendre();
   document.getElementById('fc-overlay').classList.add('open');
-  fcChargerClose(); fcChargerDossiers(); fcChargerDernierContact();
+  fcChargerClose(function() { fcChargerDernierContact(); }); fcChargerDossiers();
 }
 function fcPopupDoublon(nom, emails, rows) {
   var sansEmail = rows.filter(function(r) { return !String(r.email || '').trim(); }).length;
@@ -4223,6 +4223,7 @@ function fcRendreContact() {
   else if (c && c.error) note = 'Close : ' + c.error;
   else if (c && c.leads && !c.leads.length) note = 'Close : aucune fiche trouvée';
   else if (c === undefined) note = 'Close : copilot éteint';
+  else if (_fc.leadDivergent && _fc.leadDivergent.mieux) note = '<span style="color:var(--orange);font-weight:600;">SalesDesk pointait vers « ' + escapeHtml(_fc.leadDivergent.sdNom || _fc.leadDivergent.sd) + ' »</span> (fiche Close sans contact à ce nom) · la fiche « ' + escapeHtml(_fc.leadDivergent.mieux.nom || '') + ' » porte ce contact : c\'est elle qui est lue ici (appels, mails, synthèse). <a style="cursor:pointer;color:var(--accent);font-weight:600;" onclick="fcChangerFicheClose(' + JSON.stringify(_fc.leadDivergent.mieux.id).replace(/"/g, '&quot;') + ')">Corriger SalesDesk</a>' + (c && c.leads && c.leads.length > 1 ? ' · autres fiches : ' + c.leads.slice(1).map(function(l) { return '<a style="cursor:pointer;color:var(--accent);" onclick="fcChangerFicheClose(' + JSON.stringify(l.id).replace(/"/g, '&quot;') + ')">' + escapeHtml(l.nom || l.id) + '</a>'; }).join(', ') : '');
   else if (c && c.leads && c.leads.length > 1) note = '<span style="color:var(--orange);font-weight:600;">' + c.leads.length + ' fiches Close ' + (c.par === 'nom' ? 'portent ce nom' : 'ont cet e-mail') + '</span> · toute la fiche utilise « ' + escapeHtml((c.leads[0] || {}).nom || '') + ' ». Choisir : ' + c.leads.map(function(l) { return '<a style="cursor:pointer;color:var(--accent);font-weight:600;margin-right:8px;" onclick="fcChangerFicheClose(' + JSON.stringify(l.id).replace(/"/g, '&quot;') + ')">' + escapeHtml(l.nom || l.id) + '</a>'; }).join('');
   var suiviHtml = fcHtmlSuivi();
   el.innerHTML = (note ? '<div class="fc-muted">' + (/^<span /.test(note) ? note : escapeHtml(note)) + '</div>' : '') + '<div class="fc-suivi" id="fc-suivi">' + suiviHtml + '</div>'; // la note « plusieurs fiches Close » porte des liens de choix
@@ -4431,15 +4432,30 @@ function fcHtmlSuivi() {
   if (aDeja) _fc.rappelArg = JSON.stringify(cible._monthKey).replace(/"/g, '&quot;') + ',' + cible._storeKey; else _fc.rappelArg = ''; // « Modifier le rappel » est dans le menu Plus de la barre, plus en pastille // « Me mettre un rappel » a disparu : « ⏰ Tâche » dans la barre d'actions le remplace
   return out.join('');
 }
-function fcChargerClose() {
-  var cle = _fc.cle;
+function sdMeilleurLead(leads, nom, email, sdLead) { // parmi les fiches Close candidates : celle dont un contact porte ce nom ou cet e-mail (c'est elle qui a les appels), sinon celle de SalesDesk, sinon la première
+  leads = leads || []; var nn = fcNormNom(nom || ''), em = String(email || '').toLowerCase().trim();
+  var score = function(l) { var sc = 0; (l.contacts || []).forEach(function(c) { var cn = fcNormNom(c.nom || c.name || ''); if (cn && cn === nn) sc += 10; else if (cn && nn && (cn.indexOf(nn) >= 0 || nn.indexOf(cn) >= 0)) sc += 4; if (em && (c.emails || []).some(function(e) { return String(e || '').toLowerCase().trim() === em; })) sc += 20; }); return sc; };
+  var meilleur = leads.slice().sort(function(a, b) { return score(b) - score(a); })[0];
+  var id = (meilleur && score(meilleur) > 0) ? meilleur.id : (sdLead && leads.some(function(l) { return l.id === sdLead; }) ? sdLead : (leads[0] ? leads[0].id : (sdLead || '')));
+  return { id: id, lead: leads.find(function(l) { return l.id === id; }) || null, divergent: !!(sdLead && id && id !== sdLead), score: meilleur ? score(meilleur) : 0 };
+}
+function fcChargerClose(apres) { // apres : lancé une fois la fiche Close choisie (succès ou échec)
+  var cle = _fc.cle, fini = function() { if (apres) { try { apres(); } catch (e) {} apres = null; } };
   var ctrl = new AbortController(); setTimeout(function() { ctrl.abort(); }, 12000);
-  fetch(COPILOT_URL + '/close/contact?' + new URLSearchParams(Object.assign({ email: _fc.email, nom: _fc.nom }, _fc.leadChoisi ? { lead: _fc.leadChoisi } : {})), { mode: 'cors', cache: 'no-store', signal: ctrl.signal })
-    .then(function(r) { return r.json(); }).then(function(j) { fcMemoriserClose(cle, _fc.nom, _fc.email, j); if (_fc.cle !== cle) return; _fc.close = j;
-      // une seule fiche Close pour toute la fiche : celle de SalesDesk si connue, sinon la première trouvée ; Mails et Synthèse se réalignent dessus
-      var l0 = j && j.leads && j.leads[0]; if (!_fc.leadChoisi && l0 && l0.id) { _fc.leadChoisi = l0.id; try { if (_fcMails && _fcMails.cle === cle && _fcMails.lead !== l0.id && (_fcMails.data || _fcMails.enCours)) { _fcMails.data = null; _fcMails.erreur = ''; fcChargerMails(); } } catch (e) {} try { if (_fc.dernier && _fc.dernier.lead && _fc.dernier.lead !== l0.id) fcChargerDernierContact(false, l0.id); } catch (e) {} }
-      fcRendreContact(); })
-    .catch(function() { if (_fc.cle === cle) { _fc.close = undefined; fcRendreContact(); } });
+  var sdLead = _fc.leadChoisi || '';
+  fetch(COPILOT_URL + '/close/contact?' + new URLSearchParams({ email: _fc.email, nom: _fc.nom }), { mode: 'cors', cache: 'no-store', signal: ctrl.signal })
+    .then(function(r) { return r.json(); })
+    .then(function(j) { if (j && j.leads && !j.leads.length && sdLead) return fetch(COPILOT_URL + '/close/contact?' + new URLSearchParams({ lead: sdLead }), { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).then(function(j2) { return (j2 && j2.leads && j2.leads.length) ? j2 : j; }); return j; }) // la fiche connue de SalesDesk n'est pas ressortie par la recherche : on la lit directement
+    .then(function(j) { if (_fc.cle !== cle) return;
+      // Une seule fiche Close pour toute la fiche : d'abord celle dont un contact porte ce nom ou cet e-mail (c'est elle qui a les appels du SDR), sinon celle de SalesDesk, sinon la première trouvée. Mails et Synthèse lisent la même.
+      var leads = (j && j.leads) || [], mx = sdMeilleurLead(leads, _fc.nom, _fc.email, sdLead), choisi = mx.id;
+      _fc.leadDivergent = (sdLead && choisi && choisi !== sdLead) ? { sd: sdLead, sdNom: (leads.find(function(l) { return l.id === sdLead; }) || {}).nom || '', mieux: leads.find(function(l) { return l.id === choisi; }) || null } : null;
+      if (choisi) { _fc.leadChoisi = choisi; j.leads = leads.slice().sort(function(a, b) { return (a.id === choisi ? 0 : 1) - (b.id === choisi ? 0 : 1); }); }
+      fcMemoriserClose(cle, _fc.nom, _fc.email, j); _fc.close = j;
+      try { if (_fcMails && _fcMails.cle === cle && _fcMails.lead !== (_fc.leadChoisi || '') && (_fcMails.data || _fcMails.enCours)) { _fcMails.data = null; _fcMails.erreur = ''; fcChargerMails(); } } catch (e) {}
+      try { if (_fc.dernier && _fc.dernier.lead && _fc.leadChoisi && _fc.dernier.lead !== _fc.leadChoisi) fcChargerDernierContact(false, _fc.leadChoisi); } catch (e) {}
+      fcRendreContact(); fini(); })
+    .catch(function() { if (_fc.cle === cle) { _fc.close = undefined; fcRendreContact(); } fini(); });
 }
 // « La dernière fois » : 4-6 lignes condensées par le copilot depuis Close (appels, mails, compte rendu Claap) — jamais inventées
 function fcChargerDernierContact(force, leadId) {
@@ -12257,12 +12273,14 @@ function svCharger(it) { // contexte Close du prospect choisi (une fois par pros
   var cle = it.cle; if (_sv.ctx[cle] !== undefined || typeof COPILOT_URL === 'undefined') return;
   _sv.ctx[cle] = null;
   var row = (it.rel && it.rel.row) || it.row || {}, email = (it.rel && it.rel.r && it.rel.r.email) || row.email || '';
-  var q = { nom: it.nom, email: email, force: '0' }; var lead = (it.t && it.t.lead) || row.closeLead || sdLeadPour(it.nom, email); if (lead) q.lead = lead;
-  var ctrl = new AbortController(); setTimeout(function() { ctrl.abort(); }, 120000);
-  fetch(COPILOT_URL + '/close/dernier-contact?' + new URLSearchParams(q), { mode: 'cors', cache: 'no-store', signal: ctrl.signal }).then(function(r) { return r.json(); })
-    .then(function(j) { _sv.ctx[cle] = j || { error: 'vide' }; if (_sv.sel === cle) renderRelancesPage(); }).catch(function() { _sv.ctx[cle] = { error: 'le copilot n\'a pas répondu' }; if (_sv.sel === cle) renderRelancesPage(); });
+  var q = { nom: it.nom, email: email, force: '0' }; var sdLead = (it.t && it.t.lead) || row.closeLead || sdLeadPour(it.nom, email);
+  var lireDernier = function(lead) { if (lead) q.lead = lead; var ctrl = new AbortController(); setTimeout(function() { ctrl.abort(); }, 120000);
+    fetch(COPILOT_URL + '/close/dernier-contact?' + new URLSearchParams(q), { mode: 'cors', cache: 'no-store', signal: ctrl.signal }).then(function(r) { return r.json(); })
+      .then(function(j) { _sv.ctx[cle] = j || { error: 'vide' }; if (_sv.sel === cle) renderRelancesPage(); }).catch(function() { _sv.ctx[cle] = { error: 'le copilot n\'a pas répondu' }; if (_sv.sel === cle) renderRelancesPage(); }); };
+  // même règle que la fiche : la fiche Close qui porte le contact d'abord (sinon on lisait parfois une fiche agence vide, sans l'appel du SDR)
   fetch(COPILOT_URL + '/close/contact?' + new URLSearchParams({ email: email, nom: it.nom }), { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); })
-    .then(function(j) { var l = (j.leads || []).find(function(x) { return !lead || x.id === lead; }) || (j.leads || [])[0]; var tel = ''; if (l) (l.contacts || []).some(function(c) { tel = ((c.tels || [])[0]) || ''; return !!tel; }); _sv.tel[cle] = { tel: tel, url: l ? l.url : '' }; if (_sv.sel === cle) renderRelancesPage(); }).catch(function() {});
+    .then(function(j) { var mx = sdMeilleurLead(j.leads || [], it.nom, email, sdLead), l = mx.lead || (j.leads || [])[0]; var tel = ''; if (l) (l.contacts || []).some(function(c) { tel = ((c.tels || [])[0]) || ''; return !!tel; }); _sv.tel[cle] = { tel: tel, url: l ? l.url : '', lead: mx.id || '', divergent: mx.divergent }; lireDernier(mx.id || sdLead); if (_sv.sel === cle) renderRelancesPage(); })
+    .catch(function() { lireDernier(sdLead); });
 }
 function svAppeler(ev, cle) { var x = _sv.tel[cle] || {}, it = (window._rlItems || []).find(function(i) { return i.cle === cle; }); var url = x.url || (it && it.t && it.t.lead ? 'https://app.close.com/lead/' + it.t.lead + '/' : ''); if (!url && !x.tel) { if (typeof showCopyToast === 'function') showCopyToast('Fiche Close introuvable pour cet appel'); return; } fcAppeler(ev, x.tel || '', url); }
 function svDeplacerVers(cles, date, heure) {
