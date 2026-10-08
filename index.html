@@ -11826,7 +11826,9 @@ function renderAujourdhui() {
   var prochainIdx = -1; if (estAuj) rdvs.forEach(function(r, i) { var pr = String((r.row || {}).presence || '').trim(); if (prochainIdx < 0 && !moments[i].passe && (!pr || pr === 'Reprogrammé')) prochainIdx = i; }); else if (jour > todayIso && rdvs.length) prochainIdx = 0; // un RDV dont le résultat est déjà noté (no show, annulé, show…) laisse la place au suivant
   var cible = function(nom, email, date) { return 'sdOuvrirCopilotSur(' + Q(nom) + ',' + Q(date) + ",'prepa')"; };
   var cls = fcClients(st);
-  var sousTitre = function(r) { var row = r.row || {}, cl = cls[fcCle(r.nom, r.email || '')] || {}, parts = [r.r2 ? 'R2' : 'R1']; if (row.type) parts.push(row.type); if (r.source && r.source !== 'R2') parts.push(r.source); if (row.reseau) parts.push(row.reseau); else if (cl.entreprise) parts.push(cl.entreprise); if (row.ville || cl.ville) parts.push(row.ville || cl.ville); return parts.join(' · '); };
+  var sousTitre = function(r) { var row = r.row || {}, cl = cls[fcCle(r.nom, r.email || '')] || {}, parts = [r.r2 ? 'R2' : 'R1']; if (row.type) parts.push(row.type);
+    var reseau = row.reseau || cl.reseau || cl.entreprise || ''; if (reseau && reseau.toLowerCase() !== String(row.type || '').toLowerCase()) parts.push(reseau); else if (!reseau && cl.reseau === undefined) sdCompleterOrg(r.nom, r.email || '');
+    if (row.ville || cl.ville) parts.push(row.ville || cl.ville); if (r.source && r.source !== 'R2') parts.push(r.source); return parts.join(' · '); }; // R1 · type · réseau ou agence · ville · source, chaque info une seule fois
   var presDe = function(r) { var p = String((r.row || {}).presence || '').trim(); return (p === 'Reprogrammé' && jour >= todayIso) ? '' : p; };
   var confChip = function(r, m) { var row = r.row || {}; if (!r.row || m.passe || presDe(r)) return ''; if (row.confirme) return '<span class="auj-state ok click" title="Il a confirmé sa venue · clic : retirer" onclick="sdBasculerConfirme(' + Q(row._monthKey) + ',' + row._storeKey + ')">' + aujIco('check') + 'Confirmé</span>'; if (row.relanceVeilleAt) return '<span class="auj-state click" title="Relancé par SMS, pas de réponse · clic : il a confirmé" onclick="sdBasculerConfirme(' + Q(row._monthKey) + ',' + row._storeKey + ')">' + aujIco('q') + 'Sans réponse</span>'; return ''; };
   var prepChip = function(p, long) { if (p.etat === 'inconnu') return ''; if (p.etat === 'ok') return '<span class="auj-state ok">' + aujIco('check') + (long ? 'Préparation prête' : 'Prêt') + '</span>'; return '<span class="auj-state warn" title="' + escapeHtml(p.detail || '') + '">' + aujIco('clock') + (p.etat === 'partiel' ? (long ? 'À compléter : ' + escapeHtml(String(p.detail || '').slice(0, 70)) : 'À compléter') : 'À préparer') + '</span>'; }; // la pastille dit ce qui manque (analyse, notes…)
@@ -11859,11 +11861,8 @@ function renderAujourdhui() {
     var out = [], bj = p.d ? aujBrief(p.d) : null;
     var connus = function() { // sans analyse générée : ce que Close et SalesDesk savent déjà, pour ne pas afficher une case vide
         var row = (r && r.row) || {}, d = p.d || {}, l = [], clR = {}; try { clR = fcClients(loadStore())[fcCle(r.nom, r.email || '')] || {}; } catch (e) {}
-        var typ = row.type || d.reseau || '', reseau = d.reseauClose || clR.reseau || '', ville = d.secteur || clR.ville || row.ville || '';
-        if (!reseau && clR.reseau === undefined) sdCompleterOrg(r.nom, r.email || ''); // pas encore lu dans Close : on va le chercher une fois, la carte se redessine
-        var profil = [reseau && reseau.toLowerCase() !== typ.toLowerCase() ? reseau : '', ville].filter(Boolean).join(' · '); // réseau ou agence (Close) · ville ; le type est déjà sur la ligne du dessus, on ne le répète pas
-        if (profil) l.push(['Profil', profil]);
-        var prise = [row.source && row.source !== 'R2' ? row.source : '', row.datePrise ? 'pris le ' + row.datePrise : '', row.typeSource].filter(Boolean).join(' · '); if (prise) l.push(['RDV', prise]);
+        // l'identité (type, réseau ou agence, ville) est déjà sur la ligne sous le nom : pas de ligne « Profil » en double
+        var prise = [row.datePrise ? 'pris le ' + row.datePrise : '', row.typeSource].filter(Boolean).join(' · '); if (prise) l.push(['RDV', prise]); // la source est déjà sur la ligne d'identité
         if (bj && bj.notes) l.push(['Mes notes', String(bj.notes).slice(0, 200)]);
         return l;
       };
