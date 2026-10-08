@@ -6884,6 +6884,7 @@ window.addEventListener('message', (ev) => {
   const w = copilotFenetre(); if (!w || ev.source !== w) return;
   const m = ev.data || {};
   if (m.sc === 'ready') { _copilotPret = true; sdEnvoyerEtatCopilot(); return; }
+  if (m.sc === 'prep_pret') { try { chargerMaJournee(true); } catch (e) {} return; } // « Prêt pour le RDV » cliqué dans le copilot : la pastille d'Aujourd'hui passe en « Prêt » tout de suite
   if (m.sc === 'rdv_set' || m.sc === 'rdv_terminer') { const v = sdValiderMessageCopilot(m); if (v) sdAppliquerCopilot(v); else console.warn('[pont copilot] message refusé', m); }
 });
 // Le copilot est une page locale de confiance, mais on ne prend que des valeurs connues : un message mal formé ne touche pas aux données.
