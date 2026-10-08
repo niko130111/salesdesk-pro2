@@ -4020,7 +4020,7 @@ function ouvrirFicheClient(nom, email, date) {
   if (!email && distincts.length > 1) { fcPopupDoublon(nom, emails, rows); return; }
   if (!email && distincts.length === 1) email = distincts[0];
   if (email && distincts.length > 1) { rows = rows.filter(function(r) { var e = String(r.email || '').toLowerCase().trim(); return !e || e === email; }); } // cet email + les lignes sans email
-  _fc = { cle: fcCle(nom, email), nom: nom, email: email, rows: rows, tab: 'synthese', dossiers: null, close: null, date: date || '' };
+  _fc = { cle: fcCle(nom, email), nom: nom, email: email, rows: rows, tab: 'synthese', dossiers: null, close: null, leadChoisi: (function() { try { return sdLeadPour(nom, email) || ''; } catch (e) { return ''; } })(), date: date || '' };
   fcRendre();
   document.getElementById('fc-overlay').classList.add('open');
   fcChargerClose(); fcChargerDossiers(); fcChargerDernierContact();
@@ -4085,7 +4085,7 @@ function fcRendre() {
 var _fcMails = { cle: null, data: null, erreur: '', redige: false, b: { to: '', objet: '', texte: '' }, ouverts: {}, enCours: false };
 function fcChargerMails() {
   if (typeof COPILOT_URL === 'undefined') { _fcMails.erreur = 'Copilot éteint : les mails se lisent par lui.'; return; }
-  var cle = _fc.cle, q = { nom: _fc.nom, email: _fc.email || '' }, l = sdLeadPour(_fc.nom, _fc.email || ''); if (l) q.lead = l;
+  var cle = _fc.cle, q = { nom: _fc.nom, email: _fc.email || '' }, l = _fc.leadChoisi || sdLeadPour(_fc.nom, _fc.email || ''); if (l) q.lead = l; _fcMails.lead = l || '';
   fetch(COPILOT_URL + '/close/mails?' + new URLSearchParams(q), { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).then(function(j) {
     if (_fcMails.cle !== cle) return; if (j.ok === false) _fcMails.erreur = j.error || 'Close illisible'; else { _fcMails.data = j; _fcMails.erreur = ''; if (!_fcMails.b.to) _fcMails.b.to = (j.adresses || []).indexOf(_fc.email) >= 0 ? _fc.email : ((j.adresses || [])[0] || _fc.email || ''); }
     if (_fc.tab === 'mails') fcRendre();
@@ -4154,9 +4154,9 @@ function fcAppeler(ev, tel, closeUrl) { // clic : la fiche s'ouvre DANS l'applic
 }
 // Corriger le nom d'une personne partout (lignes, fiche, traités, suivi, journal) — et dans le copilot ; proposition = le nom tel qu'il est dans Close
 // ── Relier une personne à la bonne fiche Close (ex. : ligne créée avec l'e-mail du conjoint) : lien collé → toutes ses lignes prennent closeLead et l'e-mail de cette fiche ──
-function fcChangerFicheClose() {
+function fcChangerFicheClose(leadDonne) { // leadDonne : identifiant déjà choisi (liste des fiches candidates), sinon on demande le lien
   if (!_fc.nom) return; if (typeof COPILOT_URL === 'undefined') { alert('Copilot éteint : il lit la fiche Close.'); return; }
-  var lien = prompt('Colle le lien de la bonne fiche Close pour « ' + _fc.nom + ' » :', ''); if (!lien) return;
+  var lien = leadDonne || prompt('Colle le lien de la bonne fiche Close pour « ' + _fc.nom + ' » :', ''); if (!lien) return;
   var m = /lead_[A-Za-z0-9]+/.exec(lien); if (!m) { alert('Pas d\'identifiant de fiche (lead_…) dans ce lien.'); return; }
   var lead = m[0];
   fetch(COPILOT_URL + '/close/contact?' + new URLSearchParams({ lead: lead }), { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).then(function(j) {
@@ -4223,9 +4223,9 @@ function fcRendreContact() {
   else if (c && c.error) note = 'Close : ' + c.error;
   else if (c && c.leads && !c.leads.length) note = 'Close : aucune fiche trouvée';
   else if (c === undefined) note = 'Close : copilot éteint';
-  else if (c && c.leads && c.leads.length > 1) note = c.leads.length + ' fiches Close (' + (c.par === 'nom' ? 'par nom' : 'par email') + '), la première est affichée';
+  else if (c && c.leads && c.leads.length > 1) note = '<span style="color:var(--orange);font-weight:600;">' + c.leads.length + ' fiches Close ' + (c.par === 'nom' ? 'portent ce nom' : 'ont cet e-mail') + '</span> · toute la fiche utilise « ' + escapeHtml((c.leads[0] || {}).nom || '') + ' ». Choisir : ' + c.leads.map(function(l) { return '<a style="cursor:pointer;color:var(--accent);font-weight:600;margin-right:8px;" onclick="fcChangerFicheClose(' + JSON.stringify(l.id).replace(/"/g, '&quot;') + ')">' + escapeHtml(l.nom || l.id) + '</a>'; }).join('');
   var suiviHtml = fcHtmlSuivi();
-  el.innerHTML = (note ? '<div class="fc-muted">' + escapeHtml(note) + '</div>' : '') + '<div class="fc-suivi" id="fc-suivi">' + suiviHtml + '</div>';
+  el.innerHTML = (note ? '<div class="fc-muted">' + (/^<span /.test(note) ? note : escapeHtml(note)) + '</div>' : '') + '<div class="fc-suivi" id="fc-suivi">' + suiviHtml + '</div>'; // la note « plusieurs fiches Close » porte des liens de choix
   el.style.display = (note || suiviHtml) ? '' : 'none';
   try { fcRendreProchaineEtape(); } catch (e) {}
 }
@@ -4434,8 +4434,11 @@ function fcHtmlSuivi() {
 function fcChargerClose() {
   var cle = _fc.cle;
   var ctrl = new AbortController(); setTimeout(function() { ctrl.abort(); }, 12000);
-  fetch(COPILOT_URL + '/close/contact?' + new URLSearchParams({ email: _fc.email, nom: _fc.nom }), { mode: 'cors', cache: 'no-store', signal: ctrl.signal })
-    .then(function(r) { return r.json(); }).then(function(j) { fcMemoriserClose(cle, _fc.nom, _fc.email, j); if (_fc.cle === cle) { _fc.close = j; fcRendreContact(); } })
+  fetch(COPILOT_URL + '/close/contact?' + new URLSearchParams(Object.assign({ email: _fc.email, nom: _fc.nom }, _fc.leadChoisi ? { lead: _fc.leadChoisi } : {})), { mode: 'cors', cache: 'no-store', signal: ctrl.signal })
+    .then(function(r) { return r.json(); }).then(function(j) { fcMemoriserClose(cle, _fc.nom, _fc.email, j); if (_fc.cle !== cle) return; _fc.close = j;
+      // une seule fiche Close pour toute la fiche : celle de SalesDesk si connue, sinon la première trouvée ; Mails et Synthèse se réalignent dessus
+      var l0 = j && j.leads && j.leads[0]; if (!_fc.leadChoisi && l0 && l0.id) { _fc.leadChoisi = l0.id; try { if (_fcMails && _fcMails.cle === cle && _fcMails.lead !== l0.id && (_fcMails.data || _fcMails.enCours)) { _fcMails.data = null; _fcMails.erreur = ''; fcChargerMails(); } } catch (e) {} try { if (_fc.dernier && _fc.dernier.lead && _fc.dernier.lead !== l0.id) fcChargerDernierContact(false, l0.id); } catch (e) {} }
+      fcRendreContact(); })
     .catch(function() { if (_fc.cle === cle) { _fc.close = undefined; fcRendreContact(); } });
 }
 // « La dernière fois » : 4-6 lignes condensées par le copilot depuis Close (appels, mails, compte rendu Claap) — jamais inventées
@@ -5303,7 +5306,7 @@ function fcPopupSuivi(monthKey, idx, retourSiAnnule) {
 }
 // ⏰ Tâche Close depuis la fiche, quel que soit l'état du dossier : date, heure facultative, texte ; elle entre dans ton Suivi. S'il a déjà une tâche ouverte à ton nom, elle est déplacée (jamais en double).
 function fcTacheClose(ctx) { // ctx facultatif { nom, email, lead } : depuis le panneau du Suivi ; sinon la fiche ouverte
-  var c = ctx || { nom: _fc.nom, email: _fc.email || '', lead: (_fc.rows || []).map(function(r) { return r.closeLead; }).find(Boolean) || '' }; window._fcTacheCtx = c;
+  var c = ctx || { nom: _fc.nom, email: _fc.email || '', lead: _fc.leadChoisi || (_fc.rows || []).map(function(r) { return r.closeLead; }).find(Boolean) || '' }; window._fcTacheCtx = c;
   var champ = 'font-family:var(--font);font-size:13.5px;padding:8px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg);color:var(--text);';
   var html = '<div class="fc-dup" style="width:min(460px,84vw);max-width:100%;box-sizing:border-box;"><div style="font-size:16px;font-weight:700;margin-bottom:2px;">⏰ Tâche Close — ' + escapeHtml(c.nom) + '</div><div class="fc-muted" style="margin-bottom:12px;">Elle apparaîtra dans ton Suivi à cette date. S\'il a déjà une tâche ouverte à ton nom, elle est déplacée.</div>'
     + '<div style="display:flex;gap:8px;margin-bottom:8px;"><input type="date" id="fc-tc-date" value="' + rlJourOuvre(rlIso(new Date()), 1) + '" min="' + rlIso(new Date()) + '" style="' + champ + 'flex:1;"><input type="time" id="fc-tc-heure" style="' + champ + 'width:110px;" title="Heure (facultatif)"></div>'
@@ -10219,7 +10222,7 @@ function renderPipeline() {
     r._monthKey = currentKey;
     if (r.pipelineMasque) return; // ancienne carte d'un client revenu : hors Pipeline, toujours dans les stats
     var cat = classifyRow(r);
-    if (cat === 'untreated' && sdRdvAVenir(frVersIsoSd(r.date) || '', r.heure)) return; // un RDV qui n'a pas encore eu lieu n'est pas « à finaliser »
+    if (cat === 'untreated' && sdRdvAVenir(frVersIsoSd(r.date) || '', r.heure)) { (cols.futurs = cols.futurs || []).push(r); return; } // un RDV qui n'a pas encore eu lieu n'est pas « à finaliser », mais il compte dans « R1 prévu »
     if (cat !== 'interested' && !(cat === 'nosigned' && raisonNS(r) && raisonNS(r) !== 'pasinteresse')) { // non signés classés (sauf Pas intéressé) : gérés dans la boucle multi-mois
       cols[cat].push(r);
     }
@@ -10357,7 +10360,7 @@ function renderEtapesPipeline(cols) {
   var dues = (_relances || []).filter(function(r) { var q = r.relance && r.relance.quand; return q && q <= today; }).length;
   var etapes = [
     ['À contacter', dues, 'relances dues aujourd\'hui ou en retard'],
-    ['R1 prévu', (cols.untreated || []).filter(futur).length, 'RDV à venir sans résultat'],
+    ['R1 prévu', (cols.futurs || []).filter(function(r) { return r.source !== 'R2'; }).length, 'RDV à venir sans résultat'],
     ['Suivi après R1', (cols.interested || []).filter(function(r) { return !r2Futur(r); }).length + ns.filter(function(r) { return ['promo', 'pasbudget', 'carte', 'rent', 'relancer'].indexOf(raisonNS(r)) >= 0; }).length, 'intéressés sans R2 calé + à relancer / si promo / pas de budget / carte / RENT'],
     ['R2 prévu', (cols.interested || []).filter(r2Futur).length, 'un R2 daté à venir'],
     ['Décision attendue', (cols.interested || []).filter(function(r) { return r.dateR2 && !r2Futur(r) && r.result !== 'Signé'; }).length, 'R2 passé, pas encore de réponse'],
