@@ -11861,7 +11861,7 @@ function renderAujourdhui() {
         var row = (r && r.row) || {}, d = p.d || {}, l = [], clR = {}; try { clR = fcClients(loadStore())[fcCle(r.nom, r.email || '')] || {}; } catch (e) {}
         var typ = row.type || d.reseau || '', reseau = d.reseauClose || clR.reseau || '', ville = d.secteur || clR.ville || row.ville || '';
         if (!reseau && clR.reseau === undefined) sdCompleterOrg(r.nom, r.email || ''); // pas encore lu dans Close : on va le chercher une fois, la carte se redessine
-        var profil = [typ, reseau && reseau.toLowerCase() !== typ.toLowerCase() ? reseau : '', ville].filter(Boolean).join(' · '); // type · réseau Close · ville, sans répéter « Mandataire »
+        var profil = [reseau && reseau.toLowerCase() !== typ.toLowerCase() ? reseau : '', ville].filter(Boolean).join(' · '); // réseau ou agence (Close) · ville ; le type est déjà sur la ligne du dessus, on ne le répète pas
         if (profil) l.push(['Profil', profil]);
         var prise = [row.source && row.source !== 'R2' ? row.source : '', row.datePrise ? 'pris le ' + row.datePrise : '', row.typeSource].filter(Boolean).join(' · '); if (prise) l.push(['RDV', prise]);
         if (bj && bj.notes) l.push(['Mes notes', String(bj.notes).slice(0, 200)]);
