@@ -6710,6 +6710,7 @@ function updateFieldMK(idx, field, value, type, monthKey) {
   if (field === 'result' && value === 'Promo') { rows[idx].result = 'Non signé'; rows[idx].nosignRaison = 'promo'; }
   store[monthKey] = rows;
   saveStore(store);
+  if (field === 'result' && value === 'Non signé' && !rows[idx].nosignRaison) setTimeout(function() { try { fcPopupRaison(monthKey, idx); } catch (e) {} }, 60); // un « Non signé » sans raison : on la demande tout de suite (« Pas intéressé » passe Close en Not interested)
   refreshKpis();
   renderRdvTable();
   if (field === 'result') sdVerifierSuite(monthKey, idx);
