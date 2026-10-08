@@ -3678,6 +3678,8 @@ async function initOnlineStorage() {
   _jsonbinId = config.binId || null;
   _jsonbinKey = config.binKey || null;
   _calendlyKey = config.calendlyKey || null;
+  try { if (!_calendlyKey && !localStorage.getItem('calendly_key') && COPILOT_URL === location.origin) { // SalesDesk servi par le copilot (MacBook Air) : la clé Calendly vient du copilot, pas besoin de la recoller
+    fetch(COPILOT_URL + '/salesdesk/cle-calendly', { cache: 'no-store' }).then(function(r) { return r.json(); }).then(function(j) { if (j && j.ok && j.cle && !localStorage.getItem('calendly_key')) { var inp = document.getElementById('calendly-api-key'); if (inp) { inp.value = j.cle; connectCalendly(); } } }).catch(function() {}); } } catch (e) {}
   if (_calendlyKey) {
     state.calendly.apiKey = _calendlyKey;
     state.calendly.outboundEventTypes = JSON.parse(localStorage.getItem('calendly_outbound_types')||'[]');
