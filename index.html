@@ -2059,23 +2059,19 @@ select.form-input { cursor: pointer; }
     <header class="auj-head"><div><h1 class="pf-h1" style="margin:0;">Automatisations</h1><div class="auj-resume">Chaque message envoyé à un prospect, dans l'ordre où il le reçoit. Tu modifies le texte, tu allumes ou tu éteins. Rien ne part tant que c'est éteint.</div></div>
       <div class="auj-head-actions"><button class="btn" onclick="renderAutomatisations(true)">↻ Relire</button><button class="btn" onclick="mjAller('Contrôle')">Contrôle ›</button></div></header>
     <div id="au-corps"></div>
+    <div class="pipeline-col" style="background:var(--surface);margin-top:18px;"><div class="pipeline-col-title" style="margin-bottom:8px;">🎚 Interrupteurs du copilot</div><div class="d" style="font-size:11.5px;color:var(--text3);margin-bottom:6px;">Chaînes de messages et modes d'envoi. Un clic = effet immédiat.</div><div id="au-interrupteurs"><div class="fc-muted">Lecture du copilot…</div></div></div>
   </div>
 </div>
 <div id="page-controle" class="page">
   <div class="section-header" style="margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
-    <div><div class="section-title">🛡 Contrôle</div><div style="font-size:12px;color:var(--text3);margin-top:2px;">Connexions testées pour de vrai, envois (SMS, mails), automatisations, écritures dans Close. Si quelque chose casse, tu le vois ici — et en bandeau dans Quotidien et Mes RDV.</div></div>
+    <div><div class="section-title">🛡 Contrôle</div><div style="font-size:12px;color:var(--text3);margin-top:2px;">Santé des connexions, incidents à corriger, journal des envois et des écritures dans Close. Si quelque chose casse, tu le vois ici et en bandeau dans Aujourd'hui. Les interrupteurs sont dans Automatisations, les modèles IA dans Objectifs &amp; Config.</div></div>
     <div style="display:flex;gap:6px;"><span id="ctl-at" style="font-size:12px;color:var(--text3);align-self:center;"></span><button class="btn btn-sm" onclick="renderControle(true, true)">↻ Retester</button></div>
   </div>
   <div id="ctl-problemes"></div>
   <div class="pipeline-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px;align-items:start;">
     <div class="pipeline-col" style="background:var(--surface);"><div class="pipeline-col-title" style="margin-bottom:8px;">🔌 Connexions</div><div id="ctl-connexions"></div></div>
-    <div class="pipeline-col" style="background:var(--surface);"><div class="pipeline-col-title" style="margin-bottom:8px;">🎚 Interrupteurs</div><div id="ctl-interrupteurs"></div></div>
-    <div class="pipeline-col" style="background:var(--surface);"><div class="pipeline-col-title" style="margin-bottom:8px;">💬 SMS</div><div id="ctl-sms"></div></div>
-    <div class="pipeline-col" style="background:var(--surface);"><div class="pipeline-col-title" style="margin-bottom:8px;">✉ Mails R1</div><div id="ctl-mails"></div></div>
-    <div class="pipeline-col" style="background:var(--surface);"><div class="pipeline-col-title" style="margin-bottom:8px;">⚙️ Automatisations</div><div id="ctl-automations"></div></div>
-    <div class="pipeline-col" style="background:var(--surface);"><div class="pipeline-col-title" style="margin-bottom:8px;">✍️ Écritures dans Close</div><div id="ctl-ecritures"></div></div>
-    <div class="pipeline-col" style="background:var(--surface);"><div class="pipeline-col-title" style="margin-bottom:8px;">🔎 Close dit autre chose</div><div id="ctl-verif"></div></div>
-    <div class="pipeline-col" style="background:var(--surface);"><div class="pipeline-col-title" style="margin-bottom:8px;">🚨 Pannes (7 jours)</div><div id="ctl-incidents"></div></div>
+    <div class="pipeline-col" style="background:var(--surface);"><div class="pipeline-col-title" style="margin-bottom:8px;">🚨 Incidents</div><div class="d" style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin:4px 0;">Pannes (7 jours)</div><div id="ctl-incidents"></div><div class="d" style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin:12px 0 4px;">Close dit autre chose</div><div id="ctl-verif"></div></div>
+    <div class="pipeline-col" style="background:var(--surface);"><div class="pipeline-col-title" style="margin-bottom:8px;">📜 Journal</div><div class="d" style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin:4px 0;">SMS</div><div id="ctl-sms"></div><div class="d" style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin:12px 0 4px;">Mails R1</div><div id="ctl-mails"></div><div class="d" style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin:12px 0 4px;">Écritures dans Close</div><div id="ctl-ecritures"></div><div class="d" style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin:12px 0 4px;">Automatisations</div><div id="ctl-automations"></div></div>
   </div>
 </div>
 <div id="page-relances" class="page">
@@ -2525,6 +2521,7 @@ select.form-input { cursor: pointer; }
       <div class="settings-nav-item" onclick="showSettingsSection('commission',this)">💰 Barème commissions</div>
       <div class="settings-nav-item" onclick="showSettingsSection('equipe',this)">👥 Moyennes équipe</div>
       <div class="settings-nav-item" onclick="showSettingsSection('calendly',this)">🔗 Calendly</div>
+      <div class="settings-nav-item" onclick="showSettingsSection('modeles',this)">🤖 Modèles IA</div>
     </div>
     <div>
       <div class="settings-section active" id="settings-objectifs">
@@ -2848,6 +2845,13 @@ select.form-input { cursor: pointer; }
         </div>
       </div>
 
+      <div class="settings-section" id="settings-modeles">
+        <div class="settings-card">
+          <h3>🤖 Modèles IA et dépense</h3>
+          <p style="font-size:13px;color:var(--text2);margin-bottom:12px;">Quel modèle sert à quoi, et ce que ça coûte ce mois-ci. Un changement s'applique tout de suite dans le copilot.</p>
+          <div id="cfg-modeles"><div class="fc-muted">Lecture du copilot…</div></div>
+        </div>
+      </div>
       <div class="settings-section" id="settings-calendly">
         <div class="settings-card">
           <h3>🔗 Intégration Calendly</h3>
@@ -6375,7 +6379,7 @@ function ouvrirCopilot() {
   // Chrome peut demander l'autorisation « accès au réseau local » (bandeau en haut) : on n'attend pas plus de 6 s.
   const ctrl = new AbortController(); const t = setTimeout(() => ctrl.abort(), 6000);
   fetch(COPILOT_URL + '/rdvs', { mode: 'cors', cache: 'no-store', signal: ctrl.signal })
-    .then(r => { if (!r.ok) throw new Error(r.status); frame.src = COPILOT_URL + '/live'; frame.style.display = ''; off.style.display = 'none'; _copilotCharge = true; })
+    .then(r => { if (!r.ok) throw new Error(r.status); frame.src = COPILOT_URL + '/live?' + new URLSearchParams({ fenetre: '1', theme: document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light', vue: 'prochain' }).toString(); frame.style.display = ''; off.style.display = 'none'; _copilotCharge = true; })
     .catch(() => { frame.style.display = 'none'; off.style.display = 'block'; })
     .finally(() => clearTimeout(t));
 }
@@ -6831,6 +6835,7 @@ function showSettingsSection(id, el) {
   document.querySelectorAll('.settings-nav-item').forEach(n => n.classList.remove('active'));
   document.getElementById('settings-'+id).classList.add('active');
   el.classList.add('active');
+  if (id === 'modeles') { try { ctlRemplirExtras(); } catch (e) {} }
   // Refresh backup status quand on ouvre la section
   if (id === 'backup') refreshBackupStatus();
   if (id === 'etat') renderEtatSysteme(true);
@@ -10130,7 +10135,7 @@ var _ctl = null, _ctlAt = 0;
 function ctlProblemesLocaux() {
   var p = [];
   if (typeof _syncErreur !== 'undefined' && _syncErreur) p.push({ niveau: 'rouge', quoi: 'Sauvegarde Supabase en échec (tes données ne sont plus sauvegardées en ligne)', zone: 'salesdesk' });
-  if (!((state.calendly && state.calendly.apiKey) || localStorage.getItem('calendly_key'))) p.push({ niveau: 'orange', quoi: 'Clé Calendly absente dans SalesDesk (pas de RDV du jour)', zone: 'salesdesk' });
+  if (!((state.calendly && state.calendly.apiKey) || localStorage.getItem('calendly_key'))) p.push({ niveau: 'orange', quoi: 'Clé Calendly absente dans SalesDesk : l\'agenda du jour vient du copilot et des lignes SalesDesk, pas de Calendly en direct (Objectifs & Config → Calendly)', zone: 'salesdesk' });
   if (typeof _calendlyErreur !== 'undefined' && _calendlyErreur) p.push({ niveau: 'rouge', quoi: 'Calendly (SalesDesk) : ' + _calendlyErreur, zone: 'salesdesk' });
   return p;
 }
@@ -10145,6 +10150,7 @@ function chargerControle(force, retester) {
 }
 function ctlTousProblemes() {
   var p = ctlProblemesLocaux().concat((_ctl && _ctl.problemes) || []);
+  var vus = {}; p = p.filter(function(x) { var k = String(x.quoi || '').replace(/\d{2}:\d{2}/g, '').trim(); if (vus[k]) return false; vus[k] = 1; return true; }); // une alerte par incident, même si le gardien l'a vu plusieurs fois
   try { var vc = sdVerifCloseRestants(); if (vc.length) p.push({ niveau: 'orange', quoi: vc.length + ' RDV où Close dit autre chose (type, source, nom, vente) : ' + vc.slice(0, 3).map(function(x) { return x.client; }).join(', ') + (vc.length > 3 ? '…' : ''), zone: 'verif' }); } catch (e) {}
   if (_ctl && _ctl.copilotAbsent) p.unshift({ niveau: 'rouge', quoi: 'Copilot injoignable : relances Close, fiche « avant d\'appeler », SMS et mails sont à l\'arrêt', zone: 'copilot' });
   if (_ctl && _ctl.copilotAncien) p.unshift({ niveau: 'orange', quoi: 'Copilot à relancer : il tourne sur une ancienne version (Ctrl+C puis node server.js)', zone: 'copilot' });
@@ -10200,7 +10206,7 @@ function auEnregistrer(id, origine) {
     .catch(function(e) { alert('Non enregistré : ' + e.message); });
 }
 function renderAutomatisations(force) {
-  var el = document.getElementById('au-corps'); if (!el) return;
+  var el = document.getElementById('au-corps'); if (!el) return; setTimeout(ctlRemplirExtras, 50);
   if (force || !_au.data) chargerAutomatisations(!!force);
   if (!_au.data) { el.innerHTML = '<div class="auj-card"><div class="auj-empty">' + escapeHtml(_au.erreur || 'Lecture des messages…') + '</div></div>'; return; }
   var I = _au.data.interrupteurs || {}, M = _au.data.modeles || [];
@@ -10251,6 +10257,40 @@ function ctlDepenseHtml(dep) {
   var eur = function(x) { return (Math.round(x * 100) / 100).toFixed(2).replace('.', ',') + ' €'; };
   return '<div style="margin-top:10px;padding:8px 10px;border-radius:10px;background:var(--surface2);font-size:12.5px;"><b>Dépense IA estimée ce mois : ' + eur(M.eur) + '</b> · ' + M.appels + ' appels au modèle · ' + Math.round((M.tokensIn + M.tokensOut) / 1000) + ' k tokens' + (M.parUsage ? '<div class="d" style="margin-top:3px;">' + Object.keys(M.parUsage).map(function(u) { return escapeHtml(u) + ' : ' + eur(M.parUsage[u].eur) + ' (' + escapeHtml(M.parUsage[u].model || '') + ')'; }).join(' · ') + '</div>' : '') + '<div class="d" style="margin-top:3px;">Estimation sur les caractères échangés, prix publics OpenAI · le réel est sur platform.openai.com → Usage.</div></div>';
 }
+// Interrupteurs des chaînes, modes d'envoi (Automatisations) et modèles IA + dépense (Objectifs & Config) : construits ici, affichés là-bas. Contrôle ne garde que connexions, incidents et journal.
+function ctlExtrasHtml(j) {
+  var L = function(ico, titre, detail) { return '<div class="ctl-ligne"><span>' + ico + '</span><span style="flex:1;"><div>' + titre + '</div>' + (detail ? '<div class="d">' + detail + '</div>' : '') + '</span></div>'; };
+  var sw = j.interrupteurs || {};
+  var T = function(cle, titre, detail, on, danger) { return '<div class="ctl-ligne" style="align-items:center;"><label class="ctl-sw" title="' + (on ? 'Éteindre' : 'Allumer') + '"><input type="checkbox" ' + (on ? 'checked' : '') + ' onchange="ctlBasculer(\'' + cle + '\', this.checked, this' + (danger ? ', true' : '') + ')"><span></span></label><span style="flex:1;"><div>' + titre + '</div>' + (detail ? '<div class="d">' + detail + '</div>' : '') + '</span></div>'; };
+  var modeSms = sw.sms_mode === 'auto' ? (sw.sms_gate ? 'envoi automatique par SMS Gate' : 'auto demandé mais SMS Gate pas branché → brouillon') : 'brouillon (tu envoies à la main)';
+  var modeMail = sw.mail_r1_mode === 'outbox' ? 'envoi réel depuis ta boîte' : 'brouillon dans Close (tu cliques Envoyer)';
+  var modeles = j.modeles || {};
+  var interrupteurs = '<div class="d" style="font-size:11.5px;color:var(--text3);margin-bottom:6px;">Un clic = effet immédiat dans le copilot, sans toucher au .env. Rien ne part vers un prospect tant que les modes restent en brouillon.</div>'
+    + T('MAIL_R1', 'Mail R1 pris par toi (dans la minute + J-3 si pris ≥ 8 j avant)', 'via Close · ' + modeMail, !!sw.mail_r1)
+    + T('MAIL_R1_INBOUND', 'Mail R1 pris par un SDR « c\'est moi qui vous recevrai »', 'via Close, 1 h 30 après · ' + modeMail, !!sw.mail_r1_inbound)
+    + T('MAIL_R2_JOUR', 'Mail du jour J pour les R2 (lien de connexion)', 'via Close à 08:20 · ' + modeMail, !!sw.mail_r2_jour)
+    + T('SMS_NO_SHOW', 'SMS no-show à H+1 (si tu choisis « Relancer »)', modeSms, !!sw.sms_no_show)
+    + T('SMS_R2_VEILLE', 'SMS de la veille pour les R2 (pris > 48 h avant)', '08:45 la veille · ' + modeSms, !!sw.sms_r2_veille)
+    + '<div style="margin:10px 0 4px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);">Modes d\'envoi</div>'
+    + T('MAIL_MODE_OUTBOX', '<b>Mails : envoi réel</b> (sinon brouillon dans Close)', 'à allumer seulement après avoir validé quelques brouillons', sw.mail_r1_mode === 'outbox', true)
+    + T('SMS_MODE_AUTO', '<b>SMS : envoi automatique</b> par SMS Gate (sinon brouillon)', sw.sms_gate ? 'SMS Gate branché' : 'SMS Gate pas branché : identifiants à mettre dans le .env', sw.sms_mode === 'auto', true);
+  var modeles_html = ''
+    + '<div style="margin:10px 0 4px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);">Modèles IA</div>'
+    + '<div class="ctl-ligne" style="align-items:center;gap:10px;"><span style="flex:1;"><div>Extraction (mail de fin de R1, avant d\'appeler)</div><div class="d">0,10 $ / M tokens avec gpt-6-luna · gpt-4o = 2,50 $</div></span><select class="input" style="font-size:12px;" onchange="ctlModele(\'extraction\', this.value)">' + ['', 'gpt-6-luna', 'gpt-4o-mini', 'gpt-5-mini', 'gpt-4o', 'gpt-6.1-sol'].map(function(m) { return '<option value="' + m + '"' + ((modeles.extraction || '') === m || (!m && !modeles.extraction) ? ' selected' : '') + '>' + (m || 'comme le live (' + escapeHtml(modeles.env || '') + ')') + '</option>'; }).join('') + '</select></div>'
+    + '<div class="ctl-ligne" style="align-items:center;gap:10px;"><span style="flex:1;"><div>Live RDV et le reste</div><div class="d">finesse d\'analyse en direct · env : ' + escapeHtml(modeles.env || '') + '</div></span><select class="input" style="font-size:12px;" onchange="ctlModele(\'live\', this.value)">' + ['', 'gpt-6.1-sol', 'gpt-4o', 'gpt-6-luna'].map(function(m) { return '<option value="' + m + '"' + ((modeles.live || '') === m || (!m && modeles.live === modeles.env) ? ' selected' : '') + '>' + (m || 'celui du .env (' + escapeHtml(modeles.env || '') + ')') + '</option>'; }).join('') + '</select></div>'
+    + ctlDepenseHtml(j.depense || {})
+;
+  var connexions = ''
+    + L(sw.close_manager ? '🟢' : '⚪', 'Écriture dans Close depuis Relances', 'escalades vers ' + escapeHtml(sw.close_manager || '—'))
+    + L(sw.calendly ? '🟢' : '🟠', 'Calendly côté copilot (créneaux, R1 récents)', sw.calendly ? 'jeton présent' : 'jeton absent');
+  return { interrupteurs: interrupteurs, modeles: modeles_html, connexions: connexions };
+}
+var _ctlExtras = null;
+function ctlInjecterExtras(ex) { _ctlExtras = ex; try { var eI = document.getElementById('au-interrupteurs'); if (eI) eI.innerHTML = ex.interrupteurs; var eM = document.getElementById('cfg-modeles'); if (eM) eM.innerHTML = ex.modeles; } catch (e) {} }
+function ctlRemplirExtras() { // depuis Automatisations ou Config, sans passer par la page Contrôle
+  var go = function() { if (!_ctl) return; try { ctlInjecterExtras(ctlExtrasHtml(_ctl)); } catch (e) {} };
+  if (_ctl) go(); else if (typeof chargerControle === 'function') { try { var p = chargerControle(false); if (p && p.then) p.then(go); else setTimeout(go, 1500); } catch (e) {} }
+}
 function renderControle(recharger, retester) {
   var page = document.getElementById('page-controle'); if (!page) return;
   if (recharger) { document.getElementById('ctl-at').textContent = retester ? 'test des connexions…' : 'chargement…'; chargerControle(true, retester).then(function() { renderControle(false); }); if (!_ctl) return; }
@@ -10267,26 +10307,7 @@ function renderControle(recharger, retester) {
   cx += L(j.copilotAbsent ? '🔴' : j.copilotAncien ? '🟠' : '🟢', 'Copilot local', j.copilotAbsent ? 'injoignable sur ' + COPILOT_URL : j.copilotAncien ? 'répond, mais ancienne version : à relancer' : 'répond');
   (j.connexions || []).forEach(function(c) { cx += L(c.ok ? '🟢' : (/préparé/.test(c.detail) ? '⚪' : '🔴'), escapeHtml(c.nom), escapeHtml(c.detail || '') + (c.ms ? ' · ' + c.ms + ' ms' : '')); });
   document.getElementById('ctl-connexions').innerHTML = cx;
-  var sw = j.interrupteurs || {};
-  var T = function(cle, titre, detail, on, danger) { return '<div class="ctl-ligne" style="align-items:center;"><label class="ctl-sw" title="' + (on ? 'Éteindre' : 'Allumer') + '"><input type="checkbox" ' + (on ? 'checked' : '') + ' onchange="ctlBasculer(\'' + cle + '\', this.checked, this' + (danger ? ', true' : '') + ')"><span></span></label><span style="flex:1;"><div>' + titre + '</div>' + (detail ? '<div class="d">' + detail + '</div>' : '') + '</span></div>'; };
-  var modeSms = sw.sms_mode === 'auto' ? (sw.sms_gate ? 'envoi automatique par SMS Gate' : 'auto demandé mais SMS Gate pas branché → brouillon') : 'brouillon (tu envoies à la main)';
-  var modeMail = sw.mail_r1_mode === 'outbox' ? 'envoi réel depuis ta boîte' : 'brouillon dans Close (tu cliques Envoyer)';
-  var modeles = j.modeles || {};
-  document.getElementById('ctl-interrupteurs').innerHTML = '<div class="d" style="font-size:11.5px;color:var(--text3);margin-bottom:6px;">Un clic = effet immédiat dans le copilot, sans toucher au .env. Rien ne part vers un prospect tant que les modes restent en brouillon.</div>'
-    + T('MAIL_R1', 'Mail R1 pris par toi (dans la minute + J-3 si pris ≥ 8 j avant)', 'via Close · ' + modeMail, !!sw.mail_r1)
-    + T('MAIL_R1_INBOUND', 'Mail R1 pris par un SDR « c\'est moi qui vous recevrai »', 'via Close, 1 h 30 après · ' + modeMail, !!sw.mail_r1_inbound)
-    + T('MAIL_R2_JOUR', 'Mail du jour J pour les R2 (lien de connexion)', 'via Close à 08:20 · ' + modeMail, !!sw.mail_r2_jour)
-    + T('SMS_NO_SHOW', 'SMS no-show à H+1 (si tu choisis « Relancer »)', modeSms, !!sw.sms_no_show)
-    + T('SMS_R2_VEILLE', 'SMS de la veille pour les R2 (pris > 48 h avant)', '08:45 la veille · ' + modeSms, !!sw.sms_r2_veille)
-    + '<div style="margin:10px 0 4px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);">Modes d\'envoi</div>'
-    + T('MAIL_MODE_OUTBOX', '<b>Mails : envoi réel</b> (sinon brouillon dans Close)', 'à allumer seulement après avoir validé quelques brouillons', sw.mail_r1_mode === 'outbox', true)
-    + T('SMS_MODE_AUTO', '<b>SMS : envoi automatique</b> par SMS Gate (sinon brouillon)', sw.sms_gate ? 'SMS Gate branché' : 'SMS Gate pas branché : identifiants à mettre dans le .env', sw.sms_mode === 'auto', true)
-    + '<div style="margin:10px 0 4px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);">Modèles IA</div>'
-    + '<div class="ctl-ligne" style="align-items:center;gap:10px;"><span style="flex:1;"><div>Extraction (mail de fin de R1, avant d\'appeler)</div><div class="d">0,10 $ / M tokens avec gpt-6-luna · gpt-4o = 2,50 $</div></span><select class="input" style="font-size:12px;" onchange="ctlModele(\'extraction\', this.value)">' + ['', 'gpt-6-luna', 'gpt-4o-mini', 'gpt-5-mini', 'gpt-4o', 'gpt-6.1-sol'].map(function(m) { return '<option value="' + m + '"' + ((modeles.extraction || '') === m || (!m && !modeles.extraction) ? ' selected' : '') + '>' + (m || 'comme le live (' + escapeHtml(modeles.env || '') + ')') + '</option>'; }).join('') + '</select></div>'
-    + '<div class="ctl-ligne" style="align-items:center;gap:10px;"><span style="flex:1;"><div>Live RDV et le reste</div><div class="d">finesse d\'analyse en direct · env : ' + escapeHtml(modeles.env || '') + '</div></span><select class="input" style="font-size:12px;" onchange="ctlModele(\'live\', this.value)">' + ['', 'gpt-6.1-sol', 'gpt-4o', 'gpt-6-luna'].map(function(m) { return '<option value="' + m + '"' + ((modeles.live || '') === m || (!m && modeles.live === modeles.env) ? ' selected' : '') + '>' + (m || 'celui du .env (' + escapeHtml(modeles.env || '') + ')') + '</option>'; }).join('') + '</select></div>'
-    + ctlDepenseHtml(j.depense || {})
-    + L(sw.close_manager ? '🟢' : '⚪', 'Écriture dans Close depuis Relances', 'escalades vers ' + escapeHtml(sw.close_manager || '—'))
-    + L(!!sw.calendly, 'Calendly côté copilot (créneaux, R1 récents)', sw.calendly ? 'jeton présent' : 'jeton absent');
+  var ex = ctlExtrasHtml(j); ctlInjecterExtras(ex); document.getElementById('ctl-connexions').innerHTML += ex.connexions;
   var sms = (j.sms || []).slice(0, 15);
   document.getElementById('ctl-sms').innerHTML = sms.length ? sms.map(function(x) { var ic = { envoye: '🟢', prevu: '⏱', brouillon: '✋', annule: '⚪', erreur: '🔴' }[x.statut] || '•'; return L(ic, escapeHtml(x.nom) + ' · ' + escapeHtml(x.statut), (x.statut === 'prevu' ? 'part ' + fr(x.prevu) : x.envoyeAt ? 'envoyé ' + fr(x.envoyeAt) : fr(x.cree)) + (x.motif ? ' · ' + escapeHtml(x.motif) : '')); }).join('') : '<div class="d" style="font-size:12px;color:var(--text3);">Aucun SMS sur 7 jours' + (sw.sms_no_show ? '' : ' (automatisation éteinte)') + '.</div>';
   var mails = (j.mails || []).slice(0, 15);
