@@ -3919,7 +3919,7 @@ function fcLignesFiche() {
   return out;
 }
 // Point d'entrée : nom (+ email connu, + date du RDV cliqué). Deux personnes différentes du même nom (emails distincts) → popup pour choisir.
-function ouvrirFicheClient(nom, email, date) {
+function ouvrirFicheClient(nom, email, date, lead) {
   if (window._pipelineJustDragged) { window._pipelineJustDragged = false; return; }
   nom = String(nom || '').trim(); if (!nom) return;
   email = String(email || '').trim().toLowerCase();
@@ -3929,7 +3929,7 @@ function ouvrirFicheClient(nom, email, date) {
   if (!email && distincts.length > 1) { fcPopupDoublon(nom, emails, rows); return; }
   if (!email && distincts.length === 1) email = distincts[0];
   if (email && distincts.length > 1) { rows = rows.filter(function(r) { var e = String(r.email || '').toLowerCase().trim(); return !e || e === email; }); } // cet email + les lignes sans email
-  _fc = { cle: fcCle(nom, email), nom: nom, email: email, rows: rows, tab: 'synthese', dossiers: null, close: null, leadChoisi: (function() { try { return sdLeadPour(nom, email) || ''; } catch (e) { return ''; } })(), date: date || '' };
+  _fc = { cle: fcCle(nom, email), nom: nom, email: email, rows: rows, tab: 'synthese', dossiers: null, close: null, leadChoisi: (/^lead_/.test(String(lead || '')) ? lead : (function() { try { return sdLeadPour(nom, email) || ''; } catch (e) { return ''; } })()), leadImpose: /^lead_/.test(String(lead || '')), date: date || '' };
   fcRendre();
   document.getElementById('fc-overlay').classList.add('open');
   fcChargerClose(function() { fcChargerDernierContact(); }); fcChargerDossiers();
@@ -4441,9 +4441,11 @@ function sdMailsFinPour(nom) { // mails de fin de RDV pas encore envoyés pour c
   if (_mailsFinR1 === null) { try { chargerMailsFinR1(); } catch (e) {} return []; }
   var n = fcNormNom(nom || ''); return (_mailsFinR1 || []).filter(function(m) { return fcNormNom(m.nom || '') === n && ['brouillon', 'sans_cr', 'attente_cr'].indexOf(m.statut) >= 0; }).sort(function(a, b) { return String(b.date).localeCompare(String(a.date)); });
 }
-function sdMeilleurLead(leads, nom, email, sdLead) { // parmi les fiches Close candidates : celle dont un contact porte ce nom ou cet e-mail (c'est elle qui a les appels), sinon celle de SalesDesk, sinon la première
-  leads = leads || []; var nn = fcNormNom(nom || ''), em = String(email || '').toLowerCase().trim();
-  var score = function(l) { var sc = 0; (l.contacts || []).forEach(function(c) { var cn = fcNormNom(c.nom || c.name || ''); if (cn && cn === nn) sc += 10; else if (cn && nn && (cn.indexOf(nn) >= 0 || nn.indexOf(cn) >= 0)) sc += 4; if (em && (c.emails || []).some(function(e) { return String(e || '').toLowerCase().trim() === em; })) sc += 20; }); return sc; };
+function sdTelCle(t) { var d = String(t || '').replace(/[^0-9+]/g, ''); if (d.startsWith('+33')) d = '0' + d.slice(3); if (d.startsWith('0033')) d = '0' + d.slice(4); return /^0[1-9]\d{8}$/.test(d) ? d : ''; }
+function sdMeilleurLead(leads, nom, email, sdLead, opts) { // parmi les fiches Close candidates : la fiche imposée (tâche Close) si on l'a ; sinon celle dont un contact porte ce NUMÉRO (règle du 9 oct. 2026 : les agences franchisées, Guy-Hoquet, Orpi…, ont des fiches homonymes), puis cet e-mail, puis ce nom ; sinon celle de SalesDesk, sinon la première
+  leads = leads || []; opts = opts || {}; var nn = fcNormNom(nom || ''), em = String(email || '').toLowerCase().trim(), tk = sdTelCle(opts.tel);
+  if (opts.impose && sdLead) return { id: sdLead, lead: leads.find(function(l) { return l.id === sdLead; }) || null, divergent: false, score: 99, impose: true };
+  var score = function(l) { var sc = 0; (l.contacts || []).forEach(function(c) { var cn = fcNormNom(c.nom || c.name || ''); if (cn && cn === nn) sc += 10; else if (cn && nn && (cn.indexOf(nn) >= 0 || nn.indexOf(cn) >= 0)) sc += 4; if (em && (c.emails || []).some(function(e) { return String(e || '').toLowerCase().trim() === em; })) sc += 20; if (tk && (c.tels || c.phones || []).some(function(t) { return sdTelCle(typeof t === 'string' ? t : (t && t.phone)) === tk; })) sc += 30; }); return sc; };
   var meilleur = leads.slice().sort(function(a, b) { return score(b) - score(a); })[0];
   var id = (meilleur && score(meilleur) > 0) ? meilleur.id : (sdLead && leads.some(function(l) { return l.id === sdLead; }) ? sdLead : (leads[0] ? leads[0].id : (sdLead || '')));
   return { id: id, lead: leads.find(function(l) { return l.id === id; }) || null, divergent: !!(sdLead && id && id !== sdLead), score: meilleur ? score(meilleur) : 0 };
@@ -4452,12 +4454,13 @@ function fcChargerClose(apres) { // apres : lancé une fois la fiche Close chois
   var cle = _fc.cle, fini = function() { if (apres) { try { apres(); } catch (e) {} apres = null; } };
   var ctrl = new AbortController(); setTimeout(function() { ctrl.abort(); }, 12000);
   var sdLead = _fc.leadChoisi || '';
-  fetch(COPILOT_URL + '/close/contact?' + new URLSearchParams({ email: _fc.email, nom: _fc.nom }), { mode: 'cors', cache: 'no-store', signal: ctrl.signal })
+  fetch(COPILOT_URL + '/close/contact?' + new URLSearchParams(_fc.leadImpose && sdLead ? { lead: sdLead } : { email: _fc.email, nom: _fc.nom }), { mode: 'cors', cache: 'no-store', signal: ctrl.signal })
     .then(function(r) { return r.json(); })
     .then(function(j) { if (j && j.leads && !j.leads.length && sdLead) return fetch(COPILOT_URL + '/close/contact?' + new URLSearchParams({ lead: sdLead }), { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).then(function(j2) { return (j2 && j2.leads && j2.leads.length) ? j2 : j; }); return j; }) // la fiche connue de SalesDesk n'est pas ressortie par la recherche : on la lit directement
     .then(function(j) { if (_fc.cle !== cle) return;
       // Une seule fiche Close pour toute la fiche : d'abord celle dont un contact porte ce nom ou cet e-mail (c'est elle qui a les appels du SDR), sinon celle de SalesDesk, sinon la première trouvée. Mails et Synthèse lisent la même.
-      var leads = (j && j.leads) || [], mx = sdMeilleurLead(leads, _fc.nom, _fc.email, sdLead), choisi = mx.id;
+      var telFiche = ''; try { telFiche = (_fc.rows.find(function(r) { return r.tel || r.telephone; }) || {}).tel || (_fc.rows.find(function(r) { return r.telephone; }) || {}).telephone || ''; } catch (e) {}
+      var leads = (j && j.leads) || [], mx = sdMeilleurLead(leads, _fc.nom, _fc.email, sdLead, { impose: !!_fc.leadImpose, tel: telFiche }), choisi = mx.id;
       _fc.leadDivergent = (sdLead && choisi && choisi !== sdLead) ? { sd: sdLead, sdNom: (leads.find(function(l) { return l.id === sdLead; }) || {}).nom || '', mieux: leads.find(function(l) { return l.id === choisi; }) || null } : null;
       if (choisi) { _fc.leadChoisi = choisi; j.leads = leads.slice().sort(function(a, b) { return (a.id === choisi ? 0 : 1) - (b.id === choisi ? 0 : 1); }); }
       fcMemoriserClose(cle, _fc.nom, _fc.email, j); _fc.close = j;
@@ -12089,7 +12092,7 @@ function renderAujourdhui() {
   var depuisTache = function(i, enRetard) { var h = hDe(i), id = identite(i), arrivee = estAuj && h && h <= hhmm;
     var ech = enRetard ? '<span class="late">en retard depuis le ' + escapeHtml(new Date(i.date + 'T12:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) + (h ? ' à ' + h : '')) + '</span>' : (h ? (arrivee ? '<span class="late">prévu à ' + escapeHtml(h) + '</span>' : 'à ' + escapeHtml(h)) : (estAuj ? 'aujourd\'hui' : 'ce jour'));
     var raison = [!estConfig(i) && !texteDe(i) ? LIBC[i.col] || '' : '', tent(i)].filter(Boolean).join(' · ');
-    return { cle: 'tache|' + i.cle, titre: titreTache(i), det: '<a onclick="ouvrirFicheClient(' + Q(id.nom) + ',' + Q(id.email) + ')">' + escapeHtml(nomAff(id.nom)) + '</a> · ' + ech + (raison ? ' · ' + escapeHtml(raison) : ''), btn: boutonTache(i), rang: enRetard ? 1 : (h ? (arrivee ? 0 : 5) : (estConfig(i) ? 3 : 4)) }; };
+    return { cle: 'tache|' + i.cle, titre: titreTache(i), det: '<a onclick="ouvrirFicheClient(' + Q(id.nom) + ',' + Q(id.email) + ',\'\',' + Q((i.t && i.t.lead) || '') + ')">' + escapeHtml(nomAff(id.nom)) + '</a> · ' + ech + (raison ? ' · ' + escapeHtml(raison) : ''), btn: boutonTache(i), rang: enRetard ? 1 : (h ? (arrivee ? 0 : 5) : (estConfig(i) ? 3 : 4)) }; };
   try { var _an = st._annulations || {}; Object.keys(_an).forEach(function(u) { var x = _an[u]; if (x.vu || x.deplace) return;
     var nn = (function() { var n = ((_nouv.data || {}).rdv || []).find(function(r0) { return r0.deplace && fcNormNom(r0.nom) === fcNormNom(x.nom); }); return n ? ' · nouveau créneau : ' + fcFrDepuisIso(n.date) + ' à ' + n.heure : ''; })();
     ajoute({ cle: 'annul|' + u, titre: x.deplace ? 'A déplacé son RDV' : 'A annulé son RDV', det: '<a onclick="ouvrirFicheClient(' + Q(x.nom) + ',\'\')">' + escapeHtml(nomAff(x.nom)) + '</a> · ' + escapeHtml((x.date === todayIso ? 'aujourd\'hui' : fcFrDepuisIso(x.date)) + ' à ' + x.heure + (x.raison ? ' · « ' + x.raison + ' »' : '') + nn + (x.note ? ' · noté ' + x.note : '')), btn: x.deplace ? { lib: 'Vu', on: 'sdAnnulVu(' + Q(u) + ')' } : { lib: 'Que faire ?', on: 'sdAnnulQuoiFaire(' + Q(u) + ')' }, rang: 0 }); }); } catch (e) {}
@@ -12572,7 +12575,7 @@ function svCharger(it) { // contexte Close du prospect choisi (une fois par pros
       .then(function(j) { _sv.ctx[cle] = j || { error: 'vide' }; if (_sv.sel === cle) renderRelancesPage(); }).catch(function() { _sv.ctx[cle] = { error: 'le copilot n\'a pas répondu' }; if (_sv.sel === cle) renderRelancesPage(); }); };
   // même règle que la fiche : la fiche Close qui porte le contact d'abord (sinon on lisait parfois une fiche agence vide, sans l'appel du SDR)
   fetch(COPILOT_URL + '/close/contact?' + new URLSearchParams({ email: email, nom: it.nom }), { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); })
-    .then(function(j) { var mx = sdMeilleurLead(j.leads || [], it.nom, email, sdLead), l = mx.lead || (j.leads || [])[0]; var tel = ''; if (l) (l.contacts || []).some(function(c) { tel = ((c.tels || [])[0]) || ''; return !!tel; }); _sv.tel[cle] = { tel: tel, url: l ? l.url : '', lead: mx.id || '', divergent: mx.divergent }; lireDernier(mx.id || sdLead); if (_sv.sel === cle) renderRelancesPage(); })
+    .then(function(j) { var mx = sdMeilleurLead(j.leads || [], it.nom, email, sdLead, { impose: !!(it.t && it.t.lead), tel: row.tel || row.telephone || '' }), l = mx.lead || (j.leads || [])[0]; var tel = ''; if (l) (l.contacts || []).some(function(c) { tel = ((c.tels || [])[0]) || ''; return !!tel; }); _sv.tel[cle] = { tel: tel, url: l ? l.url : '', lead: mx.id || '', divergent: mx.divergent }; lireDernier(mx.id || sdLead); if (_sv.sel === cle) renderRelancesPage(); })
     .catch(function() { lireDernier(sdLead); });
 }
 function svAppeler(ev, cle) { var x = _sv.tel[cle] || {}, it = (window._rlItems || []).find(function(i) { return i.cle === cle; }); var url = x.url || (it && it.t && it.t.lead ? 'https://app.close.com/lead/' + it.t.lead + '/' : ''); if (!url && !x.tel) { if (typeof showCopyToast === 'function') showCopyToast('Fiche Close introuvable pour cet appel'); return; } fcAppeler(ev, x.tel || '', url); }
@@ -12592,7 +12595,7 @@ function svFicheHtml(sel, email) {
   var nom = sel.nom, rows = fcLignesDuNom(nom); if (email) rows = rows.filter(function(r) { var e = String(r.email || '').toLowerCase().trim(); return !e || e === email; });
   var Q = function(v) { return JSON.stringify(v).replace(/"/g, '&quot;'); }, cle = fcCle(nom, email), nomJs = Q(nom), emailJs = Q(email || '');
   var saved = _fc, next = document.getElementById('fc-next'), avant = next ? next.innerHTML : '', html = '';
-  _fc = { cle: cle, nom: nom, email: email || '', rows: rows, tab: 'synthese', dossiers: null, close: null, date: '', dernier: _sv.ctx[sel.cle] || null, contactMini: '' };
+  _fc = { cle: cle, nom: nom, email: email || '', rows: rows, tab: 'synthese', dossiers: null, close: null, date: '', dernier: _sv.ctx[sel.cle] || null, contactMini: '', leadChoisi: (sel.t && sel.t.lead) || '', leadImpose: !!(sel.t && sel.t.lead) };
   try { try { fcRendreProchaineEtape(); } catch (e) {} html = fcHtmlSynthese(); }
   catch (e) { html = '<div class="fc-muted">Synthèse indisponible : ' + escapeHtml(e.message) + '</div>'; }
   finally { _fc = saved; if (next) next.innerHTML = avant; }
