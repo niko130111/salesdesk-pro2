@@ -4388,11 +4388,20 @@ function fcOnboardingDependances() { // 6.1 / 6.2 / 6.3 n'apparaissent que si l'
 }
 // Bouton « Appeler » de la fiche : d'abord avec ce que la fiche sait (numéro et fiche Close du bandeau), sinon par l'item du Suivi. Avant, hors Suivi, l'item n'était pas connu et le bouton ne faisait rien (constat du 9 oct. 2026).
 function fcAppelerFiche(ev, cle) {
-  var a = document.querySelector('#fc-contact a[href^="tel:"]');
-  if (a) { if (ev && ev.altKey) { try { window.location.href = a.getAttribute('href'); } catch (e) {} return; } a.click(); return; }
-  var lead = (_fc && _fc.leadChoisi) || ((_fc && _fc.close && _fc.close.leads && _fc.close.leads[0]) || {}).id || '';
-  if (lead) { fcAppeler(ev, '', 'https://app.close.com/lead/' + lead + '/'); return; }
-  svAppeler(ev, cle);
+  var ov = document.getElementById('fc-overlay'), ouvert = !!(ov && ov.classList.contains('open'));
+  if (ouvert) { // fiche en surimpression : son bandeau (numéro + fiche Close) fait foi
+    var a = document.querySelector('#fc-contact a[href^="tel:"]');
+    if (a) { if (ev && ev.altKey) { try { window.location.href = a.getAttribute('href'); } catch (e) {} return; } a.click(); return; }
+    var lead = (_fc && _fc.leadChoisi) || ((_fc && _fc.close && _fc.close.leads && _fc.close.leads[0]) || {}).id || '';
+    if (lead) { fcAppeler(ev, '', 'https://app.close.com/lead/' + lead + '/'); return; }
+    svAppeler(ev, cle); return;
+  }
+  // panneau du Suivi (pas de surimpression) : l'item sélectionné, jamais le bandeau de la dernière fiche ouverte (bug du 9 oct. : appel vers la mauvaise personne)
+  var x = (typeof _sv !== 'undefined' && _sv.tel && _sv.tel[cle]) || {}, it = (window._rlItems || []).find(function(i) { return i.cle === cle; });
+  var url = x.url || (it && it.t && it.t.lead ? 'https://app.close.com/lead/' + it.t.lead + '/' : '');
+  if (!url && _fc && _fc.cle && it && fcNormNom(_fc.nom) === fcNormNom(it.nom)) url = (_fc.leadChoisi || ((_fc.close && _fc.close.leads && _fc.close.leads[0]) || {}).id) ? 'https://app.close.com/lead/' + (_fc.leadChoisi || _fc.close.leads[0].id) + '/' : '';
+  if (!url && !x.tel) { if (typeof showCopyToast === 'function') showCopyToast('Fiche Close introuvable pour cet appel'); return; }
+  fcAppeler(ev, x.tel || '', url);
 }
 function fcAppelerDepuisFiche() { var a = document.querySelector('#fc-contact a[href^="tel:"]'); if (a) a.click(); else if (typeof showCopyToast === 'function') showCopyToast('Pas de numéro sur la fiche'); }
 function fcCalerRdvDepuisFiche() { var last = _fc.rows[0] || {}, r2 = SD_INTERESSE.indexOf(String(last.result || '').trim()) >= 0; if (typeof COPILOT_URL === 'undefined') { fcCalendlyDepuisFiche(); return; } var lead = _fc.rows.map(function(r) { return r.closeLead; }).find(Boolean) || sdLeadPour(_fc.nom, _fc.email || '') || ''; sdReserverCalendly({ type: r2 ? 'r2' : 'r1', nom: _fc.nom, email: _fc.email || last.email || '', tel: '', cp: last.cp || '', lead: lead, cle: '' }, function(j) { if (typeof showCopyToast === 'function') showCopyToast('✓ RDV réservé : ' + fcFrDepuisIso(j.date) + ' à ' + j.heure); try { refreshAll(); } catch (e) {} fcRendre(); }); }
