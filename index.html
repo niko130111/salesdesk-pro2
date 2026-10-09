@@ -10736,7 +10736,7 @@ function ctlExtrasHtml(j) {
     + T('MAIL_R1_INBOUND', 'Mail R1 pris par un SDR « c\'est moi qui vous recevrai »', 'via Close, 1 h 30 après · ' + modeMail, !!sw.mail_r1_inbound)
     + T('MAIL_R2_JOUR', 'Mail du jour J pour les R2 (lien de connexion)', 'via Close à 08:20 · ' + modeMail, !!sw.mail_r2_jour)
     + T('SMS_NO_SHOW', 'SMS no-show à H+1 (si tu choisis « Relancer »)', modeSms, !!sw.sms_no_show)
-    + T('SMS_R2_VEILLE', 'SMS de la veille pour les R2 (pris > 48 h avant)', '08:45 la veille · ' + modeSms, !!sw.sms_r2_veille)
+    + T('SMS_R2_VEILLE', 'SMS de la veille pour les R2 (pris > 48 h avant)', '08:45 la veille (17:00 si la veille est un week-end ou un férié) · ' + modeSms, !!sw.sms_r2_veille)
     + '<div style="margin:10px 0 4px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);">Modes d\'envoi</div>'
     + T('MAIL_MODE_OUTBOX', '<b>Mails : envoi réel</b> (sinon brouillon dans Close)', 'à allumer seulement après avoir validé quelques brouillons', sw.mail_r1_mode === 'outbox', true)
     + T('SMS_MODE_AUTO', '<b>SMS : envoi automatique</b> par SMS Gate (sinon brouillon)', sw.sms_gate ? 'SMS Gate branché' : 'SMS Gate pas branché : identifiants à mettre dans le .env', sw.sms_mode === 'auto', true);
@@ -11499,16 +11499,26 @@ function sdDpFait(presence, parCalendly) { // SalesDesk note le résultat sur la
   try { _auj.calEtat = {}; _auj.cal = {}; } catch (e) {} try { refreshAll(); } catch (e) {} renderAujourdhui();
 }
 // ── Confirmation des RDV du lendemain : à partir de 13 h, une alerte te fait cocher ceux qui ont répondu OUI au SMS de la veille ; les autres reçoivent ta relance (2ᵉ SMS) quand tu valides ──
-function sdLibelleDemain(maj) { // « Demain », ou le nom du prochain jour ouvré quand un week-end ou un férié s'intercale (« Lundi »)
-  var auj = rlIso(new Date()), j = rlJourOuvre(auj, 1), l = j === rlPlus(auj, 1) ? 'demain' : new Date(j + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'long' });
+function sdLibelleDemain(maj, now) { // « Demain », ou le nom du prochain jour ouvré quand un week-end ou un férié s'intercale (« Lundi »)
+  var auj = rlIso(now || new Date()), j = rlJourOuvre(auj, 1), l = j === rlPlus(auj, 1) ? 'demain' : new Date(j + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'long' });
   return maj ? l.charAt(0).toUpperCase() + l.slice(1) : l;
 }
-function sdRdvsDeDemain() { // RDV du prochain jour ouvré (et du week-end entre les deux), pas encore tenus ni annulés
-  var today = rlIso(new Date()), fin = rlJourOuvre(today, 1), out = [];
+// ── Quel jour vérifier ? D'habitude le prochain jour ouvré : SMS de confirmation parti le matin même (08:45), relances dès 13 h.
+// Veille non ouvrée (RDV du lundi, lendemain de férié) : le copilot envoie le SMS la veille à 17 h, donc la vérification se fait le matin du RDV, ici, dès 8 h (règle du 9 oct. 2026).
+function sdVerifInfo(now) {
+  var n = now || (window._aujNow ? new Date(window._aujNow) : new Date()), auj = rlIso(n), h = n.getHours() + n.getMinutes() / 60;
+  var hier = rlPlus(auj, -1), dH = new Date(hier + 'T12:00:00').getDay(), hierNonOuvre = dH === 0 || dH === 6 || rlFerie(hier);
+  if (hierNonOuvre && h < 13) return { jour: auj, meme: true, ouvert: h >= 8, cle: auj + '|auj', titre: 'Aujourd\'hui', de: 'd\'aujourd\'hui', attente: 'Le SMS de confirmation est parti hier à 17 h : relances possibles dès 8 h' };
+  var prochain = rlJourOuvre(auj, 1), veilleDemain = prochain === rlPlus(auj, 1), veille = rlPlus(prochain, -1), jourVeille = new Date(veille + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'long' });
+  return { jour: prochain, meme: false, ouvert: veilleDemain && h >= 13, cle: auj, titre: sdLibelleDemain(true, n), de: 'de ' + sdLibelleDemain(false, n), attente: veilleDemain ? 'Relances SMS disponibles à partir de 13 h' : 'Le SMS de confirmation part ' + jourVeille + ' à 17 h ; tu vérifies les réponses ' + sdLibelleDemain(false, n) + ' matin, ici' };
+}
+function sdRdvsDeDemain() { // RDV du jour à vérifier (prochain jour ouvré et week-end entre les deux ; ou aujourd'hui, le matin après une veille non ouvrée), pas encore tenus ni annulés
+  var v = sdVerifInfo(), n = new Date(), today = rlIso(n), fin = v.jour, out = [];
+  if (v.meme) { var hhmm = String(n.getHours()).padStart(2, '0') + ':' + String(n.getMinutes()).padStart(2, '0'); aujRdvsDu(today).forEach(function(r) { var p = String((r.row || {}).presence || '').trim(); if (p && p !== 'Reprogrammé') return; if (r.heure && r.heure < hhmm) return; out.push(Object.assign({ jour: today }, r)); }); return out; }
   for (var d = rlPlus(today, 1); d <= fin; d = rlPlus(d, 1)) aujRdvsDu(d).forEach(function(r) { var p = String((r.row || {}).presence || '').trim(); if (p && p !== 'Reprogrammé') return; if (p === 'Annulé') return; out.push(Object.assign({ jour: d }, r)); });
   return out;
 }
-function sdVerifDemainFaite() { var st = loadStore(); return !!((st._verifDemain || {})[rlIso(new Date())]); }
+function sdVerifDemainFaite() { var st = loadStore(); return !!((st._verifDemain || {})[sdVerifInfo().cle]); }
 function sdConfirmer(monthKey, idx, on) { var st = loadStore(), r = (st[monthKey] || [])[idx]; if (!r) return; if (on) { r.confirme = true; r.confirmeAt = new Date().toISOString(); } else { delete r.confirme; delete r.confirmeAt; } saveStore(st); }
 function sdBasculerConfirme(monthKey, idx) { var st = loadStore(), r = (st[monthKey] || [])[idx]; if (!r) return; sdConfirmer(monthKey, idx, !r.confirme); renderAujourdhui(); }
 function sdPopupVerifDemain() { // pour chaque RDV de demain tu dis explicitement : « A répondu OUI » ou « Relancer par SMS ». Rien de choisi = rien ne se passe pour lui.
@@ -11530,17 +11540,17 @@ function aujRendreDemain(lignes, nOui, nRel, nAnn, tot, jour) { // le bloc const
   var el = document.getElementById('auj-demain'); if (!el) return;
   var rdvs = window._vdRdvs || [], C = window._vdChoix || []; if (!rdvs.length) { el.innerHTML = ''; return; }
   var Q = function(v) { return JSON.stringify(v).replace(/"/g, '&quot;'); };
-  var nowD = window._aujNow ? new Date(window._aujNow) : new Date(), st = loadStore(), fait = (st._verifDemain || {})[rlIso(nowD)] || null, avant13 = nowD.getHours() < 13, smsInconnu = _smsList === null && typeof COPILOT_URL !== 'undefined';
+  var nowD = window._aujNow ? new Date(window._aujNow) : new Date(), st = loadStore(), v = sdVerifInfo(nowD), fait = (st._verifDemain || {})[v.cle] || null, avant13 = !v.ouvert, smsInconnu = _smsList === null && typeof COPILOT_URL !== 'undefined';
   var jours = {}; rdvs.forEach(function(r) { jours[r.jour] = 1; }); var listeJours = Object.keys(jours).sort();
   var fr = function(iso) { return new Date(iso + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }); };
   var quand = listeJours.map(fr).join(' et '); quand = quand.charAt(0).toUpperCase() + quand.slice(1);
   var nConf = rdvs.filter(function(r) { return r.row && r.row.confirme; }).length, nRel2 = C.filter(function(x) { return x === 'relance'; }).length;
   var smsParti = function(r) { if (!_smsList) return null; return _smsList.some(function(x) { return /^r[12]_veille$/.test(x.type || '') && x.statut === 'envoye' && x.date === r.jour && fcNormNom(x.nom || '') === fcNormNom(r.nom); }); };
-  var h = '<div class="auj-card"><div class="auj-dem-head"><div><h2>' + sdLibelleDemain(true) + '</h2><div class="quand">' + escapeHtml(quand) + ' · ' + rdvs.length + ' RDV</div></div><span class="auj-state' + (nConf === rdvs.length ? ' ok' : ' info') + '">' + aujIco('check') + nConf + ' / ' + rdvs.length + ' confirmé' + (nConf > 1 ? 's' : '') + '</span></div>';
+  var h = '<div class="auj-card"><div class="auj-dem-head"><div><h2>' + v.titre + '</h2><div class="quand">' + escapeHtml(quand) + ' · ' + rdvs.length + ' RDV</div></div><span class="auj-state' + (nConf === rdvs.length ? ' ok' : ' info') + '">' + aujIco('check') + nConf + ' / ' + rdvs.length + ' confirmé' + (nConf > 1 ? 's' : '') + '</span></div>';
   h += rdvs.map(function(r, i) {
     var row = r.row || {}, deja = !!row.relanceVeilleAt, c = C[i], sp = smsParti(r), ouvert = _auj.demainOuvert === i;
     var etat = row.confirme ? '<span class="auj-state ok">' + aujIco('check') + 'A confirmé</span>' : c === 'relance' ? '<span class="auj-state info">' + aujIco('clock') + 'Relance prête</span>' : deja ? '<span class="auj-state warn" title="Relancé par SMS, sans réponse">' + aujIco('clock') + 'Relancé</span>' : sp === false ? '<span class="auj-state" title="Aucun SMS de confirmation ne lui a été envoyé">' + aujIco('q') + 'Pas de SMS</span>' : '<span class="auj-state">' + aujIco('q') + 'Sans réponse</span>';
-    var relOff = !r.row ? 'pas de ligne SalesDesk' : deja ? 'déjà relancé aujourd\'hui' : avant13 ? 'les relances partent à partir de 13 h' : sp === null ? 'statut des SMS pas encore vérifié' : !sp ? 'aucun SMS de confirmation ne lui a été envoyé' : '';
+    var relOff = !r.row ? 'pas de ligne SalesDesk' : deja ? 'déjà relancé aujourd\'hui' : avant13 ? v.attente : sp === null ? 'statut des SMS pas encore vérifié' : !sp ? 'aucun SMS de confirmation ne lui a été envoyé' : '';
     var B = function(v, lib, off, pourquoi) { return '<button class="btn btn-sm' + ((v === 'oui' ? !!row.confirme : c === v) ? ' on' : '') + '"' + (off ? ' disabled title="' + escapeHtml(pourquoi) + '"' : '') + ' onclick="event.stopPropagation();sdVerifDemainChoix(' + i + ',\'' + v + '\')">' + lib + '</button>'; };
     var cmd = ouvert ? '<div class="cmd">' + B('oui', row.confirme ? 'Retirer la confirmation' : 'A confirmé', !r.row, 'pas de ligne SalesDesk') + B('relance', 'Relancer par SMS', !!relOff, relOff) + B('annule', 'Annulé', !r.row, 'pas de ligne SalesDesk') + '<button class="btn btn-sm" onclick="event.stopPropagation();ouvrirFicheClient(' + Q(r.nom) + ',' + Q(r.email || '') + ')">Ouvrir la fiche</button>' + (relOff && !row.confirme ? '<div class="fc-muted" style="flex-basis:100%;">' + escapeHtml(relOff.charAt(0).toUpperCase() + relOff.slice(1)) + '.</div>' : '') + '</div>' : '';
     return '<div class="auj-dem"><div class="l" onclick="_auj.demainOuvert=' + (ouvert ? 'null' : i) + ';aujVerifDemainInit()" title="' + (ouvert ? 'Replier' : 'Ouvrir les commandes') + '"><span class="h">' + escapeHtml(r.heure || '—') + '</span><span style="min-width:0;"><div class="n">' + escapeHtml(r.nom) + '</div><div class="s">' + escapeHtml([r.r2 ? 'R2' : 'R1', row.type, r.source !== 'R2' ? r.source : '', listeJours.length > 1 ? fr(r.jour) : ''].filter(Boolean).join(' · ')) + '</div></span><span class="st">' + etat + aujIco('chev') + '</span></div>' + cmd + '</div>';
@@ -11548,7 +11558,7 @@ function aujRendreDemain(lignes, nOui, nRel, nAnn, tot, jour) { // le bloc const
   h += '<div class="auj-dem-pied">';
   if (nRel2) h += '<button class="btn btn-primary" onclick="sdVerifDemainValider()">' + aujIco('arrow') + 'Envoyer ' + nRel2 + ' SMS de relance</button>';
   if (!avant13) h += '<button class="btn" onclick="sdPopupVerifDemain()">' + aujIco('check') + 'Vérifier les confirmations</button>';
-  if (avant13) h += '<div class="info">' + aujIco('clock') + '<span>Relances SMS disponibles à partir de 13 h. Ouvre une ligne pour noter une confirmation ou une annulation.</span></div>';
+  if (avant13) h += '<div class="info">' + aujIco('clock') + '<span>' + escapeHtml(v.attente) + '. Ouvre une ligne pour noter une confirmation ou une annulation.</span></div>';
   else if (smsInconnu) h += '<div class="info">' + aujIco('alert') + '<span>Vérification des SMS envoyés ce matin en cours : les relances restent bloquées en attendant.</span></div>';
   if (fait) h += '<div class="info">' + aujIco('check') + '<span>Vérification faite à ' + new Date(fait.at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) + (fait.relances ? ' · ' + fait.relances + ' relance' + (fait.relances > 1 ? 's' : '') + ' envoyée' + (fait.relances > 1 ? 's' : '') : '') + '. Un RDV ajouté ensuite apparaît quand même ici.</span></div>';
   else if (!avant13 && !nRel2) h += '<div class="info">' + aujIco('q') + '<span><a onclick="sdVerifDemainFermer()">Marquer la vérification faite</a> · ce n\'est ni une confirmation client ni une preuve d\'envoi.</span></div>';
@@ -11560,7 +11570,7 @@ function sdVerifDemainChoix(i, v) { var c = window._vdChoix || [];
   if (v === 'annule') { var r = (window._vdRdvs || [])[i]; if (r && r.row) { sdAnnulationChoix({ nom: r.nom, iso: r.jour, heure: r.heure || '', mk: r.row._monthKey, idx: r.row._storeKey, motif: 'rdv annulé (vérif de la veille)', apres: function() { try { aujVerifDemainInit(); } catch (e) {} } }); } return; }
   c[i] = c[i] === v ? '' : v; sdVerifDemainMaj(); }
 function sdVerifDemainMaj() {
-  var rdvs = window._vdRdvs || [], C = window._vdChoix || [], tot = (window._aujNow ? new Date(window._aujNow) : new Date()).getHours() < 13;
+  var rdvs = window._vdRdvs || [], C = window._vdChoix || [], tot = !sdVerifInfo().ouvert;
   if (!rdvs.length) { aujRendreDemain('', 0, 0, 0, tot, ''); return; }
   var jour = new Date(rdvs[0].jour + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
   var faireLignes = function(compact) { return rdvs.map(function(r, i) { var row = r.row || {}, deja = !!row.relanceVeilleAt, c = C[i]; if (row.confirme && c !== 'relance') c = 'oui';
@@ -11569,7 +11579,7 @@ function sdVerifDemainMaj() {
       if (!smsParti && c === 'relance') { C[i] = ''; c = ''; }
       var B = function(v, lib, coul, off, pourquoi) { return '<button class="ar-pill' + (c === v ? ' on' : '') + '"' + (off ? ' disabled title="' + escapeHtml(pourquoi) + '" style="opacity:.45;cursor:not-allowed;"' : (c === v && coul ? ' style="background:' + coul + ';border-color:' + coul + ';color:#fff;"' : '')) + ' onclick="sdVerifDemainChoix(' + i + ',\'' + v + '\')">' + lib + '</button>'; };
       return '<div style="display:flex;gap:10px;align-items:center;padding:9px 0;border-top:1px solid var(--border);flex-wrap:wrap;"><span style="font-weight:700;font-variant-numeric:tabular-nums;min-width:48px;">' + escapeHtml(r.heure || '—') + '</span><span style="flex:1;min-width:' + (compact ? '120' : '150') + 'px;"><b>' + escapeHtml(r.nom) + '</b><span class="auj-meta"> · ' + escapeHtml([r.r2 ? 'R2' : 'R1', row.type, r.source !== 'R2' ? r.source : ''].filter(Boolean).join(' · ')) + '</span>' + (deja ? '<div class="fc-muted">déjà relancé par SMS aujourd\'hui</div>' : '') + (r.row ? '' : '<div class="fc-muted">pas encore de ligne SalesDesk</div>') + (!smsParti ? '<div class="fc-muted">' + (compact ? 'pas de SMS de confirmation envoyé' : (r.r2 ? 'R2' : 'RDV pris après 08:45') + ' : pas de SMS de confirmation envoyé, donc rien à relancer. Le mail du jour J part quand même à 08:20.') + '</div>' : '') + '</span>'
-        + '<span class="ar-pills" style="margin:0;">' + B('oui', compact ? '✓ OUI' : '✓ A répondu OUI', 'var(--green)', !r.row, 'pas de ligne SalesDesk') + B('relance', compact ? '💬 Relancer' : '💬 Relancer par SMS', 'var(--accent)', !r.row || deja || tot || !smsParti, !r.row ? 'pas de ligne SalesDesk' : deja ? 'déjà relancé' : tot ? 'les relances partent à partir de 13 h' : !smsConnu ? 'statut des SMS pas encore vérifié' : 'aucun SMS de confirmation ne lui a été envoyé') + B('annule', compact ? '✖ Annulé' : '✖ RDV annulé', 'var(--red)', !r.row, 'pas de ligne SalesDesk') + '</span></div>'; }).join(''); };
+        + '<span class="ar-pills" style="margin:0;">' + B('oui', compact ? '✓ OUI' : '✓ A répondu OUI', 'var(--green)', !r.row, 'pas de ligne SalesDesk') + B('relance', compact ? '💬 Relancer' : '💬 Relancer par SMS', 'var(--accent)', !r.row || deja || tot || !smsParti, !r.row ? 'pas de ligne SalesDesk' : deja ? 'déjà relancé' : tot ? sdVerifInfo().attente : !smsConnu ? 'statut des SMS pas encore vérifié' : 'aucun SMS de confirmation ne lui a été envoyé') + B('annule', compact ? '✖ Annulé' : '✖ RDV annulé', 'var(--red)', !r.row, 'pas de ligne SalesDesk') + '</span></div>'; }).join(''); };
   var lignes = faireLignes(false);
   var nRel = C.filter(function(x) { return x === 'relance'; }).length, nOui = rdvs.filter(function(r) { return r.row && r.row.confirme; }).length;
   var nAnn = C.filter(function(x) { return x === 'annule'; }).length;
@@ -11678,7 +11688,7 @@ function sdNoShowDepuisJour(mk, idx, opts) {
   document.getElementById('ns-rien').onclick = function() { appliquer(null); };
   document.getElementById('ns-perdu').onclick = function() { appliquer(null, true); };
 }
-function sdVerifDemainFermer() { try { if (new Date().getHours() >= 13) { var stF = loadStore(); if (!stF._verifDemain) stF._verifDemain = {}; stF._verifDemain[rlIso(new Date())] = { at: new Date().toISOString(), relances: 0 }; saveStore(stF); } } catch (e) {} fermerModalDoublon(); try { renderAujourdhui(); } catch (e) {} }
+function sdVerifDemainFermer() { try { if (sdVerifInfo().ouvert) { var stF = loadStore(); if (!stF._verifDemain) stF._verifDemain = {}; stF._verifDemain[sdVerifInfo().cle] = { at: new Date().toISOString(), relances: 0 }; saveStore(stF); } } catch (e) {} fermerModalDoublon(); try { renderAujourdhui(); } catch (e) {} }
 function sdVerifDemainValider() {
   var rdvs = window._vdRdvs || [], C = window._vdChoix || [], st = loadStore(), aRelancer = [], annules = [];
   rdvs.forEach(function(r, i) { if (!r.row) return; var row = (st[r.row._monthKey] || [])[r.row._storeKey]; if (!row) return;
@@ -11689,7 +11699,7 @@ function sdVerifDemainValider() {
   // RDV annulés : ligne en Annulé (compte comme no-show), Calendly annulé, Close à jour, relance dans 2 jours ouvrés (lundi-vendredi)
   if (annules.length) { if (typeof sdBackupStore === 'function') sdBackupStore(st); var cleCal = (state.calendly && state.calendly.apiKey) || localStorage.getItem('calendly_key'), dRel = rlJourOuvre(rlIso(new Date()), 2);
     annules.forEach(function(x) { sdAnnulerRdvLigne(x.row, x.r.uri, 'rdv annulé (vérif de la veille)'); }); }
-  if (new Date().getHours() >= 13) { if (!st._verifDemain) st._verifDemain = {}; st._verifDemain[rlIso(new Date())] = { at: new Date().toISOString(), relances: aRelancer.length }; Object.keys(st._verifDemain).sort().slice(0, -30).forEach(function(k) { delete st._verifDemain[k]; }); }
+  if (sdVerifInfo().ouvert) { if (!st._verifDemain) st._verifDemain = {}; st._verifDemain[sdVerifInfo().cle] = { at: new Date().toISOString(), relances: aRelancer.length }; Object.keys(st._verifDemain).sort().slice(0, -30).forEach(function(k) { delete st._verifDemain[k]; }); }
   saveStore(st); fermerModalDoublon(); renderAujourdhui();
   if (!aRelancer.length) { if (typeof showCopyToast === 'function') showCopyToast('✓ RDV de ' + sdLibelleDemain(false) + ' vérifiés' + (annules.length ? ' · ' + annules.length + ' annulé' + (annules.length > 1 ? 's' : '') + ', relance dans 2 jours ouvrés' : ', aucun SMS envoyé')); return; }
   if (typeof COPILOT_URL === 'undefined') return;
@@ -12017,7 +12027,7 @@ function renderAujourdhui() {
     toutes.forEach(function(x) { var r = x.r; if (r.source === 'R2' || ['Reprogrammé', 'Annulé'].indexOf(String(r.presence || '').trim()) < 0 || !x.iso || x.iso < depuisR || x.iso > todayIso) return; if (r.relanceDate && !r.relanceFait) return; if (r.result === 'Non signé' || r.result === 'Signé' || r.reproIgnore) return; var nn = fcNormNom(r.client); if (toutes.some(function(y) { return y !== x && fcNormNom(y.r.client) === nn && y.iso > x.iso; })) return; if ((items || []).some(function(i) { return fcNormNom(i.nom || '') === nn; })) return; if (typeof estSupprime === 'function' && estSupprime(st, r.client, r.date)) return; aRepro.push(x); });
     aRepro.sort(function(a, b) { return b.iso.localeCompare(a.iso); }).slice(0, 3).forEach(function(x) { var r = x.r; ajoute({ cle: 'repro|' + fcNormNom(r.client) + '|' + x.iso, titre: 'Reprogrammer le RDV', det: '<a onclick="ouvrirFicheClient(' + Q(r.client) + ',' + Q(r.email || '') + ')">' + escapeHtml(nomAff(r.client)) + '</a> · ' + escapeHtml(String(r.presence).trim() + ' le ' + r.date + ' · aucun nouveau RDV ni rappel posé') + ' · <a onclick="sdIgnorerRepro(' + Q(x.k) + ',' + x.i + ')">retirer</a>', btn: { lib: 'Ouvrir la fiche', on: 'ouvrirFicheClient(' + Q(r.client) + ',' + Q(r.email || '') + ')', titre: 'Reprogrammer, poser un rappel ou laisser tomber, depuis la fiche' }, rang: 4 }); });
   } catch (e) {}
-  try { var demainRdvs = estAuj ? sdRdvsDeDemain() : []; if (demainRdvs.length && now.getHours() >= 13 && !sdVerifDemainFaite()) { var nonConf = demainRdvs.filter(function(r) { return !(r.row && r.row.confirme); }).length; ajoute({ cle: 'verif-demain', titre: 'Vérifier les confirmations de ' + sdLibelleDemain(false), det: escapeHtml(demainRdvs.length + ' RDV · ' + nonConf + ' sans confirmation'), btn: { lib: 'Vérifier', on: 'sdPopupVerifDemain()' }, rang: nonConf ? 4 : 6 }); } } catch (e) {}
+  try { var demainRdvs = estAuj ? sdRdvsDeDemain() : []; if (demainRdvs.length && sdVerifInfo(now).ouvert && !sdVerifDemainFaite()) { var nonConf = demainRdvs.filter(function(r) { return !(r.row && r.row.confirme); }).length; ajoute({ cle: 'verif-demain', titre: 'Vérifier les confirmations ' + sdVerifInfo(now).de, det: escapeHtml(demainRdvs.length + ' RDV · ' + nonConf + ' sans confirmation'), btn: { lib: 'Vérifier', on: 'sdPopupVerifDemain()' }, rang: nonConf ? 4 : 6 }); } } catch (e) {}
   prios.sort(function(a, b) { return a.rang - b.rang; });
   var nbP = prios.length, visibles = _auj.prioTout ? prios : prios.slice(0, 3), attentes = apres.filter(function(x) { return x.attente; });
   document.getElementById('auj-prio-count').textContent = nbP;
