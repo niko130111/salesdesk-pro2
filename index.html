@@ -5910,7 +5910,8 @@ function fcDetecterDoublonsPipeline(cols) {
     var cleVu = k + '|' + l.map(function(r) { return r.date; }).join(',');
     if (vus[cleVu]) return;
     // RDV simplement décalé (ancien « Reprogrammé », un plus récent existe) : sa carte sort du Pipeline toute seule, sans question ; la ligne reste dans RDV Table et la fiche
-    var decales = l.slice(1).filter(function(a) { return a.presence === 'Reprogrammé'; }), reste = l.slice(1).filter(function(a) { return a.presence !== 'Reprogrammé'; });
+    var remplace = function(a) { return ['Reprogrammé', 'Annulé', 'No Show'].indexOf(String(a.presence || '').trim()) >= 0; }; // un RDV annulé, décalé ou non honoré, suivi d'un plus récent : il est remplacé, sa carte sort toute seule (plus de question)
+    var decales = l.slice(1).filter(remplace), reste = l.slice(1).filter(function(a) { return !remplace(a); });
     decales.forEach(function(a) { (store[a._monthKey] || []).forEach(function(r) { if (r && r.client === a.client && r.date === a.date && r.source === a.source && !r.pipelineMasque) { r.pipelineMasque = true; autoMasques++; } }); });
     if (!reste.length) return;
     groupes.push({ k: k, cleVu: cleVu, recent: l[0], anciens: reste });
