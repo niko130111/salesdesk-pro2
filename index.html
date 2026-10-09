@@ -3999,7 +3999,7 @@ function fcRendre() {
 var _fcMails = { cle: null, data: null, erreur: '', redige: false, b: { to: '', objet: '', texte: '' }, ouverts: {}, enCours: false };
 function fcChargerMails() {
   if (typeof COPILOT_URL === 'undefined') { _fcMails.erreur = 'Copilot éteint : les mails se lisent par lui.'; return; }
-  var cle = _fc.cle, q = { nom: _fc.nom, email: _fc.email || '' }, l = _fc.leadChoisi || sdLeadPour(_fc.nom, _fc.email || ''); if (l) q.lead = l; _fcMails.lead = l || '';
+  var cle = _fc.cle, q = Object.assign({ nom: _fc.nom, email: _fc.email || '' }, fcTelConnu() ? { tel: fcTelConnu() } : {}), l = _fc.leadChoisi || sdLeadPour(_fc.nom, _fc.email || ''); if (l) q.lead = l; _fcMails.lead = l || '';
   fetch(COPILOT_URL + '/close/mails?' + new URLSearchParams(q), { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).then(function(j) {
     if (_fcMails.cle !== cle) return; if (j.ok === false) _fcMails.erreur = j.error || 'Close illisible'; else { _fcMails.data = j; _fcMails.erreur = ''; if (!_fcMails.b.to) _fcMails.b.to = (j.adresses || []).indexOf(_fc.email) >= 0 ? _fc.email : ((j.adresses || [])[0] || _fc.email || ''); }
     if (_fc.tab === 'mails') fcRendre();
@@ -4302,7 +4302,7 @@ function fcOnboarding() {
   var m = document.getElementById('fc-dup-modal'); m.innerHTML = '<div class="fc-dup"><div style="font-size:15px;font-weight:700;">🚀 Onboarding — ' + escapeHtml(_fc.nom) + '</div><div class="fc-muted" style="margin-top:8px;">Lecture de Close (champs, opportunité, vidéo du R1)…</div></div>';
   if (typeof COPILOT_URL === 'undefined') { m.innerHTML = '<div class="fc-dup">Copilot éteint : l\'onboarding écrit dans Close via le copilot.<div style="margin-top:10px;text-align:right;"><button class="btn btn-sm" onclick="fermerModalDoublon()">Fermer</button></div></div>'; return; }
   var pChamps = fetch(COPILOT_URL + '/close/onboarding/champs?' + new URLSearchParams(lead ? { lead: lead } : {}), { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); });
-  var pClaap = fetch(COPILOT_URL + '/close/dernier-contact?' + new URLSearchParams(Object.assign({ rapide: '1' }, lead ? { lead: lead } : { nom: _fc.nom, email: _fc.email || '' })), { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).catch(function() { return {}; });
+  var pClaap = fetch(COPILOT_URL + '/close/dernier-contact?' + new URLSearchParams(Object.assign({ rapide: '1' }, lead ? { lead: lead } : Object.assign({ nom: _fc.nom, email: _fc.email || '' }, fcTelConnu() ? { tel: fcTelConnu() } : {}))), { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).catch(function() { return {}; });
   Promise.all([pChamps, pClaap]).then(function(res) {
     var J = res[0] || {}, j = res[1] || {}; if (J.ok === false) throw new Error(J.error || 'champs illisibles');
     var defs = (J.champs || []).filter(function(d) { return !/^7\.[234]/.test(d.nom); }), opp = J.opportunite || null, deja = (opp && opp.custom) || {};
@@ -4477,7 +4477,7 @@ function fcChargerDernierContact(force, leadId) {
   if (el) el.innerHTML = '<div class="t"><span>🗣 Avant d\'appeler</span></div><div class="fc-muted">lecture de Close' + (force ? ' et transcription des appels enregistrés (10-20 s)' : '') + '…</div>';
   if (force) { _fc.dernier = null; try { if (_fc.tab === 'synthese') fcRendre(); } catch (e) {} }
   var ctrl = new AbortController(); setTimeout(function() { ctrl.abort(); }, 90000);
-  var q = { email: _fc.email || '', nom: _fc.nom, force: force ? '1' : '0' }; if (leadId) { q.lead = leadId; _fc.leadChoisi = leadId; } else if (_fc.leadChoisi) q.lead = _fc.leadChoisi; else { var _lk = sdLeadPour(_fc.nom, _fc.email || ''); if (_lk) q.lead = _lk; }
+  var q = { email: _fc.email || '', nom: _fc.nom, force: force ? '1' : '0' }; if (fcTelConnu()) q.tel = fcTelConnu(); if (leadId) { q.lead = leadId; _fc.leadChoisi = leadId; } else if (_fc.leadChoisi) q.lead = _fc.leadChoisi; else { var _lk = sdLeadPour(_fc.nom, _fc.email || ''); if (_lk) q.lead = _lk; }
   // en deux temps : les faits tout de suite (dernier appel, journal, sans attendre le modèle), puis la synthèse complète
   if (!force) fetch(COPILOT_URL + '/close/dernier-contact?' + new URLSearchParams(Object.assign({}, q, { rapide: '1' })), { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).then(function(j) { if (_fc.cle === cle && !_fc.dernier && j && j.trouve) { _fc.dernier = j; fcRendreDernierContact(j); if (_fc.tab === 'prepa' || _fc.tab === 'synthese') fcRendre(); } }).catch(function() {});
   fetch(COPILOT_URL + '/close/dernier-contact?' + new URLSearchParams(q), { mode: 'cors', cache: 'no-store', signal: ctrl.signal })
@@ -5370,7 +5370,7 @@ function fcTcTexte(t) { var e = document.getElementById('fc-tc-texte'); if (e) {
 function fcTacheCloseCreer(btn) {
   var date = (document.getElementById('fc-tc-date') || {}).value || '', heure = (document.getElementById('fc-tc-heure') || {}).value || '', texte = ((document.getElementById('fc-tc-texte') || {}).value || '').trim() || 'Rappeler';
   if (!date) { alert('Il manque la date.'); return; } btn.disabled = true; btn.textContent = 'Création…';
-  var c = window._fcTacheCtx || { nom: _fc.nom, email: _fc.email || '' }, lead = c.lead || sdLeadPour(c.nom, c.email || '') || '';
+  var c = window._fcTacheCtx || Object.assign({ nom: _fc.nom, email: _fc.email || '' }, fcTelConnu() ? { tel: fcTelConnu() } : {}), lead = c.lead || sdLeadPour(c.nom, c.email || '') || '';
   rlPost('/close/taches', { nom: c.nom, email: c.email || '', lead: lead, date: date, heure: heure, texte: texte + '', motif: 'tâche posée depuis la fiche' }).then(function(j) {
     fermerModalDoublon(); try { _tachesCloseAt = 0; } catch (e) {} try { majBadgeSuivi(); } catch (e) {}
     // s'il a aussi une relance SalesDesk (ex. « R2 sans réponse depuis le 01/10 »), elle passe à la même date : sinon il restait dans « À traiter » malgré la tâche
