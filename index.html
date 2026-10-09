@@ -529,6 +529,49 @@ main { max-width: 100%; margin: 0; padding: 6px 8px; }
 .pf-faits { display: grid; gap: 10px; } .pf-faits .f { display: flex; justify-content: space-between; gap: 10px; font-size: 13.5px; color: var(--text2); border-bottom: 1px solid var(--border); padding-bottom: 8px; } .pf-faits .f:last-child { border-bottom: 0; padding-bottom: 0; } .pf-faits .f b { color: var(--text); font-weight: 700; }
 .pf-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 12px; }
 .pf-3 .v { font-size: 26px; font-weight: 800; margin-top: 4px; color: var(--text); } .pf-3 .v small { font-size: 14px; font-weight: 500; color: var(--text3); }
+/* ── Global, refonte visuelle du 9 oct. 2026 : quatre chiffres, un graphique, un comparatif à onglets, le tunnel, le reste replié ── */
+.gl .gl-ctrl { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.gl .gl-sel { display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); padding: 7px 12px; font-size: 13px; font-weight: 600; color: var(--text); }
+.gl .gl-sel select { font-family: var(--font); font-size: 13px; font-weight: 600; color: var(--text); background: transparent; border: 0; outline: none; cursor: pointer; }
+.gl .ico { display: inline-flex; align-items: center; justify-content: center; } .gl .ico svg { width: 16px; height: 16px; }
+.gl .gl-info { font-size: 12px; color: var(--text3); margin: -8px 0 12px; }
+.gl-4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 14px; }
+.gl-k { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 16px 18px; box-shadow: var(--shadow); display: flex; gap: 12px; align-items: flex-start; min-width: 0; }
+.gl-k > .ico { width: 34px; height: 34px; border-radius: 10px; background: var(--sd-action-soft); color: var(--sd-action); flex: none; } .gl-k > .ico svg { width: 18px; height: 18px; }
+.gl-k .bd { min-width: 0; } .gl-k .lab { font-size: 12.5px; color: var(--text2); font-weight: 600; }
+.gl-k .v { font-size: 28px; font-weight: 800; letter-spacing: -.02em; color: var(--sd-title); line-height: 1.1; margin-top: 2px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.gl-k .s { font-size: 12px; color: var(--text3); margin-top: 4px; } .gl-k .s b { color: var(--text2); }
+.gl .pf-card { margin-bottom: 14px; min-width: 0; position: relative; overflow: hidden; }
+/* un onglet caché reste rendu hors écran (pas display:none) : Chart.js dessine ses graphiques à la bonne taille même avant le premier clic */
+.gl .gl-pane[hidden] { display: block !important; position: absolute; left: 0; right: 0; top: 0; visibility: hidden; pointer-events: none; }
+.gl-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.gl-head .t { font-size: 15px; font-weight: 800; color: var(--text); display: flex; align-items: center; gap: 8px; } .gl-head .t .ico { color: var(--sd-action); }
+.gl-tabs button { font-size: 12.5px; padding: 6px 12px; }
+.gl-canvas { position: relative; height: 260px; } .gl-canvas.sm { height: 170px; } .gl-canvas.xs { height: 150px; }
+.gl-legende { font-size: 11.5px; color: var(--text3); margin-top: 8px; display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+.gl-2 { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 14px; margin-bottom: 14px; } .gl-2 > .pf-card { margin: 0; }
+.gl-tablewrap { overflow-x: auto; } .gl table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.gl thead th { padding: 9px 12px; text-align: center; font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--text3); background: var(--surface2); border-bottom: 1px solid var(--border); white-space: nowrap; }
+.gl thead th:first-child { text-align: left; }
+.gl-funnel .steps { display: flex; margin-top: 14px; }
+.gl-funnel .st { flex: 1; min-width: 0; padding: 14px 10px 14px 22px; background: var(--sd-action-soft); color: var(--sd-title); clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 50%, calc(100% - 14px) 100%, 0 100%, 14px 50%); }
+.gl-funnel .st:first-child { clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 50%, calc(100% - 14px) 100%, 0 100%); padding-left: 14px; border-radius: 10px 0 0 10px; }
+.gl-funnel .st:nth-child(2) { background: var(--sd-action); color: var(--sd-action-fg); opacity: .78; }
+.gl-funnel .st:nth-child(3) { background: var(--sd-action); color: var(--sd-action-fg); clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 14px 50%); border-radius: 0 10px 10px 0; }
+.gl-funnel .st .n { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; opacity: .9; }
+.gl-funnel .st .v { font-size: 26px; font-weight: 800; margin-top: 4px; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.gl-funnel .st .s { font-size: 11px; opacity: .85; margin-top: 4px; }
+details.gl-details { padding: 0; }
+details.gl-details > summary { list-style: none; cursor: pointer; padding: 14px 20px; display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 700; color: var(--text); }
+details.gl-details > summary::-webkit-details-marker { display: none; } details.gl-details > summary .ico { color: var(--sd-action); }
+details.gl-details > summary small { font-weight: 500; color: var(--text3); font-size: 12px; }
+details.gl-details > summary::after { content: '⌄'; margin-left: auto; color: var(--text3); font-size: 18px; line-height: 1; transition: transform .15s; }
+details.gl-details[open] > summary::after { transform: rotate(180deg); }
+details.gl-details > .body { padding: 0 20px 20px; }
+.gl-sst { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text3); margin: 16px 0 8px; }
+.gl-grid { display: grid; gap: 10px; } .gl-grid.n4 { grid-template-columns: repeat(4, minmax(0, 1fr)); } .gl-grid.n3 { grid-template-columns: repeat(3, minmax(0, 1fr)); } .gl-grid.n2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.gl .kpi-card { box-shadow: none; } .gl .kpi-value { font-size: 22px; color: var(--sd-title); }
+@media (max-width: 1000px) { .gl-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } .gl-2 { grid-template-columns: 1fr; } .gl-grid.n4, .gl-grid.n3 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .pf-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-bottom: 22px; }
 .pf-kv { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 14px; margin-top: 10px; } .pf-kv .v { font-size: 20px; font-weight: 800; color: var(--text); } .pf-kv .l { font-size: 12px; color: var(--text2); }
 @media (max-width: 980px) { .pf-comm, .pf-3, .pf-2 { grid-template-columns: 1fr; } }
@@ -724,7 +767,7 @@ main { max-width: 100%; margin: 0; padding: 6px 8px; }
 /* ── Palette commune Aujourd'hui + fiche client (8 oct. 2026) : bleu d'action, vert = confirmé / réussi, ambre = attention, rouge = erreur / destructif. Les composants existants lisent --accent / --primary / --purple… : on les remappe dans ces deux périmètres au lieu de recolorer chaque élément. ── */
 :root { --sd-title: #183654; --sd-action: #527DB3; --sd-action-h: #44699A; --sd-action-fg: #FFFFFF; --sd-action-soft: #E8F0FA; --sd-grey-soft: #EEF2F6; --sd-green: #1F7A4D; --sd-green-soft: #E3F3EA; --sd-amber: #9A6414; --sd-amber-soft: #FBF1DC; --sd-red: #B3261E; --sd-red-soft: #FBE5E3; }
 [data-theme="dark"] { --sd-title: var(--text); --sd-action: #7FA6D9; --sd-action-h: #96B7E2; --sd-action-fg: #0B1A2E; --sd-action-soft: #1E3553; --sd-grey-soft: #1F3048; --sd-green: #5CC48F; --sd-green-soft: #1C3A2B; --sd-amber: #E2B35A; --sd-amber-soft: #3A3120; --sd-red: #F08A84; --sd-red-soft: #432224; }
-.auj, .fc-overlay, #fc-dup-overlay, .cp-overlay, #page-relances { --accent: var(--sd-action); --accent-bg: var(--sd-action-soft); --accent-soft: var(--sd-action-soft); --primary: var(--sd-action); --primary-hover: var(--sd-action-h); --purple: var(--text2); --purple-bg: var(--sd-grey-soft); --soft-violet: var(--sd-grey-soft); --soft-violet-line: var(--border); --green: var(--sd-green); --soft-green: var(--sd-green-soft); --green-bg: var(--sd-green-soft); --orange: var(--sd-amber); --soft-orange: var(--sd-amber-soft); --orange-bg: var(--sd-amber-soft); --red: var(--sd-red); --soft-red: var(--sd-red-soft); --red-bg: var(--sd-red-soft); --soft-yellow: var(--surface2); --focus-ring: 0 0 0 3px rgba(82,125,179,.3); }
+.auj, .fc-overlay, #fc-dup-overlay, .cp-overlay, #page-relances, #page-global { --accent: var(--sd-action); --accent-bg: var(--sd-action-soft); --accent-soft: var(--sd-action-soft); --primary: var(--sd-action); --primary-hover: var(--sd-action-h); --purple: var(--text2); --purple-bg: var(--sd-grey-soft); --soft-violet: var(--sd-grey-soft); --soft-violet-line: var(--border); --green: var(--sd-green); --soft-green: var(--sd-green-soft); --green-bg: var(--sd-green-soft); --orange: var(--sd-amber); --soft-orange: var(--sd-amber-soft); --orange-bg: var(--sd-amber-soft); --red: var(--sd-red); --soft-red: var(--sd-red-soft); --red-bg: var(--sd-red-soft); --soft-yellow: var(--surface2); --focus-ring: 0 0 0 3px rgba(82,125,179,.3); }
 .auj .btn, .fc-overlay .btn, #fc-dup-overlay .btn, #page-relances .btn { color: var(--sd-action); background: var(--surface); border-color: var(--border); }
 .auj .btn:hover, .fc-overlay .btn:hover, #fc-dup-overlay .btn:hover, #page-relances .btn:hover { background: var(--sd-action-soft); border-color: var(--sd-action); }
 .auj .btn-primary, .fc-overlay .btn-primary, #fc-dup-overlay .btn-primary, #page-relances .btn-primary { background: var(--sd-action); border-color: var(--sd-action); color: var(--sd-action-fg); }
@@ -1882,351 +1925,119 @@ select.form-input { cursor: pointer; }
 
 <!-- ===================== GLOBAL PAGE ===================== -->
 <div id="page-global" class="page">
-<main>
-  <div class="perf-onglets" style="display:flex;gap:6px;margin-bottom:14px;align-items:center;"><span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-right:6px;">Performance</span><button class="btn btn-sm" onclick="sdPerfOnglet('mois')">Ce mois</button><button class="btn btn-sm btn-primary" onclick="sdPerfOnglet('historique')">Historique <small style="opacity:.75">depuis oct. 2025</small></button></div>
-
-  <!-- ════ HEADER ════ -->
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
-    <div>
-      <div style="font-size:15px;font-weight:700;color:var(--text);">🌐 Cockpit Global — Nicolas</div>
-      <div style="font-size:11px;color:var(--text3);margin-top:2px;" id="g-header-sub">Toutes années · 100% RDV Table</div>
-    </div>
-    <div style="display:flex;align-items:center;gap:12px;">
-      <div style="display:flex;align-items:center;gap:8px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:6px 12px;">
-        <span style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;">À partir de</span>
-        <select id="g-filter-from" onchange="renderGlobal()" style="font-family:var(--font);font-size:12px;font-weight:600;color:var(--text);background:transparent;border:none;outline:none;cursor:pointer;padding:0 2px;">
-          <option value="">Tout</option>
-        </select>
-      </div>
-      <div style="font-size:11px;color:var(--text3);" id="g-data-info"></div>
+<main class="gl">
+  <!-- ════ GLOBAL (refonte visuelle du 9 oct. 2026) : mêmes chiffres, mêmes fonctions de calcul (renderGlobal), seule la mise en page change ════ -->
+  <div class="pf-head">
+    <div><h1 class="pf-h1">Global</h1><div class="pf-sub"><span>Comprendre ce qui fonctionne</span><span>·</span><span id="g-header-sub">Toute la période</span></div></div>
+    <div class="gl-ctrl">
+      <label class="gl-sel"><span class="ico" data-ico="cal"></span><select id="g-filter-from" onchange="renderGlobal()"><option value="">Toute la période</option></select></label>
+      <div class="auj-seg"><button onclick="sdPerfOnglet('mois')">Ce mois</button><button class="on">Global</button></div>
     </div>
   </div>
+  <div class="gl-info" id="g-data-info"></div>
 
+  <!-- 1. Quatre chiffres -->
+  <div class="gl-4">
+    <div class="gl-k"><span class="ico" data-ico="euro"></span><div class="bd"><div class="lab">Commission totale</div><div class="v" id="g-comm-total">—</div><div class="s"><span id="g-comm-avg">—</span> par vente · <span id="g-avg-info">—</span></div></div></div>
+    <div class="gl-k"><span class="ico" data-ico="doc"></span><div class="bd"><div class="lab">Ventes</div><div class="v" id="g-total-signes">—</div><div class="s" id="g-avg-ventes-sub">— ventes/mois</div></div></div>
+    <div class="gl-k"><span class="ico" data-ico="cal"></span><div class="bd"><div class="lab">RDV tenus</div><div class="v" id="g-total-shows">—</div><div class="s">présence <b id="g-showrate">—</b> des R1 traités</div></div></div>
+    <div class="gl-k"><span class="ico" data-ico="arrow"></span><div class="bd"><div class="lab">Closing</div><div class="v" id="g-closing">—</div><div class="s" title="Ventes signées sur la période divisées par les R1 vus sur la période : deux populations différentes. Le closing de Performance suit la cohorte (R1 vus ce mois qui ont signé depuis), d'où des chiffres qui ne coïncident pas en début de mois.">ventes / R1 vus, sur la période</div></div></div>
+  </div>
 
-  <!-- ════ BLOC 1 : KPI PRINCIPAUX ════ -->
-  <div class="section-header" style="margin-bottom:10px;"><div class="section-title">KPI Cumulés</div></div>
-  <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:20px;">
+  <!-- 2. Évolution mensuelle -->
+  <div class="pf-card gl-card">
+    <div class="gl-head"><div class="t"><span class="ico" data-ico="arrow"></span>Évolution mensuelle</div>
+      <div class="auj-seg gl-tabs"><button class="on" onclick="glOnglet('chart','comm',this)">Commissions</button><button onclick="glOnglet('chart','ventes',this)">Ventes</button><button onclick="glOnglet('chart','presence',this)">Présence</button></div></div>
+    <div class="gl-pane" data-grp="chart" data-k="comm"><div class="gl-canvas"><canvas id="g-chart-commission"></canvas></div><div class="gl-legende">Commission signée par mois (€)</div></div>
+    <div class="gl-pane" data-grp="chart" data-k="ventes" hidden><div class="gl-canvas"><canvas id="g-chart-evolution"></canvas></div><div class="gl-legende">RDV pris, RDV tenus et ventes, par mois</div></div>
+    <div class="gl-pane" data-grp="chart" data-k="presence" hidden><div class="gl-canvas"><canvas id="g-chart-rates"></canvas></div><div class="gl-legende">Taux de présence et closing, par mois (%)</div></div>
+  </div>
 
-    <div class="kpi-card">
-      <div class="kpi-label">Total RDV</div>
-      <div class="kpi-value" id="g-total-rdv">—</div>
-      <div class="kpi-sub" id="g-avg-rdv-sub">— mois actifs</div>
-    </div>
-
-    <div class="kpi-card" style="background:var(--surface2);border-color:var(--border2);">
-      <div class="kpi-label">RDV / jour moyen</div>
-      <div class="kpi-value" id="g-rdv-par-jour-global">—</div>
-      <div class="kpi-sub">sur toute la période</div>
-    </div>
-
-    <div class="kpi-card" style="background:var(--green-bg);border-color:var(--soft-green);">
-      <div class="kpi-label" style="color:var(--green);">Shows</div>
-      <div style="display:flex;align-items:baseline;gap:8px;">
-        <div class="kpi-value green" id="g-total-shows">—</div>
-        <div style="font-size:18px;font-weight:600;color:var(--green);opacity:0.7;" id="g-showrate">—</div>
+  <!-- 3. Comparatif + tunnel -->
+  <div class="gl-2">
+    <div class="pf-card">
+      <div class="gl-head"><div class="t"><span class="ico" data-ico="doc"></span>Performance par segment</div>
+        <div class="auj-seg gl-tabs"><button class="on" onclick="glOnglet('seg','sources',this)">Sources</button><button onclick="glOnglet('seg','types',this)" title="Mandataires et Agences">Types</button><button onclick="glOnglet('seg','tier',this)">Tiers</button><button onclick="glOnglet('seg','pack',this)">Packs</button><button onclick="glOnglet('seg','freq',this)" title="Ventes annuelles et mensuelles">Fréquence</button></div></div>
+      <div class="gl-pane" data-grp="seg" data-k="sources">
+        <div class="gl-tablewrap"><table><thead><tr><th>Source</th><th>RDV</th><th>Shows</th><th>Ventes</th><th>Présence</th><th title="Ventes / RDV pris">Transfo</th><th title="Ventes / Shows (présences uniquement)">Closing</th></tr></thead><tbody id="g-src-tbody"></tbody></table></div>
+        <div class="gl-legende">Transfo = ventes / RDV pris · Closing = ventes / présences</div>
       </div>
-      <div class="kpi-sub">présences · show rate</div>
-    </div>
-
-    <div class="kpi-card" style="background:var(--green-bg);border-color:var(--soft-green);">
-      <div class="kpi-label" style="color:var(--green);">Show / jour moyen</div>
-      <div class="kpi-value green" id="g-show-par-jour-global">—</div>
-      <div class="kpi-sub">sur toute la période</div>
-    </div>
-
-    <div class="kpi-card has-noshow-tooltip" style="background:var(--red-bg);border-color:var(--soft-red);">
-      <div class="kpi-label" style="color:var(--red);">No Shows</div>
-      <div style="display:flex;align-items:baseline;gap:8px;">
-        <div class="kpi-value red" id="g-total-noshows">—</div>
-        <div style="font-size:18px;font-weight:600;color:var(--red);opacity:0.7;" id="g-noshowrate">—</div>
+      <div class="gl-pane" data-grp="seg" data-k="types" hidden>
+        <div class="gl-tablewrap"><table><thead><tr><th>Type</th><th>RDV</th><th>Shows</th><th>No Shows</th><th>Ventes</th><th>Présence</th><th title="Ventes / RDV pris">Transfo</th><th title="Ventes / Shows">Closing</th><th>Commission</th></tr></thead><tbody id="g-type-tbody"></tbody></table></div>
+        <div class="gl-grid n2" id="g-rentab-type" style="margin-top:12px;"></div>
+        <div class="gl-canvas sm" style="margin-top:12px;"><canvas id="g-chart-commtype"></canvas></div><div class="gl-legende">Commission moyenne par vente, Mandataires et Agences</div>
       </div>
-      <div class="kpi-sub">absences · % no show</div>
-      <div class="noshow-tooltip" id="g-noshow-tooltip">
-        <div class="noshow-tooltip-row"><span class="noshow-tooltip-label">🚫 Vrais No Show</span><span class="noshow-tooltip-value" id="tt-glb-ns">—</span></div>
-        <div class="noshow-tooltip-row"><span class="noshow-tooltip-label">❌ Annulés</span><span class="noshow-tooltip-value" id="tt-glb-an">—</span></div>
-        <div class="noshow-tooltip-row"><span class="noshow-tooltip-label">🔄 Reprogrammés</span><span class="noshow-tooltip-value" id="tt-glb-re">—</span></div>
-        <div class="noshow-tooltip-period" id="tt-glb-period">—</div>
+      <div class="gl-pane" data-grp="seg" data-k="tier" hidden>
+        <div class="gl-tablewrap"><table><thead><tr><th>Tier</th><th>Ventes</th><th>Annuel</th><th>Mensuel</th><th>Commission</th><th>Moy. / vente</th></tr></thead><tbody id="g-tier-tbody"></tbody></table></div>
+        <div class="gl-canvas sm" style="margin-top:12px;"><canvas id="g-chart-tier"></canvas></div><div class="gl-legende">Commission totale par tier · ventes signées uniquement</div>
+      </div>
+      <div class="gl-pane" data-grp="seg" data-k="pack" hidden>
+        <div class="gl-tablewrap"><table><thead><tr><th>Pack</th><th>Ventes</th><th>Annuel</th><th>Mensuel</th><th>Commission</th><th>Moy. / vente</th></tr></thead><tbody id="g-pack-tbody"></tbody></table></div>
+        <div class="gl-legende">Ventes signées uniquement</div>
+      </div>
+      <div class="gl-pane" data-grp="seg" data-k="freq" hidden>
+        <div class="gl-grid n3" id="g-freq-blocs"></div>
+        <div class="gl-canvas sm" style="margin-top:12px;"><canvas id="g-chart-freq"></canvas></div><div class="gl-legende" id="g-freq-legend"></div>
       </div>
     </div>
-
-    <div class="kpi-card" style="background:var(--accent-bg);border-color:var(--soft-blue);">
-      <div class="kpi-label" style="color:var(--accent);">Total Ventes</div>
-      <div class="kpi-value blue" id="g-total-signes">—</div>
-      <div class="kpi-sub" id="g-avg-ventes-sub">— ventes/mois</div>
-    </div>
-
-    <div class="kpi-card kpi-masquee">
-      <div class="kpi-label">Transfo (RDV→Vente)</div>
-      <div class="kpi-value" id="g-transfo">—</div>
-      <div class="kpi-sub">ventes / rdv pris</div>
-    </div>
-
-    <div class="kpi-card">
-      <div class="kpi-label">Closing (Vente/Show)</div>
-      <div class="kpi-value green" id="g-closing">—</div>
-      <div class="kpi-sub" title="Ventes signées sur la période divisées par les R1 vus sur la période : deux populations différentes. Le closing de Performance suit la cohorte (R1 vus ce mois qui ont signé depuis), d'où des chiffres qui ne coïncident pas en début de mois.">ventes de la période / R1 vus sur la période</div>
-    </div>
-    <div class="kpi-card">
-      <div class="kpi-label">Délai R1 → signature</div>
-      <div class="kpi-value" id="g-cycle">—</div>
-      <div class="kpi-sub" id="g-cycle-sub">jours en moyenne</div>
-    </div>
-
-    <div class="kpi-card" style="background:var(--orange-bg);border-color:var(--soft-orange-line);">
-      <div class="kpi-label" style="color:var(--orange);">Commission Totale</div>
-      <div class="kpi-value" style="color:var(--orange);font-size:20px;" id="g-comm-total">—</div>
-      <div class="kpi-sub">€ générés</div>
-    </div>
-
-    <div class="kpi-card">
-      <div class="kpi-label">Comm. moy. / Vente</div>
-      <div class="kpi-value" id="g-comm-avg">—</div>
-      <div class="kpi-sub" id="g-avg-info">—</div>
-    </div>
-
-  </div>
-
-  <!-- ════ BLOC 2 : MACHINE DE VENTE ════ -->
-  <div class="section-header" style="margin-bottom:10px;"><div class="section-title">⚙️ Machine de Vente</div></div>
-  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px;">
-    <div class="kpi-card" style="background:var(--surface2);">
-      <div class="kpi-label">RDV pour 1 Vente</div>
-      <div class="kpi-value" id="g-rdv-per-vente">—</div>
-      <div class="kpi-sub">RDV / vente, toutes sources</div>
-    </div>
-    <div class="kpi-card" style="background:var(--surface2);">
-      <div class="kpi-label">1 vente pour… · Inbound</div>
-      <div class="kpi-value" id="g-v1-inbound">—</div>
-      <div class="kpi-sub" id="g-v1-inbound-sub">—</div>
-    </div>
-    <div class="kpi-card" style="background:var(--surface2);">
-      <div class="kpi-label">1 vente pour… · Outbound</div>
-      <div class="kpi-value" id="g-v1-outbound">—</div>
-      <div class="kpi-sub" id="g-v1-outbound-sub">—</div>
-    </div>
-    <div class="kpi-card" style="background:var(--surface2);">
-      <div class="kpi-label">1 vente pour… · Pub</div>
-      <div class="kpi-value" id="g-v1-pub">—</div>
-      <div class="kpi-sub" id="g-v1-pub-sub">—</div>
-    </div>
-    <div class="kpi-card kpi-masquee" style="background:var(--surface2);">
-      <div class="kpi-label">Shows pour 1 Vente</div>
-      <div class="kpi-value" id="g-shows-per-vente">—</div>
-      <div class="kpi-sub">shows / vente</div>
-    </div>
-    <div class="kpi-card kpi-masquee" style="background:var(--surface2);">
-      <div class="kpi-label">Commission / RDV</div>
-      <div class="kpi-value" id="g-comm-per-rdv">—</div>
-      <div class="kpi-sub">€ généré par RDV pris</div>
-    </div>
-    <div class="kpi-card kpi-masquee" style="background:var(--surface2);">
-      <div class="kpi-label">Commission / Show</div>
-      <div class="kpi-value" id="g-comm-per-show">—</div>
-      <div class="kpi-sub">€ généré par présence</div>
+    <div class="pf-card gl-funnel">
+      <div class="gl-head"><div class="t"><span class="ico" data-ico="refresh"></span>Tunnel de conversion</div></div>
+      <div class="gl-legende" style="margin:-6px 0 0;">Suivre le cycle de vente après un premier rendez-vous tenu</div>
+      <div class="steps">
+        <div class="st"><div class="n">R2 pris</div><div class="v" id="g-r2-prise">—</div><div class="s" id="g-r2-prise-sub">— R2 / — R1 shows hors OneShot</div></div>
+        <div class="st"><div class="n">R2 tenus</div><div class="v" id="g-r2-presence">—</div><div class="s" id="g-r2-presence-sub">— shows / — R2</div></div>
+        <div class="st"><div class="n">Signature</div><div class="v" id="g-r2-closing">—</div><div class="s" id="g-r2-closing-sub">— signés / — R2 shows</div></div>
+      </div>
+      <div class="gl-legende" style="margin-top:12px;">Chaque étape est rapportée à la précédente : part des R1 tenus qui donnent un R2, part des R2 honorés, part des R2 tenus qui signent.</div>
     </div>
   </div>
 
-  <!-- ════ BLOC 3 : FUNNEL R2 ════ -->
-  <div class="section-header" style="margin-bottom:10px;"><div class="section-title">🔄 Funnel R2</div></div>
-  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px;">
-
-    <div class="kpi-card" style="background:var(--soft-violet);border-color:var(--soft-violet);">
-      <div class="kpi-label" style="color:var(--purple);">Taux Prise R2</div>
-      <div class="kpi-value" style="color:var(--purple);" id="g-r2-prise">—</div>
-      <div class="kpi-sub" id="g-r2-prise-sub">— R2 / — R1 shows hors OneShot</div>
-    </div>
-
-    <div class="kpi-card" style="background:var(--soft-violet);border-color:var(--soft-violet);">
-      <div class="kpi-label" style="color:var(--purple);">Taux Présence R2</div>
-      <div class="kpi-value" style="color:var(--purple);" id="g-r2-presence">—</div>
-      <div class="kpi-sub" id="g-r2-presence-sub">— shows / — R2</div>
-    </div>
-
-    <div class="kpi-card" style="background:var(--soft-violet);border-color:var(--soft-violet);">
-      <div class="kpi-label" style="color:var(--purple);">Taux Closing R2</div>
-      <div class="kpi-value" style="color:var(--purple);" id="g-r2-closing">—</div>
-      <div class="kpi-sub" id="g-r2-closing-sub">— signés / — R2 shows</div>
-    </div>
-
-  </div>
-
-  <!-- ════ BLOC 3 : PERTE DE PERFORMANCE ════ -->
-  <div class="section-header" style="margin-bottom:10px;"><div class="section-title">🎯 Ce que rapporterait un cran de mieux</div></div>
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px;">
-    <div style="background:var(--accent-bg);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px;">
-      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--accent);margin-bottom:8px;">📅 Show rate +5 points</div>
-      <div style="font-size:28px;font-weight:700;color:var(--accent);" id="g-sim-show">—</div>
-      <div style="font-size:12px;color:var(--text2);margin-top:4px;" id="g-sim-show-sub">—</div>
-      <div style="margin-top:10px;font-size:11px;color:var(--text3);" id="g-sim-show-hyp">Hypothèses : même nombre de RDV, closing inchangé, commission moyenne réelle par vente.</div>
-    </div>
-    <div style="background:var(--green-bg);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px;">
-      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--green);margin-bottom:8px;">🤝 Closing +5 points</div>
-      <div style="font-size:28px;font-weight:700;color:var(--green);" id="g-sim-closing">—</div>
-      <div style="font-size:12px;color:var(--text2);margin-top:4px;" id="g-sim-closing-sub">—</div>
-      <div style="margin-top:10px;font-size:11px;color:var(--text3);" id="g-sim-closing-hyp">Hypothèses : mêmes shows, commission moyenne réelle par vente.</div>
-    </div>
-  </div>
-
-  <!-- ════ BLOC 4 : RÉPARTITION PAR TYPE ════ -->
-  <div class="section-header" style="margin-bottom:10px;"><div class="section-title">Mandataires vs Agences</div></div>
-  <div class="card" style="margin-bottom:20px;overflow-x:auto;">
-    <table style="width:100%;border-collapse:collapse;font-size:13px;">
-      <thead>
-        <tr style="background:var(--surface2);">
-          <th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--text3);border-bottom:1px solid var(--border);">Type</th>
-          <th style="padding:10px 14px;text-align:center;font-size:10px;font-weight:700;text-transform:uppercase;color:var(--text3);border-bottom:1px solid var(--border);">RDV</th>
-          <th style="padding:10px 14px;text-align:center;font-size:10px;font-weight:700;text-transform:uppercase;color:var(--green);border-bottom:1px solid var(--border);">Shows</th>
-          <th style="padding:10px 14px;text-align:center;font-size:10px;font-weight:700;text-transform:uppercase;color:var(--red);border-bottom:1px solid var(--border);">No Shows</th>
-          <th style="padding:10px 14px;text-align:center;font-size:10px;font-weight:700;text-transform:uppercase;color:var(--accent);border-bottom:1px solid var(--border);">Ventes</th>
-          <th style="padding:10px 14px;text-align:center;font-size:10px;font-weight:700;text-transform:uppercase;color:var(--green);border-bottom:1px solid var(--border);">Show Rate</th>
-          <th style="padding:10px 14px;text-align:center;font-size:10px;font-weight:700;text-transform:uppercase;color:var(--accent);border-bottom:1px solid var(--border);">Transfo<br><small style="font-weight:400;opacity:0.7;">Ventes/RDV</small></th>
-          <th style="padding:10px 14px;text-align:center;font-size:10px;font-weight:700;text-transform:uppercase;color:var(--purple);border-bottom:1px solid var(--border);">Closing<br><small style="font-weight:400;opacity:0.7;">Ventes/Shows</small></th>
-          <th style="padding:10px 14px;text-align:center;font-size:10px;font-weight:700;text-transform:uppercase;color:var(--orange);border-bottom:1px solid var(--border);">Commission</th>
-        </tr>
-      </thead>
-      <tbody id="g-type-tbody"></tbody>
-    </table>
-  </div>
-
-  <!-- ════ BLOC 5 : RÉPARTITION PAR SOURCE ════ -->
-  <div class="section-header" style="margin-bottom:6px;"><div class="section-title">Performance par Source</div></div>
-  <div style="font-size:11px;color:var(--text3);margin-bottom:10px;padding:7px 12px;background:var(--surface2);border-radius:var(--radius);display:inline-block;">
-    ⚠️ <b>Transfo</b> = Ventes / RDV pris &nbsp;·&nbsp; <b>Closing</b> = Ventes / Shows (présences uniquement)
-  </div>
-  <div class="card" style="margin-bottom:20px;overflow-x:auto;">
-    <table style="width:100%;border-collapse:collapse;font-size:13px;">
-      <thead>
-        <tr style="background:var(--surface2);">
-          <th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:var(--text3);border-bottom:1px solid var(--border);">Source</th>
-          <th style="padding:10px 14px;text-align:center;font-size:10px;font-weight:700;text-transform:uppercase;color:var(--text3);border-bottom:1px solid var(--border);">RDV</th>
-          <th style="padding:10px 14px;text-align:center;font-size:10px;font-weight:700;text-transform:uppercase;color:var(--green);border-bottom:1px solid var(--border);">Shows</th>
-          <th style="padding:10px 14px;text-align:center;font-size:10px;font-weight:700;text-transform:uppercase;color:var(--accent);border-bottom:1px solid var(--border);">Ventes</th>
-          <th style="padding:10px 14px;text-align:center;font-size:10px;font-weight:700;text-transform:uppercase;color:var(--green);border-bottom:1px solid var(--border);">Show Rate</th>
-          <th style="padding:10px 14px;text-align:center;font-size:10px;font-weight:700;text-transform:uppercase;color:var(--accent);border-bottom:1px solid var(--border);">Transfo<br><small style="font-weight:400;opacity:0.7;">Ventes/RDV</small></th>
-          <th style="padding:10px 14px;text-align:center;font-size:10px;font-weight:700;text-transform:uppercase;color:var(--purple);border-bottom:1px solid var(--border);">Closing<br><small style="font-weight:400;opacity:0.7;">Ventes/Shows</small></th>
-        </tr>
-      </thead>
-      <tbody id="g-src-tbody"></tbody>
-    </table>
-  </div>
-
-
-  <!-- ════ BLOC 5b : RENTABILITÉ AGENCE vs MANDATAIRE ════ -->
-  <div class="section-header" style="margin-bottom:10px;"><div class="section-title">💰 Rentabilité par Type</div></div>
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px;" id="g-rentab-type"></div>
-
-  <!-- ════ BLOC 5c : VENTES ANNUELLES vs MENSUELLES ════ -->
-  <div class="section-header" style="margin-bottom:10px;"><div class="section-title">📆 Annuelles vs Mensuelles</div></div>
-  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:20px;" id="g-freq-blocs"></div>
-
-  <!-- ════ BLOC 5d : PERFORMANCE PAR TIER & PACK (ventes signées uniquement) ════ -->
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;">
-
-    <!-- Perf par Tier -->
-    <div>
-      <div class="section-header" style="margin-bottom:10px;"><div class="section-title">🏅 Perf par Tier <span style="font-size:11px;color:var(--text3);font-weight:400;">— ventes signées uniquement</span></div></div>
-      <div class="card" style="overflow-x:auto;">
-        <table style="width:100%;border-collapse:collapse;font-size:13px;">
-          <thead>
-            <tr style="background:var(--surface2);">
-              <th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:var(--text3);border-bottom:1px solid var(--border);">Tier</th>
-              <th style="padding:10px 14px;text-align:center;font-size:10px;font-weight:700;text-transform:uppercase;color:var(--green);border-bottom:1px solid var(--border);">Ventes</th>
-              <th style="padding:10px 14px;text-align:center;font-size:10px;font-weight:700;text-transform:uppercase;color:var(--purple);border-bottom:1px solid var(--border);">Annuel</th>
-              <th style="padding:10px 14px;text-align:center;font-size:10px;font-weight:700;text-transform:uppercase;color:var(--accent);border-bottom:1px solid var(--border);">Mensuel</th>
-              <th style="padding:10px 14px;text-align:center;font-size:10px;font-weight:700;text-transform:uppercase;color:var(--orange);border-bottom:1px solid var(--border);">Commission</th>
-              <th style="padding:10px 14px;text-align:center;font-size:10px;font-weight:700;text-transform:uppercase;color:var(--orange);border-bottom:1px solid var(--border);">Moy./Vente</th>
-            </tr>
-          </thead>
-          <tbody id="g-tier-tbody"></tbody>
-        </table>
+  <!-- 4. Explorer un scénario -->
+  <details class="pf-card gl-details" ontoggle="if (this.open) { try { renderGlobal(); } catch (e) {} }">
+    <summary><span class="ico" data-ico="q"></span>Explorer un scénario <small>ce que rapporterait un cran de mieux, la machine de vente, les moyennes</small></summary>
+    <div class="body">
+      <div class="gl-grid n2">
+        <div class="kpi-card"><div class="kpi-label">Présence +5 points</div><div class="kpi-value" id="g-sim-show">—</div><div class="kpi-sub" id="g-sim-show-sub">—</div><div class="kpi-sub" id="g-sim-show-hyp">Hypothèses : même nombre de RDV, closing inchangé, commission moyenne réelle par vente.</div></div>
+        <div class="kpi-card"><div class="kpi-label">Closing +5 points</div><div class="kpi-value" id="g-sim-closing">—</div><div class="kpi-sub" id="g-sim-closing-sub">—</div><div class="kpi-sub" id="g-sim-closing-hyp">Hypothèses : mêmes shows, commission moyenne réelle par vente.</div></div>
+      </div>
+      <div class="gl-sst">Machine de vente</div>
+      <div class="gl-grid n4">
+        <div class="kpi-card"><div class="kpi-label">RDV pour 1 vente</div><div class="kpi-value" id="g-rdv-per-vente">—</div><div class="kpi-sub">RDV / vente, toutes sources</div></div>
+        <div class="kpi-card"><div class="kpi-label">1 vente pour… · Inbound</div><div class="kpi-value" id="g-v1-inbound">—</div><div class="kpi-sub" id="g-v1-inbound-sub">—</div></div>
+        <div class="kpi-card"><div class="kpi-label">1 vente pour… · Outbound</div><div class="kpi-value" id="g-v1-outbound">—</div><div class="kpi-sub" id="g-v1-outbound-sub">—</div></div>
+        <div class="kpi-card"><div class="kpi-label">1 vente pour… · Pub</div><div class="kpi-value" id="g-v1-pub">—</div><div class="kpi-sub" id="g-v1-pub-sub">—</div></div>
+        <div class="kpi-card kpi-masquee"><div class="kpi-label">Shows pour 1 vente</div><div class="kpi-value" id="g-shows-per-vente">—</div><div class="kpi-sub">shows / vente</div></div>
+        <div class="kpi-card kpi-masquee"><div class="kpi-label">Commission / RDV</div><div class="kpi-value" id="g-comm-per-rdv">—</div><div class="kpi-sub">€ généré par RDV pris</div></div>
+        <div class="kpi-card kpi-masquee"><div class="kpi-label">Commission / Show</div><div class="kpi-value" id="g-comm-per-show">—</div><div class="kpi-sub">€ généré par présence</div></div>
+      </div>
+      <div class="gl-sst">Moyennes sur la période</div>
+      <div class="gl-grid n4">
+        <div class="kpi-card"><div class="kpi-label">RDV traités</div><div class="kpi-value" id="g-total-rdv">—</div><div class="kpi-sub" id="g-avg-rdv-sub">— mois actifs</div></div>
+        <div class="kpi-card"><div class="kpi-label">RDV / jour</div><div class="kpi-value" id="g-rdv-par-jour-global">—</div><div class="kpi-sub">sur toute la période</div></div>
+        <div class="kpi-card"><div class="kpi-label">Shows / jour</div><div class="kpi-value" id="g-show-par-jour-global">—</div><div class="kpi-sub">sur toute la période</div></div>
+        <div class="kpi-card has-noshow-tooltip"><div class="kpi-label">RDV non tenus</div><div style="display:flex;align-items:baseline;gap:8px;"><div class="kpi-value" id="g-total-noshows">—</div><div style="font-size:15px;font-weight:600;color:var(--text3);" id="g-noshowrate">—</div></div><div class="kpi-sub">no show, annulés, reprogrammés · survoler pour le détail</div>
+          <div class="noshow-tooltip" id="g-noshow-tooltip">
+            <div class="noshow-tooltip-row"><span class="noshow-tooltip-label">Vrais no show</span><span class="noshow-tooltip-value" id="tt-glb-ns">—</span></div>
+            <div class="noshow-tooltip-row"><span class="noshow-tooltip-label">Annulés</span><span class="noshow-tooltip-value" id="tt-glb-an">—</span></div>
+            <div class="noshow-tooltip-row"><span class="noshow-tooltip-label">Reprogrammés</span><span class="noshow-tooltip-value" id="tt-glb-re">—</span></div>
+            <div class="noshow-tooltip-period" id="tt-glb-period">—</div>
+          </div></div>
+        <div class="kpi-card kpi-masquee"><div class="kpi-label">Transfo (RDV → vente)</div><div class="kpi-value" id="g-transfo">—</div><div class="kpi-sub">ventes / rdv pris</div></div>
+        <div class="kpi-card"><div class="kpi-label">Délai R1 → signature</div><div class="kpi-value" id="g-cycle">—</div><div class="kpi-sub" id="g-cycle-sub">jours en moyenne</div></div>
+      </div>
+      <div class="gl-sst">Répartition</div>
+      <div class="gl-grid n2">
+        <div class="kpi-card"><div class="kpi-label">Mandataires et Agences</div><div class="gl-canvas xs"><canvas id="g-chart-types"></canvas></div><div class="gl-legende" id="g-type-legend"></div></div>
+        <div class="kpi-card"><div class="kpi-label">Volume par source</div><div class="gl-canvas xs"><canvas id="g-chart-sources"></canvas></div><div class="gl-legende" id="g-source-legend"></div></div>
       </div>
     </div>
+  </details>
 
-    <!-- Perf par Pack -->
-    <div>
-      <div class="section-header" style="margin-bottom:10px;"><div class="section-title">📦 Perf par Pack <span style="font-size:11px;color:var(--text3);font-weight:400;">— ventes signées uniquement</span></div></div>
-      <div class="card" style="overflow-x:auto;">
-        <table style="width:100%;border-collapse:collapse;font-size:13px;">
-          <thead>
-            <tr style="background:var(--surface2);">
-              <th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:var(--text3);border-bottom:1px solid var(--border);">Pack</th>
-              <th style="padding:10px 14px;text-align:center;font-size:10px;font-weight:700;text-transform:uppercase;color:var(--green);border-bottom:1px solid var(--border);">Ventes</th>
-              <th style="padding:10px 14px;text-align:center;font-size:10px;font-weight:700;text-transform:uppercase;color:var(--purple);border-bottom:1px solid var(--border);">Annuel</th>
-              <th style="padding:10px 14px;text-align:center;font-size:10px;font-weight:700;text-transform:uppercase;color:var(--accent);border-bottom:1px solid var(--border);">Mensuel</th>
-              <th style="padding:10px 14px;text-align:center;font-size:10px;font-weight:700;text-transform:uppercase;color:var(--orange);border-bottom:1px solid var(--border);">Commission</th>
-              <th style="padding:10px 14px;text-align:center;font-size:10px;font-weight:700;text-transform:uppercase;color:var(--orange);border-bottom:1px solid var(--border);">Moy./Vente</th>
-            </tr>
-          </thead>
-          <tbody id="g-pack-tbody"></tbody>
-        </table>
-      </div>
-    </div>
-
-  </div>
-
-  <!-- ════ BLOC 6 : GRAPHIQUES (étendu) ════ -->
-  <div class="section-header" style="margin-bottom:10px;"><div class="section-title">📈 Graphiques</div></div>
-
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
-    <div class="chart-section" style="margin-bottom:0;">
-      <div style="font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:12px;">RDV / Shows / Ventes par mois</div>
-      <div style="position:relative;height:200px;"><canvas id="g-chart-evolution"></canvas></div>
-    </div>
-    <div class="chart-section" style="margin-bottom:0;">
-      <div style="font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:12px;">Commission mensuelle (€)</div>
-      <div style="position:relative;height:200px;"><canvas id="g-chart-commission"></canvas></div>
-    </div>
-  </div>
-
-  <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:16px;margin-bottom:20px;">
-    <div class="chart-section" style="margin-bottom:0;">
-      <div style="font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:12px;">Show Rate & Closing par mois (%)</div>
-      <div style="position:relative;height:200px;"><canvas id="g-chart-rates"></canvas></div>
-    </div>
-    <div class="chart-section" style="margin-bottom:0;">
-      <div style="font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px;">Agences vs Mandataires</div>
-      <div style="position:relative;height:160px;"><canvas id="g-chart-types"></canvas></div>
-      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;justify-content:center;" id="g-type-legend"></div>
-    </div>
-    <div class="chart-section" style="margin-bottom:0;">
-      <div style="font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px;">Volume par Source</div>
-      <div style="position:relative;height:160px;"><canvas id="g-chart-sources"></canvas></div>
-      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;justify-content:center;" id="g-source-legend"></div>
-    </div>
-  </div>
-
-
-  <!-- Rangée 3 : Comm par type + Fréq ventes + Comm par tier -->
-  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:20px;">
-    <div class="chart-section" style="margin-bottom:0;">
-      <div style="font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px;">Commission moy. — Agences vs Mandataires</div>
-      <div style="position:relative;height:180px;"><canvas id="g-chart-commtype"></canvas></div>
-    </div>
-    <div class="chart-section" style="margin-bottom:0;">
-      <div style="font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px;">Ventes Annuelles vs Mensuelles</div>
-      <div style="position:relative;height:160px;"><canvas id="g-chart-freq"></canvas></div>
-      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;justify-content:center;" id="g-freq-legend"></div>
-    </div>
-    <div class="chart-section" style="margin-bottom:0;">
-      <div style="font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px;">Commission totale par Tier</div>
-      <div style="position:relative;height:180px;"><canvas id="g-chart-tier"></canvas></div>
-    </div>
-  </div>
-
-  <!-- ════ BLOC 7 : HISTORIQUE MENSUEL ════ -->
-  <div class="section-header" style="margin-bottom:10px;"><div class="section-title">Historique Mensuel</div></div>
-  <div class="rdv-table-wrap" style="margin-bottom:30px;">
-    <table class="rdv-table">
-      <thead>
-        <tr>
-          <th>Mois</th><th>RDV</th><th>Shows</th><th>No Shows</th>
-          <th>Show Rate</th><th>Ventes</th><th>Transfo</th><th>Closing</th><th>Commission</th>
-        </tr>
-      </thead>
-      <tbody id="g-histo-tbody"></tbody>
-      <tfoot id="g-histo-tfoot"></tfoot>
-    </table>
-  </div>
+  <!-- 5. Historique mensuel -->
+  <details class="pf-card gl-details">
+    <summary><span class="ico" data-ico="clock"></span>Historique mensuel <small>un mois par ligne</small></summary>
+    <div class="body"><div class="rdv-table-wrap"><table class="rdv-table"><thead><tr><th>Mois</th><th>RDV</th><th>Shows</th><th>No Shows</th><th>Show Rate</th><th>Ventes</th><th>Transfo</th><th>Closing</th><th>Commission</th></tr></thead><tbody id="g-histo-tbody"></tbody><tfoot id="g-histo-tfoot"></tfoot></table></div></div>
+  </details>
 
 </main>
 </div>
@@ -10912,6 +10723,10 @@ function sdVerifCloseAppliquer(ignorerAussi) {
   if (typeof showCopyToast === 'function') showCopyToast(n ? '✓ Close : ' + n + ' correction(s) appliquée(s) — ' + msgs.slice(0, 4).join(', ') : 'Rien appliqué');
 }
 // Performance : « Ce mois » (page analytics) et « Historique » (ancienne page Global), un seul onglet dans le menu
+// Global : onglets (graphique, comparatif), icônes, et redimensionnement des graphiques cachés dans un onglet ou un bloc replié (Chart.js dessine à 0 px sinon)
+function glOnglet(grp, k, btn) { document.querySelectorAll('#page-global .gl-pane[data-grp="' + grp + '"]').forEach(function(p) { p.hidden = p.dataset.k !== k; }); if (btn && btn.parentNode) Array.prototype.forEach.call(btn.parentNode.children, function(b) { b.classList.toggle('on', b === btn); }); glResize(); }
+function glResize() { setTimeout(function() { try { Object.keys(_globalCharts || {}).forEach(function(id) { var c = _globalCharts[id]; if (c && c.canvas && c.canvas.offsetParent) c.resize(); }); } catch (e) {} }, 30); }
+function glApresRendu() { try { document.querySelectorAll('#page-global .ico[data-ico]').forEach(function(e) { if (!e.innerHTML) e.innerHTML = aujIco(e.dataset.ico); }); } catch (e) {} glResize(); }
 function sdPerfOnglet(q) { var tab = document.querySelector('.nav-tab[data-page="analytics"]'); if (q === 'historique') { showPage('global', tab); togglePeriodSelector(false); try { renderGlobal(); } catch (e) {} } else { showPage('analytics', tab); togglePeriodSelector(false); try { chargerAppelsClose(); renderDaily(); } catch (e) {} setTimeout(function() { try { refreshKpis(); renderPerfTop(); } catch (e) {} }, 60); } }
 function mjAller(page) { if (page === 'Mes RDV') { showPage('mesrdv', null); togglePeriodSelector(false); ouvrirCopilot(); return; } if (page === 'Quotidien') page = 'Aujourd'; var map = { 'Aujourd': 'aujourdhui', 'Automatisations': 'automatisations', 'Relances': 'relances', 'Suivi': 'relances', 'Analytics': 'analytics', 'Performance': 'analytics', 'Mes RDV': 'mesrdv', 'Contrôle': 'controle', 'Pipeline': 'pipeline', 'RDV Table': 'rdvtable', 'Quotidien': 'daily' }; var b = (map[page] && document.querySelector('.nav-tab[data-page="' + map[page] + '"]')) || [...document.querySelectorAll('.nav-tab')].find(function(x) { return x.textContent.indexOf(page) >= 0; }); if (b) b.click(); }
 // ── Mail de fin de R1 : « Terminer » → le copilot attend le compte rendu Claap → brouillon dans Close → ici : Envoyer · Modifier · Annuler ──
@@ -13333,7 +13148,7 @@ function renderGlobal() {
 
   // 2. Commission mensuelle
   mkChart('g-chart-commission', 'bar', { labels, datasets: [
-    { label:'Commission \u20ac', data: filteredMonths.map(m=>m.commission), backgroundColor:'var(--soft-orange-line)', borderRadius:3 }
+    { label:'Commission \u20ac', data: filteredMonths.map(m=>m.commission), backgroundColor:'var(--accent)', borderRadius:3 }
   ]}, { ...baseOpts, plugins:{ legend:{ display:false } } });
 
   // 3. Show Rate & Closing
@@ -13390,7 +13205,7 @@ function renderGlobal() {
     datasets: [{ label:'Commission €', data: tierCommData, backgroundColor: tierLabels.map((_,i)=>tierColArr[i%tierColArr.length]), borderRadius:5 }]
   }, { ...baseOpts, plugins:{ legend:{display:false} } });
 
-
+  try { glApresRendu(); } catch (e) {} // icônes et redimensionnement des graphiques (refonte visuelle du 9 oct. 2026)
 }
 
 
