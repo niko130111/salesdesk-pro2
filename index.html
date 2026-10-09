@@ -810,6 +810,8 @@ nav #nav-more-dot, nav #nav-settings-dot { background: var(--sd-amber) !importan
 .auj-next .etat { margin-left: auto; display: flex; gap: 6px; flex-wrap: wrap; }
 .auj-next .nom { font-size: 21px; font-weight: 800; color: var(--text); margin: 8px 0 4px; cursor: pointer; line-height: 1.2; text-wrap: balance; }
 .auj-next .nom:hover { color: var(--sd-action); }
+.auj-next .top .nom { margin: 0; font-size: 22px; line-height: 1.1; }
+.auj-next .top + .sub { margin-top: 6px; }
 .auj-next .sub { font-size: 13px; color: var(--text2); }
 .auj-next .brief { margin: 12px 0 2px; display: grid; gap: 5px; font-size: 14px; line-height: 1.45; }
 .auj-next .brief .bl { display: flex; gap: 8px; align-items: baseline; min-width: 0; } .auj-next .brief .bl b { color: var(--text2); font-weight: 600; white-space: nowrap; } .auj-next .brief .bl span { min-width: 0; }
@@ -11940,8 +11942,9 @@ function renderAujourdhui() {
     else actsP = [primP(prepB), ficheB, visioB];
     var note = (!rp.join && mp.start && !mp.passe) ? '<span class="note">' + aujIco('alert') + 'Aucun lien de visio dans l\'invitation' + (rp.uri ? ' Calendly' : '') + '</span>' : '';
     carte = '<div class="auj-card auj-next"><div class="lab">' + (estAuj ? (mp.enCours ? 'Rendez-vous en cours' : 'Prochain rendez-vous') : 'Premier rendez-vous') + (compteP ? ' · ' + compteP : '') + '</div>'
-      + '<div class="top"><span class="hh">' + escapeHtml(rp.heure || '—') + '</span><span class="sep"></span><span class="auj-badge-r' + (rp.r2 ? ' r2' : '') + '">' + (rp.r2 ? 'R2' : 'R1') + '</span>' + (rowP.type ? '<span class="auj-meta">' + escapeHtml(rowP.type) + '</span>' : '') + '<span class="etat">' + confChip(rp, mp) + (rp.r2 ? '' : prepChip(pp, true)) + '</span></div>'
-      + '<div class="nom" onclick="ouvrirFicheClient(' + nomJsP + ',' + emailJsP + ')">' + escapeHtml(nomAff(rp.nom)) + '</div>'
+      + '<div class="top"><span class="hh">' + escapeHtml(rp.heure || '—') + '</span><span class="sep"></span><span class="auj-badge-r' + (rp.r2 ? ' r2' : '') + '">' + (rp.r2 ? 'R2' : 'R1') + '</span>' + (rowP.type ? '<span class="auj-meta">' + escapeHtml(rowP.type) + '</span>' : '')
+      + '<span class="nom" onclick="ouvrirFicheClient(' + nomJsP + ',' + emailJsP + ')">' + escapeHtml(nomAff(rp.nom)) + '</span>' // heure · R1/R2 · nom sur la même ligne (demande du 9 oct.)
+      + '<span class="etat">' + confChip(rp, mp) + (rp.r2 ? '' : prepChip(pp, true)) + '</span></div>'
       + '<div class="sub">' + escapeHtml(sousTitre(rp)) + '</div>'
       + '<div class="brief">' + bl.lignes.join('') + '</div>'
       + '<div class="acts">' + actsP.filter(Boolean).join('') + note + '</div></div>';
