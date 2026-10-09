@@ -529,6 +529,51 @@ main { max-width: 100%; margin: 0; padding: 6px 8px; }
 .pf-faits { display: grid; gap: 10px; } .pf-faits .f { display: flex; justify-content: space-between; gap: 10px; font-size: 13.5px; color: var(--text2); border-bottom: 1px solid var(--border); padding-bottom: 8px; } .pf-faits .f:last-child { border-bottom: 0; padding-bottom: 0; } .pf-faits .f b { color: var(--text); font-weight: 700; }
 .pf-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 12px; }
 .pf-3 .v { font-size: 26px; font-weight: 800; margin-top: 4px; color: var(--text); } .pf-3 .v small { font-size: 14px; font-weight: 500; color: var(--text3); }
+/* ── Bilan hebdo (9 oct. 2026) : un résumé, six chiffres, l'analyse en deux colonnes, les RDV, le plan ── */
+.bh .bh-ctrl { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.bh .bh-etat { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; font-size: 12.5px; color: var(--text3); margin: -6px 0 14px; min-height: 20px; }
+.bh .bh-etat .pt { width: 8px; height: 8px; border-radius: 50%; background: var(--text3); display: inline-block; margin-right: 6px; } .bh .bh-etat .pt.relu { background: var(--sd-action); } .bh .bh-etat .pt.finalise { background: var(--sd-green); }
+.bh .bh-etat a { color: var(--sd-action); cursor: pointer; text-decoration: underline dotted; }
+.bh .pf-card { margin-bottom: 14px; min-width: 0; }
+.bh-resume { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+.bh-resume .t { font-size: 17px; font-weight: 800; color: var(--text); margin-bottom: 8px; }
+.bh-resume .lignes div { font-size: 14.5px; color: var(--text); line-height: 1.45; padding: 2px 0; }
+.bh-resume .note { border-left: 1px solid var(--border); padding-left: 20px; }
+.bh-resume .note .lab { font-size: 12.5px; font-weight: 600; color: var(--text2); }
+.bh-resume .note .v { font-size: 34px; font-weight: 800; color: var(--sd-action); line-height: 1.1; margin-top: 4px; font-variant-numeric: tabular-nums; } .bh-resume .note .v small { font-size: 18px; font-weight: 600; color: var(--text3); }
+.bh-resume .note .s { font-size: 12px; color: var(--text3); margin-top: 4px; }
+.bh-6 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 6px; }
+.bh-k { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 16px 18px; box-shadow: var(--shadow); display: flex; gap: 12px; align-items: flex-start; min-width: 0; }
+.bh-k .ico { width: 34px; height: 34px; border-radius: 10px; background: var(--sd-action-soft); color: var(--sd-action); display: inline-flex; align-items: center; justify-content: center; flex: none; } .bh-k .ico svg { width: 18px; height: 18px; }
+.bh-k .lab { font-size: 12.5px; color: var(--text2); font-weight: 600; } .bh-k .v { font-size: 28px; font-weight: 800; color: var(--sd-title); line-height: 1.1; margin-top: 2px; font-variant-numeric: tabular-nums; white-space: nowrap; } .bh-k .v small { font-size: 13px; font-weight: 600; color: var(--text3); margin-left: 6px; }
+.bh-k .s { font-size: 12px; color: var(--text3); margin-top: 4px; } .bh-k .s a { color: var(--sd-action); cursor: pointer; }
+.bh-lien { text-align: right; font-size: 12.5px; margin: 4px 0 14px; } .bh-lien a { color: var(--sd-action); cursor: pointer; font-weight: 600; }
+.bh-detail { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 14px; }
+.bh-detail .kpi-card .kpi-value { font-size: 20px; color: var(--sd-title); }
+.bh-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-bottom: 14px; } .bh-2 > .pf-card { margin: 0; }
+.bh-h { display: flex; align-items: center; gap: 10px; font-size: 16px; font-weight: 800; color: var(--text); margin-bottom: 10px; }
+.bh-h .rond { width: 26px; height: 26px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; flex: none; } .bh-h .rond svg { width: 14px; height: 14px; }
+.bh-h .rond.ok { background: var(--sd-green-soft, #E3F3EA); color: var(--sd-green); } .bh-h .rond.mieux { background: #FBEFD9; color: #A66A16; } .bh-h .rond.bleu { background: var(--sd-action-soft); color: var(--sd-action); }
+.bh-h .dr { margin-left: auto; font-size: 12.5px; font-weight: 600; color: var(--sd-action); cursor: pointer; }
+.bh-pt { border-left: 3px solid var(--sd-green); padding: 4px 0 4px 12px; margin: 8px 0; } .bh-pt.mieux { border-left-color: #E2A94E; }
+.bh-pt .t { font-size: 14px; font-weight: 700; color: var(--text); display: flex; gap: 10px; align-items: baseline; } .bh-pt .t a { margin-left: auto; font-size: 12px; font-weight: 600; color: var(--sd-action); cursor: pointer; white-space: nowrap; }
+.bh-pt .o { font-size: 13px; color: var(--text2); margin-top: 2px; } .bh-pt .ex { font-size: 12.5px; color: var(--text3); margin-top: 3px; } .bh-pt .ex b { color: var(--text2); font-weight: 600; } .bh-pt .re { font-size: 13px; color: var(--text); margin-top: 4px; } .bh-pt .re b { color: #A66A16; }
+.bh-vide { font-size: 13px; color: var(--text3); padding: 6px 0; }
+.bh-grille { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; margin-top: 10px; }
+.bh-grille div { background: var(--surface2); border-radius: 10px; padding: 8px 10px; } .bh-grille .l { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--text3); } .bh-grille .n { font-size: 18px; font-weight: 800; color: var(--sd-title); margin: 2px 0; } .bh-grille .c { font-size: 11.5px; color: var(--text2); }
+.bh table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.bh thead th { padding: 9px 12px; text-align: left; font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--text3); background: var(--surface2); border-bottom: 1px solid var(--border); white-space: nowrap; }
+.bh tbody td { padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: top; color: var(--text2); } .bh tbody tr:last-child td { border-bottom: 0; }
+.bh tbody td .n { font-weight: 700; color: var(--text); cursor: pointer; } .bh tbody td .n:hover { color: var(--sd-action); } .bh tbody td .r { font-size: 11.5px; color: var(--text3); }
+.bh .chip { display: inline-block; font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 8px; background: var(--surface2); color: var(--text2); white-space: nowrap; }
+.bh .chip.ok { background: var(--sd-green-soft, #E3F3EA); color: var(--sd-green); } .bh .chip.bleu { background: var(--sd-action-soft); color: var(--sd-action); } .bh .chip.att { background: #FBEFD9; color: #A66A16; } .bh .chip.bad { background: var(--red-bg); color: var(--red); }
+.bh-num { display: flex; gap: 12px; align-items: flex-start; padding: 8px 0; } .bh-num .b { width: 26px; height: 26px; border-radius: 50%; background: var(--sd-action-soft); color: var(--sd-action); font-weight: 800; font-size: 13px; display: inline-flex; align-items: center; justify-content: center; flex: none; }
+.bh-num .t { font-size: 14px; font-weight: 700; color: var(--text); } .bh-num .d { font-size: 12.5px; color: var(--text2); margin-top: 1px; }
+.bh [contenteditable] { outline: none; border-radius: 6px; padding: 1px 4px; margin: -1px -4px; min-width: 40px; } .bh [contenteditable]:hover { background: var(--surface2); } .bh [contenteditable]:focus { background: var(--sd-action-soft); box-shadow: 0 0 0 1px var(--sd-action); }
+.bh [contenteditable]:empty::before { content: attr(data-vide); color: var(--text3); font-weight: 400; }
+.bh-note { font-size: 11.5px; color: var(--text3); margin-top: 6px; }
+.bh svg { width: 14px; height: 14px; vertical-align: -2px; } .bh .ico svg { width: 18px; height: 18px; } .bh .rond svg { width: 14px; height: 14px; }
+@media (max-width: 1000px) { .bh-resume, .bh-2 { grid-template-columns: 1fr; } .bh-resume .note { border-left: 0; padding-left: 0; } .bh-6, .bh-detail { grid-template-columns: repeat(2, minmax(0, 1fr)); } .bh-grille { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 /* ── Global, refonte visuelle du 9 oct. 2026 : quatre chiffres, un graphique, un comparatif à onglets, le tunnel, le reste replié ── */
 .gl .gl-ctrl { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 .gl .gl-sel { display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); padding: 7px 12px; font-size: 13px; font-weight: 600; color: var(--text); }
@@ -767,7 +812,7 @@ details.gl-details > .body { padding: 0 20px 20px; }
 /* ── Palette commune Aujourd'hui + fiche client (8 oct. 2026) : bleu d'action, vert = confirmé / réussi, ambre = attention, rouge = erreur / destructif. Les composants existants lisent --accent / --primary / --purple… : on les remappe dans ces deux périmètres au lieu de recolorer chaque élément. ── */
 :root { --sd-title: #183654; --sd-action: #527DB3; --sd-action-h: #44699A; --sd-action-fg: #FFFFFF; --sd-action-soft: #E8F0FA; --sd-grey-soft: #EEF2F6; --sd-green: #1F7A4D; --sd-green-soft: #E3F3EA; --sd-amber: #9A6414; --sd-amber-soft: #FBF1DC; --sd-red: #B3261E; --sd-red-soft: #FBE5E3; }
 [data-theme="dark"] { --sd-title: var(--text); --sd-action: #7FA6D9; --sd-action-h: #96B7E2; --sd-action-fg: #0B1A2E; --sd-action-soft: #1E3553; --sd-grey-soft: #1F3048; --sd-green: #5CC48F; --sd-green-soft: #1C3A2B; --sd-amber: #E2B35A; --sd-amber-soft: #3A3120; --sd-red: #F08A84; --sd-red-soft: #432224; }
-.auj, .fc-overlay, #fc-dup-overlay, .cp-overlay, #page-relances, #page-global { --accent: var(--sd-action); --accent-bg: var(--sd-action-soft); --accent-soft: var(--sd-action-soft); --primary: var(--sd-action); --primary-hover: var(--sd-action-h); --purple: var(--text2); --purple-bg: var(--sd-grey-soft); --soft-violet: var(--sd-grey-soft); --soft-violet-line: var(--border); --green: var(--sd-green); --soft-green: var(--sd-green-soft); --green-bg: var(--sd-green-soft); --orange: var(--sd-amber); --soft-orange: var(--sd-amber-soft); --orange-bg: var(--sd-amber-soft); --red: var(--sd-red); --soft-red: var(--sd-red-soft); --red-bg: var(--sd-red-soft); --soft-yellow: var(--surface2); --focus-ring: 0 0 0 3px rgba(82,125,179,.3); }
+.auj, .fc-overlay, #fc-dup-overlay, .cp-overlay, #page-relances, #page-global, #page-bilan { --accent: var(--sd-action); --accent-bg: var(--sd-action-soft); --accent-soft: var(--sd-action-soft); --primary: var(--sd-action); --primary-hover: var(--sd-action-h); --purple: var(--text2); --purple-bg: var(--sd-grey-soft); --soft-violet: var(--sd-grey-soft); --soft-violet-line: var(--border); --green: var(--sd-green); --soft-green: var(--sd-green-soft); --green-bg: var(--sd-green-soft); --orange: var(--sd-amber); --soft-orange: var(--sd-amber-soft); --orange-bg: var(--sd-amber-soft); --red: var(--sd-red); --soft-red: var(--sd-red-soft); --red-bg: var(--sd-red-soft); --soft-yellow: var(--surface2); --focus-ring: 0 0 0 3px rgba(82,125,179,.3); }
 .auj .btn, .fc-overlay .btn, #fc-dup-overlay .btn, #page-relances .btn { color: var(--sd-action); background: var(--surface); border-color: var(--border); }
 .auj .btn:hover, .fc-overlay .btn:hover, #fc-dup-overlay .btn:hover, #page-relances .btn:hover { background: var(--sd-action-soft); border-color: var(--sd-action); }
 .auj .btn-primary, .fc-overlay .btn-primary, #fc-dup-overlay .btn-primary, #page-relances .btn-primary { background: var(--sd-action); border-color: var(--sd-action); color: var(--sd-action-fg); }
@@ -1242,6 +1287,7 @@ select.form-input { cursor: pointer; }
     <button class="nav-tab" data-page="relances" onclick="showPage('relances',this);togglePeriodSelector(false);renderRelancesPage()"><span class="nav-ico">☎</span>Suivi<span id="nav-relances-badge" style="display:none;margin-left:6px;background:var(--red);color:#fff;font-size:10px;padding:1px 6px;border-radius:99px;font-weight:700;"></span></button>
     <button class="nav-tab" data-page="prospection" onclick="showPage('prospection',this);togglePeriodSelector(false);renderProspection()"><span class="nav-ico">☏</span>Prospection</button>
     <button class="nav-tab" data-page="analytics" onclick="showPage('analytics',this);togglePeriodSelector(false);chargerAppelsClose();renderDaily();setTimeout(function(){try{refreshKpis();renderPerfTop();}catch(e){}},60)"><span class="nav-ico">◔</span>Performance</button>
+    <button class="nav-tab" data-page="bilan" onclick="showPage('bilan',this);togglePeriodSelector(false);renderBilan()"><span class="nav-ico">✎</span>Bilan hebdo</button>
     <div class="nav-more" id="nav-more">
       <button class="nav-tab nav-more-btn" id="nav-more-btn" onclick="navPlus(event)">Plus ▾<span id="nav-more-dot" style="display:none;width:7px;height:7px;border-radius:50%;background:var(--red);margin-left:6px;vertical-align:middle;"></span></button>
       <div class="nav-more-menu" id="nav-more-menu">
@@ -1924,6 +1970,22 @@ select.form-input { cursor: pointer; }
 </div>
 
 <!-- ===================== GLOBAL PAGE ===================== -->
+<!-- ===================== BILAN HEBDO (9 oct. 2026) : synthèse de la semaine pour le point manager — chiffres du store, analyse de closer par le copilot (brouillon modifiable, versions, export PDF) ===================== -->
+<div id="page-bilan" class="page">
+<main class="bh">
+  <div class="pf-head">
+    <div><h1 class="pf-h1">Bilan hebdomadaire</h1><div class="pf-sub" id="bh-periode">—</div></div>
+    <div class="bh-ctrl">
+      <div class="pf-mois"><button title="Semaine précédente" onclick="bhSemaine(-1)">‹</button><span id="bh-sem">—</span><button title="Semaine suivante" onclick="bhSemaine(1)">›</button></div>
+      <button class="btn btn-primary" id="bh-preparer" onclick="bhPreparer()">Préparer le bilan</button>
+      <button class="btn" id="bh-pdf" onclick="bhExportPdf()" disabled title="Disponible quand le bilan est préparé">Exporter en PDF</button>
+    </div>
+  </div>
+  <div class="bh-etat" id="bh-etat"></div>
+  <div id="bh-corps"></div>
+</main>
+</div>
+
 <div id="page-global" class="page">
 <main class="gl">
   <!-- ════ GLOBAL (refonte visuelle du 9 oct. 2026) : mêmes chiffres, mêmes fonctions de calcul (renderGlobal), seule la mise en page change ════ -->
@@ -10723,6 +10785,128 @@ function sdVerifCloseAppliquer(ignorerAussi) {
   if (typeof showCopyToast === 'function') showCopyToast(n ? '✓ Close : ' + n + ' correction(s) appliquée(s) — ' + msgs.slice(0, 4).join(', ') : 'Rien appliqué');
 }
 // Performance : « Ce mois » (page analytics) et « Historique » (ancienne page Global), un seul onglet dans le menu
+// ══ Bilan hebdo (9 oct. 2026) : chiffres de la semaine depuis le store, analyse de closer par le copilot (GET/POST/PUT /bilan-hebdo), brouillon modifiable, export PDF ══
+var _bh = { lundi: null, data: null, appels: null, appelsCle: '', chargement: false, toutRdv: false, detail: false, grille: false, enCours: false };
+function bhLundiDe(iso) { var d = new Date(iso + 'T12:00:00'); var j = d.getDay() || 7; d.setDate(d.getDate() - (j - 1)); return rlIso(d); }
+function bhFr(iso, opts) { return new Date(iso + 'T12:00:00').toLocaleDateString('fr-FR', opts || { day: 'numeric', month: 'long' }); }
+function bhSemaine(n) { if (!_bh.lundi) _bh.lundi = bhLundiDe(rlIso(new Date())); if (n) _bh.lundi = rlPlus(_bh.lundi, 7 * n); _bh.data = null; _bh.toutRdv = false; _bh.grille = false; renderBilan(); }
+function bhChiffres(lundi) { // tout vient des lignes RDV : RDV pris ≠ RDV tenus, appels ≠ conversations (les appels viennent de Close, à part)
+  var fin = rlPlus(lundi, 6), st = loadStore(), rows = [];
+  Object.keys(st).forEach(function(k) { if (/^\d{4}-\d{2}$/.test(k) && Array.isArray(st[k])) st[k].forEach(function(r) { if (r && r.client) rows.push(r); }); });
+  var dans = function(iso) { return !!iso && iso >= lundi && iso <= fin; }, pres = function(r) { return String(r.presence || '').trim(); }, nn = function(x) { return fcNormNom(x || ''); };
+  var r1 = rows.filter(function(r) { return r.source !== 'R2' && dans(frVersIsoSd(r.date)); });
+  var r2Cles = {}; rows.forEach(function(r) { if (r.source === 'R2' && dans(frVersIsoSd(r.date)) && pres(r) === 'Show') r2Cles[nn(r.client) + '|' + frVersIsoSd(r.date)] = 1; if (r.source !== 'R2' && dans(frVersIsoSd(r.dateR2 || '')) && String(r.presenceR2 || '').trim() === 'Show') r2Cles[nn(r.client) + '|' + frVersIsoSd(r.dateR2)] = 1; });
+  var vus = {}, outbound = 0; rows.forEach(function(r) { if (r.source !== 'Outbound') return; var iso = frVersIsoSd(r.datePrise || '') || frVersIsoSd(r.date); if (!dans(iso)) return; var k = String(r.email || '').toLowerCase().trim() || nn(r.client); if (vus[k]) return; vus[k] = 1; outbound++; });
+  var ventes = rows.filter(function(r) { return r.result === 'Signé' && r.source !== 'R2' && dans(frVersIsoSd(r.dateSignature || '') || frVersIsoSd(r.date)); });
+  var c = { r1Tenus: r1.filter(function(r) { return pres(r) === 'Show'; }).length, r2Tenus: Object.keys(r2Cles).length, traites: r1.filter(function(r) { return !!pres(r); }).length, noShow: r1.filter(function(r) { return pres(r) === 'No Show'; }).length, annules: r1.filter(function(r) { return pres(r) === 'Annulé'; }).length, reports: r1.filter(function(r) { return pres(r) === 'Reprogrammé'; }).length, outbound: outbound, ventes: ventes.length, ventesNoms: ventes.map(function(r) { return r.client; }), comm: ventes.reduce(function(s, r) { try { return s + (Number(getComm(r)) || 0); } catch (e) { return s; } }, 0), contrats: rows.filter(function(r) { return r.attenteSignature && r.source !== 'R2' && dans(frVersIsoSd(r.date)); }).length, relances: rows.filter(function(r) { return r.relanceFaitAt && dans(String(r.relanceFaitAt).slice(0, 10)); }).length, planifies: r1.length };
+  c.tenus = c.r1Tenus + c.r2Tenus; c.presence = c.traites ? Math.round(c.r1Tenus / c.traites * 100) : null;
+  return c;
+}
+function bhChargerAppels(lundi) { var cle = lundi; if (_bh.appelsCle === cle && _bh.appels) return; _bh.appelsCle = cle; _bh.appels = null;
+  fetch(COPILOT_URL + '/close/appels-periode?du=' + lundi + '&au=' + rlPlus(lundi, 6)).then(function(r) { return r.json(); }).then(function(d) { if (_bh.appelsCle !== cle) return; _bh.appels = d && d.configure && !d.error ? d : { erreur: true }; renderBilan(); }).catch(function() { if (_bh.appelsCle === cle) { _bh.appels = { erreur: true }; renderBilan(); } }); }
+function bhCharger() { var lundi = _bh.lundi; _bh.chargement = true;
+  fetch(COPILOT_URL + '/bilan-hebdo?lundi=' + lundi).then(function(r) { return r.json(); }).then(function(d) { if (_bh.lundi !== lundi) return; _bh.data = d && d.ok ? d : { erreur: true }; _bh.chargement = false; renderBilan(); }).catch(function() { if (_bh.lundi === lundi) { _bh.data = { erreur: true }; _bh.chargement = false; renderBilan(); } }); }
+function bhPreparer(force) {
+  var b = _bh.data && _bh.data.bilan; if (_bh.enCours) return;
+  if (b && b.statut === 'finalise' && !force) { if (!confirm('Ce bilan est finalisé. Préparer une nouvelle version ? La version finalisée est conservée dans l\'historique du bilan.')) return; force = true; }
+  else if (b && !force) { if (!confirm('Un brouillon existe déjà pour cette semaine. Le remplacer par une nouvelle analyse ? Tes modifications manuelles seront perdues (l\'ancienne version reste dans l\'historique).')) return; force = true; }
+  _bh.enCours = true; var btn = document.getElementById('bh-preparer'); btn.disabled = true; btn.textContent = 'Préparation… (30 s environ)';
+  fetch(COPILOT_URL + '/bilan-hebdo/generer', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ lundi: _bh.lundi, force: !!force }) }).then(function(r) { return r.json(); })
+    .then(function(d) { _bh.enCours = false; if (!d || !d.ok) { if (typeof showCopyToast === 'function') showCopyToast('Bilan non préparé : ' + ((d && (d.error || d.raison)) || 'copilot injoignable')); renderBilan(); return; } if (typeof showCopyToast === 'function') showCopyToast('Bilan préparé · ' + d.nb_analyses + ' RDV analysé' + (d.nb_analyses > 1 ? 's' : '') + ' sur ' + d.nb_rdv); _bh.data = null; bhCharger(); })
+    .catch(function(e) { _bh.enCours = false; if (typeof showCopyToast === 'function') showCopyToast('Copilot injoignable : ' + e.message); renderBilan(); });
+}
+function bhSauver(patch) { return fetch(COPILOT_URL + '/bilan-hebdo', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ lundi: _bh.lundi, patch: patch }) }).then(function(r) { return r.json(); }).then(function(d) { if (d && d.ok && _bh.data) { _bh.data.bilan = d.bilan; bhRendreEtat(); } return d; }).catch(function() { if (typeof showCopyToast === 'function') showCopyToast('Modification non enregistrée : copilot injoignable'); }); }
+function bhStatut(s) { bhSauver({ statut: s }).then(function() { renderBilan(); }); }
+function bhCollecte() { // relit les champs modifiables de la page → patch pour le copilot
+  var txt = function(el) { return el ? String(el.textContent || '').replace(/\s+/g, ' ').trim() : ''; }, q = function(sel) { return Array.prototype.slice.call(document.querySelectorAll('#page-bilan ' + sel)); };
+  var patch = { resume: q('[data-bh="resume"]').map(txt).filter(Boolean) };
+  ['plan', 'manager'].forEach(function(k) { patch[k] = q('[data-bh-' + k + ']').map(function(el) { return { titre: txt(el.querySelector('[data-f="titre"]')), detail: txt(el.querySelector('[data-f="detail"]')) }; }).filter(function(x) { return x.titre; }); });
+  ['bien', 'ameliorer'].forEach(function(k) { patch[k] = q('[data-bh-' + k + ']').map(function(el) { return { titre: txt(el.querySelector('[data-f="titre"]')), observation: txt(el.querySelector('[data-f="observation"]')), exemple: txt(el.querySelector('[data-f="exemple"]')), recommandation: txt(el.querySelector('[data-f="recommandation"]')) }; }); });
+  var com = document.querySelector('#page-bilan [data-bh="commentaire"]'); if (com) patch.commentaire = txt(com);
+  return patch;
+}
+function bhEditBlur() { clearTimeout(_bh._t); _bh._t = setTimeout(function() { bhSauver(bhCollecte()); }, 250); }
+function bhRendreEtat() {
+  var el = document.getElementById('bh-etat'); if (!el) return; var b = _bh.data && _bh.data.bilan;
+  if (!b) { el.innerHTML = _bh.chargement ? 'Lecture du bilan…' : (_bh.data && _bh.data.erreur ? '<span style="color:var(--red);">Copilot injoignable : les chiffres restent disponibles, pas l\'analyse.</span>' : 'Pas encore de bilan pour cette semaine. « Préparer le bilan » lit les comptes rendus et les résultats des RDV de la semaine.'); return; }
+  var lib = { brouillon: 'Brouillon', relu: 'Relu', finalise: 'Finalisé' }[b.statut] || 'Brouillon', maj = b.maj_at ? new Date(b.maj_at).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
+  el.innerHTML = '<span><span class="pt ' + (b.statut || 'brouillon') + '"></span><b>' + lib + '</b>' + (b.version > 1 ? ' · version ' + b.version : '') + (maj ? ' · mis à jour le ' + escapeHtml(maj) : '') + '</span>'
+    + (b.statut !== 'relu' && b.statut !== 'finalise' ? '<a onclick="bhStatut(\'relu\')">Marquer relu</a>' : '') + (b.statut !== 'finalise' ? '<a onclick="bhStatut(\'finalise\')">Finaliser</a>' : '<a onclick="bhStatut(\'relu\')">Rouvrir</a>')
+    + '<span style="margin-left:auto;">' + (b.nb_analyses || 0) + ' RDV analysé' + (b.nb_analyses > 1 ? 's' : '') + ' sur ' + (b.nb_rdv || 0) + (b.couverture ? ' · ' + (b.couverture.claap || 0) + ' compte' + ((b.couverture.claap || 0) > 1 ? 's' : '') + ' rendu' + ((b.couverture.claap || 0) > 1 ? 's' : '') + ' Claap' : '') + '</span>';
+}
+function renderBilan() {
+  var page = document.getElementById('page-bilan'); if (!page || !page.classList.contains('active')) return;
+  if (!_bh.lundi) _bh.lundi = bhLundiDe(rlIso(new Date()));
+  var lundi = _bh.lundi, vendredi = rlPlus(lundi, 4), auj = rlIso(new Date());
+  document.getElementById('bh-periode').textContent = 'Du lundi ' + bhFr(lundi) + ' au vendredi ' + bhFr(vendredi, { day: 'numeric', month: 'long', year: 'numeric' });
+  document.getElementById('bh-sem').textContent = bhFr(lundi, { day: 'numeric' }) + ' – ' + bhFr(vendredi, { day: 'numeric', month: 'short' });
+  if (!_bh.data && !_bh.chargement) bhCharger();
+  bhChargerAppels(lundi);
+  var d = _bh.data || {}, b = d.bilan || null, c = bhChiffres(lundi), ap = _bh.appels, Q = function(v) { return JSON.stringify(v).replace(/"/g, '&quot;'); };
+  var btn = document.getElementById('bh-preparer'); if (!_bh.enCours) { btn.disabled = lundi > auj; btn.textContent = b ? 'Préparer à nouveau' : 'Préparer le bilan'; }
+  document.getElementById('bh-pdf').disabled = !b;
+  bhRendreEtat();
+  var ed = function(attr, val, vide) { return '<span contenteditable="true" spellcheck="false" ' + attr + ' data-vide="' + escapeHtml(vide || '…') + '" onblur="bhEditBlur()">' + escapeHtml(val || '') + '</span>'; };
+  var h = '';
+  // 1. Résumé
+  var noteTxt = b && b.note != null ? '<div class="v">' + String(b.note).replace('.', ',') + ' <small>/ 10</small></div>' : '<div class="v" style="font-size:22px;color:var(--text3);">' + (b ? 'Non évalué' : '—') + '</div>';
+  h += '<div class="pf-card"><div class="bh-resume"><div><div class="t">Résumé de la semaine</div><div class="lignes">'
+    + (b ? (b.resume && b.resume.length ? b.resume.map(function(l) { return '<div>' + ed('data-bh="resume"', l) + '</div>'; }).join('') : '<div class="bh-vide">Pas assez de matière pour un résumé : ' + (b.nb_analyses || 0) + ' RDV avec compte rendu sur ' + (b.nb_rdv || 0) + '.</div>') : '<div class="bh-vide">' + (_bh.chargement ? 'Lecture…' : 'Le résumé apparaît après « Préparer le bilan ».') + '</div>')
+    + '</div>' + (b ? '<div class="bh-note">' + (b.resume && b.resume.length ? 'Texte modifiable : clique une ligne pour la corriger.' : '') + '</div>' : '') + '</div>'
+    + '<div class="note"><div class="lab">Qualité des RDV</div>' + noteTxt + '<div class="s">' + (b ? (b.nb_analyses || 0) + ' RDV analysé' + (b.nb_analyses > 1 ? 's' : '') + ' sur ' + (b.nb_rdv || 0) + ' · ' + (b.note == null ? (b.nb_analyses >= 2 ? 'non évalué' : 'analyse partielle') : ((b.couverture && b.couverture.claap || 0) + (b.couverture && b.couverture.transcriptions || 0) >= (b.nb_analyses || 0) ? 'analyse complète' : 'analyse partielle')) + (b.note_commentaire ? '<br>' + escapeHtml(b.note_commentaire) : '') : 'Conduite commerciale des RDV, pas le nombre de signatures.') + '</div></div></div></div>';
+  // 2. Chiffres clés
+  var K = function(ico, lab, v, s, lien) { return '<div class="bh-k"><span class="ico">' + aujIco(ico) + '</span><div><div class="lab">' + lab + '</div><div class="v">' + v + '</div><div class="s">' + s + (lien ? ' · <a onclick="' + lien + '">détail</a>' : '') + '</div></div></div>'; };
+  var apV = function(k) { return ap === null ? '…' : (ap.erreur ? '<span style="font-size:16px;color:var(--text3);">Non disponible</span>' : String(ap[k])); };
+  h += '<div class="bh-6">'
+    + K('phone', 'Appels passés', apV('total'), ap && !ap.erreur ? ap.uniques + ' fiche' + (ap.uniques > 1 ? 's' : '') + ' différente' + (ap.uniques > 1 ? 's' : '') : 'Close, appels sortants')
+    + K('user', 'Conversations obtenues', apV('joints'), 'appels de 45 s ou plus')
+    + K('cal', 'RDV outbound pris', String(c.outbound), 'pris cette semaine, un par prospect', "mjAller('Rendez-vous')")
+    + K('check', 'RDV tenus', String(c.tenus), c.r1Tenus + ' R1 · ' + c.r2Tenus + ' R2 · ' + c.planifies + ' R1 planifiés', "mjAller('Rendez-vous')")
+    + K('doc', 'Signatures', String(c.ventes), c.ventesNoms.length ? escapeHtml(c.ventesNoms.join(', ')) : 'date de signature dans la semaine')
+    + K('euro', 'Commissions', Math.round(c.comm).toLocaleString('fr-FR') + ' €', 'sur les signatures de la semaine', "sdPerfOnglet('mois')")
+    + '</div><div class="bh-lien"><a onclick="_bh.detail=!_bh.detail;renderBilan()">' + (_bh.detail ? 'Masquer les statistiques détaillées' : 'Voir les statistiques détaillées') + ' ' + aujIco('arrow') + '</a></div>';
+  if (_bh.detail) { var KD = function(l, v, s) { return '<div class="kpi-card"><div class="kpi-label">' + l + '</div><div class="kpi-value">' + v + '</div><div class="kpi-sub">' + s + '</div></div>'; };
+    h += '<div class="bh-detail">' + KD('Prospects uniques appelés', ap && !ap.erreur ? ap.uniques : 'Non disponible', 'fiches Close distinctes') + KD('Présence R1', c.presence == null ? 'Non disponible' : c.presence + ' %', c.r1Tenus + ' tenus / ' + c.traites + ' traités') + KD('Vrais no-shows', c.noShow, 'absents sans prévenir') + KD('Annulations', c.annules, 'RDV annulés') + KD('Reports', c.reports, 'RDV reprogrammés') + KD('Contrats envoyés', c.contrats, 'RDV de la semaine en attente de signature') + KD('Relances effectuées', c.relances, 'relances marquées faites') + KD('RDV planifiés', c.planifies, 'R1 de la semaine, tous états') + '</div>'; }
+  // 3. Analyse de closer
+  var P = function(k, x, i) { var m = k === 'ameliorer'; return '<div class="bh-pt' + (m ? ' mieux' : '') + '" data-bh-' + k + '="' + i + '"><div class="t">' + ed('data-f="titre"', x.titre, 'Titre') + (x.nom ? '<a onclick="ouvrirFicheClient(' + Q(x.nom) + ',\'\')">Voir le dossier ' + aujIco('arrow') + '</a>' : '') + '</div>'
+    + '<div class="o">' + ed('data-f="observation"', x.observation, 'Observation') + '</div>' + '<div class="ex"><b>Observé</b> · ' + (x.nom ? escapeHtml(x.nom) + (x.date ? ', ' + bhFr(x.date, { day: 'numeric', month: 'short' }) : '') + ' : ' : '') + ed('data-f="exemple"', x.exemple, 'exemple daté') + '</div>' + (m ? '<div class="re"><b>À faire</b> · ' + ed('data-f="recommandation"', x.recommandation, 'recommandation') + '</div>' : '') + '</div>'; };
+  var col = function(k, titre, cls, ico) { var L = (b && b[k]) || []; return '<div class="pf-card"><div class="bh-h"><span class="rond ' + cls + '">' + aujIco(ico) + '</span>' + titre + '</div>' + (L.length ? L.map(function(x, i) { return P(k, x, i); }).join('') : '<div class="bh-vide">' + (b ? 'Rien d\'assez étayé cette semaine.' : 'Après « Préparer le bilan ».') + '</div>') + '</div>'; };
+  h += '<div class="bh-2">' + col('bien', 'Ce que j\'ai bien fait', 'ok', 'check') + col('ameliorer', 'Ce que je dois améliorer', 'mieux', 'arrow') + '</div>';
+  if (b && b.grille) { var G = b.grille, LG = { decouverte: 'Découverte', qualification: 'Qualification', presentation: 'Présentation', objections: 'Objections', conclusion: 'Conclusion' };
+    h += '<div class="pf-card" style="padding:12px 20px;"><div class="bh-h" style="margin:0;font-size:14px;"><span class="rond bleu">' + aujIco('q') + '</span>Grille détaillée <span class="dr" onclick="_bh.grille=!_bh.grille;renderBilan()">' + (_bh.grille ? 'Replier' : 'Déplier') + '</span></div>'
+      + (_bh.grille ? '<div class="bh-grille">' + Object.keys(LG).map(function(k) { var g = G[k] || {}; return '<div><div class="l">' + LG[k] + '</div><div class="n">' + (g.note == null ? '—' : String(g.note).replace('.', ',') + ' / 5') + '</div><div class="c">' + escapeHtml(g.commentaire || '') + '</div></div>'; }).join('') + '</div><div class="bh-note">Lecture du copilot à partir des comptes rendus : une interprétation, pas une mesure.</div>' : '') + '</div>'; }
+  // 4. RDV analysés
+  var R = ((b && b.rdvs) || ((d.matiere && d.matiere.rdvs) || [])).slice().sort(function(x, y) { return (y.analysable ? 1 : 0) - (x.analysable ? 1 : 0) || String(x.date + (x.heure || '')).localeCompare(String(y.date + (y.heure || ''))); }); var vis = _bh.toutRdv ? R : R.slice(0, 5);
+  var chip = function(r) { var t = String(r.resultat || ''); var cls = /^sign/i.test(t) ? 'ok' : /int[ée]ress/i.test(t) ? 'bleu' : /^non sign|no show|annul|reprog|perdu/i.test(t) ? 'bad' : t ? 'att' : ''; return t ? '<span class="chip ' + cls + '">' + escapeHtml(t.length > 26 ? t.slice(0, 25) + '…' : t) + '</span>' : '<span class="chip">à venir</span>'; };
+  h += '<div class="pf-card"><div class="bh-h"><span class="rond bleu">' + aujIco('cal') + '</span>Rendez-vous ' + (b ? 'analysés' : 'de la semaine') + (R.length > 5 ? '<span class="dr" onclick="_bh.toutRdv=!_bh.toutRdv;renderBilan()">' + (_bh.toutRdv ? 'Réduire' : 'Voir les ' + R.length + ' RDV') + ' ' + aujIco('arrow') + '</span>' : '') + '</div>'
+    + (R.length ? '<div style="overflow-x:auto;"><table><thead><tr><th>Prospect</th><th>RDV</th><th>Résultat</th><th>Point à retenir</th><th>Prochaine étape</th></tr></thead><tbody>'
+      + vis.map(function(r) { return '<tr><td><div class="n" onclick="ouvrirFicheClient(' + Q(r.nom) + ',\'\')">' + escapeHtml(r.nom) + '</div>' + (r.reseau ? '<div class="r">' + escapeHtml(r.reseau) + '</div>' : '') + '</td><td style="white-space:nowrap;">' + bhFr(r.date, { day: '2-digit', month: '2-digit' }) + ' · ' + escapeHtml(r.type || 'R1') + '</td><td>' + chip(r) + '</td><td>' + escapeHtml(r.point || (r.analysable ? '' : (b ? 'Pas de compte rendu.' : ''))) + '</td><td>' + escapeHtml(r.prochaine || '') + '</td></tr>'; }).join('') + '</tbody></table></div>'
+      : '<div class="bh-vide">Aucun rendez-vous cette semaine dans le copilot.</div>') + '</div>';
+  // 5. Plan + manager
+  var N = function(k, titre, ico, vide) { var L = (b && b[k]) || []; while (L.length < 3 && b) L = L.concat([{ titre: '', detail: '' }]); return '<div class="pf-card"><div class="bh-h"><span class="rond bleu">' + aujIco(ico) + '</span>' + titre + '</div>' + (b ? L.slice(0, 3).map(function(x, i) { return '<div class="bh-num" data-bh-' + k + '="' + i + '"><span class="b">' + (i + 1) + '</span><div style="min-width:0;flex:1;"><div class="t">' + ed('data-f="titre"', x.titre, vide) + '</div><div class="d">' + ed('data-f="detail"', x.detail, 'détail') + '</div></div></div>'; }).join('') : '<div class="bh-vide">Après « Préparer le bilan ».</div>') + '</div>'; };
+  h += '<div class="bh-2">' + N('plan', 'Plan de progression', 'arrow', 'Action pour la semaine prochaine') + N('manager', 'À discuter avec mon manager', 'user', 'Question, blocage ou demande de coaching') + '</div>';
+  if (b) h += '<div class="pf-card" style="padding:14px 20px;"><div class="bh-h" style="font-size:14px;margin-bottom:4px;"><span class="rond bleu">' + aujIco('pen') + '</span>Mon commentaire</div><div style="font-size:13.5px;color:var(--text);">' + ed('data-bh="commentaire"', b.commentaire, 'Ce que je veux ajouter avant le point (facultatif)') + '</div></div>';
+  document.getElementById('bh-corps').innerHTML = h;
+}
+function bhExportPdf() { // document propre : ni barre latérale ni boutons, le contenu utile au manager
+  var b = _bh.data && _bh.data.bilan; if (!b) return; var c = bhChiffres(_bh.lundi), ap = _bh.appels && !_bh.appels.erreur ? _bh.appels : null, E = escapeHtml;
+  var lundi = _bh.lundi, vendredi = rlPlus(lundi, 4);
+  var pt = function(x, m) { return '<div class="pt' + (m ? ' m' : '') + '"><b>' + E(x.titre) + '</b><div>' + E(x.observation) + '</div><div class="ex">Observé · ' + (x.nom ? E(x.nom) + (x.date ? ', ' + bhFr(x.date, { day: 'numeric', month: 'short' }) : '') + ' : ' : '') + E(x.exemple) + '</div>' + (m && x.recommandation ? '<div class="re">À faire · ' + E(x.recommandation) + '</div>' : '') + '</div>'; };
+  var num = function(L) { return (L || []).filter(function(x) { return x.titre; }).map(function(x, i) { return '<div class="num"><span>' + (i + 1) + '</span><div><b>' + E(x.titre) + '</b>' + (x.detail ? '<div>' + E(x.detail) + '</div>' : '') + '</div></div>'; }).join('') || '<div class="vide">—</div>'; };
+  var R = (b.rdvs || []).filter(function(r) { return r.analysable || r.point; });
+  var html = '<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Bilan hebdomadaire · ' + E(bhFr(lundi, { day: 'numeric', month: 'short' })) + ' – ' + E(bhFr(vendredi, { day: 'numeric', month: 'short', year: 'numeric' })) + '</title>'
+    + '<style>body{font-family:-apple-system,"Segoe UI",Inter,Arial,sans-serif;color:#1b2431;margin:0;padding:28px 34px;font-size:12.5px;line-height:1.4}h1{font-size:22px;margin:0 0 2px}.sub{color:#5b6775;margin-bottom:14px}.card{border:1px solid #dde3ea;border-radius:10px;padding:12px 14px;margin-bottom:10px;break-inside:avoid}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px}.k{border:1px solid #dde3ea;border-radius:10px;padding:10px 12px}.k .l{font-size:11px;color:#5b6775;font-weight:600}.k .v{font-size:22px;font-weight:800;color:#183654}.k .s{font-size:11px;color:#7b8794}.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}.h{font-size:14px;font-weight:800;margin:0 0 6px}.res div{padding:1px 0}.note{font-size:26px;font-weight:800;color:#527DB3}.pt{border-left:3px solid #1F7A4D;padding:2px 0 2px 10px;margin:6px 0}.pt.m{border-left-color:#E2A94E}.pt .ex{color:#5b6775;font-size:11.5px}.pt .re{margin-top:2px}table{width:100%;border-collapse:collapse;font-size:11.5px}th{text-align:left;font-size:10px;text-transform:uppercase;color:#5b6775;border-bottom:1px solid #dde3ea;padding:5px 6px}td{padding:5px 6px;border-bottom:1px solid #eef1f5;vertical-align:top}.num{display:flex;gap:8px;padding:3px 0}.num span{width:20px;height:20px;border-radius:50%;background:#E8F0FA;color:#527DB3;font-weight:800;font-size:11px;display:inline-flex;align-items:center;justify-content:center;flex:none}.vide{color:#7b8794}.pied{margin-top:12px;font-size:10.5px;color:#7b8794}@page{margin:14mm}@media print{body{padding:0}}</style></head><body>'
+    + '<h1>Bilan hebdomadaire · Nicolas Lapeyre</h1><div class="sub">Du lundi ' + E(bhFr(lundi)) + ' au vendredi ' + E(bhFr(vendredi, { day: 'numeric', month: 'long', year: 'numeric' })) + ' · ' + ({ brouillon: 'brouillon', relu: 'relu', finalise: 'finalisé' }[b.statut] || 'brouillon') + '</div>'
+    + '<div class="card"><div class="two"><div><div class="h">Résumé de la semaine</div><div class="res">' + ((b.resume || []).map(function(l) { return '<div>' + E(l) + '</div>'; }).join('') || '<div class="vide">Pas assez de matière.</div>') + '</div></div><div><div class="h">Qualité des RDV</div><div class="note">' + (b.note != null ? String(b.note).replace('.', ',') + ' / 10' : 'Non évalué') + '</div><div class="vide">' + (b.nb_analyses || 0) + ' RDV analysés sur ' + (b.nb_rdv || 0) + (b.note_commentaire ? ' · ' + E(b.note_commentaire) : '') + '</div></div></div></div>'
+    + '<div class="grid">' + [['Appels passés', ap ? ap.total : 'n/d', ap ? ap.uniques + ' fiches' : ''], ['Conversations obtenues', ap ? ap.joints : 'n/d', '≥ 45 s'], ['RDV outbound pris', c.outbound, 'cette semaine'], ['RDV tenus', c.tenus, c.r1Tenus + ' R1 · ' + c.r2Tenus + ' R2'], ['Signatures', c.ventes, E(c.ventesNoms.join(', '))], ['Commissions', Math.round(c.comm).toLocaleString('fr-FR') + ' €', 'signatures de la semaine']].map(function(x) { return '<div class="k"><div class="l">' + x[0] + '</div><div class="v">' + x[1] + '</div><div class="s">' + x[2] + '</div></div>'; }).join('') + '</div>'
+    + '<div class="two"><div class="card"><div class="h">Ce que j\'ai bien fait</div>' + ((b.bien || []).map(function(x) { return pt(x, false); }).join('') || '<div class="vide">—</div>') + '</div><div class="card"><div class="h">Ce que je dois améliorer</div>' + ((b.ameliorer || []).map(function(x) { return pt(x, true); }).join('') || '<div class="vide">—</div>') + '</div></div>'
+    + (R.length ? '<div class="card"><div class="h">Rendez-vous analysés</div><table><thead><tr><th>Prospect</th><th>RDV</th><th>Résultat</th><th>Point à retenir</th><th>Prochaine étape</th></tr></thead><tbody>' + R.slice(0, 12).map(function(r) { return '<tr><td><b>' + E(r.nom) + '</b>' + (r.reseau ? '<br><span class="vide">' + E(r.reseau) + '</span>' : '') + '</td><td>' + bhFr(r.date, { day: '2-digit', month: '2-digit' }) + ' · ' + E(r.type || 'R1') + '</td><td>' + E(r.resultat || '') + '</td><td>' + E(r.point || '') + '</td><td>' + E(r.prochaine || '') + '</td></tr>'; }).join('') + '</tbody></table></div>' : '')
+    + '<div class="two"><div class="card"><div class="h">Plan de progression</div>' + num(b.plan) + '</div><div class="card"><div class="h">À discuter avec mon manager</div>' + num(b.manager) + '</div></div>'
+    + (b.commentaire ? '<div class="card"><div class="h">Commentaire</div>' + E(b.commentaire) + '</div>' : '')
+    + '<div class="pied">SalesDesk Pro · généré le ' + new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) + ' · analyse du copilot à partir des comptes rendus de RDV ; les chiffres viennent des lignes RDV et des appels Close.</div>'
+    + '<script>window.onload=function(){setTimeout(function(){window.print();},300);};<\/script></body></html>';
+  var w = window.open('', '_blank'); if (!w) { if (typeof showCopyToast === 'function') showCopyToast('Fenêtre bloquée : autorise les pop-ups pour exporter'); return; } w.document.open(); w.document.write(html); w.document.close();
+}
 // Global : onglets (graphique, comparatif), icônes, et redimensionnement des graphiques cachés dans un onglet ou un bloc replié (Chart.js dessine à 0 px sinon)
 function glOnglet(grp, k, btn) { document.querySelectorAll('#page-global .gl-pane[data-grp="' + grp + '"]').forEach(function(p) { p.hidden = p.dataset.k !== k; }); if (btn && btn.parentNode) Array.prototype.forEach.call(btn.parentNode.children, function(b) { b.classList.toggle('on', b === btn); }); glResize(); }
 function glResize() { setTimeout(function() { try { Object.keys(_globalCharts || {}).forEach(function(id) { var c = _globalCharts[id]; if (c && c.canvas && c.canvas.offsetParent) c.resize(); }); } catch (e) {} }, 30); }
