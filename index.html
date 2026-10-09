@@ -3903,6 +3903,21 @@ function fcLignesDuNom(nom) {
   out.sort(function(a, b) { var da = parseDateFR(a.date), db = parseDateFR(b.date); return (db || 0) - (da || 0); });
   return out;
 }
+// Lignes SalesDesk de la fiche : celles au nom de la fiche (+ e-mail) ; sinon celles des contacts portés par la fiche Close choisie (fiche agence « Laforet Immobilier » ouverte alors que la ligne RDV est au nom de Sandrine Pitaval). Demande du 9 oct. 2026.
+function fcLignesFiche() {
+  var em = _fc.email, rows = fcLignesDuNom(_fc.nom).filter(function(r) { var e = String(r.email || '').toLowerCase().trim(); return !em || !e || e === em; });
+  if (rows.length) { _fc.lignesViaContact = ''; return rows; }
+  var lead = (_fc.close && _fc.close.leads && _fc.close.leads[0]) || null; if (!lead) return rows;
+  var vus = {}, out = [], store = null, noms = [];
+  (lead.contacts || []).forEach(function(c) {
+    var n = String(c.name || '').trim(), emails = (c.emails || []).map(function(x) { return String(x || '').toLowerCase().trim(); }).filter(Boolean);
+    if (n && fcNormNom(n) !== fcNormNom(_fc.nom)) fcLignesDuNom(n).forEach(function(r) { var k = r._monthKey + ':' + r._storeKey; if (!vus[k]) { vus[k] = 1; out.push(r); noms.push(n); } });
+    if (emails.length) { store = store || loadStore(); Object.keys(store).forEach(function(k) { if (!/^\d{4}-\d{2}$/.test(k) || !Array.isArray(store[k])) return; store[k].forEach(function(r, i) { if (r && emails.indexOf(String(r.email || '').toLowerCase().trim()) >= 0) { var kk = k + ':' + i; if (!vus[kk]) { vus[kk] = 1; out.push(Object.assign({}, r, { _monthKey: k, _storeKey: i })); noms.push(r.client); } } }); }); }
+  });
+  out.sort(function(a, b) { return (parseDateFR(b.date) || 0) - (parseDateFR(a.date) || 0); });
+  _fc.lignesViaContact = out.length ? noms.filter(function(x, i) { return x && noms.indexOf(x) === i; }).join(', ') : '';
+  return out;
+}
 // Point d'entrée : nom (+ email connu, + date du RDV cliqué). Deux personnes différentes du même nom (emails distincts) → popup pour choisir.
 function ouvrirFicheClient(nom, email, date) {
   if (window._pipelineJustDragged) { window._pipelineJustDragged = false; return; }
@@ -4234,7 +4249,8 @@ function fcItemFiche() {
 function fcRendreProchaineEtape() {
   var el = document.getElementById('fc-next'); if (!el) return;
   var labHtml = '<div class="lab" style="display:flex;justify-content:space-between;gap:10px;align-items:baseline;flex-wrap:wrap;"><span>Prochaine étape</span><span class="fc-mini" id="fc-next-contact">' + (_fc.contactMini || '') + '</span></div>';
-  var last = _fc.rows[0]; if (!last) { el.innerHTML = '<div style="width:100%">' + labHtml + '<div class="q">Aucun RDV dans SalesDesk</div><div class="d">Prospect Close : appeler, prendre un RDV, poser une tâche…</div></div><div class="acts">' + fcBoutonsSuivi(fcItemFiche()) + '</div>'; return; }
+  var last = _fc.rows[0]; if (last && _fc.lignesViaContact) labHtml += '<div class="fc-muted" style="margin:-2px 0 6px;">Lignes RDV au nom de ' + escapeHtml(_fc.lignesViaContact) + ' (contact de cette fiche Close)</div>';
+  if (!last) { el.innerHTML = '<div style="width:100%">' + labHtml + '<div class="q">Aucun RDV dans SalesDesk</div><div class="d">Prospect Close : appeler, prendre un RDV, poser une tâche…</div></div><div class="acts">' + fcBoutonsSuivi(fcItemFiche()) + '</div>'; return; }
   var today = new Date(); today.setHours(0, 0, 0, 0); var todayIso = rlIso(new Date());
   var n = fcNormNom(_fc.nom), lib = '', det = '', itS = null, pres = String(last.presence || '').trim();
   var dRdv = parseDateFR(last.date), signe = _fc.rows.find(function(r) { return r.result === 'Signé' && r.source !== 'R2'; }), r2 = fcR2AVenir({ nom: _fc.nom });
@@ -4262,7 +4278,7 @@ function fcAnnulerRdvDepuisFiche() {
   var last = _fc.rows[0]; if (!last || last._monthKey === undefined || last._storeKey === undefined) return;
   var iso = frVersIsoSd(last.date), lundi = rlLundiDe(iso);
   var lancer = function() { sdAnnulationChoix({ nom: _fc.nom, iso: iso, heure: last.heure || '', mk: last._monthKey, idx: last._storeKey, motif: 'rdv annulé (fiche)', apres: function() {
-    _fc.rows = fcLignesDuNom(_fc.nom).filter(function(r) { var e = String(r.email || '').toLowerCase().trim(); return !_fc.email || !e || e === _fc.email; });
+    _fc.rows = fcLignesFiche();
     var p = (_fc.nom || '').trim().split(/\s+/)[0] || '', civ = /^(m|mr|mme|mlle|monsieur|madame|me)\.?$/i.test(p), prenom = civ ? '' : ' ' + p.charAt(0).toUpperCase() + p.slice(1).toLowerCase();
     fcRepondreMail('Re : notre rendez-vous du ' + last.date, 'Bonjour' + prenom + ',\n\nMerci pour votre message, et aucun souci pour le report : l\'essentiel est que tout aille bien de votre côté.\n\nJe vous propose de reprendre rendez-vous dès que vous serez disponible : vous pouvez réserver directement un créneau ici ' + CALENDLY_R1 + ' ou me donner vos disponibilités, je m\'adapte.\n\nÀ très vite,');
   } }); };
@@ -4430,7 +4446,7 @@ function fcChargerClose(apres) { // apres : lancé une fois la fiche Close chois
       fcMemoriserClose(cle, _fc.nom, _fc.email, j); _fc.close = j;
       try { if (_fcMails && _fcMails.cle === cle && _fcMails.lead !== (_fc.leadChoisi || '') && (_fcMails.data || _fcMails.enCours)) { _fcMails.data = null; _fcMails.erreur = ''; fcChargerMails(); } } catch (e) {}
       try { if (_fc.dernier && _fc.dernier.lead && _fc.leadChoisi && _fc.dernier.lead !== _fc.leadChoisi) fcChargerDernierContact(false, _fc.leadChoisi); } catch (e) {}
-      fcRendreContact(); fini(); })
+      try { if (!_fc.rows.length) { var viaC = fcLignesFiche(); if (viaC.length) { _fc.rows = viaC; fcRendre(); } } } catch (e) {} fcRendreContact(); fini(); })
     .catch(function() { if (_fc.cle !== cle) { fini(); return; } if (!_fc.closeEssai2) { _fc.closeEssai2 = true; setTimeout(function() { if (_fc.cle === cle) fcChargerClose(apres); }, 2500); apres = null; return; } _fc.close = undefined; fcRendreContact(); fini(); }); // un second essai 2,5 s plus tard : le copilot peut être en train de redémarrer
 }
 // « La dernière fois » : 4-6 lignes condensées par le copilot depuis Close (appels, mails, compte rendu Claap) — jamais inventées
@@ -5045,7 +5061,7 @@ function fcHtmlEdition(r) {
 function fcSetChamp(monthKey, idx, champ, valeur) {
   updateFieldMK(idx, champ, valeur, '', monthKey);
   if (champ === 'result' && valeur === 'Signé') { var st = loadStore(), row = (st[monthKey] || [])[idx]; if (row && !row.dateSignature) { row.dateSignature = new Date().toLocaleDateString('fr-FR'); saveStore(st); } }
-  _fc.rows = fcLignesDuNom(_fc.nom).filter(function(x) { var e = String(x.email || '').toLowerCase().trim(); return !_fc.email || !e || e === _fc.email; });
+  _fc.rows = fcLignesFiche();
   fcRendre(); try { refreshAll(); } catch (e) {}
 }
 function fcSetClaap(date, url) {
@@ -5359,7 +5375,7 @@ function fcSuiviEnregistrer() {
   sdSmsRappelPromis(r, rel && !r2 && SD_INTERESSE.indexOf(String(r.result || '').trim()) >= 0 ? rel : ''); // un RDV déjà qualifié (pas de budget, si promo…) garde son résultat : la relance s'ajoute par-dessus
   saveStore(store); fermerModalDoublon(); window._fcSuivi = null;
   refreshAll();
-  if (document.getElementById('fc-overlay').classList.contains('open')) { _fc.rows = fcLignesDuNom(_fc.nom).filter(function(x) { var e = String(x.email || '').toLowerCase().trim(); return !_fc.email || !e || e === _fc.email; }); fcRendre(); }
+  if (document.getElementById('fc-overlay').classList.contains('open')) { _fc.rows = fcLignesFiche(); fcRendre(); }
   sdChaineSuite();
 }
 // ============================================================
@@ -5485,7 +5501,7 @@ function fcRaisonChoisir(monthKey, idx, raison) {
   r.result = 'Non signé'; r.nosignRaison = raison; saveStore(store); fermerModalDoublon(); refreshAll();
   if (raison === 'pasinteresse') sdStatutClose(r, 'pas_interesse');
   else { try { var _isoR = frVersIsoSd(r.date), _tj = rlIso(new Date()); if (r.source !== 'R2' && String(r.presence || '').trim() === 'Show' && _isoR <= _tj && _isoR >= rlPlus(_tj, -3)) sdDemanderMailFinR1(Object.assign({}, r), 'nosign', r.email || ''); } catch (e) {} }
-  if (document.getElementById('fc-overlay').classList.contains('open')) { _fc.rows = fcLignesDuNom(_fc.nom); fcRendre(); }
+  if (document.getElementById('fc-overlay').classList.contains('open')) { _fc.rows = fcLignesFiche(); fcRendre(); }
   sdChaineSuite();
 }
 // ============================================================
