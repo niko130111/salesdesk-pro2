@@ -1964,7 +1964,7 @@ select.form-input { cursor: pointer; }
     <div class="kpi-card">
       <div class="kpi-label">Closing (Vente/Show)</div>
       <div class="kpi-value green" id="g-closing">—</div>
-      <div class="kpi-sub">ventes / présences</div>
+      <div class="kpi-sub" title="Ventes signées sur la période divisées par les R1 vus sur la période : deux populations différentes. Le closing de Performance suit la cohorte (R1 vus ce mois qui ont signé depuis), d'où des chiffres qui ne coïncident pas en début de mois.">ventes de la période / R1 vus sur la période</div>
     </div>
     <div class="kpi-card">
       <div class="kpi-label">Délai R1 → signature</div>
@@ -12435,6 +12435,17 @@ function rlConstruireItems(today) {
   // tâches Close : rapprochées d'une relance SalesDesk par la personne (même date ou non)
   var taches = (_tachesClose && _tachesClose.taches) || [], terminees = (_tachesClose && _tachesClose.terminees) || [];
   var items = []; var relsUtilisees = {};
+  // Dès qu'un RDV est pris (R2 daté à venir, ou RDV à venir postérieur à la tâche), la cadence est en pause : la tâche Close reste dans Close mais sort du Suivi et des priorités (décision du 9 oct. 2026). Sauf signature / configuration, qui suivent leur propre logique.
+  var stC = window._rlStoreCache, parNomC = {};
+  Object.keys(stC).forEach(function(k) { if (!/^\d{4}-\d{2}$/.test(k) || !Array.isArray(stC[k])) return; stC[k].forEach(function(r) { if (!r || !r.client) return; var nn = fcNormNom(r.client); (parNomC[nn] = parNomC[nn] || []).push(r); }); });
+  var nonTenu = function(p) { p = String(p || '').trim(); return p === 'No Show' || p === 'Annulé' || p === 'Reprogrammé'; };
+  var rdvPrevuPour = function(noms, dateTache) {
+    for (var a = 0; a < noms.length; a++) { var L = parNomC[noms[a]] || []; for (var b = 0; b < L.length; b++) { var r = L[b];
+      var r2 = frVersIsoSd(r.dateR2 || ''); if (r2 && r2 >= today && r2 >= (dateTache || '') && !nonTenu(r.presenceR2) && r.result !== 'Signé') return 'R2 le ' + r.dateR2 + (r.heureR2 ? ' à ' + r.heureR2 : '');
+      var d1 = frVersIsoSd(r.date || ''); if (d1 && d1 >= today && d1 >= (dateTache || '') && r.source !== 'R2' && !nonTenu(r.presence) && !String(r.presence || '').trim()) return 'RDV le ' + r.date + (r.heure ? ' à ' + r.heure : ''); } }
+    return '';
+  };
+  var enPause = []; window._rlEnPause = enPause;
   taches.forEach(function(t) {
     var nom = rlNomFiche(t.fiche, t.contact), n = fcNormNom(nom);
     // on relie la tâche à une relance SalesDesk par le nom de la fiche, du contact, ou d'un des contacts de la fiche Close (tâche posée sur l'agence)
@@ -12445,6 +12456,7 @@ function rlConstruireItems(today) {
     else if (!t.contact && (t.contacts || []).length === 1 && t.fiche && fcNormNom(t.fiche) === n) nom = t.contacts[0]; // fiche agence : on affiche la personne
     var rowT = rel ? rel.row : sdRowPourNoms([nom, t.contact, t.fiche].concat(t.contacts || []));
     if (!rel && rowT && fcNormNom(rowT.client) !== n) nom = rowT.client;
+    if (!/configur|onboard|vitrine|signature|contrat/i.test(t.texte || '')) { var pause = rdvPrevuPour(noms.concat([fcNormNom(nom)], rowT ? [fcNormNom(rowT.client)] : []), String(t.date || '').slice(0, 10)); if (pause) { enPause.push({ nom: nom, quoi: pause, t: t }); return; } }
     items.push({ type: 'close', t: t, rel: rel, row: rowT, nom: nom, date: t.date || (rel ? rel.date : ''), col: rlCategorieTache(t, rel, rowT) });
   });
   rels.forEach(function(x) { if (!relsUtilisees[x.r.id]) items.push({ type: 'sd', rel: x, nom: x.nom, date: x.date, col: x.col }); });
@@ -12553,7 +12565,8 @@ function svRendreFile(items, today) {
   _sv.idx = Math.max(0, ordre.findIndex(function(it) { return it.cle === _sv.sel; }));
   var sel = ordre.find(function(it) { return it.cle === _sv.sel; }) || null;
   // barre : quand · motif
-  var bar = '<div class="sv-bar">' + [['atraiter', 'À traiter'], ['demain', sdLibelleDemain(true)], ['semaine', '7 jours']].map(function(q) { return '<button class="sv-chip' + (_sv.quand === q[0] ? ' on' : '') + '" onclick="svSet(\'quand\',\'' + q[0] + '\')">' + q[1] + '<b>' + nQ(q[0]) + '</b></button>'; }).join('')
+  var enPauseL = window._rlEnPause || [], pauseHtml = enPauseL.length ? '<div class="fc-muted" style="font-size:12px;margin:2px 0 8px;" title="' + escapeHtml(enPauseL.map(function(x) { return x.nom + ' · ' + x.quoi; }).join('\n')) + '">' + enPauseL.length + ' tâche' + (enPauseL.length > 1 ? 's' : '') + ' Close en pause : un RDV est pris (' + escapeHtml(enPauseL.slice(0, 3).map(function(x) { var nx = String(x.nom || ''); return nx.charAt(0).toUpperCase() + nx.slice(1) + ' · ' + x.quoi; }).join(' ; ')) + (enPauseL.length > 3 ? ' ; …' : '') + ')</div>' : '';
+  var bar = pauseHtml + '<div class="sv-bar">' + [['atraiter', 'À traiter'], ['demain', sdLibelleDemain(true)], ['semaine', '7 jours']].map(function(q) { return '<button class="sv-chip' + (_sv.quand === q[0] ? ' on' : '') + '" onclick="svSet(\'quand\',\'' + q[0] + '\')">' + q[1] + '<b>' + nQ(q[0]) + '</b></button>'; }).join('')
     + '<span class="sv-sep"></span><button class="sv-chip' + (!_sv.motif ? ' on' : '') + '" onclick="svSet(\'motif\',\'\')">Tous<b>' + base.length + '</b></button>'
     + M.map(function(m) { var n = base.filter(function(it) { return it.col === m[0] || (m[0] === 'aclasser' && !M.some(function(x) { return x[0] === it.col; })); }).length; return n ? '<button class="sv-chip' + (_sv.motif === m[0] ? ' on' : '') + '" onclick="svSet(\'motif\',\'' + m[0] + '\')">' + m[1] + '<b>' + n + '</b></button>' : ''; }).join('') + '</div>';
   if (!ordre.length) { el.innerHTML = bar + '<div class="sv-liste"><div class="sv-vide">' + (!_tachesClose ? 'Lecture des tâches Close…' : (_tachesClose.error ? 'Tâches Close indisponibles : le copilot ne répond pas.' : 'Rien ' + (_sv.quand === 'atraiter' ? 'à traiter. File vide.' : 'sur cette période.'))) + '</div></div>'; return; }
