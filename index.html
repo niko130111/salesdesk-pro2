@@ -4199,7 +4199,7 @@ function fcBoutonsSuivi(it) {
   var nomJs = JSON.stringify(it.nom || row.client || '').replace(/"/g, '&quot;'), emailJs = JSON.stringify(it.email || row.email || '').replace(/"/g, '&quot;');
   var A = function(action, lib, cls, titre) { return '<button class="btn btn-sm' + (cls ? ' ' + cls : '') + '" title="' + escapeHtml(titre || '') + '" onclick="rlAction(' + cleJs + ', \'' + action + '\', this);setTimeout(function(){try{fcRendre()}catch(e){}},1500)">' + lib + '</button>'; };
   var B = function(onclick, lib, cls, titre) { return '<button class="btn btn-sm' + (cls ? ' ' + cls : '') + '" title="' + escapeHtml(titre || '') + '" onclick="' + onclick + '">' + lib + '</button>'; };
-  var appeler = '<button class="btn btn-sm btn-primary" title="Close ouvre la fiche et compose ; Alt + clic = appel via le Mac" onclick="svAppeler(event,' + cleJs + ')">' + aujIco('phone') + 'Appeler</button>';
+  var appeler = '<button class="btn btn-sm btn-primary" title="Close ouvre la fiche et compose ; Alt + clic = appel via le Mac" onclick="fcAppelerFiche(event,' + cleJs + ')">' + aujIco('phone') + 'Appeler</button>';
   var isoR = frVersIsoSd((r2 ? r2.date : row.date) || '') || '';
   var resultat = r2 && !r2.ligne ? B('sdDeplacerAnnuler(' + nomJs + ',' + JSON.stringify(isoR).replace(/"/g, '&quot;') + ',' + JSON.stringify(r2.heure || '').replace(/"/g, '&quot;') + ')', aujIco('refresh') + 'Reprogrammer / annuler', '', 'Le R2 bouge ou saute : nouveau créneau Calendly, ou annulation')
     : (r2 && r2.ligne && r2.ligne._monthKey !== undefined) ? B('sdResultatRdv(' + JSON.stringify(r2.ligne._monthKey).replace(/"/g, '&quot;') + ',' + r2.ligne._storeKey + ')', aujIco('check') + 'Résultat du RDV', 'btn-primary', 'Show, No show, Annulé ou Reprogrammé')
@@ -4385,6 +4385,14 @@ function fcContratRendre(j, lead) {
 function fcOnboardingDependances() { // 6.1 / 6.2 / 6.3 n'apparaissent que si l'add-on correspondant est coché
   var m = document.getElementById('fc-dup-modal'); if (!m) return; var coches = Array.prototype.map.call(m.querySelectorAll('input[type=checkbox][data-champ="6 - Add-ons"]:checked'), function(c) { return c.value; });
   Array.prototype.forEach.call(m.querySelectorAll('[data-dep]'), function(el) { var dep = el.getAttribute('data-dep'); if (dep) el.style.display = coches.indexOf(dep) >= 0 ? '' : 'none'; });
+}
+// Bouton « Appeler » de la fiche : d'abord avec ce que la fiche sait (numéro et fiche Close du bandeau), sinon par l'item du Suivi. Avant, hors Suivi, l'item n'était pas connu et le bouton ne faisait rien (constat du 9 oct. 2026).
+function fcAppelerFiche(ev, cle) {
+  var a = document.querySelector('#fc-contact a[href^="tel:"]');
+  if (a) { if (ev && ev.altKey) { try { window.location.href = a.getAttribute('href'); } catch (e) {} return; } a.click(); return; }
+  var lead = (_fc && _fc.leadChoisi) || ((_fc && _fc.close && _fc.close.leads && _fc.close.leads[0]) || {}).id || '';
+  if (lead) { fcAppeler(ev, '', 'https://app.close.com/lead/' + lead + '/'); return; }
+  svAppeler(ev, cle);
 }
 function fcAppelerDepuisFiche() { var a = document.querySelector('#fc-contact a[href^="tel:"]'); if (a) a.click(); else if (typeof showCopyToast === 'function') showCopyToast('Pas de numéro sur la fiche'); }
 function fcCalerRdvDepuisFiche() { var last = _fc.rows[0] || {}, r2 = SD_INTERESSE.indexOf(String(last.result || '').trim()) >= 0; if (typeof COPILOT_URL === 'undefined') { fcCalendlyDepuisFiche(); return; } var lead = _fc.rows.map(function(r) { return r.closeLead; }).find(Boolean) || sdLeadPour(_fc.nom, _fc.email || '') || ''; sdReserverCalendly({ type: r2 ? 'r2' : 'r1', nom: _fc.nom, email: _fc.email || last.email || '', tel: '', cp: last.cp || '', lead: lead, cle: '' }, function(j) { if (typeof showCopyToast === 'function') showCopyToast('✓ RDV réservé : ' + fcFrDepuisIso(j.date) + ' à ' + j.heure); try { refreshAll(); } catch (e) {} fcRendre(); }); }
