@@ -11282,7 +11282,8 @@ function sdDetecterAnnulations() {
     var st = loadStore(), nouveaux = []; if (!st._annulations) st._annulations = {};
     l.forEach(function(x) {
       var e = x.e, i = x.i, d = new Date(e.start_time), iso = rlIso(d), fr = iso.split('-').reverse().join('/'), heure = d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-      var can = e.cancellation || {}, deplace = !!i.rescheduled, nom = i.name || '', em = String(i.email || '').toLowerCase();
+      var can = e.cancellation || {}, nom = i.name || '', em = String(i.email || '').toLowerCase();
+      var deplace = !!i.rescheduled || /d[ée]plac|reschedul|reprogramm/i.test(String(can.reason || '')) || Object.keys(_dailyCalWeekEvents || {}).some(function(k) { return (_dailyCalWeekEvents[k] || []).some(function(ev) { return ev.start && +ev.start !== +d && (fcNormNom(ev.name || '') === fcNormNom(nom) || (em && String(ev.email || '').toLowerCase() === em)); }); }); // déplacement : Calendly annule l'ancien créneau (raison « Rendez-vous déplacé au… ») et en crée un nouveau
       var a = { nom: nom, date: iso, heure: heure, par: can.canceler_type === 'invitee' ? 'prospect' : 'moi', deplace: deplace, raison: String(can.reason || '').trim().slice(0, 200), at: can.created_at || e.updated_at || new Date().toISOString(), note: '' };
       // la ligne SalesDesk de ce RDV, seulement si elle n'a pas encore de présence (sinon tu l'as déjà traitée)
       var rows = st[iso.slice(0, 7)] || [], row = rows.find(function(r) { return r && r.date === fr && !String(r.presence || '').trim() && (fcNormNom(r.client || '') === fcNormNom(nom) || (em && String(r.email || '').toLowerCase() === em)) && (!r.heure || r.heure === heure); });
@@ -11355,6 +11356,7 @@ function sdFelicitations(nom, row, tache) { // tache === false : pas de tâche �
 }
 function sdAnnulVu(uri) { var st = loadStore(); if (st._annulations && st._annulations[uri]) { st._annulations[uri].vu = true; saveStore(st); } renderAujourdhui(); }
 // Les RDV d'un jour : lignes du store (base) enrichies par Calendly (heure exacte, lien visio, début/fin) ; événements Calendly sans ligne ajoutés
+function aujReparerDeplace(row) { try { var st = loadStore(), r = (st[row._monthKey] || [])[row._storeKey]; if (!r || fcNormNom(r.client) !== fcNormNom(row.client) || String(r.presence || '').trim() !== 'Annulé') return; r.presence = 'Reprogrammé'; row.presence = 'Reprogrammé'; saveStore(st); try { sdStatutClose(Object.assign({}, r), 'reprogramme'); } catch (e) {} } catch (e) {} } // ligne marquée Annulé par l'annulation Calendly d'un créneau déplacé : le nouveau créneau est bien là, le RDV est reprogrammé
 function aujMajHeureLigne(row, heure) { try { var st = loadStore(), r = (st[row._monthKey] || [])[row._storeKey]; if (!r || fcNormNom(r.client) !== fcNormNom(row.client) || r.heure === heure) return; r.heure = heure; row.heure = heure; saveStore(st); } catch (e) {} }
 function aujRdvsDu(iso) {
   var st = loadStore(), fr = iso.split('-').reverse().join('/'), lundi = rlLundiDe(iso), cal = (_auj.cal[lundi] || {})[fr] || [];
@@ -11363,7 +11365,7 @@ function aujRdvsDu(iso) {
   cal.forEach(function(e) {
     var n = fcNormNom(e.name), em = String(e.email || '').toLowerCase(), heure = e.start.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
     var x = out.find(function(o) { return (fcNormNom(o.nom) === n || (em && o.email === em)) && (!!o.r2 === !!e.isR2 || !o.heure || o.heure === heure); });
-    if (x) { x.join = e.join || ''; x.start = e.start; x.end = e.end; if (x.heure !== heure) { x.heure = heure; if (x.row) aujMajHeureLigne(x.row, heure); } x.uri = e.uri; } // l'heure Calendly fait foi (RDV décalé dans la journée) : la ligne SalesDesk suit
+    if (x) { x.join = e.join || ''; x.start = e.start; x.end = e.end; if (x.heure !== heure) { x.heure = heure; if (x.row) aujMajHeureLigne(x.row, heure); } x.uri = e.uri; if (x.row && String(x.row.presence || '').trim() === 'Annulé' && /d[ée]plac|reschedul|reprogramm/i.test(String(x.row.annuleRaison || '')) && e.start && +e.start > Date.now()) aujReparerDeplace(x.row); } // l'heure Calendly fait foi (RDV décalé dans la journée) : la ligne SalesDesk suit
     else out.push({ nom: e.name, email: em, heure: heure, source: e.source, r2: !!e.isR2, row: null, join: e.join || '', start: e.start, end: e.end, uri: e.uri });
   });
   out.forEach(function(o) { if (!o.heure && o.row) aujHeureClose(o, iso); });
