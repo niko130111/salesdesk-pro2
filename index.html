@@ -669,6 +669,9 @@ details.gl-details > .body { padding: 0 20px 20px; }
 .au-msg input.au-sujet { font-weight: 600; margin-bottom: 6px; } .au-msg textarea { resize: vertical; min-height: 80px; }
 .au-msg input.au-sujet:focus, .au-msg textarea:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
 .au-vars { display: flex; gap: 5px; flex-wrap: wrap; margin: 6px 0 0; align-items: center; font-size: 11.5px; color: var(--text3); }
+.au-versions { display: flex; gap: 5px; flex-wrap: wrap; margin: 8px 0 6px; align-items: center; font-size: 11.5px; color: var(--text3); }
+.au-versions .au-var.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+.au-versions .au-var.vide { opacity: .6; }
 .au-var { border: 1px solid var(--border); background: var(--surface2); color: var(--accent); font-family: var(--font); font-size: 11.5px; font-weight: 600; padding: 1px 7px; border-radius: 6px; cursor: pointer; }
 .au-pied { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 8px; } .au-pied .cpt { font-size: 11.5px; color: var(--text3); margin-right: auto; } .au-pied .cpt.long { color: var(--orange); font-weight: 600; }
 .au-sw { position: relative; width: 38px; height: 22px; flex-shrink: 0; } .au-sw input { opacity: 0; width: 100%; height: 100%; position: absolute; margin: 0; cursor: pointer; z-index: 1; }
@@ -10557,7 +10560,10 @@ function dessinerAlertesControle() {
   if (document.getElementById('page-controle') && document.getElementById('page-controle').classList.contains('active')) renderControle(false);
 }
 // ── Onglet Automatisations : les messages (copilot /modeles) par étape du parcours, texte modifiable, interrupteur ; puis les tâches internes (/automations) ──
-var _au = { data: null, autos: null, at: 0, erreur: '' };
+var _au = { data: null, autos: null, at: 0, erreur: '', v: {} }; // v : version affichée par message (1, 2 ou 3)
+// Texte et objet d'une version d'un message : la 1 est le message lui-même, la 2 et la 3 sont d'autres formulations (vides tant que Nicolas ne les a pas écrites)
+function auTexteVersion(m, v) { if (!v || v === 1) return { sujet: m.sujet, texte: m.texte, defini: true }; var x = (m.versions || {})[String(v)]; return x ? { sujet: x.sujet || m.sujet, texte: x.texte, defini: true } : { sujet: m.sujet, texte: '', defini: false }; }
+function auVersion(id, v) { _au.v[id] = v; renderAutomatisations(false); var t = document.getElementById('au-t-' + id); if (t && v > 1 && !t.value) t.focus(); }
 function chargerAutomatisations(force) {
   if (typeof COPILOT_URL === 'undefined') return;
   if (_au.data && Date.now() - _au.at < 60000 && !force) return;
@@ -10580,16 +10586,18 @@ function auTache(id, actif, el) { fetch(COPILOT_URL + '/automations/' + encodeUR
 function auInserer(id, v) { var t = document.getElementById('au-t-' + id); if (!t) return; var a = t.selectionStart || 0, b = t.selectionEnd || 0; t.value = t.value.slice(0, a) + '{' + v + '}' + t.value.slice(b); t.focus(); t.selectionStart = t.selectionEnd = a + v.length + 2; auSaisie(id); }
 function auSaisie(id) {
   var m = ((_au.data && _au.data.modeles) || []).find(function(x) { return x.id === id; }); if (!m) return;
-  var t = document.getElementById('au-t-' + id), su = document.getElementById('au-s-' + id), change = t.value.replace(/\r/g, '') !== m.texte || (su && su.value !== m.sujet);
+  var cur = auTexteVersion(m, _au.v[id] || 1);
+  var t = document.getElementById('au-t-' + id), su = document.getElementById('au-s-' + id), change = t.value.replace(/\r/g, '') !== cur.texte || (su && su.value !== cur.sujet);
   var b = document.getElementById('au-b-' + id); if (b) { b.disabled = !change; b.style.opacity = change ? '1' : '.5'; }
   var c = document.getElementById('au-c-' + id); if (c && m.canal === 'sms') { var n = t.value.length, accents = /[^\x00-\x7F€]/.test(t.value.replace(/[àèéùìòÇØøÅåΔ_ΦΓΛΩΠΨΣΘΞÆæßÉÄÖÑÜ§¿äöñü\n]/g, '')), seg = accents ? Math.ceil(n / 67) || 1 : (n <= 160 ? 1 : Math.ceil(n / 153)); c.textContent = n + ' caractères, hors variables · environ ' + seg + ' SMS' + (accents ? ' (emoji ou accent spécial : SMS plus courts)' : ''); c.classList.toggle('long', seg > 2); }
   var inconnues = (t.value.match(/\{[a-z_0-9]+\}/g) || []).filter(function(x) { return m.variables.indexOf(x.slice(1, -1)) < 0; }), w = document.getElementById('au-w-' + id); if (w) w.textContent = inconnues.length ? '⚠ variable inconnue : ' + inconnues.join(', ') + ' (elle sortira vide)' : '';
 }
 function auEnregistrer(id, origine) {
-  var t = document.getElementById('au-t-' + id), su = document.getElementById('au-s-' + id);
-  if (origine && !confirm('Revenir au texte d\'origine ? Ta version sera perdue.')) return;
-  fetch(COPILOT_URL + '/modeles/' + encodeURIComponent(id), { method: 'PUT', mode: 'cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(origine ? { origine: true } : { texte: t.value, sujet: su ? su.value : '' }) }).then(function(r) { return r.json(); })
-    .then(function(j) { if (!j.ok) throw new Error(j.error || 'refus'); var m = _au.data.modeles.find(function(x) { return x.id === id; }); m.texte = j.texte; m.sujet = j.sujet; m.modifie = j.modifie; rlAppliquerModeles(); if (typeof showCopyToast === 'function') showCopyToast(origine ? '↺ Texte d\'origine remis' : '✓ Message enregistré'); renderAutomatisations(false); })
+  var t = document.getElementById('au-t-' + id), su = document.getElementById('au-s-' + id), v = _au.v[id] || 1;
+  if (origine && !confirm(v > 1 ? 'Retirer la version ' + v + ' ? Elle ne sera plus envoyée.' : 'Revenir au texte d\'origine ? Ta version sera perdue.')) return;
+  var corps = v > 1 ? (origine ? { version: v, supprimer: true } : { version: v, texte: t.value, sujet: su ? su.value : '' }) : (origine ? { origine: true } : { texte: t.value, sujet: su ? su.value : '' });
+  fetch(COPILOT_URL + '/modeles/' + encodeURIComponent(id), { method: 'PUT', mode: 'cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corps) }).then(function(r) { return r.json(); })
+    .then(function(j) { if (!j.ok) throw new Error(j.error || 'refus'); var m = _au.data.modeles.find(function(x) { return x.id === id; }); m.texte = j.texte; m.sujet = j.sujet; m.modifie = j.modifie; if (j.versions) m.versions = j.versions; rlAppliquerModeles(); if (typeof showCopyToast === 'function') showCopyToast(v > 1 ? (origine ? '✕ Version ' + v + ' retirée' : '✓ Version ' + v + ' enregistrée') : (origine ? '↺ Texte d\'origine remis' : '✓ Message enregistré')); renderAutomatisations(false); })
     .catch(function(e) { alert('Non enregistré : ' + e.message); });
 }
 function renderAutomatisations(force) {
@@ -10608,14 +10616,15 @@ function renderAutomatisations(force) {
     liste.forEach(function(m) {
       var on = m.interrupteur ? !!I[m.interrupteur] : null, long = m.canal === 'mail' && m.texte.length > 500;
       var etat = on === null ? '<span class="au-etat man">Tu valides</span>' : (on ? '<span class="au-etat on">Allumé</span>' : '<span class="au-etat">Éteint</span>');
-      var idJs = '\'' + m.id + '\'';
-      html += '<div class="au-msg' + (long ? ' large' : '') + '"><div class="tete"><h3>' + escapeHtml(m.titre) + '</h3><span class="au-canal ' + m.canal + '">' + (m.canal === 'sms' ? 'SMS' : 'Mail') + '</span>' + (m.modifie ? '<span class="au-etat mod">Modifié par toi</span>' : '')
+      var idJs = '\'' + m.id + '\'', vCur = _au.v[m.id] || 1, cur = auTexteVersion(m, vCur), nbV = 1 + (((m.versions || {})['2']) ? 1 : 0) + (((m.versions || {})['3']) ? 1 : 0);
+      var ongletsV = '<div class="au-versions" title="1 : premier envoi · 2 : la personne a déjà reçu ce message, ou a déjà annulé / reprogrammé · 3 : à partir du 3e envoi">' + [1, 2, 3].map(function(v) { var def = v === 1 || !!((m.versions || {})[String(v)]); return '<button class="au-var' + (v === vCur ? ' on' : '') + (def ? '' : ' vide') + '" onclick="auVersion(' + idJs + ',' + v + ')">Version ' + v + (def ? '' : ' · à écrire') + '</button>'; }).join('') + '<span>' + (nbV === 1 ? 'Une seule formulation : la même personne peut la recevoir deux fois.' : nbV + ' formulations : la 2 part si la personne l\'a déjà reçu ou a déjà annulé / reprogrammé' + (nbV === 3 ? ', la 3 au 3e envoi' : '') + '.') + '</span></div>';
+      html += '<div class="au-msg' + (long ? ' large' : '') + '"><div class="tete"><h3>' + escapeHtml(m.titre) + '</h3><span class="au-canal ' + m.canal + '">' + (m.canal === 'sms' ? 'SMS' : 'Mail') + '</span>' + (m.modifie ? '<span class="au-etat mod">Modifié par toi</span>' : '') + (nbV > 1 ? '<span class="au-etat mod">' + nbV + ' versions</span>' : '')
         + '<span class="droite">' + etat + (m.interrupteur ? sw(m.interrupteur, on, 'auBasculer(\'' + m.interrupteur + '\', this.checked, this)') : '') + '</span></div>'
-        + '<div class="au-quand"><b>' + escapeHtml(m.quand) + '.</b> ' + escapeHtml(m.condition) + '.</div>'
-        + (m.canal === 'mail' && m.sujetOrigine ? '<input class="au-sujet" id="au-s-' + m.id + '" value="' + escapeHtml(m.sujet) + '" aria-label="Objet du mail" oninput="auSaisie(' + idJs + ')">' : '')
-        + '<textarea id="au-t-' + m.id + '" rows="' + Math.min(18, Math.max(3, Math.ceil(m.texte.length / (long ? 110 : 62)) + (m.texte.match(/\n/g) || []).length)) + '" aria-label="Texte du message" oninput="auSaisie(' + idJs + ')">' + escapeHtml(m.texte) + '</textarea>'
+        + '<div class="au-quand"><b>' + escapeHtml(m.quand) + '.</b> ' + escapeHtml(m.condition) + '.</div>' + ongletsV
+        + (m.canal === 'mail' && m.sujetOrigine ? '<input class="au-sujet" id="au-s-' + m.id + '" value="' + escapeHtml(cur.sujet) + '" aria-label="Objet du mail" oninput="auSaisie(' + idJs + ')">' : '')
+        + '<textarea id="au-t-' + m.id + '" rows="' + Math.min(18, Math.max(3, Math.ceil(Math.max(cur.texte.length, m.texte.length) / (long ? 110 : 62)) + ((cur.texte || m.texte).match(/\n/g) || []).length)) + '" aria-label="Texte du message" oninput="auSaisie(' + idJs + ')"' + (cur.defini ? '' : ' placeholder="Version ' + vCur + ' : colle ici une autre formulation du même message, puis Enregistrer. Tant qu\'elle est vide, la version 1 part à sa place."') + '>' + escapeHtml(cur.texte) + '</textarea>'
         + (m.variables.length ? '<div class="au-vars">Insérer : ' + m.variables.map(function(v) { return '<button class="au-var" onclick="auInserer(' + idJs + ',\'' + v + '\')">{' + v + '}</button>'; }).join('') + '</div>' : '')
-        + '<div class="au-pied"><span class="cpt" id="au-c-' + m.id + '"></span><span id="au-w-' + m.id + '" style="font-size:11.5px;color:var(--orange);"></span>' + (m.modifie ? '<button class="btn btn-sm" onclick="auEnregistrer(' + idJs + ', true)">Revenir au texte d\'origine</button>' : '') + '<button class="btn btn-sm" onclick="auApercuModele(' + idJs + ',' + JSON.stringify(m.titre).replace(/"/g, '&quot;') + ')">Aperçu</button><button class="btn btn-sm btn-primary" id="au-b-' + m.id + '" disabled style="opacity:.5" onclick="auEnregistrer(' + idJs + ')">Enregistrer</button></div>'
+        + '<div class="au-pied"><span class="cpt" id="au-c-' + m.id + '"></span><span id="au-w-' + m.id + '" style="font-size:11.5px;color:var(--orange);"></span>' + (vCur > 1 ? (cur.defini ? '<button class="btn btn-sm" onclick="auEnregistrer(' + idJs + ', true)">Retirer la version ' + vCur + '</button>' : '') : (m.modifie ? '<button class="btn btn-sm" onclick="auEnregistrer(' + idJs + ', true)">Revenir au texte d\'origine</button>' : '')) + '<button class="btn btn-sm" onclick="auApercuModele(' + idJs + ',' + JSON.stringify(m.titre).replace(/"/g, '&quot;') + ')">Aperçu</button><button class="btn btn-sm btn-primary" id="au-b-' + m.id + '" disabled style="opacity:.5" onclick="auEnregistrer(' + idJs + ')">Enregistrer</button></div>'
         + (m.canal === 'mail' && m.etape !== 'fin' ? '<div class="fc-muted" style="margin-top:6px;">Ta version garde la même mise en page que l\'origine : paragraphes, **gras**, liens cliquables, encadré pour une ligne qui commence par 📅, bouton pour une ligne qui ne contient qu\'un lien [Texte](adresse), puis ta signature Close. « Aperçu » montre le mail tel qu\'il partira.</div>' : '')
         + '</div>';
     });
@@ -11145,8 +11154,10 @@ function auApercuModele(id, titre) { // le modèle tel qu'il partira, avec des v
   ov.onclick = function(ev) { if (ev.target === ov) fermerModalDoublon(); }; ov.classList.add('open');
   var m = document.getElementById('fc-dup-modal'); m.innerHTML = '<div class="fc-dup" style="width:min(720px,92vw);"><div style="font-weight:700;">Aperçu · ' + escapeHtml(titre) + '</div><div class="fc-muted" style="margin-top:8px;">Rendu en cours…</div></div>';
   var pied = '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;gap:8px;flex-wrap:wrap;"><span class="fc-muted">Valeurs d\'exemple ; rien n\'est envoyé.</span><button class="btn btn-sm" onclick="fermerModalDoublon()">Fermer</button></div>';
-  fetch(COPILOT_URL + '/modeles/' + encodeURIComponent(id) + '/apercu', { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).then(function(j) {
+  var vAp = _au.v[id] || 1;
+  fetch(COPILOT_URL + '/modeles/' + encodeURIComponent(id) + '/apercu' + (vAp > 1 ? '?version=' + vAp : ''), { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).then(function(j) {
     if (!j || j.ok === false) throw new Error((j && j.error) || 'copilot');
+    if (vAp > 1) titre = titre + ' · version ' + (j.version || vAp) + (j.version && j.version !== vAp ? ' (la ' + vAp + ' n\'existe pas encore)' : '');
     if (j.canal === 'sms') { m.innerHTML = '<div class="fc-dup" style="width:min(560px,92vw);"><div style="font-weight:700;">Aperçu · ' + escapeHtml(titre) + '</div><div style="margin-top:10px;padding:12px 14px;border-radius:14px;background:var(--surface2);white-space:pre-wrap;font-size:14px;line-height:1.5;">' + escapeHtml(j.texte || '') + '</div><div class="fc-muted" style="margin-top:6px;">' + String(j.texte || '').length + ' caractères avec les valeurs d\'exemple</div>' + pied + '</div>'; return; }
     var doc = '<!doctype html><meta charset="utf-8"><body style="margin:0;padding:18px;background:#fff;">' + (j.html || '') + '</body>';
     m.innerHTML = '<div class="fc-dup" style="width:min(720px,92vw);"><div style="font-weight:700;">Aperçu · ' + escapeHtml(titre) + '</div><div class="fc-muted" style="margin:4px 0 10px;">Objet : <b style="color:var(--text);">' + escapeHtml(j.sujet || '') + '</b>' + (j.signature ? '' : ' · signature Close non lue (copilot sans accès Close ?)') + '</div><iframe title="Aperçu du mail" sandbox="" style="width:100%;height:min(60vh,520px);border:1px solid var(--border);border-radius:12px;background:#fff;" srcdoc="' + doc.replace(/&/g, '&amp;').replace(/"/g, '&quot;') + '"></iframe>' + pied + '</div>';
