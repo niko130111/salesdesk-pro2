@@ -1713,11 +1713,13 @@ select.form-input { cursor: pointer; }
       <div class="kpi-value red" id="kpi-noshow">33%</div>
       <div class="kpi-sub" id="kpi-noshow-sub">2 absents</div>
       <div class="kpi-sub" id="kpi-noshow-detail" style="font-size:10.5px;opacity:.75;">—</div>
+      <div class="kpi-sub" id="kpi-attendu" style="font-size:11px;font-weight:700;color:var(--red);" title="No-show + annulations et reprogrammations faites le jour même du RDV : tu as attendu pour rien">—</div>
       <div class="kpi-vs"><span id="bench-noshow">—</span></div>
       <div class="noshow-tooltip" id="kpi-noshow-tooltip">
         <div class="noshow-tooltip-row"><span class="noshow-tooltip-label">🚫 Vrais No Show</span><span class="noshow-tooltip-value" id="tt-ana-ns">—</span></div>
         <div class="noshow-tooltip-row"><span class="noshow-tooltip-label">❌ Annulés</span><span class="noshow-tooltip-value" id="tt-ana-an">—</span></div>
         <div class="noshow-tooltip-row"><span class="noshow-tooltip-label">🔄 Reprogrammés</span><span class="noshow-tooltip-value" id="tt-ana-re">—</span></div>
+        <div class="noshow-tooltip-row"><span class="noshow-tooltip-label">⏳ Annulés / reprogrammés le jour même</span><span class="noshow-tooltip-value" id="tt-ana-aj">—</span></div>
       </div>
     </div>
     </div></div>
@@ -3621,9 +3623,39 @@ function sdMigrerOneShot(store) {
   // le « return » ci-dessus et ne tournaient donc jamais sur un store déjà migré. sdMigrerRelances3 n'est volontairement plus
   // appelée : elle viderait la colonne « si promo » que Nicolas a pu réutiliser depuis.
   var _res = sdRestaurerPasBudget(store);
+  try { sdRattraperAnnuleLe(_res); } catch (e) {}
   try { if (_avantMig && JSON.stringify(_res) !== _avantMig) window._sdMigrationAEnregistrer = true; } catch (e) {}
   return _res;
 }
+// 10/10/2026 : « annuleLe » = quand le RDV a été annulé (Calendly ou toi). Sert à la stat « attendu pour rien » (no-show + annulé le jour même).
+// Les lignes Annulé d'avant n'ont pas cette heure : on la recopie depuis les annulations Calendly déjà vues (_annulations), rejouable.
+function sdRattraperAnnuleLe(store) {
+  var A = store && store._annulations; if (!A) return;
+  var parCle = {}; Object.keys(A).forEach(function(u) { var a = A[u]; if (a && a.at && a.date) parCle[(a.date + '|' + String(a.nom || '').toLowerCase().replace(/\s+/g, ' ').trim())] = a.at; });
+  Object.keys(store).forEach(function(k) {
+    if (!/^\d{4}-\d{2}$/.test(k) || !Array.isArray(store[k])) return;
+    store[k].forEach(function(r) { if (!r || r.annuleLe || String(r.presence || '').trim() !== 'Annulé' || !r.date) return; var iso = String(r.date).split('/').reverse().join('-'); var at = parCle[iso + '|' + String(r.client || '').toLowerCase().replace(/\s+/g, ' ').trim()]; if (at) r.annuleLe = at; });
+  });
+}
+// Attendu pour rien : no-show, plus les annulations et reprogrammations faites le jour même du RDV (heure connue). R1 seulement.
+function sdAttenduPourRien(rows) {
+  var ns = 0, jour = 0, inconnu = 0, bouges = 0;
+  (rows || []).forEach(function(r) { if (!r || r.source === 'R2') return; var p = String(r.presence || '').trim(); if (p === 'No Show') ns++; else if (p === 'Annulé' || p === 'Reprogrammé') { bouges++; if (!r.annuleLe) inconnu++; else { var iso = String(r.date || '').split('/').reverse().join('-'); if (String(r.annuleLe).slice(0, 10) === iso) jour++; } } });
+  return { noShow: ns, annulesJour: jour, bouges: bouges, annulesSansHeure: inconnu, total: ns + jour };
+}
+// Rattrapage depuis Calendly (via le copilot) : l'heure d'annulation / de déplacement des lignes qui ne l'ont pas encore. Une fois par session.
+function sdRattraperAnnuleLeCalendly() {
+  if (typeof COPILOT_URL === 'undefined' || window._sdAnnulCalFait) return; var st = loadStore(), manque = [], moisMin = '';
+  Object.keys(st).forEach(function(k) { if (!/^\d{4}-\d{2}$/.test(k) || !Array.isArray(st[k])) return; st[k].forEach(function(r) { if (r && !r.annuleLe && /^(Annulé|Reprogrammé)$/.test(String(r.presence || '').trim()) && r.source !== 'R2') { manque.push(r); if (!moisMin || k < moisMin) moisMin = k; } }); });
+  if (!manque.length) return; window._sdAnnulCalFait = true;
+  fetch(COPILOT_URL + '/calendly/annulations?' + new URLSearchParams({ du: moisMin + '-01', au: rlIso(new Date()) }), { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).then(function(j) {
+    if (!j || !j.ok) return; var idx = {}; (j.annulations || []).forEach(function(a) { if (!a.at) return; var iso = a.date; if (a.email) idx[iso + '|' + a.email] = a.at; idx[iso + '|' + fcNormNom(a.nom || '')] = a.at; });
+    var st2 = loadStore(), n = 0;
+    Object.keys(st2).forEach(function(k) { if (!/^\d{4}-\d{2}$/.test(k) || !Array.isArray(st2[k])) return; st2[k].forEach(function(r) { if (!r || r.annuleLe || !/^(Annulé|Reprogrammé)$/.test(String(r.presence || '').trim()) || r.source === 'R2') return; var iso = String(r.date || '').split('/').reverse().join('-'); var at = idx[iso + '|' + String(r.email || '').toLowerCase().trim()] || idx[iso + '|' + fcNormNom(r.client || '')]; if (at) { r.annuleLe = at; n++; } }); });
+    if (n) { saveStore(st2); console.log('[annulations] heure retrouvée sur ' + n + ' ligne(s) depuis Calendly'); if (typeof refreshAll === 'function') refreshAll(); }
+  }).catch(function() {});
+}
+setTimeout(function() { try { sdRattraperAnnuleLeCalendly(); } catch (e) {} }, 9000);
 // Une migration a modifié le store en mémoire : on l'enregistre (localStorage + cloud) une fois la page prête, sinon les
 // corrections seraient recalculées à chaque chargement sans jamais être sauvegardées.
 setInterval(function() {
@@ -7022,6 +7054,7 @@ function addToRdvTable(btn) {
   const _idx = _rows.findIndex(r => r.client === name && r.date === rdvDate);
   if (_idx >= 0) {
     if (presNorm) _rows[_idx].presence = presNorm;
+    if ((presNorm === 'Annulé' || presNorm === 'Reprogrammé') && !_rows[_idx].annuleLe) _rows[_idx].annuleLe = new Date().toISOString();
     if (resNorm)  _rows[_idx].result   = resNorm;
     if (type)     _rows[_idx].type     = type;
     if (source)   _rows[_idx].source   = source;
@@ -9117,6 +9150,9 @@ function renderKpis(kpis) {
   set('tt-ana-ns', _nsAna + _pctAna(_nsAna));
   set('tt-ana-an', _anAna + _pctAna(_anAna));
   set('tt-ana-re', _reAna + _pctAna(_reAna));
+  const _apr = sdAttenduPourRien(_rowsAna);
+  set('tt-ana-aj', _apr.annulesJour + _pctAna(_apr.annulesJour) + (_apr.annulesSansHeure ? ' · ' + _apr.annulesSansHeure + ' sans heure' : ''));
+  set('kpi-attendu', '⏳ Attendu pour rien : ' + _apr.total + _pctAna(_apr.total) + ' — ' + _apr.noShow + ' no-show + ' + _apr.annulesJour + ' annulé' + (_apr.annulesJour > 1 ? 's' : '') + ' ou reprogrammé' + (_apr.annulesJour > 1 ? 's' : '') + ' le jour même' + (_apr.annulesSansHeure ? ' (' + _apr.annulesSansHeure + ' sans heure connue)' : ''));
   set('kpi-signes', kpis.signes);
   set('kpi-closing', kpis.closing + '%');
   set('kpi-oneshot', kpis.hasOneShot ? (kpis.oneshot ?? '—') : '—');
@@ -11366,7 +11402,7 @@ function sdDetecterAnnulations() {
       var a = { nom: nom, date: iso, heure: heure, par: can.canceler_type === 'invitee' ? 'prospect' : 'moi', deplace: deplace, raison: String(can.reason || '').trim().slice(0, 200), at: can.created_at || e.updated_at || new Date().toISOString(), note: '' };
       // la ligne SalesDesk de ce RDV, seulement si elle n'a pas encore de présence (sinon tu l'as déjà traitée)
       var rows = st[iso.slice(0, 7)] || [], row = rows.find(function(r) { return r && r.date === fr && !String(r.presence || '').trim() && (fcNormNom(r.client || '') === fcNormNom(nom) || (em && String(r.email || '').toLowerCase() === em)) && (!r.heure || r.heure === heure); });
-      if (row) { row.presence = deplace ? 'Reprogrammé' : 'Annulé'; row.result = ''; row.annulePar = a.par; if (a.raison) row.annuleRaison = a.raison; a.note = row.presence; try { sdStatutClose(Object.assign({}, row), deplace ? 'reprogramme' : 'annule'); } catch (err) {} }
+      if (row) { row.presence = deplace ? 'Reprogrammé' : 'Annulé'; row.result = ''; row.annulePar = a.par; row.annuleLe = a.at; if (a.raison) row.annuleRaison = a.raison; a.note = row.presence; try { sdStatutClose(Object.assign({}, row), deplace ? 'reprogramme' : 'annule'); } catch (err) {} }
       // on ne te prévient que de ce que tu n'as pas fait toi-même : annulation ou déplacement par le prospect
       a.vu = a.par !== 'prospect'; st._annulations[e.uri] = a; if (!a.vu) nouveaux.push(a);
     });
@@ -11583,7 +11619,7 @@ function sdDpAnnuler(btn) {
 function sdDpFait(presence, parCalendly) { // SalesDesk note le résultat sur la ligne, Close reçoit le statut ; l'agenda est relu
   var d = _dp; if (!d) return; var r = d.r, st = loadStore(), row = r.row ? (st[r.row._monthKey] || [])[r.row._storeKey] : null;
   var pasInt = false; try { pasInt = presence === 'Annulé' && !!(document.getElementById('dp-pasint') && document.getElementById('dp-pasint').checked); } catch (e) {}
-  if (row) { row.presence = presence; if (presence !== 'Show') row.result = ''; saveStore(st); if (pasInt) sdMarquerPasInteresse(st, row); else { try { sdStatutClose(Object.assign({}, row), presence === 'Annulé' ? 'annule' : 'reprogramme'); } catch (e) {} } }
+  if (row) { row.presence = presence; if (presence !== 'Show') row.result = ''; if (presence === 'Annulé' || presence === 'Reprogrammé') row.annuleLe = row.annuleLe || new Date().toISOString(); saveStore(st); if (pasInt) sdMarquerPasInteresse(st, row); else { try { sdStatutClose(Object.assign({}, row), presence === 'Annulé' ? 'annule' : 'reprogramme'); } catch (e) {} } }
   else if (r.r2) { if (sdDpMajR1(st, r, d.jour, function(x) { x.presenceR2 = presence; })) saveStore(st); } // R2 sans ligne propre : présence R2 notée sur la ligne R1 (le statut Close du R1 ne bouge pas)
   fermerModalDoublon(); _dp = null;
   if (typeof showCopyToast === 'function') showCopyToast(presence === 'Annulé' ? '✓ Rendez-vous annulé' + (parCalendly ? ' dans Calendly et ton agenda' : ' (noté)') : '✓ Rendez-vous déplacé : le nouveau créneau arrive de Calendly');
@@ -11687,7 +11723,7 @@ function sdIgnorerRepro(monthKey, idx) { var st = loadStore(), r = (st[monthKey]
 function sdMarquerPasInteresse(st, row) { row.result = 'Non signé'; row.nosignRaison = 'pasinteresse'; delete row.relanceDate; delete row.relanceCond; row.relanceFait = true; saveStore(st); try { sdStatutClose(Object.assign({}, row), 'pas_interesse'); } catch (e) {} try { rlPost('/sms/annuler-pour', { nom: row.client, raison: 'pas intéressé' }).catch(function() {}); } catch (e) {} try { refreshAll(); } catch (e) {} if (typeof showCopyToast === 'function') showCopyToast('✗ ' + row.client + ' : pas intéressé · Close en Not interested'); }
 function sdAnnulerRdvLigne(row, uri, motif, opts) { // opts.rappel : date ISO du rappel, ou null = aucun rappel ; absent = 2 jours ouvrés
   var cleCal = (state.calendly && state.calendly.apiKey) || localStorage.getItem('calendly_key'), dRel = (opts && 'rappel' in opts) ? opts.rappel : rlJourOuvre(rlIso(new Date()), 2);
-  row.presence = 'Annulé'; row.result = ''; row.annulePar = 'prospect'; delete row.confirme; delete row.confirmeAt; if (dRel) { row.relanceDate = dRel; row.relanceFait = false; row.relanceCond = 'RDV annulé'; } else { delete row.relanceDate; delete row.relanceCond; row.relanceFait = true; }
+  row.presence = 'Annulé'; row.result = ''; row.annulePar = 'prospect'; row.annuleLe = row.annuleLe || new Date().toISOString(); delete row.confirme; delete row.confirmeAt; if (dRel) { row.relanceDate = dRel; row.relanceFait = false; row.relanceCond = 'RDV annulé'; } else { delete row.relanceDate; delete row.relanceCond; row.relanceFait = true; }
   if (uri && cleCal) fetch(uri + '/cancellation', { method: 'POST', headers: { Authorization: 'Bearer ' + cleCal, 'Content-Type': 'application/json' }, body: JSON.stringify({ reason: 'Rendez-vous annulé' }) }).then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); }).catch(function(e) { if (typeof showCopyToast === 'function') showCopyToast('⚠️ ' + row.client + ' : Calendly n\'a pas annulé l\'événement (' + e.message + '), annule-le dans Calendly'); });
   try { sdStatutClose(Object.assign({}, row), 'annule'); } catch (e) {}
   if (dRel && typeof rlPost === 'function') rlPost('/close/taches', { nom: row.client, email: row.email || '', lead: row.closeLead || '', date: dRel, texte: 'Relancer : a annulé son RDV du ' + row.date, motif: motif || 'rdv annulé' }).catch(function() {});
@@ -15281,6 +15317,7 @@ function autoSyncCardToTable(card) {
   if (existingIdx >= 0) {
     // Mise à jour
     rows[existingIdx].presence = presNorm;
+    if ((presNorm === 'Annulé' || presNorm === 'Reprogrammé') && !rows[existingIdx].annuleLe) rows[existingIdx].annuleLe = new Date().toISOString();
     rows[existingIdx].result = resNorm;
     rows[existingIdx].source = source || rows[existingIdx].source;
     // Le select est désormais pré-rempli depuis le store (typeStockePourCarte),
