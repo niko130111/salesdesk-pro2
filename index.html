@@ -3727,6 +3727,20 @@ function sdRattraperAnnuleLeClose() {
   }).catch(function() {});
 }
 setTimeout(function() { try { sdRattraperAnnuleLeClose(); } catch (e) {} }, 20000);
+// Correctifs de présence du 11 oct. 2026 (calculés une fois par Claude depuis Calendly + l'historique des statuts Close) : appliqués une seule fois,
+// après sauvegarde du store ; chaque ligne est vérifiée par client + date avant d'être touchée. Marqueur : _corrPresence2026_10.
+function sdAppliquerCorrectifsPresence() {
+  if (typeof COPILOT_URL === 'undefined') return; var st0 = loadStore(); if (st0._corrPresence2026_10 || window._sdCorrPresFait) return; window._sdCorrPresFait = true;
+  fetch(COPILOT_URL + '/salesdesk/correctifs-presence', { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).then(function(j) {
+    if (!j || !j.ok || !Array.isArray(j.lignes) || !j.lignes.length) return; var st = loadStore(); if (st._corrPresence2026_10) return;
+    if (typeof sdBackupStore === 'function') sdBackupStore(st); else { try { localStorage.setItem('salesdesk_rdvs_backup_' + Date.now(), JSON.stringify(st)); } catch (e) {} }
+    var n = 0, requal = 0;
+    j.lignes.forEach(function(p) { var r = (st[p.mois] || [])[p.idx]; if (!r || r.client !== p.client || r.date !== p.date) return; if (p.apres && p.apres !== r.presence) { r.presence = p.apres; if (p.apres !== 'Show') r.result = ''; requal++; } if (p.annuleLe && !r.annuleLe) { r.annuleLe = p.annuleLe; r.annuleLeSource = p.source || 'correctif'; } n++; });
+    st._corrPresence2026_10 = { le: new Date().toISOString(), lignes: n, requalifiees: requal }; saveStore(st);
+    console.log('[correctifs présence] ' + n + ' ligne(s) touchée(s), ' + requal + ' requalifiée(s)'); if (typeof showCopyToast === 'function') showCopyToast('✓ Présences corrigées : ' + requal + ' RDV requalifiés depuis Calendly et Close'); if (typeof refreshAll === 'function') refreshAll();
+  }).catch(function() {});
+}
+setTimeout(function() { try { sdAppliquerCorrectifsPresence(); } catch (e) {} }, 12000);
 // Une migration a modifié le store en mémoire : on l'enregistre (localStorage + cloud) une fois la page prête, sinon les
 // corrections seraient recalculées à chaque chargement sans jamais être sauvegardées.
 setInterval(function() {
