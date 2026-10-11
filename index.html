@@ -7259,7 +7259,7 @@ function switchChartTab(type, btn) {
     const key = `${year}-${String(m).padStart(2,'0')}`;
     const rows = store[key] || [];
     const kpis = computeKpisFromRows(rows);
-    if (type === 'rdv') { d1[m-1]=rows.length; d2[m-1]=kpis.signes; label1='RDV'; label2='Signés'; }
+    if (type === 'rdv') { d1[m-1]=(function() { try { return sdTunnelMois(rows).base; } catch (e) { return rows.length; } })(); d2[m-1]=kpis.signes; label1='RDV tenus ou attendus'; label2='Signés'; }
     else if (type === 'closing') { d1[m-1]=kpis.closing; label1='Closing %'; color1='var(--green)'; d2=null; }
     else if (type === 'commission') { d1[m-1]=kpis.commission; label1='Commission €'; color1='var(--orange)'; d2=null; }
     else if (type === 'mrr') { d1[m-1]=kpis.mrr; label1='Commissions annuels €'; color1='var(--soft-violet-line)'; d2=null; }
@@ -11029,7 +11029,8 @@ function bhChiffres(lundi) { // tout vient des lignes RDV : RDV pris ≠ RDV ten
   var vus = {}, outbound = 0; rows.forEach(function(r) { if (r.source !== 'Outbound') return; var iso = frVersIsoSd(r.datePrise || '') || frVersIsoSd(r.date); if (!dans(iso)) return; var k = nn(r.client), ke = String(r.email || '').toLowerCase().trim(); if (vus[k] || (ke && vus[ke])) return; vus[k] = 1; if (ke) vus[ke] = 1; outbound++; });
   var ventes = rows.filter(function(r) { return r.result === 'Signé' && r.source !== 'R2' && dans(frVersIsoSd(r.dateSignature || '') || frVersIsoSd(r.date)); });
   var c = { r1Tenus: r1.filter(function(r) { return pres(r) === 'Show'; }).length, r2Tenus: Object.keys(r2Cles).length, traites: r1.filter(function(r) { return !!pres(r); }).length, noShow: r1.filter(function(r) { return pres(r) === 'No Show'; }).length, annules: r1.filter(function(r) { return pres(r) === 'Annulé'; }).length, reports: r1.filter(function(r) { return pres(r) === 'Reprogrammé'; }).length, outbound: outbound, ventes: ventes.length, ventesNoms: ventes.map(function(r) { return r.client; }), comm: ventes.reduce(function(s, r) { try { return s + (Number(getComm(r)) || 0); } catch (e) { return s; } }, 0), contrats: rows.filter(function(r) { return r.attenteSignature && r.source !== 'R2' && dans(frVersIsoSd(r.date)); }).length, relances: rows.filter(function(r) { return r.relanceFaitAt && dans(String(r.relanceFaitAt).slice(0, 10)); }).length, planifies: r1.length };
-  c.tenus = c.r1Tenus + c.r2Tenus; c.presence = c.traites ? Math.round(c.r1Tenus / c.traites * 100) : null;
+  c.base = r1.filter(function(r) { return !!pres(r) && sdEnBase(r); }).length; // RDV tenus ou attendus : même base que Performance (annulations à l'avance exclues depuis mai 2026)
+  c.tenus = c.r1Tenus + c.r2Tenus; c.presence = c.base ? Math.round(c.r1Tenus / c.base * 100) : null;
   return c;
 }
 function bhOutboundSemaine(lundi) { // même règle que l'onglet Outbound de Rendez-vous : événements Calendly outbound PRIS du lundi au vendredi, un seul par e-mail (le plus ancien), hors reclassements (Inbound, Reschedule) et reprises de RDV ; null tant que les 2 mois Calendly ne sont pas chargés
