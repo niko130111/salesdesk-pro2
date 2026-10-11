@@ -11188,10 +11188,31 @@ function sdSmsRappelPromis(row, dateIso) { /* retiré le 5 oct. 2026 : Nicolas n
 function chargerSms(force) {
   if (typeof COPILOT_URL === 'undefined') return;
   if (_smsList && Date.now() - _smsAt < 60000 && !force) return;
-  fetch(COPILOT_URL + '/sms', { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).then(function(j) { _smsList = j.sms || []; _smsMode = { mode: j.mode, configure: j.configure }; _smsAt = Date.now(); renderMaJournee(); }).catch(function() {});
+  fetch(COPILOT_URL + '/sms', { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).then(function(j) { _smsList = j.sms || []; _smsMode = { mode: j.mode, configure: j.configure }; try { if (!document.getElementById('fc-dup-overlay') || !document.getElementById('fc-dup-overlay').classList.contains('open')) sdPopupValiderSms(); } catch (e) {}; _smsAt = Date.now(); renderMaJournee(); }).catch(function() {});
+}
+// ── SMS à valider (règle du 11 oct. 2026) : tout SMS qui porte un chiffre du CRM attend ta validation dans cette fenêtre. Tu relis, tu corriges si besoin, puis Envoyer ; ou Annuler. Rien ne part sans ce clic. ──
+var _smsValidVus = {};
+function sdPopupValiderSms(force) {
+  var l = (_smsList || []).filter(function(x) { return x.statut === 'a_valider'; }); if (!l.length) return false;
+  if (!force && l.every(function(x) { return _smsValidVus[x.id]; })) return false; l.forEach(function(x) { _smsValidVus[x.id] = 1; });
+  var ov = document.getElementById('fc-dup-overlay');
+  if (!ov) { ov = document.createElement('div'); ov.id = 'fc-dup-overlay'; ov.className = 'modal-overlay'; ov.style.zIndex = '1300'; ov.innerHTML = '<div class="modal" id="fc-dup-modal"></div>'; document.body.appendChild(ov); }
+  ov.onclick = function(ev) { if (ev.target === ov) fermerModalDoublon(); }; ov.classList.add('open');
+  var Q = function(v) { return JSON.stringify(v).replace(/"/g, '&quot;'); };
+  var html = '<div class="fc-dup" style="width:min(640px,92vw);max-width:100%;box-sizing:border-box;"><div style="font-size:17px;font-weight:800;">✋ ' + l.length + ' SMS à valider avant envoi</div><div class="fc-muted" style="margin:2px 0 12px;">Ils contiennent un chiffre du CRM RealAdvisor. Relis, corrige si besoin, puis Envoyer. Rien ne part sans ton clic.</div>'
+    + l.map(function(x) { return '<div style="border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:10px;"><div style="display:flex;justify-content:space-between;gap:10px;align-items:baseline;flex-wrap:wrap;"><b>' + escapeHtml(x.nom || '') + '</b><span class="fc-muted" style="font-size:12px;">' + escapeHtml((x.type || '') + (x.tel ? ' · ' + x.tel : '') + (x.date ? ' · RDV le ' + x.date.split('-').reverse().join('/') : '')) + '</span></div>'
+      + '<textarea id="sv-' + x.id + '" style="width:100%;box-sizing:border-box;min-height:96px;margin-top:8px;font-family:var(--font);font-size:13.5px;padding:8px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg);color:var(--text);">' + escapeHtml(x.texte || '') + '</textarea>'
+      + '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px;"><button class="btn btn-sm" style="color:var(--red);border-color:var(--red);" onclick="sdSmsValiderAction(' + Q(x.id) + ',\'annuler\',this)">Annuler ce SMS</button><button class="btn btn-sm btn-primary" onclick="sdSmsValiderAction(' + Q(x.id) + ',\'valider\',this)">✓ Envoyer</button></div></div>'; }).join('')
+    + '<div style="text-align:right;"><button class="btn btn-sm" onclick="fermerModalDoublon()">Plus tard</button></div></div>';
+  document.getElementById('fc-dup-modal').innerHTML = html; return true;
+}
+function sdSmsValiderAction(id, action, btn) {
+  var ta = document.getElementById('sv-' + id), texte = ta ? ta.value.trim() : ''; if (action === 'valider' && !texte) { alert('Le SMS est vide.'); return; }
+  btn.disabled = true; btn.textContent = action === 'valider' ? 'Envoi…' : 'Annulation…';
+  rlPost('/sms/' + encodeURIComponent(id) + '/' + action, action === 'valider' ? { texte: texte } : { raison: 'refusé à la validation' }).then(function() { if (typeof showCopyToast === 'function') showCopyToast(action === 'valider' ? '✓ SMS validé, il part maintenant' : '✖ SMS annulé'); _smsList = (_smsList || []).filter(function(x) { return x.id !== id; }); if (!sdPopupValiderSms(true)) fermerModalDoublon(); try { chargerSms(true); } catch (e) {} }).catch(function(e) { btn.disabled = false; btn.textContent = action === 'valider' ? '✓ Envoyer' : 'Annuler ce SMS'; alert('Échec : ' + e.message); });
 }
 function sdPopupSms() {
-  var l = (_smsList || []).filter(function(x) { return x.statut === 'prevu' || x.statut === 'brouillon' || (x.statut === 'envoye' && Date.now() - Date.parse(x.envoyeAt || x.cree) < 86400000) || x.statut === 'erreur'; });
+  var l = (_smsList || []).filter(function(x) { return x.statut === 'prevu' || x.statut === 'brouillon' || x.statut === 'a_valider' || (x.statut === 'envoye' && Date.now() - Date.parse(x.envoyeAt || x.cree) < 86400000) || x.statut === 'erreur'; });
   var ov = document.getElementById('fc-dup-overlay');
   if (!ov) { ov = document.createElement('div'); ov.id = 'fc-dup-overlay'; ov.className = 'modal-overlay'; ov.style.zIndex = '1300'; ov.innerHTML = '<div class="modal" id="fc-dup-modal"></div>'; document.body.appendChild(ov); }
   ov.onclick = function(ev) { if (ev.target === ov) fermerModalDoublon(); };
