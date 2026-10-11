@@ -530,7 +530,7 @@ main { max-width: 100%; margin: 0; padding: 6px 8px; }
 .pf-faits { display: grid; gap: 10px; } .pf-faits .f { display: flex; justify-content: space-between; gap: 10px; font-size: 13.5px; color: var(--text2); border-bottom: 1px solid var(--border); padding-bottom: 8px; } .pf-faits .f:last-child { border-bottom: 0; padding-bottom: 0; } .pf-faits .f b { color: var(--text); font-weight: 700; }
 .pf-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 12px; }
 .pf-tunnel { display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); gap: 0; margin-top: 10px; }
-@media (max-width: 1100px) { .pf-tunnel { grid-template-columns: repeat(5, minmax(0, 1fr)); } .pf-tunnel .et:nth-child(6) { border-left: 0; padding-left: 0; } }
+@media (max-width: 980px) { .pf-tunnel { grid-template-columns: repeat(5, minmax(0, 1fr)); } .pf-tunnel .et:nth-child(6) { border-left: 0; padding-left: 0; } }
 .pf-tunnel .et { position: relative; padding: 8px 8px 6px; border-left: 1px solid var(--border); min-width: 0; }
 .pf-tunnel .et:first-child { border-left: 0; padding-left: 0; }
 .pf-tunnel .et .n { font-size: 21px; font-weight: 800; color: var(--text); line-height: 1.1; }
@@ -1732,6 +1732,7 @@ select.form-input { cursor: pointer; }
         <div class="noshow-tooltip-row"><span class="noshow-tooltip-label">❌ Annulés à l'avance</span><span class="noshow-tooltip-value" id="tt-ana-aa">—</span></div>
         <div class="noshow-tooltip-row"><span class="noshow-tooltip-label">🔄 Reprogrammés à l'avance</span><span class="noshow-tooltip-value" id="tt-ana-ra">—</span></div>
         <div class="noshow-tooltip-row" style="font-weight:700;"><span class="noshow-tooltip-label">= Non tenus au total</span><span class="noshow-tooltip-value" id="tt-ana-tot">—</span></div>
+        <div class="noshow-tooltip-row" style="border-top:1px solid rgba(255,255,255,.2);margin-top:4px;padding-top:4px;"><span class="noshow-tooltip-label">🚪 Annulés définitivement (jamais repris)</span><span class="noshow-tooltip-value" id="tt-ana-def">—</span></div>
         <div class="noshow-tooltip-row" id="tt-ana-sh-row" style="opacity:.7;"><span class="noshow-tooltip-label">heure d'annulation inconnue</span><span class="noshow-tooltip-value" id="tt-ana-sh">—</span></div>
       </div>
     </div>
@@ -3649,6 +3650,15 @@ function sdRattraperAnnuleLe(store) {
     if (!/^\d{4}-\d{2}$/.test(k) || !Array.isArray(store[k])) return;
     store[k].forEach(function(r) { if (!r || r.annuleLe || String(r.presence || '').trim() !== 'Annulé' || !r.date) return; var iso = String(r.date).split('/').reverse().join('-'); var at = parCle[iso + '|' + String(r.client || '').toLowerCase().replace(/\s+/g, ' ').trim()]; if (at) r.annuleLe = at; });
   });
+}
+// Annulés définitivement : lignes Annulé du mois sans aucun R1 plus tard pour la même personne (e-mail, sinon nom), dans tout le store. Retour { total, jourJ, avance }.
+function sdAnnulesDefinitifs(rows) {
+  var st = loadStore(), tous = []; Object.keys(st).forEach(function(k) { if (/^\d{4}-\d{2}$/.test(k) && Array.isArray(st[k])) st[k].forEach(function(r) { if (r && r.source !== 'R2' && r.date) tous.push(r); }); });
+  var iso = function(r) { return String(r.date || '').split('/').reverse().join('-'); }, out = { total: 0, jourJ: 0, avance: 0 };
+  (rows || []).forEach(function(r) { if (!r || r.source === 'R2' || String(r.presence || '').trim() !== 'Annulé') return; var d = iso(r), em = String(r.email || '').toLowerCase().trim(), nm = fcNormNom(r.client || '');
+    var repris = tous.some(function(x) { return x !== r && iso(x) > d && ((em && String(x.email || '').toLowerCase().trim() === em) || (!em && nm && fcNormNom(x.client || '') === nm)); });
+    if (repris) return; out.total++; if (r.annuleLe && sdJourParis(r.annuleLe) === d) out.jourJ++; else out.avance++; });
+  return out;
 }
 // Tunnel d'un mois (R1 du mois, date du RDV) : RDV pris → tenus ou attendus (base) → shows → R2 pris → R2 tenus → signés (cohorte : les R1 de ce mois qui ont fini par signer).
 function sdTunnelMois(rows) {
@@ -9196,6 +9206,7 @@ function renderKpis(kpis) {
   // Carte « Non tenus le jour J » : le grand chiffre et le détail court ; le reste dans l'infobulle. Avant mai 2026 : la totalité des non tenus.
   const _pris = kpis.rdvPris || _rowsAna.length, _pctP = (n) => _pris > 0 ? ' (' + Math.round(n/_pris*100) + '%)' : '';
   const _shRow = document.getElementById('tt-ana-sh-row');
+  try { const _def = sdAnnulesDefinitifs(_rowsAna); set('tt-ana-def', _def.total + (_def.total ? ' (' + _def.jourJ + ' le jour J · ' + _def.avance + ' à l\'avance)' : '')); } catch (e) {}
   if (_apr.horsPeriode) { set('kpi-noshow-label', 'Non tenus'); set('kpi-noshow', kpis.noshowrate + '%'); set('kpi-noshow-sub', kpis.noshow + ' sur ' + _base + ' RDV'); set('tt-ana-ns', _nsAna + _pctB(_nsAna)); set('tt-ana-aj', '—'); set('tt-ana-rj', '—'); set('tt-ana-jj', 'mesuré depuis mai 2026'); set('tt-ana-aa', _anAna + _pctB(_anAna)); set('tt-ana-ra', _reAna + _pctB(_reAna)); set('tt-ana-tot', kpis.noshow + ' sur ' + _base + _pctB(kpis.noshow)); if (_shRow) _shRow.style.display = 'none'; }
   else { set('kpi-noshow-label', 'Non tenus le jour J'); set('kpi-noshow', kpis.noshowrate + '%'); set('kpi-noshow-sub', kpis.noshow + ' sur ' + _base + ' RDV');
     set('tt-ana-ns', _apr.noShow + _pctB(_apr.noShow)); set('tt-ana-aj', _apr.annulesJour + _pctB(_apr.annulesJour)); set('tt-ana-rj', _apr.reprogJour + _pctB(_apr.reprogJour)); set('tt-ana-jj', _apr.total + ' sur ' + _base + _pctB(_apr.total));
