@@ -6020,31 +6020,34 @@ function renderDeals() {
 }
 
 // ====== SOURCES ======
+// Détail par source : les R1 DU MOIS (date du RDV) dont la présence est renseignée, répartis par source, sur la même base que le bloc
+// Rendez-vous (vécus + non vécus le jour J ; avant mai 2026, tous les R1 traités). Les outbound « pris ce mois » (date de prise) servent
+// à l'objectif outbound, pas ici : ici tout doit s'additionner au Total RDV. (Nicolas, 11 oct. 2026)
 function renderSources(kpis) {
+  const rowsMois = getRdvs(state.month, state.year).filter(r => r.source !== 'R2' && /^(Show|No Show|Annulé|Reprogrammé)$/.test(String(r.presence || '').trim()));
   function srcStats(rows, name, color) {
-    const total = rows.length;
+    const pris = rows.length;
     const shows = rows.filter(r => r.presence === 'Show').length;
     const signes = rows.filter(r => r.result === 'Signé').length;
-    const nosho = rows.filter(r => r.presence === 'No Show' || r.presence === 'Annulé' || r.presence === 'Reprogrammé').length;
-    const closing = shows > 0 ? Math.round(signes/shows*100) : 0;
-    const showrate = total > 0 ? Math.round(shows/total*100) : 0;
-    const oneshot = rows.filter(r => r.oneshot === 'O').length;
+    const jj = sdAttenduPourRien(rows), base = jj.horsPeriode ? pris : shows + jj.total;
+    const nosho = jj.horsPeriode ? rows.filter(r => r.presence === 'No Show' || r.presence === 'Annulé' || r.presence === 'Reprogrammé').length : jj.total;
+    const avance = pris - base;
     return `<div class="source-card">
       <div class="source-name"><span class="source-dot" style="background:${color}"></span>${name}</div>
       <div class="source-stats">
-        <div class="source-stat"><div class="s-label">Total RDV</div><div class="s-value">${total}</div></div>
+        <div class="source-stat"><div class="s-label">Total RDV</div><div class="s-value">${base}</div>${avance > 0 ? '<div class="s-label" style="margin-top:2px;">' + pris + ' pris · ' + avance + ' annulé' + (avance > 1 ? 's' : '') + ' / reprog. à l\'avance</div>' : ''}</div>
         <div class="source-stat"><div class="s-label">Signés</div><div class="s-value green">${signes}</div></div>
         <div class="source-stat"><div class="s-label">Closing</div><div class="s-value" title="ventes / shows">${sdPct(signes, shows)}</div></div>
-        <div class="source-stat"><div class="s-label">Show Rate</div><div class="s-value" title="shows / RDV">${sdPct(shows, total)}</div></div>
-        <div class="source-stat"><div class="s-label">No Show</div><div class="s-value ${nosho > 0 ? 'red' : ''}" title="absents / RDV">${sdPct(nosho, total)}</div></div>
-        <div class="source-stat"><div class="s-label">1 vente pour</div><div class="s-value">${signes > 0 ? (total / signes).toFixed(1).replace('.', ',') + ' RDV' : '—'}</div></div>
+        <div class="source-stat"><div class="s-label">Show Rate</div><div class="s-value" title="shows / Total RDV">${sdPct(shows, base)}</div></div>
+        <div class="source-stat"><div class="s-label">${jj.horsPeriode ? 'Non tenus' : 'Non tenus le jour J'}</div><div class="s-value ${nosho > 0 ? 'red' : ''}" title="${jj.horsPeriode ? 'no-show + annulés + reprogrammés' : 'no-show ' + jj.noShow + ' · annulés le jour J ' + jj.annulesJour + ' · reprogrammés le jour J ' + jj.reprogJour} / Total RDV">${sdPct(nosho, base)}</div></div>
+        <div class="source-stat"><div class="s-label">1 vente pour</div><div class="s-value">${signes > 0 ? (base / signes).toFixed(1).replace('.', ',') + ' RDV' : '—'}</div></div>
       </div>
     </div>`;
   }
   document.getElementById('sources-grid').innerHTML =
-    srcStats(kpis.inbound, 'Inbound', 'var(--accent)') +
-    srcStats(kpis.outbound, 'Outbound', 'var(--purple)') +
-    srcStats(kpis.pub, 'PUB', 'var(--orange)');
+    srcStats(rowsMois.filter(r => r.source === 'Inbound'), 'Inbound', 'var(--accent)') +
+    srcStats(rowsMois.filter(r => r.source === 'Outbound'), 'Outbound', 'var(--purple)') +
+    srcStats(rowsMois.filter(r => r.source === 'PUB'), 'PUB', 'var(--orange)');
 }
 
 
