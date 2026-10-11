@@ -527,70 +527,51 @@ main { max-width: 100%; margin: 0; padding: 6px 8px; }
 .pf-bar { height: 10px; background: var(--surface2); border-radius: 999px; overflow: hidden; margin: 12px 0 6px; } .pf-bar > div { height: 100%; border-radius: 999px; background: var(--primary); }
 .pf-bar.fin { height: 6px; margin: 10px 0 6px; }
 .pf-note { font-size: 12.5px; color: var(--text2); } .pf-note b { color: var(--text); }
-/* ── Cockpit Performance (11 oct. 2026) : scène CSS 3D native, aucune dépendance. Thème clair = surfaces claires, thème sombre = bleu nuit / cyan. ── */
-.ck { --ck-bg: #EEF4F9; --ck-bg2: #DCE8F2; --ck-glass: rgba(255,255,255,.86); --ck-line: rgba(24,54,84,.16); --ck-cyan: #1E8FB8; --ck-cyan-soft: rgba(30,143,184,.16); --ck-text: #183654; --ck-muted: #6B7F94; --ck-ring: rgba(30,143,184,.45); --ck-core1: #EAF6FC; --ck-core2: #8CC9E6; --ck-core3: #2B6F97; --ck-shadow: rgba(24,54,84,.18); --ck-ok: #16805D; --ck-ko: #C54757; }
-[data-theme="dark"] .ck { --ck-bg: #071321; --ck-bg2: #0B1C30; --ck-glass: rgba(16,36,58,.78); --ck-line: rgba(86,200,237,.22); --ck-cyan: #56C8ED; --ck-cyan-soft: rgba(86,200,237,.14); --ck-text: #EAF2FA; --ck-muted: #8FB0C8; --ck-ring: rgba(86,200,237,.5); --ck-core1: #B6ECFF; --ck-core2: #2C8FC9; --ck-core3: #061E33; --ck-shadow: rgba(0,0,0,.45); --ck-ok: #5EDBA7; --ck-ko: #FF8A98; }
+/* ── Cockpit Performance (11 oct. 2026) : scène dessinée en canvas 2D (profondeur, matériaux), panneaux HTML. Thème clair = blanc / contours bleutés, sombre = bleu nuit / cyan limité. ── */
+.ck { --ck-bg: #FFFFFF; --ck-bg2: #EEF4FB; --ck-glass: #FFFFFF; --ck-line: #C9D9EC; --ck-cyan: #2F6FB5; --ck-cyan-soft: rgba(47,111,181,.12); --ck-text: #183654; --ck-muted: #6B7F94; --ck-shadow: rgba(24,54,84,.14); --ck-ok: #16805D; --ck-ko: #C54757; }
+[data-theme="dark"] .ck { --ck-bg: #071321; --ck-bg2: #0A1A2C; --ck-glass: rgba(16,36,58,.9); --ck-line: rgba(86,200,237,.26); --ck-cyan: #56C8ED; --ck-cyan-soft: rgba(86,200,237,.14); --ck-text: #EAF2FA; --ck-muted: #93AEC6; --ck-shadow: rgba(0,0,0,.5); --ck-ok: #5EDBA7; --ck-ko: #FF8A98; }
 .ck { color: var(--ck-text); display: grid; gap: 14px; margin-bottom: 22px; }
 .ck-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 14px; flex-wrap: wrap; }
-.ck-head .pf-sub { margin-top: 2px; }
 .ck-tabs { display: inline-flex; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: var(--surface); }
 .ck-tabs button { border: 0; background: transparent; padding: 8px 14px; cursor: pointer; color: var(--text2); font-size: 13px; font-weight: 600; } .ck-tabs button.on { background: var(--ck-cyan-soft); color: var(--ck-cyan); }
-.ck-tools { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-.ck-tools .btn { font-size: 12px; }
+.ck-tools { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; } .ck-tools .btn { font-size: 12px; }
 .ck-band { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
-.ck-tile { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px; display: flex; gap: 12px; align-items: center; box-shadow: var(--shadow); }
+.ck-tile { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px; display: flex; gap: 12px; align-items: center; box-shadow: var(--shadow); min-width: 0; }
 .ck-tile .ico { width: 42px; height: 42px; border-radius: 12px; background: var(--ck-cyan-soft); color: var(--ck-cyan); display: grid; place-items: center; font-size: 18px; flex-shrink: 0; }
-.ck-tile .lab { font-size: 12px; color: var(--text2); } .ck-tile .v { font-size: 24px; font-weight: 800; color: var(--text); letter-spacing: -.02em; line-height: 1.15; } .ck-tile .v small { font-size: 13px; font-weight: 500; color: var(--text3); } .ck-tile .s { font-size: 11.5px; color: var(--text3); margin-top: 2px; }
+.ck-tile .lab { font-size: 12px; color: var(--text2); } .ck-tile .v { font-size: 24px; font-weight: 800; color: var(--text); letter-spacing: -.02em; line-height: 1.15; } .ck-tile .s { font-size: 11.5px; color: var(--text3); margin-top: 2px; }
 .ck-tile .ring { margin-left: auto; width: 54px; height: 54px; border-radius: 50%; background: conic-gradient(var(--ck-cyan) calc(var(--p) * 1%), var(--surface2) 0); -webkit-mask: radial-gradient(circle, transparent 60%, #000 61%); mask: radial-gradient(circle, transparent 60%, #000 61%); flex-shrink: 0; }
-.ck-main { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 14px; }
-.ck-scene { position: relative; height: 440px; border-radius: 18px; overflow: hidden; background: radial-gradient(ellipse at 50% 70%, var(--ck-bg2), var(--ck-bg) 70%); border: 1px solid var(--border); perspective: 1100px; perspective-origin: 50% 40%; }
-.ck-floor { position: absolute; left: 50%; top: 58%; width: 560px; height: 560px; margin: -280px; border-radius: 50%; transform: rotateX(72deg); background: radial-gradient(circle, var(--ck-cyan-soft) 0, transparent 62%); border: 1px solid var(--ck-line); }
-.ck-world { position: absolute; left: 50%; top: 56%; width: 0; height: 0; transform-style: preserve-3d; transform: rotateX(62deg); }
-.ck-orbit { position: absolute; left: 0; top: 0; border-radius: 50%; border: 2px solid var(--ck-ring); box-shadow: 0 0 16px var(--ck-cyan-soft), inset 0 0 16px var(--ck-cyan-soft); transform-style: preserve-3d; cursor: pointer; transition: opacity .5s, filter .5s, border-color .5s; }
-.ck-orbit.o1 { width: 300px; height: 300px; margin: -150px; transform: rotateZ(0deg) rotateX(8deg); }
-.ck-orbit.o2 { width: 400px; height: 400px; margin: -200px; transform: rotateZ(60deg) rotateX(22deg); }
-.ck-orbit.o3 { width: 500px; height: 500px; margin: -250px; transform: rotateZ(-50deg) rotateX(-18deg); }
-.ck-spin { position: absolute; inset: 0; transform-style: preserve-3d; animation: ckspin 80s linear infinite; }
-.o2 .ck-spin { animation-duration: 110s; animation-direction: reverse; } .o3 .ck-spin { animation-duration: 150s; }
-.ck-sat { position: absolute; top: -7px; left: 50%; width: 14px; height: 14px; margin-left: -7px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #fff, var(--ck-cyan)); box-shadow: 0 0 16px var(--ck-cyan), 0 0 4px #fff; transform: rotateX(-62deg); }
-.ck-core { position: absolute; left: 0; top: 0; width: 160px; height: 160px; margin: -80px; border-radius: 50%; transform: rotateX(-62deg) translateZ(0); transform-style: preserve-3d; background: radial-gradient(circle at 36% 30%, var(--ck-core1) 0, var(--ck-core2) 42%, var(--ck-core3) 100%); box-shadow: 0 0 46px var(--ck-cyan-soft), 0 26px 50px var(--ck-shadow), inset -14px -18px 36px rgba(0,0,0,.28); cursor: pointer; display: grid; place-items: center; text-align: center; }
-.ck-core::before { content: ''; position: absolute; inset: -14px; border-radius: 50%; background: conic-gradient(var(--ck-cyan) calc(var(--p) * 1%), transparent 0); -webkit-mask: radial-gradient(circle, transparent 66%, #000 67%, #000 100%); mask: radial-gradient(circle, transparent 66%, #000 67%, #000 100%); filter: drop-shadow(0 0 10px var(--ck-cyan)); }
-.ck-core::after { content: ''; position: absolute; inset: -14px; border-radius: 50%; border: 1px solid var(--ck-line); }
-.ck-core .n { font-size: 34px; font-weight: 800; color: #fff; text-shadow: 0 2px 10px rgba(0,0,0,.45); letter-spacing: -.02em; line-height: 1; } .ck-core .l { font-size: 11px; color: rgba(255,255,255,.85); margin-top: 4px; text-shadow: 0 1px 6px rgba(0,0,0,.5); }
-.ck-shadow { position: absolute; left: 0; top: 0; width: 200px; height: 200px; margin: -100px; border-radius: 50%; background: radial-gradient(circle, rgba(0,0,0,.35), transparent 70%); transform: translateZ(-30px); }
-.ck-panel { position: absolute; background: var(--ck-glass); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 1px solid var(--ck-line); border-radius: 14px; padding: 10px 14px; color: var(--ck-text); text-align: left; cursor: pointer; box-shadow: 0 12px 30px var(--ck-shadow); min-width: 170px; transition: opacity .5s, transform .5s, box-shadow .3s; font-family: inherit; }
-.ck-panel:hover, .ck-panel:focus-visible { box-shadow: 0 12px 30px var(--ck-shadow), 0 0 0 2px var(--ck-cyan); outline: none; transform: translateY(-2px); }
-.ck-panel .lab { font-size: 10.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--ck-cyan); display: flex; gap: 6px; align-items: center; }
-.ck-panel .v { font-size: 24px; font-weight: 800; letter-spacing: -.02em; line-height: 1.1; margin-top: 2px; } .ck-panel .v small { font-size: 13px; font-weight: 600; color: var(--ck-muted); }
-.ck-panel .s { font-size: 11.5px; color: var(--ck-muted); margin-top: 2px; }
-.ck-panel.p-acq { left: 18px; top: 16px; } .ck-panel.p-rdv { right: 18px; top: 28px; } .ck-panel.p-conv { left: 26px; bottom: 18px; }
-.ck-legende { position: absolute; right: 14px; bottom: 10px; font-size: 11px; color: var(--ck-muted); }
-.ck[data-sel="acq"] .ck-orbit:not(.o1), .ck[data-sel="rdv"] .ck-orbit:not(.o2), .ck[data-sel="conv"] .ck-orbit:not(.o3) { opacity: .22; }
-.ck[data-sel="acq"] .ck-orbit.o1, .ck[data-sel="rdv"] .ck-orbit.o2, .ck[data-sel="conv"] .ck-orbit.o3 { border-color: var(--ck-cyan); filter: brightness(1.25) drop-shadow(0 0 10px var(--ck-cyan)); }
-.ck[data-sel="acq"] .ck-panel:not(.p-acq), .ck[data-sel="rdv"] .ck-panel:not(.p-rdv), .ck[data-sel="conv"] .ck-panel:not(.p-conv) { opacity: .35; }
-.ck[data-sel="acq"] .ck-panel.p-acq, .ck[data-sel="rdv"] .ck-panel.p-rdv, .ck[data-sel="conv"] .ck-panel.p-conv { box-shadow: 0 12px 30px var(--ck-shadow), 0 0 0 2px var(--ck-cyan); transform: scale(1.04); }
-.ck[data-sel] .ck-world { transition: transform .8s cubic-bezier(.2,.8,.2,1); }
-.ck[data-sel="acq"] .ck-world { transform: rotateX(62deg) rotateZ(14deg) scale(1.08); } .ck[data-sel="rdv"] .ck-world { transform: rotateX(62deg) rotateZ(-20deg) scale(1.05); } .ck[data-sel="conv"] .ck-world { transform: rotateX(62deg) rotateZ(26deg) scale(1.02); }
-.ck-world { transition: transform .8s cubic-bezier(.2,.8,.2,1); }
-.ck-side { display: grid; gap: 10px; align-content: start; }
-.ck-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px; box-shadow: var(--shadow); }
-.ck-card h3 { margin: 0 0 10px; font-size: 14px; font-weight: 800; color: var(--text); display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-.ck-card h3 .btn { font-size: 11px; padding: 2px 8px; }
-.ck-ind { display: flex; gap: 12px; align-items: center; padding: 8px 0; border-top: 1px solid var(--border); } .ck-ind:first-of-type { border-top: 0; padding-top: 0; }
+.ck-main { display: grid; grid-template-columns: minmax(0, 7fr) minmax(280px, 3fr); gap: 14px; align-items: stretch; }
+.ck-stage { position: relative; border-radius: 18px; overflow: hidden; background: var(--ck-bg); border: 1px solid var(--ck-line); box-shadow: var(--shadow); display: grid; grid-template-rows: 1fr auto; }
+.ck-scene { position: relative; height: 400px; } .ck-scene canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: pointer; }
+.ck-core-txt { position: absolute; left: 0; top: 0; transform: translate(-50%, -50%); text-align: center; pointer-events: none; }
+.ck-core-txt .n { font-size: 34px; font-weight: 800; color: #fff; letter-spacing: -.02em; line-height: 1; text-shadow: 0 2px 12px rgba(0,0,0,.55); } .ck-core-txt .l { font-size: 11px; font-weight: 600; color: rgba(255,255,255,.9); margin-top: 4px; text-shadow: 0 1px 6px rgba(0,0,0,.6); }
+.ck-legende { position: absolute; right: 12px; top: 10px; font-size: 11px; color: var(--ck-muted); }
+.ck-panels { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; padding: 10px; border-top: 1px solid var(--ck-line); background: var(--ck-bg2); }
+.ck-panel { background: var(--ck-glass); border: 1px solid var(--ck-line); border-radius: 12px; padding: 10px 12px; color: var(--ck-text); text-align: left; cursor: pointer; box-shadow: 0 6px 18px var(--ck-shadow); min-width: 0; transition: border-color .4s, box-shadow .4s; font-family: inherit; position: relative; }
+.ck-panel::before { content: ''; position: absolute; left: 12px; right: 12px; top: 0; height: 3px; border-radius: 0 0 3px 3px; background: var(--ck-c, var(--ck-cyan)); opacity: .9; transition: opacity .4s; }
+.ck-panel:hover, .ck-panel:focus-visible { border-color: var(--ck-c, var(--ck-cyan)); box-shadow: 0 6px 18px var(--ck-shadow), 0 0 0 2px var(--ck-c, var(--ck-cyan)); outline: none; }
+.ck-panel .lab { font-size: 10.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--ck-c, var(--ck-cyan)); display: flex; gap: 6px; align-items: center; }
+.ck-panel .v { font-size: 22px; font-weight: 800; letter-spacing: -.02em; line-height: 1.1; margin-top: 4px; } .ck-panel .v small { font-size: 12.5px; font-weight: 600; color: var(--ck-muted); }
+.ck-panel .s { font-size: 11.5px; color: var(--ck-muted); margin-top: 3px; line-height: 1.35; }
+.ck[data-sel]:not([data-sel=""]) .ck-panel:not(.on) { box-shadow: none; } .ck[data-sel]:not([data-sel=""]) .ck-panel:not(.on)::before { opacity: .25; } .ck[data-sel]:not([data-sel=""]) .ck-panel:not(.on) .lab { color: var(--ck-muted); }
+.ck-panel.on { border-color: var(--ck-c, var(--ck-cyan)); box-shadow: 0 6px 18px var(--ck-shadow), 0 0 0 2px var(--ck-c, var(--ck-cyan)); }
+.ck-side { display: grid; gap: 10px; align-content: start; min-width: 0; }
+.ck-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px; box-shadow: var(--shadow); min-width: 0; }
+.ck-card h3 { margin: 0 0 10px; font-size: 14px; font-weight: 800; color: var(--text); display: flex; justify-content: space-between; align-items: center; gap: 8px; } .ck-card h3 .btn { font-size: 11px; padding: 2px 8px; }
+.ck-ind { display: flex; gap: 12px; align-items: center; padding: 9px 0; border-top: 1px solid var(--border); } .ck-ind:first-of-type { border-top: 0; padding-top: 0; }
 .ck-ind .ico { width: 36px; height: 36px; border-radius: 10px; background: var(--ck-cyan-soft); color: var(--ck-cyan); display: grid; place-items: center; font-size: 16px; flex-shrink: 0; }
 .ck-ind .bd { flex: 1; min-width: 0; } .ck-ind .lab { font-size: 12px; color: var(--text2); } .ck-ind .v { font-size: 20px; font-weight: 800; color: var(--text); line-height: 1.15; } .ck-ind .s { font-size: 11px; color: var(--text3); }
 .ck-ind .bar { height: 5px; border-radius: 999px; background: var(--surface2); margin-top: 5px; overflow: hidden; } .ck-ind .bar > i { display: block; height: 100%; background: var(--ck-cyan); border-radius: 999px; }
-.ck-det { display: grid; gap: 6px; } .ck-det .r { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; padding: 6px 0; border-top: 1px solid var(--border); } .ck-det .r:first-child { border-top: 0; } .ck-det .r span { color: var(--text2); } .ck-det .r b { color: var(--text); white-space: nowrap; } .ck-det .r.tot { font-weight: 700; } .ck-det .d { font-size: 11px; color: var(--text3); line-height: 1.4; margin-top: 2px; }
+.ck-det { display: grid; gap: 0; } .ck-det .r { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; padding: 7px 0; border-top: 1px solid var(--border); } .ck-det .r:first-child { border-top: 0; } .ck-det .r span { color: var(--text2); } .ck-det .r b { color: var(--text); white-space: nowrap; } .ck-det .r.tot { font-weight: 700; } .ck-det .d { font-size: 11px; color: var(--text3); line-height: 1.4; margin-top: 2px; }
 .ck-det .r b.ok { color: var(--ck-ok); } .ck-det .r b.ko { color: var(--ck-ko); }
 .ck-bottom { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 14px; }
-.ck-bottom canvas { width: 100%; height: 190px; display: block; }
+.ck-bottom canvas { width: 100%; height: 200px; display: block; }
+.ck-lg { display: flex; gap: 14px; font-size: 11px; color: var(--text3); flex-wrap: wrap; } .ck-lg i { display: inline-block; width: 18px; height: 0; border-top: 3px solid var(--ck-cyan); margin-right: 5px; vertical-align: 3px; } .ck-lg i.obj { border-top: 2px dashed var(--text3); } .ck-lg i.proj { border-top: 2px dotted var(--ck-cyan); }
 .ck-cmp { display: grid; gap: 10px; } .ck-cmp .r { display: grid; grid-template-columns: 110px 1fr 1fr; gap: 10px; align-items: center; font-size: 12.5px; color: var(--text2); } .ck-cmp .r .b { height: 18px; border-radius: 6px; background: var(--surface2); position: relative; overflow: hidden; } .ck-cmp .r .b > i { display: block; height: 100%; border-radius: 6px; background: var(--ck-cyan); } .ck-cmp .r .b.ref > i { background: var(--border2); } .ck-cmp .r .b span { position: absolute; left: 8px; top: 0; line-height: 18px; font-size: 11.5px; font-weight: 700; color: var(--text); }
 .ck-cmp .lg { display: flex; gap: 14px; font-size: 11px; color: var(--text3); } .ck-cmp .lg i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 4px; vertical-align: -1px; background: var(--ck-cyan); } .ck-cmp .lg i.ref { background: var(--border2); }
-.ck.calme .ck-spin { animation: none !important; } .ck.pause .ck-spin { animation-play-state: paused; }
-@media (prefers-reduced-motion: reduce) { .ck .ck-spin { animation: none !important; } .ck .ck-world, .ck .ck-panel { transition: none !important; } }
-@keyframes ckspin { to { transform: rotateZ(360deg); } }
+#ck-details { margin-top: 6px; } #ck-details > summary { cursor: pointer; list-style: none; display: flex; align-items: center; gap: 10px; padding: 12px 16px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); font-weight: 700; color: var(--text); font-size: 14px; } #ck-details > summary::-webkit-details-marker { display: none; } #ck-details > summary::after { content: '+'; margin-left: auto; color: var(--ck-cyan); font-size: 20px; } #ck-details[open] > summary::after { content: '–'; } #ck-details[open] > summary { margin-bottom: 14px; }
 @media (max-width: 1100px) { .ck-band { grid-template-columns: repeat(2, minmax(0, 1fr)); } .ck-main, .ck-bottom { grid-template-columns: minmax(0, 1fr); } }
-@media (max-width: 700px) { .ck-scene { height: 380px; } .ck-orbit.o3 { width: 380px; height: 380px; margin: -190px; } .ck-orbit.o2 { width: 300px; height: 300px; margin: -150px; } .ck-orbit.o1 { width: 220px; height: 220px; margin: -110px; } .ck-panel { min-width: 140px; padding: 8px 10px; } .ck-panel .v { font-size: 19px; } }
+@media (max-width: 700px) { .ck-scene { height: 320px; } .ck-panels { grid-template-columns: minmax(0, 1fr); } .ck-band { grid-template-columns: minmax(0, 1fr); } }
 .pf-faits { display: grid; gap: 10px; } .pf-faits .f { display: flex; justify-content: space-between; gap: 10px; font-size: 13.5px; color: var(--text2); border-bottom: 1px solid var(--border); padding-bottom: 8px; } .pf-faits .f:last-child { border-bottom: 0; padding-bottom: 0; } .pf-faits .f b { color: var(--text); font-weight: 700; }
 .pf-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 12px; }
 .pf-tunnel { display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); gap: 0; margin-top: 10px; }
@@ -9538,54 +9519,120 @@ function setTheme(pref) {
 // ── Performance, haut de page : tout suit le mois choisi. Commission réalisée / objectif au centre, puis RDV · Shows · Ventes, puis l'activité outbound.
 // Mois en cours : objectif ajusté aux absences, reste à faire et rythme par jour. Mois passé : simple bilan réalisé / cible.
 // ═══════════ Cockpit Performance (11 oct. 2026) ═══════════
-// Scène CSS 3D (noyau = progression vers l'objectif, trois orbites = Acquisition / Rendez-vous / Conversion), panneaux HTML lisibles,
-// mêmes calculs que la vue classique (computeKpis, sdTunnelMois, sdAttenduPourRien, getLast3FinishedMonthsStats). Rien d'inventé : « Non disponible » sinon.
+// Scène dessinée en canvas 2D : noyau en volume (bordure épaisse, reflet localisé, face sombre), trois anneaux épais triés par profondeur,
+// socle. Les chiffres restent en HTML. Mêmes calculs que la vue classique (computeKpis, sdTunnelMois, sdAttenduPourRien, getLast3FinishedMonthsStats).
 function sdPerfVue() { try { return localStorage.getItem('sd_perf_vue') === 'classique' ? 'classique' : 'cockpit'; } catch (e) { return 'cockpit'; } }
-function ckBasculerVue() { try { localStorage.setItem('sd_perf_vue', sdPerfVue() === 'cockpit' ? 'classique' : 'cockpit'); } catch (e) {} renderPerfTop(); }
-function ckCalme() { try { return localStorage.getItem('sd_perf_calme') === '1'; } catch (e) { return false; } }
-function ckBasculerCalme() { try { localStorage.setItem('sd_perf_calme', ckCalme() ? '0' : '1'); } catch (e) {} var c = document.querySelector('#perf-top .ck'); if (c) c.classList.toggle('calme', ckCalme()); var b = document.getElementById('ck-btn-calme'); if (b) b.textContent = ckCalme() ? '▶ Animer' : '⏸ Réduire les animations'; }
-var _ck = { sel: '', appels: {}, ctx: null };
+function ckBasculerVue() { try { localStorage.setItem('sd_perf_vue', sdPerfVue() === 'cockpit' ? 'classique' : 'cockpit'); } catch (e) {} ckRangerDetails(sdPerfVue() === 'cockpit'); renderPerfTop(); }
+function ckCalme() { try { return localStorage.getItem('sd_perf_calme') === '1' || (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches); } catch (e) { return false; } }
+function ckBasculerCalme() { try { localStorage.setItem('sd_perf_calme', localStorage.getItem('sd_perf_calme') === '1' ? '0' : '1'); } catch (e) {} var b = document.getElementById('ck-btn-calme'); if (b) b.textContent = ckCalme() ? '▶ Animer' : '⏸ Réduire les animations'; ckAnimer(); }
+var _ck = { sel: '', appels: {}, ctx: null, raf: 0, t0: 0, anneaux: null, cibles: {} };
+// Les anneaux : rayon relatif, inclinaison (rad), azimut (rad), couleur ; « cible » = état visé (animé) selon la sélection
+var CK_ANNEAUX = [
+  { id: 'acq', nom: 'Acquisition', r: 0.62, inc: 1.10, az: 0.15, ep: 9, c: '#5B9BE6', cd: '#7CC3F0' },
+  { id: 'rdv', nom: 'Rendez-vous', r: 0.82, inc: 1.22, az: 1.25, ep: 10, c: '#2F6FB5', cd: '#56C8ED' },
+  { id: 'conv', nom: 'Conversion', r: 1.00, inc: 1.35, az: -0.85, ep: 11, c: '#86B5EE', cd: '#A9D5F5' }
+];
 function ckHtml(c) {
-  var k = c.k, eur = c.eur, u = sdTunnelMois(getRdvs(state.month, state.year)), ap = k.jourJ || sdAttenduPourRien([]), M = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+  var k = c.k, eur = c.eur, u = sdTunnelMois(getRdvs(state.month, state.year)), ap = k.jourJ || sdAttenduPourRien([]);
   var mk = c.yr + '-' + String(c.mIdx + 1).padStart(2, '0'), appels = (_closeAppels && _closeAppels.mois && _closeAppels.mois[mk]) ? _closeAppels.mois[mk] : null, outb = Array.isArray(k.outbound) ? k.outbound.length : 0;
-  var pres = k.total ? Math.round(k.shows / k.total * 100) : null, suites = u.nonSignes ? Math.round(u.suites / u.nonSignes * 100) : null;
+  var pres = k.total ? Math.round(k.shows / k.total * 100) : null, suites = u.nonSignes ? Math.round(u.suites / u.nonSignes * 100) : null, OBJ = (state.targets && state.targets.ca) || 8000;
   var frais = ''; try { var lw = (loadStore()._lastWrite || ''); frais = 'SalesDesk ' + (lw ? new Date(lw).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—') + (_closeAppels && _closeAppels.maj ? ' · Close ' + new Date(_closeAppels.maj).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : ' · Close non chargé'); } catch (e) {}
-  var tile = function(ico, lab, v, s, ring) { return '<div class="ck-tile"><div class="ico">' + ico + '</div><div><div class="lab">' + lab + '</div><div class="v">' + v + '</div>' + (s ? '<div class="s">' + s + '</div>' : '') + '</div>' + (ring !== undefined ? '<div class="ring" style="--p:' + ring + '"></div>' : '') + '</div>'; };
-  var panel = function(cls, orb, ico, lab, v, s1, s2) { return '<button class="ck-panel ' + cls + '" data-orb="' + orb + '" onclick="ckChoisir(\'' + orb + '\')" title="Voir le détail"><div class="lab">' + ico + ' ' + lab + '</div><div class="v">' + v + '</div><div class="s">' + s1 + '</div>' + (s2 ? '<div class="s">' + s2 + '</div>' : '') + '</button>'; };
-  var h = '<div class="ck' + (ckCalme() ? ' calme' : '') + '" id="ck" data-sel="">';
+  var tile = function(ico, lab, v, s, ring) { return '<div class="ck-tile"><div class="ico">' + ico + '</div><div style="min-width:0"><div class="lab">' + lab + '</div><div class="v">' + v + '</div>' + (s ? '<div class="s">' + s + '</div>' : '') + '</div>' + (ring !== undefined ? '<div class="ring" style="--p:' + ring + '"></div>' : '') + '</div>'; };
+  var panel = function(a, ico, v, s1, s2) { return '<button class="ck-panel" id="ck-p-' + a.id + '" style="--ck-c:' + (document.documentElement.getAttribute('data-theme') === 'dark' ? a.cd : a.c) + '" onclick="ckChoisir(\'' + a.id + '\')" title="Voir le détail"><div class="lab">' + ico + ' ' + a.nom + '</div><div class="v">' + v + '</div><div class="s">' + s1 + '</div>' + (s2 ? '<div class="s">' + s2 + '</div>' : '') + '</button>'; };
+  var h = '<div class="ck" id="ck" data-sel="">';
   h += '<div class="ck-head"><div><h1 class="pf-h1">Performance</h1><div class="pf-sub"><span>Comprendre mes résultats</span><span>·</span><span>' + escapeHtml(state.month + ' ' + state.year) + (c.courant ? ' · ' + c.jRest + ' jour' + (c.jRest > 1 ? 's' : '') + ' de travail restant' + (c.jRest > 1 ? 's' : '') : '') + '</span><span>·</span><span title="Fraîcheur des données">' + escapeHtml(frais) + '</span></div></div>'
     + '<div class="ck-tools"><div class="ck-tabs"><button class="on">Mois</button><button onclick="sdPerfOnglet(\'historique\')">Historique</button></div><div class="pf-mois"><button title="Mois précédent" onclick="pfMois(-1)">‹</button><span>' + escapeHtml(state.month + ' ' + state.year) + '</span><button title="Mois suivant" onclick="pfMois(1)">›</button></div><button class="btn btn-sm" id="ck-btn-calme" onclick="ckBasculerCalme()">' + (ckCalme() ? '▶ Animer' : '⏸ Réduire les animations') + '</button><button class="btn btn-sm" onclick="ckBasculerVue()" title="Les mêmes chiffres, sans la scène">Vue classique</button></div></div>';
-  // bande des résultats essentiels : acquis, objectif, signatures, progression ; primes et reste en secondaire
   h += '<div class="ck-band">' + tile('💰', 'Commission acquise', eur(c.comm), (c.prime ? 'dont prime palier ' + eur(c.prime) : 'ventes du mois, date de signature'))
-    + tile('🎯', 'Objectif du mois' + (c.courant && c.obj !== ((state.targets && state.targets.ca) || 8000) ? ' (absences déduites)' : ''), eur(c.obj), c.reste ? 'reste ' + eur(c.reste) + (c.courant ? ' · ' + eur(Math.round(c.reste / Math.max(1, c.jRest))) + ' par jour restant' : '') : 'atteint')
+    + tile('🎯', 'Objectif du mois' + (c.courant && c.obj !== OBJ ? ' (absences déduites)' : ''), eur(c.obj), c.reste ? 'reste ' + eur(c.reste) + (c.courant ? ' · ' + eur(Math.round(c.reste / Math.max(1, c.jRest))) + ' par jour restant' : '') : 'atteint')
     + tile('📝', 'Signatures du mois', k.signes || 0, (c.proch ? 'prochaine prime ' + c.proch : 'primes : aucune à venir'))
     + tile('📈', 'Progression', c.pct + ' %', 'de l\'objectif du mois', c.pct) + '</div>';
-  // scène
-  h += '<div class="ck-main"><div class="ck-scene" id="ck-scene"><div class="ck-floor"></div><div class="ck-world">'
-    + '<div class="ck-shadow"></div>'
-    + '<div class="ck-orbit o1" onclick="ckChoisir(\'acq\')" title="Acquisition"><div class="ck-spin"><i class="ck-sat"></i></div></div>'
-    + '<div class="ck-orbit o2" onclick="ckChoisir(\'rdv\')" title="Rendez-vous"><div class="ck-spin"><i class="ck-sat"></i></div></div>'
-    + '<div class="ck-orbit o3" onclick="ckChoisir(\'conv\')" title="Conversion"><div class="ck-spin"><i class="ck-sat"></i></div></div>'
-    + '<div class="ck-core" style="--p:' + c.pct + '" onclick="ckChoisir(\'\')" title="Vue d\'ensemble"><div><div class="n">' + c.pct + ' %</div><div class="l">de l\'objectif</div></div></div>'
-    + '</div>'
-    + panel('p-acq', 'acq', '📞', 'Acquisition', appels ? (appels.sortants || 0) + ' <small>appels</small>' : '— <small>appels</small>', outb + ' RDV outbound pris', appels && outb ? '1 RDV pour ' + Math.round((appels.sortants || 0) / outb) + ' appels' : (appels ? '' : 'Close non chargé'))
-    + panel('p-rdv', 'rdv', '📅', 'Rendez-vous', k.shows + ' <small>R1 tenus</small>', (pres === null ? 'présence non disponible' : pres + ' % de présence') + ' · ' + k.total + ' attendus', (u.r2Tenus || 0) + ' R2 tenus · ' + (ap.total || 0) + ' non tenus le jour J')
-    + panel('p-conv', 'conv', '✍️', 'Conversion', (k.signes || 0) + ' <small>signature' + (k.signes > 1 ? 's' : '') + ' ce mois</small>', 'closing de cohorte ' + (k.shows ? k.closing + ' %' : 'non disponible') + ' · ' + u.signes + ' signé' + (u.signes > 1 ? 's' : '') + ' / ' + k.shows + ' R1 tenus ce mois', (suites === null ? 'suites datées non disponibles' : 'suites datées ' + suites + ' %'))
-    + '<div class="ck-legende">Clic sur une orbite ou un panneau : détail · clic sur le noyau : vue d\'ensemble · Échap</div>'
-    + '</div><div class="ck-side" id="ck-side"></div></div>';
-  // évolution et comparaison
-  h += '<div class="ck-bottom"><div class="ck-card"><h3>Trajectoire vers l\'objectif <span class="pf-note" id="ck-traj-note"></span></h3><canvas id="ck-traj" height="190"></canvas></div>'
+  h += '<div class="ck-main"><div class="ck-stage"><div class="ck-scene" id="ck-scene"><canvas id="ck-canvas"></canvas><div class="ck-core-txt" id="ck-core-txt"><div class="n">' + c.pct + ' %</div><div class="l">de l\'objectif</div></div><div class="ck-legende">Clic sur un anneau ou un panneau : détail · noyau : vue d\'ensemble · Échap</div></div>'
+    + '<div class="ck-panels">'
+    + panel(CK_ANNEAUX[0], '📞', appels ? (appels.sortants || 0) + ' <small>appels</small>' : '— <small>appels</small>', outb + ' RDV outbound pris', appels && outb ? '1 RDV pour ' + Math.round((appels.sortants || 0) / outb) + ' appels' : (appels ? '' : 'Close non chargé'))
+    + panel(CK_ANNEAUX[1], '📅', k.shows + ' <small>R1 tenus</small>', (pres === null ? 'présence non disponible' : pres + ' % de présence') + ' · ' + k.total + ' attendus', (u.r2Tenus || 0) + ' R2 tenus · ' + (ap.total || 0) + ' non tenus le jour J')
+    + panel(CK_ANNEAUX[2], '✍️', (k.signes || 0) + ' <small>signature' + (k.signes > 1 ? 's' : '') + ' ce mois</small>', 'closing de cohorte ' + (k.shows ? k.closing + ' %' : 'non disponible') + ' · ' + u.signes + ' / ' + k.shows + ' R1 tenus ce mois', (suites === null ? 'suites datées non disponibles' : 'suites datées ' + suites + ' %'))
+    + '</div></div><div class="ck-side" id="ck-side"></div></div>';
+  h += '<div class="ck-bottom"><div class="ck-card"><h3>Trajectoire vers l\'objectif <span class="pf-note" id="ck-traj-note"></span></h3><canvas id="ck-traj" height="200"></canvas><div class="ck-lg" id="ck-traj-lg"></div></div>'
     + '<div class="ck-card"><h3>Comparaison à mes 3 derniers mois finis</h3><div class="ck-cmp" id="ck-cmp"></div></div></div>';
   h += '</div>';
   return h;
 }
 function ckApres(c) {
-  _ck.ctx = c; ckRendreSide(); ckDessinerTrajectoire(c); ckRendreComparaison(c);
-  if (!window._ckEcoute) { window._ckEcoute = true; document.addEventListener('keydown', function(e) { if (e.key === 'Escape' && _ck.sel && document.getElementById('ck')) ckChoisir(''); }); document.addEventListener('visibilitychange', function() { var el = document.getElementById('ck'); if (el) el.classList.toggle('pause', document.hidden); }); }
+  _ck.ctx = c; _ck.pct = c.pct; ckRendreSide(); ckDessinerTrajectoire(c); ckRendreComparaison(c); ckRangerDetails(true);
+  _ck.anneaux = CK_ANNEAUX.map(function(a) { return { id: a.id, r: a.r, inc: a.inc, az: a.az, ep: a.ep, c: a.c, cd: a.cd, k: 1, al: 1, phase: Math.random() * Math.PI * 2, vr: a.r, vinc: a.inc, vaz: a.az, vk: 1, val: 1 }; });
+  if (!window._ckEcoute) { window._ckEcoute = true;
+    document.addEventListener('keydown', function(e) { if (e.key === 'Escape' && _ck.sel && document.getElementById('ck')) ckChoisir(''); });
+    document.addEventListener('visibilitychange', function() { if (document.hidden) { cancelAnimationFrame(_ck.raf); _ck.raf = 0; } else ckAnimer(); });
+    window.addEventListener('resize', function() { if (document.getElementById('ck-canvas')) { ckDessiner(); if (_ck.ctx) ckDessinerTrajectoire(_ck.ctx); } }); }
+  var cv = document.getElementById('ck-canvas'); if (cv) cv.onclick = function(e) { var r = cv.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top, hit = ckHit(x, y); ckChoisir(hit === 'noyau' ? '' : (hit || _ck.sel)); };
+  ckAnimer();
   var mk = c.yr + '-' + String(c.mIdx + 1).padStart(2, '0');
   if (!_ck.appels[mk] && typeof COPILOT_URL !== 'undefined') { var deb = mk + '-01', fin = rlIso(new Date(c.yr, c.mIdx + 1, 0)); _ck.appels[mk] = { enCours: true }; fetch(COPILOT_URL + '/close/appels-periode?' + new URLSearchParams({ du: deb, au: fin }), { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).then(function(j) { _ck.appels[mk] = j && j.configure ? j : { erreur: true }; if (_ck.sel === 'acq') ckRendreSide(); }).catch(function() { _ck.appels[mk] = { erreur: true }; }); }
 }
-function ckChoisir(orb) { _ck.sel = orb || ''; var el = document.getElementById('ck'); if (el) el.setAttribute('data-sel', _ck.sel); ckRendreSide(); }
+// Les anciens blocs de détail (sources, types, appels, deals…) passent sous un « Analyses détaillées » dépliable quand le cockpit est affiché
+function ckRangerDetails(on) {
+  var top = document.getElementById('perf-top'); if (!top || !top.parentNode) return; var main = top.parentNode, det = document.getElementById('ck-details');
+  if (on) { if (!det) { det = document.createElement('details'); det.id = 'ck-details'; det.innerHTML = '<summary>Analyses détaillées : sources, mandataires et agences, appels, ventes, historique</summary>'; main.insertBefore(det, top.nextSibling); var n = det.nextSibling; while (n) { var s = n.nextSibling; det.appendChild(n); n = s; } } }
+  else if (det) { var f = det.firstChild; var frag = document.createDocumentFragment(); while (f) { var s2 = f.nextSibling; if (f.tagName !== 'SUMMARY') frag.appendChild(f); f = s2; } main.insertBefore(frag, det); det.remove(); }
+}
+function ckChoisir(orb) {
+  _ck.sel = orb || ''; var el = document.getElementById('ck'); if (el) el.setAttribute('data-sel', _ck.sel);
+  document.querySelectorAll('.ck-panel').forEach(function(p) { p.classList.toggle('on', p.id === 'ck-p-' + _ck.sel); });
+  (_ck.anneaux || []).forEach(function(a, i) { var base = CK_ANNEAUX[i]; if (!_ck.sel) { a.vr = base.r; a.vinc = base.inc; a.vaz = base.az; a.vk = 1; a.val = 1; } else if (a.id === _ck.sel) { a.vr = base.r * 1.12; a.vinc = 1.0; a.vaz = 0.35; a.vk = 1.25; a.val = 1; } else { a.vr = base.r * 0.9; a.vinc = base.inc + 0.18; a.vaz = base.az + 0.6; a.vk = 0.7; a.val = 0.45; } });
+  ckRendreSide(); ckAnimer();
+}
+function ckAnimer() { cancelAnimationFrame(_ck.raf); _ck.raf = 0; var cv = document.getElementById('ck-canvas'); if (!cv) return; var calme = ckCalme(), t0 = performance.now();
+  var pas = function(now) { var el = document.getElementById('ck-canvas'); if (!el) return; var bouge = false; (_ck.anneaux || []).forEach(function(a) { ['r', 'inc', 'az', 'k', 'al'].forEach(function(p) { var v = a['v' + p], d = v - a[p]; if (Math.abs(d) > 0.0015) { a[p] += d * 0.12; bouge = true; } else a[p] = v; }); });
+    ckDessiner(calme ? 0 : (now - t0) / 1000); if (!calme || bouge) _ck.raf = requestAnimationFrame(pas); else _ck.raf = 0; };
+  _ck.raf = requestAnimationFrame(pas);
+}
+function ckHit(x, y) { var c = _ck.geo; if (!c) return ''; if (Math.hypot(x - c.cx, y - c.cy) <= c.R) return 'noyau'; var best = '', bd = 1e9; (_ck.anneaux || []).forEach(function(a) { (a.pts || []).forEach(function(p) { var d = Math.hypot(x - p.x, y - p.y); if (d < bd) { bd = d; best = a.id; } }); }); return bd < 14 ? best : ''; }
+// Rendu : projection perspective d'anneaux (cercles 3D inclinés), tri devant / derrière le noyau, matériaux par thème
+function ckDessiner(tps) {
+  var cv = document.getElementById('ck-canvas'), sc = document.getElementById('ck-scene'); if (!cv || !sc) return; var W = sc.clientWidth, H = sc.clientHeight, dpr = window.devicePixelRatio || 1; if (!W || !H) return;
+  if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
+  var g = cv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, H);
+  var sombre = document.documentElement.getAttribute('data-theme') === 'dark', cx = W * 0.5, cy = H * 0.52, R = Math.min(W, H) * 0.19, base = Math.min(W * 0.42, H * 0.62), f = 900, camZ = 1000, tilt = 0.95;
+  _ck.geo = { cx: cx, cy: cy, R: R };
+  // fond : bleu nuit uniforme + halo discret en sombre ; blanc + léger voile bleuté en clair
+  var fond = g.createRadialGradient(cx, cy + R * 0.6, R * 0.5, cx, cy, Math.max(W, H) * 0.75); if (sombre) { fond.addColorStop(0, '#0E2238'); fond.addColorStop(1, '#071321'); } else { fond.addColorStop(0, '#F3F7FC'); fond.addColorStop(1, '#FFFFFF'); } g.fillStyle = fond; g.fillRect(0, 0, W, H);
+  // socle : ellipse avec anneaux concentriques fins et ombre du noyau
+  var ry = base * 0.38, oy = cy + R * 0.95; g.save(); g.translate(cx, oy); g.scale(1, ry / base); var so = g.createRadialGradient(0, 0, R * 0.4, 0, 0, base); so.addColorStop(0, sombre ? 'rgba(86,200,237,.16)' : 'rgba(47,111,181,.12)'); so.addColorStop(0.55, sombre ? 'rgba(86,200,237,.05)' : 'rgba(47,111,181,.04)'); so.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = so; g.beginPath(); g.arc(0, 0, base, 0, Math.PI * 2); g.fill();
+  g.strokeStyle = sombre ? 'rgba(86,200,237,.18)' : 'rgba(47,111,181,.16)'; g.lineWidth = 1; [0.55, 0.78, 1].forEach(function(q) { g.beginPath(); g.arc(0, 0, base * q, 0, Math.PI * 2); g.stroke(); });
+  var om = g.createRadialGradient(0, 0, R * 0.2, 0, 0, R * 1.3); om.addColorStop(0, sombre ? 'rgba(0,0,0,.55)' : 'rgba(24,54,84,.28)'); om.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = om; g.beginPath(); g.arc(0, 0, R * 1.3, 0, Math.PI * 2); g.fill(); g.restore();
+  // anneaux : points 3D → écran ; chaque segment porte sa profondeur
+  var proj = function(x, y, z) { var s = f / (camZ - z); return { x: cx + x * s, y: cy + y * s, z: z, s: s }; };
+  var segs = [];
+  (_ck.anneaux || []).forEach(function(a) { var rr = base * a.r, N = 160, pts = []; var ca = Math.cos(a.az), sa = Math.sin(a.az), ci = Math.cos(a.inc), si = Math.sin(a.inc), ct = Math.cos(tilt), st = Math.sin(tilt);
+    for (var i = 0; i <= N; i++) { var th = i / N * Math.PI * 2, x0 = rr * Math.cos(th), y0 = rr * Math.sin(th), z0 = 0; var y1 = y0 * ci - z0 * si, z1 = y0 * si + z0 * ci, x1 = x0; var x2 = x1 * ca - y1 * sa, y2 = x1 * sa + y1 * ca, z2 = z1; var y3 = y2 * ct - z2 * st, z3 = y2 * st + z2 * ct; pts.push(proj(x2, y3, z3)); }
+    a.pts = pts.filter(function(_, i) { return i % 4 === 0; }); a.ptsTous = pts;
+    // satellite
+    var ph = a.phase + (tps || 0) * (0.08 / a.r); var idx = Math.floor(((ph % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2) / (Math.PI * 2) * N); a.sat = pts[idx]; });
+  // tracé par tronçons continus (une passe derrière le noyau, une passe devant) : pas de pointillés aux jointures, largeur et lumière selon la profondeur moyenne du tronçon
+  var dessinerRuns = function(filtre) { (_ck.anneaux || []).forEach(function(a) { var pts = a.ptsTous, N = pts.length - 1, runs = [], cur = null; for (var k = 0; k < N; k++) { var z = (pts[k].z + pts[k + 1].z) / 2, ok = filtre(z); if (ok) { if (!cur) { cur = { i0: k, i1: k + 1, z: 0, n: 0, s: 0 }; } cur.i1 = k + 1; cur.z += z; cur.n++; cur.s += pts[k].s; } else if (cur) { runs.push(cur); cur = null; } } if (cur) runs.push(cur);
+    runs.forEach(function(r) { var zm = r.z / r.n, sm = r.s / r.n, prof = (zm + base) / (2 * base), col = sombre ? a.cd : a.c, al = Math.max(0.1, Math.min(1, a.al * (0.5 + 0.5 * prof))), w = a.ep * a.k * sm * (0.6 + 0.4 * prof);
+      var trace = function(dy) { g.beginPath(); for (var i = r.i0; i <= r.i1; i++) { var pt = pts[i]; i === r.i0 ? g.moveTo(pt.x, pt.y + dy) : g.lineTo(pt.x, pt.y + dy); } g.stroke(); };
+      g.lineCap = 'round'; g.lineJoin = 'round'; g.globalAlpha = al * 0.35; g.strokeStyle = col; g.lineWidth = w * 1.9; trace(0); // halo doux
+      g.globalAlpha = al; g.lineWidth = w; trace(0);
+      g.globalAlpha = al * (a.id === _ck.sel || !_ck.sel ? 0.55 : 0.25); g.strokeStyle = '#FFFFFF'; g.lineWidth = Math.max(1, w * 0.22); trace(-w * 0.28); // arête lumineuse
+      g.globalAlpha = 1; }); }); };
+  dessinerRuns(function(z) { return z < 0; });
+  // noyau : face sombre, reflet localisé, bordure épaisse, anneau de progression
+  var sph = g.createRadialGradient(cx - R * 0.35, cy - R * 0.4, R * 0.1, cx + R * 0.15, cy + R * 0.2, R * 1.15);
+  if (sombre) { sph.addColorStop(0, '#6FB7E3'); sph.addColorStop(0.35, '#2B6FA6'); sph.addColorStop(0.75, '#0F3556'); sph.addColorStop(1, '#071E33'); } else { sph.addColorStop(0, '#FFFFFF'); sph.addColorStop(0.3, '#DCE9F7'); sph.addColorStop(0.72, '#7FA3CC'); sph.addColorStop(1, '#2E5584'); }
+  g.fillStyle = sph; g.beginPath(); g.arc(cx, cy, R, 0, Math.PI * 2); g.fill();
+  var ombreFace = g.createRadialGradient(cx + R * 0.45, cy + R * 0.5, R * 0.1, cx, cy, R); ombreFace.addColorStop(0, 'rgba(0,0,0,.42)'); ombreFace.addColorStop(0.6, 'rgba(0,0,0,.12)'); ombreFace.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = ombreFace; g.beginPath(); g.arc(cx, cy, R, 0, Math.PI * 2); g.fill();
+  var refl = g.createRadialGradient(cx - R * 0.42, cy - R * 0.48, 0, cx - R * 0.42, cy - R * 0.48, R * 0.5); refl.addColorStop(0, 'rgba(255,255,255,.85)'); refl.addColorStop(0.35, 'rgba(255,255,255,.25)'); refl.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = refl; g.beginPath(); g.arc(cx, cy, R, 0, Math.PI * 2); g.fill();
+  g.lineWidth = Math.max(4, R * 0.09); g.strokeStyle = sombre ? 'rgba(201,232,250,.55)' : 'rgba(47,111,181,.55)'; g.beginPath(); g.arc(cx, cy, R - g.lineWidth / 2, 0, Math.PI * 2); g.stroke();
+  g.lineWidth = 1.5; g.strokeStyle = sombre ? 'rgba(255,255,255,.35)' : 'rgba(255,255,255,.9)'; g.beginPath(); g.arc(cx, cy, R - Math.max(4, R * 0.09) + 1, 0, Math.PI * 2); g.stroke();
+  // progression : arc épais sur la bordure
+  var p = Math.max(0, Math.min(100, _ck.pct || 0)) / 100; g.lineCap = 'round'; g.lineWidth = Math.max(5, R * 0.11); g.strokeStyle = sombre ? 'rgba(86,200,237,.25)' : 'rgba(47,111,181,.18)'; g.beginPath(); g.arc(cx, cy, R + g.lineWidth * 0.9, 0, Math.PI * 2); g.stroke();
+  g.strokeStyle = sombre ? '#56C8ED' : '#2F6FB5'; g.beginPath(); g.arc(cx, cy, R + g.lineWidth * 0.9, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * p); g.stroke();
+  dessinerRuns(function(z) { return z >= 0; });
+  // satellites (devant si z >= 0)
+  (_ck.anneaux || []).forEach(function(a) { var s = a.sat; if (!s) return; var rs = 4 * s.s + (a.id === _ck.sel ? 2 : 0); g.globalAlpha = a.al; var gl = g.createRadialGradient(s.x, s.y, 0, s.x, s.y, rs * 3); gl.addColorStop(0, sombre ? 'rgba(255,255,255,.9)' : 'rgba(47,111,181,.9)'); gl.addColorStop(0.35, sombre ? 'rgba(86,200,237,.5)' : 'rgba(47,111,181,.35)'); gl.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gl; g.beginPath(); g.arc(s.x, s.y, rs * 3, 0, Math.PI * 2); g.fill(); g.fillStyle = sombre ? '#FFFFFF' : '#2F6FB5'; g.beginPath(); g.arc(s.x, s.y, rs, 0, Math.PI * 2); g.fill(); g.globalAlpha = 1; });
+  var txt = document.getElementById('ck-core-txt'); if (txt) { txt.style.left = cx + 'px'; txt.style.top = cy + 'px'; }
+}
 function ckPct(a, b) { return b ? Math.round(a / b * 100) + ' %' : 'non disponible'; }
 function ckRendreSide() {
   var side = document.getElementById('ck-side'), c = _ck.ctx; if (!side || !c) return; var k = c.k, u = sdTunnelMois(getRdvs(state.month, state.year)), ap = k.jourJ || sdAttenduPourRien([]), mk = c.yr + '-' + String(c.mIdx + 1).padStart(2, '0');
@@ -9641,37 +9688,43 @@ function ckRendreSide() {
       + '</div></div>';
   }
 }
-// Trajectoire : commission cumulée par date de signature (ventes du mois), face à la ligne d'objectif répartie sur les jours ouvrés. Les primes ne sont pas datables : indiquées à part.
+// Trajectoire : commission cumulée par date de signature (ventes du mois) ; ligne d'objectif répartie sur les jours ouvrés, exactement l'objectif en fin de mois ; projection pointillée au rythme réalisé. Les primes ne sont pas datables : indiquées à part.
 function ckDessinerTrajectoire(c) {
-  var cv = document.getElementById('ck-traj'); if (!cv) return; var k = c.k, dIM = new Date(c.yr, c.mIdx + 1, 0).getDate(), W = cv.clientWidth || 600, H = 190; cv.width = W * (window.devicePixelRatio || 1); cv.height = H * (window.devicePixelRatio || 1); var g = cv.getContext('2d'); g.scale(window.devicePixelRatio || 1, window.devicePixelRatio || 1);
-  var css = getComputedStyle(document.getElementById('ck')), cyan = css.getPropertyValue('--ck-cyan').trim() || '#1E8FB8', muted = css.getPropertyValue('--ck-muted').trim() || '#888', line = css.getPropertyValue('--ck-line').trim() || '#ccc', txt = getComputedStyle(document.body).getPropertyValue('--text').trim() || '#333';
+  var cv = document.getElementById('ck-traj'); if (!cv) return; var k = c.k, dIM = new Date(c.yr, c.mIdx + 1, 0).getDate(), W = cv.clientWidth || 600, H = 200, dpr = window.devicePixelRatio || 1; cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); var g = cv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  var sombre = document.documentElement.getAttribute('data-theme') === 'dark', cyan = sombre ? '#56C8ED' : '#2F6FB5', muted = sombre ? '#93AEC6' : '#6B7F94', line = sombre ? 'rgba(86,200,237,.14)' : 'rgba(47,111,181,.14)';
   var parJour = Array(dIM + 1).fill(0), sansDate = 0, now = new Date(), aujourdhui = c.courant ? now.getDate() : dIM;
   (k.signesRows || []).forEach(function(v) { var p = String(v.dateSignature || v.date || '').split('/'); var j = p.length === 3 && +p[1] === c.mIdx + 1 && +p[2] === c.yr ? +p[0] : 0; var m = getComm(v); if (j >= 1 && j <= dIM) parJour[j] += m; else sansDate += m; });
   var cum = [], s = 0; for (var j = 1; j <= dIM; j++) { s += parJour[j]; cum.push(s); }
   var primes = Math.max(0, (c.comm || 0) - s - sansDate);
   var ouvres = []; for (var d = 1; d <= dIM; d++) { var dd = new Date(c.yr, c.mIdx, d); ouvres.push(dd.getDay() !== 0 && dd.getDay() !== 6 && !(typeof rlFerie === 'function' && rlFerie(rlIso(dd)))); }
   var nbO = ouvres.filter(Boolean).length || 1, objLigne = [], cpt = 0; for (var d2 = 0; d2 < dIM; d2++) { if (ouvres[d2]) cpt++; objLigne.push(c.obj * cpt / nbO); }
-  var max = Math.max(c.obj, s, 1) * 1.08, pl = 44, pr = 10, pt = 12, pb = 24, x = function(j) { return pl + (W - pl - pr) * (j - 1) / Math.max(1, dIM - 1); }, y = function(v) { return pt + (H - pt - pb) * (1 - v / max); };
+  // projection : rythme réalisé par jour ouvré écoulé, prolongé sur les jours ouvrés restants
+  var ecoules = 0; for (var e = 0; e < aujourdhui; e++) if (ouvres[e]) ecoules++; var rythme = ecoules ? s / ecoules : 0, proj = [], acc = s, cp2 = 0; for (var q = 0; q < dIM; q++) { if (q + 1 > aujourdhui && ouvres[q]) acc += rythme; proj.push(q + 1 >= aujourdhui ? acc : null); }
+  var max = Math.max(c.obj, s, c.courant ? acc : 0, 1) * 1.08, pl = 46, pr = 12, pt = 12, pb = 24, x = function(j) { return pl + (W - pl - pr) * (j - 1) / Math.max(1, dIM - 1); }, y = function(v) { return pt + (H - pt - pb) * (1 - v / max); };
   g.clearRect(0, 0, W, H); g.font = '11px system-ui, sans-serif'; g.fillStyle = muted; g.strokeStyle = line; g.lineWidth = 1;
-  for (var i = 0; i <= 3; i++) { var v = max * i / 3; g.beginPath(); g.moveTo(pl, y(v)); g.lineTo(W - pr, y(v)); g.stroke(); g.fillText(Math.round(v / 100) * 100 >= 1000 ? Math.round(v / 1000) + ' k€' : Math.round(v) + ' €', 2, y(v) + 4); }
+  for (var i = 0; i <= 3; i++) { var v = max * i / 3; g.beginPath(); g.moveTo(pl, y(v)); g.lineTo(W - pr, y(v)); g.stroke(); g.fillText(v >= 1000 ? (Math.round(v / 100) / 10).toLocaleString('fr-FR') + ' k€' : Math.round(v) + ' €', 2, y(v) + 4); }
   [1, 5, 10, 15, 20, 25, dIM].forEach(function(j) { g.fillText(j + ' ' + ['janv.','févr.','mars','avr.','mai','juin','juil.','août','sept.','oct.','nov.','déc.'][c.mIdx], x(j) - 10, H - 6); });
-  g.setLineDash([5, 4]); g.strokeStyle = muted; g.beginPath(); for (var a = 0; a < dIM; a++) { a === 0 ? g.moveTo(x(1), y(objLigne[0])) : g.lineTo(x(a + 1), y(objLigne[a])); } g.stroke(); g.setLineDash([]);
-  g.strokeStyle = cyan; g.lineWidth = 2.5; g.beginPath(); for (var b = 0; b < aujourdhui; b++) { b === 0 ? g.moveTo(x(1), y(cum[0])) : g.lineTo(x(b + 1), y(cum[b])); } g.stroke();
-  g.fillStyle = cyan; for (var q = 1; q <= aujourdhui; q++) { if (parJour[q] > 0) { g.beginPath(); g.arc(x(q), y(cum[q - 1]), 4, 0, Math.PI * 2); g.fill(); } }
-  if (c.courant) { g.strokeStyle = line; g.setLineDash([2, 3]); g.beginPath(); g.moveTo(x(aujourdhui), pt); g.lineTo(x(aujourdhui), H - pb); g.stroke(); g.setLineDash([]); }
-  var note = document.getElementById('ck-traj-note'); if (note) note.textContent = (k.signesRows || []).length ? ('ventes datées ' + Math.round(s).toLocaleString('fr-FR') + ' €' + (primes > 0 ? ' · primes non datables ' + Math.round(primes).toLocaleString('fr-FR') + ' €, hors courbe' : '') + (sansDate > 0 ? ' · ' + Math.round(sansDate).toLocaleString('fr-FR') + ' € sans date de signature' : '')) : 'aucune vente ce mois';
+  g.setLineDash([6, 4]); g.strokeStyle = muted; g.lineWidth = 1.5; g.beginPath(); for (var a = 0; a < dIM; a++) { a === 0 ? g.moveTo(x(1), y(objLigne[0])) : g.lineTo(x(a + 1), y(objLigne[a])); } g.stroke(); g.setLineDash([]);
+  g.fillStyle = muted; g.fillText('objectif ' + Math.round(c.obj).toLocaleString('fr-FR') + ' €', W - pr - 110, y(c.obj) - 6);
+  if (c.courant && rythme > 0) { g.setLineDash([2, 4]); g.strokeStyle = cyan; g.lineWidth = 1.5; g.beginPath(); var first = true; for (var b2 = 0; b2 < dIM; b2++) { if (proj[b2] === null) continue; first ? g.moveTo(x(b2 + 1), y(proj[b2])) : g.lineTo(x(b2 + 1), y(proj[b2])); first = false; } g.stroke(); g.setLineDash([]); }
+  var area = g.createLinearGradient(0, pt, 0, H - pb); area.addColorStop(0, sombre ? 'rgba(86,200,237,.28)' : 'rgba(47,111,181,.22)'); area.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = area; g.beginPath(); g.moveTo(x(1), y(0)); for (var b = 0; b < aujourdhui; b++) g.lineTo(x(b + 1), y(cum[b])); g.lineTo(x(aujourdhui), y(0)); g.closePath(); g.fill();
+  g.strokeStyle = cyan; g.lineWidth = 2.5; g.beginPath(); for (var b3 = 0; b3 < aujourdhui; b3++) { b3 === 0 ? g.moveTo(x(1), y(cum[0])) : g.lineTo(x(b3 + 1), y(cum[b3])); } g.stroke();
+  g.fillStyle = cyan; for (var q2 = 1; q2 <= aujourdhui; q2++) { if (parJour[q2] > 0) { g.beginPath(); g.arc(x(q2), y(cum[q2 - 1]), 4, 0, Math.PI * 2); g.fill(); } }
+  if (c.courant) { g.strokeStyle = muted; g.setLineDash([2, 3]); g.beginPath(); g.moveTo(x(aujourdhui), pt); g.lineTo(x(aujourdhui), H - pb); g.stroke(); g.setLineDash([]); }
+  var note = document.getElementById('ck-traj-note'); if (note) note.textContent = (k.signesRows || []).length ? ('ventes datées ' + Math.round(s).toLocaleString('fr-FR') + ' €' + (primes > 0 ? ' · primes ' + Math.round(primes).toLocaleString('fr-FR') + ' € non datables, hors courbe' : '') + (sansDate > 0 ? ' · ' + Math.round(sansDate).toLocaleString('fr-FR') + ' € sans date de signature' : '')) : 'aucune vente ce mois';
+  var lg = document.getElementById('ck-traj-lg'); if (lg) lg.innerHTML = '<span><i></i>réalisé</span><span><i class="obj"></i>objectif</span>' + (c.courant && rythme > 0 ? '<span><i class="proj"></i>projection au rythme actuel : ' + Math.round(acc).toLocaleString('fr-FR') + ' € en fin de mois</span>' : '');
 }
-// Comparaison : le mois affiché face à la moyenne des 3 derniers mois finis, sur les mêmes définitions (présence, closing cohorte, commission)
+// Comparaison : le mois affiché face à la moyenne des 3 derniers mois finis (présence, closing cohorte, commission, signatures), mêmes définitions
 function ckRendreComparaison(c) {
   var el = document.getElementById('ck-cmp'), k = c.k, s3 = c.s3 || {}; if (!el) return; var nb = s3.moisAvecDonnees || 0;
-  if (!nb) { el.innerHTML = '<div class="pf-note">Pas encore 3 mois finis d\'historique.</div>'; return; }
+  if (!nb) { el.innerHTML = '<div class="pf-note">Comparaison indisponible pour cette période.</div>'; return; }
   var ligne = function(lab, v, ref, unite, maxv) { var m = Math.max(maxv || 0, v || 0, ref || 0, 1); return '<div class="r"><span>' + lab + '</span><div class="b"><i style="width:' + Math.round((v || 0) / m * 100) + '%"></i><span>' + (v === null ? '—' : Math.round(v).toLocaleString('fr-FR') + unite) + '</span></div><div class="b ref"><i style="width:' + Math.round((ref || 0) / m * 100) + '%"></i><span>' + (ref === null ? '—' : Math.round(ref).toLocaleString('fr-FR') + unite) + '</span></div></div>'; };
-  el.innerHTML = '<div class="lg"><span><i></i>' + escapeHtml(state.month) + (c.courant ? ' (en cours)' : '') + '</span><span><i class="ref"></i>moyenne ' + nb + ' mois</span></div>'
+  el.innerHTML = '<div class="lg"><span><i></i>' + escapeHtml(state.month) + (c.courant ? ' (en cours)' : '') + '</span><span><i class="ref"></i>moyenne ' + nb + ' mois finis</span></div>'
     + ligne('Présence', k.total ? Math.round(k.shows / k.total * 100) : null, s3.showRate, ' %', 100)
     + ligne('Closing cohorte', k.shows ? k.closing : null, s3.closingRate, ' %', 100)
     + ligne('Commission', c.comm, nb ? s3.totalCommission / nb : null, ' €', 0)
     + ligne('Signatures', k.signes || 0, nb ? s3.totalSignes / nb : null, '', 0)
-    + '<div class="pf-note" style="margin-top:4px;">' + (c.courant ? 'Mois en cours : la comparaison à nombre de jours travaillés équivalent arrive en phase 2 ; ici c\'est le mois entier face à des mois complets.' : 'Mois complet face à la moyenne de tes 3 derniers mois finis.') + '</div>';
+    + (c.courant ? '<div class="pf-note" style="margin-top:4px;">Mois en cours face à des mois complets.</div>' : '');
 }
 function pfMois(d) {
   var M = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
