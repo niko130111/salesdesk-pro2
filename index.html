@@ -183,6 +183,7 @@ main { max-width: 100%; margin: 0; padding: 6px 8px; }
 
 /* Tooltip détail No Show au hover */
 .noshow-tooltip { position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%); background: var(--text); color: white; padding: 10px 14px; border-radius: 8px; font-size: 12px; line-height: 1.6; min-width: 220px; box-shadow: 0 4px 12px rgba(0,0,0,.18); opacity: 0; pointer-events: none; transition: opacity .15s; z-index: 100; white-space: nowrap; }
+#kpi-noshow-card .noshow-tooltip { left: auto; right: 0; transform: none; min-width: 300px; } /* carte la plus à droite : l'infobulle s'ouvre vers la gauche, sinon elle sort de l'écran */
 .noshow-tooltip::after { content: ''; position: absolute; top: 100%; left: 50%; transform: translateX(-50%); border: 6px solid transparent; border-top-color: var(--text); }
 .noshow-tooltip-row { display: flex; justify-content: space-between; gap: 16px; }
 .noshow-tooltip-row + .noshow-tooltip-row { margin-top: 4px; }
@@ -1708,7 +1709,7 @@ select.form-input { cursor: pointer; }
       <div class="kpi-sub" id="kpi-showrate-sub">4 présents</div>
       <div class="kpi-vs"><span id="bench-showrate">—</span></div>
     </div>
-    <div class="kpi-card has-noshow-tooltip">
+    <div class="kpi-card has-noshow-tooltip" id="kpi-noshow-card">
       <div class="kpi-label" id="kpi-noshow-label">Non tenus le jour J</div>
       <div class="kpi-value red" id="kpi-noshow">33%</div>
       <div class="kpi-sub" id="kpi-noshow-sub">2 absents</div>
@@ -1716,8 +1717,13 @@ select.form-input { cursor: pointer; }
       <div class="kpi-vs"><span id="bench-noshow">—</span></div>
       <div class="noshow-tooltip" id="kpi-noshow-tooltip">
         <div class="noshow-tooltip-row"><span class="noshow-tooltip-label">🚫 No-show</span><span class="noshow-tooltip-value" id="tt-ana-ns">—</span></div>
-        <div class="noshow-tooltip-row"><span class="noshow-tooltip-label">📅 Annulés / reprog. le jour J</span><span class="noshow-tooltip-value" id="tt-ana-aj">—</span></div>
-        <div class="noshow-tooltip-row"><span class="noshow-tooltip-label">⏩ Annulés / reprog. à l'avance</span><span class="noshow-tooltip-value" id="tt-ana-av">—</span></div>
+        <div class="noshow-tooltip-row"><span class="noshow-tooltip-label">❌ Annulés le jour J</span><span class="noshow-tooltip-value" id="tt-ana-aj">—</span></div>
+        <div class="noshow-tooltip-row"><span class="noshow-tooltip-label">🔄 Reprogrammés le jour J</span><span class="noshow-tooltip-value" id="tt-ana-rj">—</span></div>
+        <div class="noshow-tooltip-row" style="font-weight:700;"><span class="noshow-tooltip-label">= Non tenus le jour J</span><span class="noshow-tooltip-value" id="tt-ana-jj">—</span></div>
+        <div class="noshow-tooltip-row"><span class="noshow-tooltip-label">❌ Annulés à l'avance</span><span class="noshow-tooltip-value" id="tt-ana-aa">—</span></div>
+        <div class="noshow-tooltip-row"><span class="noshow-tooltip-label">🔄 Reprogrammés à l'avance</span><span class="noshow-tooltip-value" id="tt-ana-ra">—</span></div>
+        <div class="noshow-tooltip-row" style="font-weight:700;"><span class="noshow-tooltip-label">= Non tenus au total</span><span class="noshow-tooltip-value" id="tt-ana-tot">—</span></div>
+        <div class="noshow-tooltip-row" id="tt-ana-sh-row" style="opacity:.7;"><span class="noshow-tooltip-label">heure d'annulation inconnue</span><span class="noshow-tooltip-value" id="tt-ana-sh">—</span></div>
       </div>
     </div>
     </div></div>
@@ -3635,13 +3641,17 @@ function sdRattraperAnnuleLe(store) {
     store[k].forEach(function(r) { if (!r || r.annuleLe || String(r.presence || '').trim() !== 'Annulé' || !r.date) return; var iso = String(r.date).split('/').reverse().join('-'); var at = parCle[iso + '|' + String(r.client || '').toLowerCase().replace(/\s+/g, ' ').trim()]; if (at) r.annuleLe = at; });
   });
 }
-// Attendu pour rien : no-show, plus les annulations et reprogrammations faites le jour même du RDV (heure connue). R1 seulement.
+// Non tenus le jour J : no-show, plus les annulations et les reprogrammations faites le jour même du RDV (heure connue, lue en heure de Paris). R1 seulement.
 // Compté à partir de mai 2026 seulement : avant, Calendly ne donne pas l'heure des annulations (demande de Nicolas, 11 oct. 2026).
+// Retour : noShow, annulesJour, reprogJour, annulesAvance, reprogAvance, sansHeure (annulé / reprogrammé sans heure connue : compté « à l'avance »), total (= non tenus le jour J), bouges (= annulés + reprogrammés, tous), horsPeriode.
 var ATTENDU_DEPUIS = '2026-05';
+function sdJourParis(iso) { try { return new Intl.DateTimeFormat('fr-CA', { timeZone: 'Europe/Paris', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(iso)); } catch (e) { return String(iso || '').slice(0, 10); } }
 function sdAttenduPourRien(rows) {
-  var ns = 0, jour = 0, inconnu = 0, bouges = 0, horsPeriode = true;
-  (rows || []).forEach(function(r) { if (!r || r.source === 'R2') return; var iso0 = String(r.date || '').split('/').reverse().join('-'); if (iso0 < ATTENDU_DEPUIS) return; horsPeriode = false; var p = String(r.presence || '').trim(); if (p === 'No Show') ns++; else if (p === 'Annulé' || p === 'Reprogrammé') { bouges++; if (!r.annuleLe) inconnu++; else { var iso = String(r.date || '').split('/').reverse().join('-'); if (String(r.annuleLe).slice(0, 10) === iso) jour++; } } });
-  return { noShow: ns, annulesJour: jour, bouges: bouges, annulesSansHeure: inconnu, total: ns + jour, horsPeriode: horsPeriode };
+  var ns = 0, aJ = 0, rJ = 0, aA = 0, rA = 0, inconnu = 0, horsPeriode = true;
+  (rows || []).forEach(function(r) { if (!r || r.source === 'R2') return; var iso0 = String(r.date || '').split('/').reverse().join('-'); if (iso0 < ATTENDU_DEPUIS) return; horsPeriode = false; var p = String(r.presence || '').trim();
+    if (p === 'No Show') ns++;
+    else if (p === 'Annulé' || p === 'Reprogrammé') { var jourJ = !!r.annuleLe && sdJourParis(r.annuleLe) === iso0; if (!r.annuleLe) inconnu++; if (p === 'Annulé') { if (jourJ) aJ++; else aA++; } else { if (jourJ) rJ++; else rA++; } } });
+  return { noShow: ns, annulesJour: aJ, reprogJour: rJ, annulesAvance: aA, reprogAvance: rA, sansHeure: inconnu, annulesSansHeure: inconnu, bouges: aJ + rJ + aA + rA, total: ns + aJ + rJ, horsPeriode: horsPeriode };
 }
 // Rattrapage depuis Calendly (via le copilot) : l'heure d'annulation / de déplacement des lignes qui ne l'ont pas encore. Une fois par session.
 function sdRattraperAnnuleLeCalendly() {
@@ -9153,8 +9163,13 @@ function renderKpis(kpis) {
   const _apr = kpis.jourJ || sdAttenduPourRien(_rowsAna), _base = kpis.total || 0;
   const _pctB = (n) => _base > 0 ? ' (' + Math.round(n/_base*100) + '%)' : '';
   // Carte « Non tenus le jour J » : le grand chiffre et le détail court ; le reste dans l'infobulle. Avant mai 2026 : la totalité des non tenus.
-  if (_apr.horsPeriode) { set('kpi-noshow-label', 'Non tenus'); set('kpi-noshow', kpis.noshowrate + '%'); set('kpi-noshow-sub', kpis.noshow + ' sur ' + _base + ' RDV'); set('tt-ana-ns', _nsAna + _pctB(_nsAna)); set('tt-ana-aj', '— (mesuré depuis mai 2026)'); set('tt-ana-av', (_anAna + _reAna) + _pctB(_anAna + _reAna)); }
-  else { set('kpi-noshow-label', 'Non tenus le jour J'); set('kpi-noshow', kpis.noshowrate + '%'); set('kpi-noshow-sub', kpis.noshow + ' sur ' + _base + ' RDV'); set('tt-ana-ns', _apr.noShow + _pctB(_apr.noShow)); set('tt-ana-aj', _apr.annulesJour + _pctB(_apr.annulesJour) + (_apr.annulesSansHeure ? ' · ' + _apr.annulesSansHeure + ' sans heure' : '')); set('tt-ana-av', (_anAna + _reAna - _apr.annulesJour) + ' (hors base)'); }
+  const _pris = kpis.rdvPris || _rowsAna.length, _pctP = (n) => _pris > 0 ? ' (' + Math.round(n/_pris*100) + '%)' : '';
+  const _shRow = document.getElementById('tt-ana-sh-row');
+  if (_apr.horsPeriode) { set('kpi-noshow-label', 'Non tenus'); set('kpi-noshow', kpis.noshowrate + '%'); set('kpi-noshow-sub', kpis.noshow + ' sur ' + _base + ' RDV'); set('tt-ana-ns', _nsAna + _pctB(_nsAna)); set('tt-ana-aj', '—'); set('tt-ana-rj', '—'); set('tt-ana-jj', 'mesuré depuis mai 2026'); set('tt-ana-aa', _anAna + _pctB(_anAna)); set('tt-ana-ra', _reAna + _pctB(_reAna)); set('tt-ana-tot', kpis.noshow + ' sur ' + _base + _pctB(kpis.noshow)); if (_shRow) _shRow.style.display = 'none'; }
+  else { set('kpi-noshow-label', 'Non tenus le jour J'); set('kpi-noshow', kpis.noshowrate + '%'); set('kpi-noshow-sub', kpis.noshow + ' sur ' + _base + ' RDV');
+    set('tt-ana-ns', _apr.noShow + _pctB(_apr.noShow)); set('tt-ana-aj', _apr.annulesJour + _pctB(_apr.annulesJour)); set('tt-ana-rj', _apr.reprogJour + _pctB(_apr.reprogJour)); set('tt-ana-jj', _apr.total + ' sur ' + _base + _pctB(_apr.total));
+    set('tt-ana-aa', _apr.annulesAvance + ''); set('tt-ana-ra', _apr.reprogAvance + ''); set('tt-ana-tot', (_apr.total + _apr.annulesAvance + _apr.reprogAvance) + ' sur ' + _pris + ' RDV pris' + _pctP(_apr.total + _apr.annulesAvance + _apr.reprogAvance));
+    if (_shRow) _shRow.style.display = _apr.sansHeure ? '' : 'none'; set('tt-ana-sh', _apr.sansHeure + ' (comptés à l\'avance)'); }
   set('kpi-signes', kpis.signes);
   set('kpi-closing', kpis.closing + '%');
   set('kpi-oneshot', kpis.hasOneShot ? (kpis.oneshot ?? '—') : '—');
