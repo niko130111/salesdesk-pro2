@@ -1713,13 +1713,13 @@ select.form-input { cursor: pointer; }
       <div class="kpi-value red" id="kpi-noshow">33%</div>
       <div class="kpi-sub" id="kpi-noshow-sub">2 absents</div>
       <div class="kpi-sub" id="kpi-noshow-detail" style="font-size:10.5px;opacity:.75;">—</div>
-      <div class="kpi-sub" id="kpi-attendu" style="font-size:11px;font-weight:700;color:var(--red);" title="No-show + annulations et reprogrammations faites le jour même du RDV : tu as attendu pour rien">—</div>
+      <div class="kpi-sub" id="kpi-attendu" style="font-size:11px;font-weight:700;color:var(--red);" title="No-show + annulations et reprogrammations faites le jour même du RDV : le créneau était bloqué et n'a pas pu être réutilisé">—</div>
       <div class="kpi-vs"><span id="bench-noshow">—</span></div>
       <div class="noshow-tooltip" id="kpi-noshow-tooltip">
         <div class="noshow-tooltip-row"><span class="noshow-tooltip-label">🚫 Vrais No Show</span><span class="noshow-tooltip-value" id="tt-ana-ns">—</span></div>
         <div class="noshow-tooltip-row"><span class="noshow-tooltip-label">❌ Annulés</span><span class="noshow-tooltip-value" id="tt-ana-an">—</span></div>
         <div class="noshow-tooltip-row"><span class="noshow-tooltip-label">🔄 Reprogrammés</span><span class="noshow-tooltip-value" id="tt-ana-re">—</span></div>
-        <div class="noshow-tooltip-row"><span class="noshow-tooltip-label">⏳ Annulés / reprogrammés le jour même</span><span class="noshow-tooltip-value" id="tt-ana-aj">—</span></div>
+        <div class="noshow-tooltip-row"><span class="noshow-tooltip-label">📅 Annulés / reprogrammés le jour J</span><span class="noshow-tooltip-value" id="tt-ana-aj">—</span></div>
       </div>
     </div>
     </div></div>
@@ -9154,7 +9154,7 @@ function renderKpis(kpis) {
   set('tt-ana-re', _reAna + _pctAna(_reAna));
   const _apr = sdAttenduPourRien(_rowsAna);
   set('tt-ana-aj', _apr.horsPeriode ? '— (depuis mai 2026)' : _apr.annulesJour + _pctAna(_apr.annulesJour) + (_apr.annulesSansHeure ? ' · ' + _apr.annulesSansHeure + ' sans heure' : ''));
-  set('kpi-attendu', _apr.horsPeriode ? '⏳ Attendu pour rien : mesuré depuis mai 2026' : '⏳ Attendu pour rien : ' + _apr.total + _pctAna(_apr.total) + ' — ' + _apr.noShow + ' no-show + ' + _apr.annulesJour + ' annulé' + (_apr.annulesJour > 1 ? 's' : '') + ' ou reprogrammé' + (_apr.annulesJour > 1 ? 's' : '') + ' le jour même' + (_apr.annulesSansHeure ? ' (' + _apr.annulesSansHeure + ' sans heure connue)' : ''));
+  set('kpi-attendu', _apr.horsPeriode ? 'Non tenus le jour J : mesuré depuis mai 2026' : 'Non tenus le jour J : ' + _apr.total + _pctAna(_apr.total) + ' — ' + _apr.noShow + ' no-show + ' + _apr.annulesJour + ' annulé' + (_apr.annulesJour > 1 ? 's' : '') + ' ou reprogrammé' + (_apr.annulesJour > 1 ? 's' : '') + ' le jour même' + (_apr.annulesSansHeure ? ' (' + _apr.annulesSansHeure + ' sans heure connue)' : ''));
   set('kpi-signes', kpis.signes);
   set('kpi-closing', kpis.closing + '%');
   set('kpi-oneshot', kpis.hasOneShot ? (kpis.oneshot ?? '—') : '—');
