@@ -1699,7 +1699,7 @@ select.form-input { cursor: pointer; }
     <div class="kpi-card">
       <div class="kpi-label">Total RDV</div>
       <div class="kpi-value" id="kpi-rdv">6</div>
-      <div class="kpi-sub" id="kpi-rdv-sub" title="R1 du mois dont la présence est renseignée (Show ou No Show). Les RDV à venir et les R2 ne comptent pas.">rendez-vous</div>
+      <div class="kpi-sub" id="kpi-rdv-sub" title="R1 vécus + R1 non vécus le jour J (no-show, annulé ou reprogrammé le jour même). Les annulations faites à l'avance, les RDV à venir et les R2 ne comptent pas.">rendez-vous</div>
       <div class="kpi-vs"><span class="eq" id="bench-rdv">—</span></div>
     </div>
     <div class="kpi-card">
@@ -1712,14 +1712,12 @@ select.form-input { cursor: pointer; }
       <div class="kpi-label" id="kpi-noshow-label">Non tenus le jour J</div>
       <div class="kpi-value red" id="kpi-noshow">33%</div>
       <div class="kpi-sub" id="kpi-noshow-sub">2 absents</div>
-      <div class="kpi-sub" id="kpi-noshow-detail" style="font-size:10.5px;opacity:.75;">—</div>
-      <div class="kpi-sub" id="kpi-attendu" style="font-size:11px;font-weight:600;" title="No-show + annulations et reprogrammations faites le jour même du RDV : le créneau était bloqué et n'a pas pu être réutilisé">—</div>
+
       <div class="kpi-vs"><span id="bench-noshow">—</span></div>
       <div class="noshow-tooltip" id="kpi-noshow-tooltip">
-        <div class="noshow-tooltip-row"><span class="noshow-tooltip-label">🚫 Vrais No Show</span><span class="noshow-tooltip-value" id="tt-ana-ns">—</span></div>
-        <div class="noshow-tooltip-row"><span class="noshow-tooltip-label">❌ Annulés</span><span class="noshow-tooltip-value" id="tt-ana-an">—</span></div>
-        <div class="noshow-tooltip-row"><span class="noshow-tooltip-label">🔄 Reprogrammés</span><span class="noshow-tooltip-value" id="tt-ana-re">—</span></div>
-        <div class="noshow-tooltip-row"><span class="noshow-tooltip-label">📅 Annulés / reprogrammés le jour J</span><span class="noshow-tooltip-value" id="tt-ana-aj">—</span></div>
+        <div class="noshow-tooltip-row"><span class="noshow-tooltip-label">🚫 No-show</span><span class="noshow-tooltip-value" id="tt-ana-ns">—</span></div>
+        <div class="noshow-tooltip-row"><span class="noshow-tooltip-label">📅 Annulés / reprog. le jour J</span><span class="noshow-tooltip-value" id="tt-ana-aj">—</span></div>
+        <div class="noshow-tooltip-row"><span class="noshow-tooltip-label">⏩ Annulés / reprog. à l'avance</span><span class="noshow-tooltip-value" id="tt-ana-av">—</span></div>
       </div>
     </div>
     </div></div>
@@ -6072,8 +6070,7 @@ function renderBenchmarks(kpis) {
   };
   cmp('bench-rdv',      kpis.total,      st.totalRdv / nbMois,     '',  false);
   cmp('bench-showrate', kpis.showrate,   st.showRate,              '%', false);
-  { var _apJ = null; try { _apJ = sdAttenduPourRien(getRdvs(state.month, state.year).filter(r => r.source !== 'R2')); } catch (e) {} var _trJ = getRdvs(state.month, state.year).filter(r => r.source !== 'R2' && /^(Show|No Show|Annulé|Reprogrammé)$/.test(String(r.presence || '').trim())).length;
-    if (_apJ && !_apJ.horsPeriode) cmp('bench-noshow', _trJ ? Math.round(_apJ.total / _trJ * 100) : 0, st.jourJRate, '%', true); else cmp('bench-noshow', kpis.noshowrate, 100 - st.showRate, '%', true); } // même définition que le grand chiffre de la carte
+  cmp('bench-noshow',   kpis.noshowrate, 100 - st.showRate,        '%', true); // même base (vécus + non vécus le jour J) des deux côtés
   cmp('bench-signes',   kpis.signes,     st.totalSignes / nbMois,  '',  false);
   cmp('bench-closing',  kpis.closing,    st.closingRate,           '%', false);
   if (kpis.delai == null || st.cycleAvg == null) poser('bench-cycle', 'pas d\'historique', 'eq');
@@ -7539,18 +7536,18 @@ function getLast3FinishedMonthsStats() {
   }).filter(function(v) { return v !== null; });
   var _moisAvecDonnees = months.filter(function(mk) { return (store[mk] || []).length > 0; }).length;
   // Non tenus le jour J (no-show + annulé / reprogrammé le jour même) sur les mêmes 3 mois, même définition que la carte Performance ; null avant mai 2026
-  var _jj = null; try { var a3 = sdAttenduPourRien(r1Traites); var tr3 = r1Traites.filter(function(r) { return String(r.date || '').split('/').reverse().join('-') >= ATTENDU_DEPUIS; }).length; _jj = (!a3.horsPeriode && tr3) ? Math.round(a3.total / tr3 * 100) : null; } catch (e) {}
+  var _jj = null, _base3 = r1Traites.length, _shows3 = shows.length; try { var a3 = sdAttenduPourRien(r1Traites); if (!a3.horsPeriode) { var sh3 = r1Traites.filter(function(r) { return r.presence === 'Show' && String(r.date || '').split('/').reverse().join('-') >= ATTENDU_DEPUIS; }).length; _base3 = sh3 + a3.total; _shows3 = sh3; _jj = _base3 ? Math.round(a3.total / _base3 * 100) : null; } } catch (e) {}
 
   return {
     months: months,
     moisAvecDonnees: _moisAvecDonnees,
     jourJRate: _jj,
     cycleAvg: _cycles.length ? Math.round(_cycles.reduce(function(a,b){return a+b;},0)/_cycles.length) : null,
-    totalRdv: r1Traites.length,
-    totalShows: shows.length,
+    totalRdv: _base3,
+    totalShows: _shows3,
     totalSignes: signes.length,
     totalCommission: totalComm,
-    showRate: r1Traites.length > 0 ? (shows.length / r1Traites.length * 100) : 0,
+    showRate: _base3 > 0 ? (_shows3 / _base3 * 100) : 0,
     closingRate: shows.length > 0 ? (signes.length / shows.length * 100) : 0,
     commAvg: signes.length > 0 ? Math.round(totalComm / signes.length) : 0
   };
@@ -8875,9 +8872,14 @@ function computeKpis(month, year) {
     const p = (r.presence || '').trim();
     return p === 'Show' || p === 'No Show' || p === 'Annulé' || p === 'Reprogrammé';
   });
-  const total = rowsR1Traites.length;
   const shows = rowsR1Traites.filter(r => r.presence === 'Show').length;
-  const noshow = rowsR1Traites.filter(r => r.presence === 'No Show' || r.presence === 'Annulé' || r.presence === 'Reprogrammé').length;
+  // Depuis mai 2026 (demande de Nicolas, 11 oct. 2026) : la base de tout le bloc Rendez-vous = RDV vécus + RDV non vécus le jour J
+  // (no-show, annulé ou reprogrammé le jour même). Les annulations et reports faits à l'avance ne comptent pas : le créneau a pu être réutilisé.
+  // Avant mai 2026 (pas d'heure d'annulation) : base = tous les R1 traités, comme avant.
+  const jourJ = sdAttenduPourRien(rowsR1Traites), baseJourJ = !jourJ.horsPeriode;
+  const rdvPris = rowsR1Traites.length;
+  const noshow = baseJourJ ? jourJ.total : rowsR1Traites.filter(r => r.presence === 'No Show' || r.presence === 'Annulé' || r.presence === 'Reprogrammé').length;
+  const total = baseJourJ ? shows + jourJ.total : rdvPris;
   // Total brut (pour info, R1 tous, traités + non-traités)
   const totalR1Brut = rowsR1.length;
 
@@ -9000,7 +9002,7 @@ function computeKpis(month, year) {
     commission, mrr, inbound, outbound, pub, rdvParJour, showsParJour, joursOuvres,
     delai, nbDelai, hasDelai, hasOneShot, hasBonus, mandataires, agences, sansType, signesRows,
     delaiR1R2, nbDelaiR1R2, delaiPriseRdv, nbDelaiPriseRdv,
-    reprogrammes, annules, vraisNoShow, closingCohorte, cohorteShows, cohorteSignes };
+    reprogrammes, annules, vraisNoShow, closingCohorte, cohorteShows, cohorteSignes, rdvPris, jourJ, baseJourJ };
 }
 
 // Barème de prime palier selon le mois affiché :
@@ -9136,11 +9138,9 @@ function renderKpis(kpis) {
   const isBefore = yr < 2026 || (yr === 2026 && mIdx < 2);
 
   set('kpi-rdv', kpis.total);
-  // Sous-texte Total RDV : nombre d'Outbound du mois à côté
+  // Sous-texte Total RDV : les RDV pris (tous les R1 traités, annulations anticipées comprises) et les outbound
   const nbOutboundMois = (kpis.outbound || []).length;
-  set('kpi-rdv-sub', nbOutboundMois > 0
-    ? 'dont ' + nbOutboundMois + ' Outbound 🎯'
-    : 'rendez-vous');
+  set('kpi-rdv-sub', (kpis.baseJourJ ? kpis.rdvPris + ' RDV pris' : 'rendez-vous') + (nbOutboundMois > 0 ? ' · dont ' + nbOutboundMois + ' outbound 🎯' : ''));
   set('kpi-showrate', kpis.showrate + '%');
   set('kpi-showrate-sub', kpis.shows + ' présents');
   // kpi-noshow et kpi-noshow-sub sont posés plus bas (carte « Non tenus le jour J »)
@@ -9150,16 +9150,11 @@ function renderKpis(kpis) {
   const _nsAna   = _rowsAna.filter(r => r.presence === 'No Show').length;
   const _anAna   = _rowsAna.filter(r => r.presence === 'Annulé').length;
   const _reAna   = _rowsAna.filter(r => r.presence === 'Reprogrammé').length;
-  const _totAna  = _rowsAna.length;
-  const _pctAna  = (n) => _totAna > 0 ? ' (' + Math.round(n/_totAna*100) + '%)' : '';
-  set('tt-ana-ns', _nsAna + _pctAna(_nsAna));
-  set('tt-ana-an', _anAna + _pctAna(_anAna));
-  set('tt-ana-re', _reAna + _pctAna(_reAna));
-  const _apr = sdAttenduPourRien(_rowsAna);
-  set('tt-ana-aj', _apr.horsPeriode ? '— (depuis mai 2026)' : _apr.annulesJour + _pctAna(_apr.annulesJour) + (_apr.annulesSansHeure ? ' · ' + _apr.annulesSansHeure + ' sans heure' : ''));
-  // Carte « Non tenus le jour J » : en grand, ce qui a vraiment bloqué le créneau (no-show + annulé / reprogrammé le jour même) ; en dessous, la totalité des non tenus (avec les annulations anticipées). Avant mai 2026 : la totalité seule.
-  if (_apr.horsPeriode) { set('kpi-noshow-label', 'Non tenus'); set('kpi-noshow', kpis.noshowrate + '%'); set('kpi-noshow-sub', kpis.noshow + ' non tenus'); set('kpi-attendu', 'Jour J mesuré depuis mai 2026'); }
-  else { set('kpi-noshow-label', 'Non tenus le jour J'); set('kpi-noshow', (_totAna ? Math.round(_apr.total / _totAna * 100) : 0) + '%'); set('kpi-noshow-sub', _apr.total + ' RDV : ' + _apr.noShow + ' no-show + ' + _apr.annulesJour + ' annulé' + (_apr.annulesJour > 1 ? 's' : '') + ' / reprog. le jour même'); set('kpi-attendu', kpis.noshowrate + ' % non tenus au total (' + kpis.noshow + ')' + (_apr.annulesSansHeure ? ' · ' + _apr.annulesSansHeure + ' sans heure' : '')); }
+  const _apr = kpis.jourJ || sdAttenduPourRien(_rowsAna), _base = kpis.total || 0;
+  const _pctB = (n) => _base > 0 ? ' (' + Math.round(n/_base*100) + '%)' : '';
+  // Carte « Non tenus le jour J » : le grand chiffre et le détail court ; le reste dans l'infobulle. Avant mai 2026 : la totalité des non tenus.
+  if (_apr.horsPeriode) { set('kpi-noshow-label', 'Non tenus'); set('kpi-noshow', kpis.noshowrate + '%'); set('kpi-noshow-sub', kpis.noshow + ' sur ' + _base + ' RDV'); set('tt-ana-ns', _nsAna + _pctB(_nsAna)); set('tt-ana-aj', '— (mesuré depuis mai 2026)'); set('tt-ana-av', (_anAna + _reAna) + _pctB(_anAna + _reAna)); }
+  else { set('kpi-noshow-label', 'Non tenus le jour J'); set('kpi-noshow', kpis.noshowrate + '%'); set('kpi-noshow-sub', kpis.noshow + ' sur ' + _base + ' RDV'); set('tt-ana-ns', _apr.noShow + _pctB(_apr.noShow)); set('tt-ana-aj', _apr.annulesJour + _pctB(_apr.annulesJour) + (_apr.annulesSansHeure ? ' · ' + _apr.annulesSansHeure + ' sans heure' : '')); set('tt-ana-av', (_anAna + _reAna - _apr.annulesJour) + ' (hors base)'); }
   set('kpi-signes', kpis.signes);
   set('kpi-closing', kpis.closing + '%');
   set('kpi-oneshot', kpis.hasOneShot ? (kpis.oneshot ?? '—') : '—');
@@ -9194,9 +9189,6 @@ function renderKpis(kpis) {
   set('kpi-closing-cohorte', kpis.cohorteShows > 0 ? kpis.closingCohorte + '%' : '—');
   set('kpi-closing-cohorte-sub', kpis.cohorteSignes + ' signés / ' + kpis.cohorteShows + ' shows du mois');
 
-  // No Show détaillé : le reprogrammé est récupérable, il ne doit pas être noyé dans le no-show.
-  set('kpi-noshow-detail',
-      'au total : ' + kpis.vraisNoShow + ' no show · ' + kpis.annules + ' annulés · ' + kpis.reprogrammes + ' reprog.');
 
   // RDV/jour et Shows/jour
   set('rdv-par-jour', kpis.rdvParJour);
