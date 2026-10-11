@@ -3638,10 +3638,12 @@ function sdRattraperAnnuleLe(store) {
   });
 }
 // Attendu pour rien : no-show, plus les annulations et reprogrammations faites le jour même du RDV (heure connue). R1 seulement.
+// Compté à partir de mai 2026 seulement : avant, Calendly ne donne pas l'heure des annulations (demande de Nicolas, 11 oct. 2026).
+var ATTENDU_DEPUIS = '2026-05';
 function sdAttenduPourRien(rows) {
-  var ns = 0, jour = 0, inconnu = 0, bouges = 0;
-  (rows || []).forEach(function(r) { if (!r || r.source === 'R2') return; var p = String(r.presence || '').trim(); if (p === 'No Show') ns++; else if (p === 'Annulé' || p === 'Reprogrammé') { bouges++; if (!r.annuleLe) inconnu++; else { var iso = String(r.date || '').split('/').reverse().join('-'); if (String(r.annuleLe).slice(0, 10) === iso) jour++; } } });
-  return { noShow: ns, annulesJour: jour, bouges: bouges, annulesSansHeure: inconnu, total: ns + jour };
+  var ns = 0, jour = 0, inconnu = 0, bouges = 0, horsPeriode = true;
+  (rows || []).forEach(function(r) { if (!r || r.source === 'R2') return; var iso0 = String(r.date || '').split('/').reverse().join('-'); if (iso0 < ATTENDU_DEPUIS) return; horsPeriode = false; var p = String(r.presence || '').trim(); if (p === 'No Show') ns++; else if (p === 'Annulé' || p === 'Reprogrammé') { bouges++; if (!r.annuleLe) inconnu++; else { var iso = String(r.date || '').split('/').reverse().join('-'); if (String(r.annuleLe).slice(0, 10) === iso) jour++; } } });
+  return { noShow: ns, annulesJour: jour, bouges: bouges, annulesSansHeure: inconnu, total: ns + jour, horsPeriode: horsPeriode };
 }
 // Rattrapage depuis Calendly (via le copilot) : l'heure d'annulation / de déplacement des lignes qui ne l'ont pas encore. Une fois par session.
 function sdRattraperAnnuleLeCalendly() {
@@ -9151,8 +9153,8 @@ function renderKpis(kpis) {
   set('tt-ana-an', _anAna + _pctAna(_anAna));
   set('tt-ana-re', _reAna + _pctAna(_reAna));
   const _apr = sdAttenduPourRien(_rowsAna);
-  set('tt-ana-aj', _apr.annulesJour + _pctAna(_apr.annulesJour) + (_apr.annulesSansHeure ? ' · ' + _apr.annulesSansHeure + ' sans heure' : ''));
-  set('kpi-attendu', '⏳ Attendu pour rien : ' + _apr.total + _pctAna(_apr.total) + ' — ' + _apr.noShow + ' no-show + ' + _apr.annulesJour + ' annulé' + (_apr.annulesJour > 1 ? 's' : '') + ' ou reprogrammé' + (_apr.annulesJour > 1 ? 's' : '') + ' le jour même' + (_apr.annulesSansHeure ? ' (' + _apr.annulesSansHeure + ' sans heure connue)' : ''));
+  set('tt-ana-aj', _apr.horsPeriode ? '— (depuis mai 2026)' : _apr.annulesJour + _pctAna(_apr.annulesJour) + (_apr.annulesSansHeure ? ' · ' + _apr.annulesSansHeure + ' sans heure' : ''));
+  set('kpi-attendu', _apr.horsPeriode ? '⏳ Attendu pour rien : mesuré depuis mai 2026' : '⏳ Attendu pour rien : ' + _apr.total + _pctAna(_apr.total) + ' — ' + _apr.noShow + ' no-show + ' + _apr.annulesJour + ' annulé' + (_apr.annulesJour > 1 ? 's' : '') + ' ou reprogrammé' + (_apr.annulesJour > 1 ? 's' : '') + ' le jour même' + (_apr.annulesSansHeure ? ' (' + _apr.annulesSansHeure + ' sans heure connue)' : ''));
   set('kpi-signes', kpis.signes);
   set('kpi-closing', kpis.closing + '%');
   set('kpi-oneshot', kpis.hasOneShot ? (kpis.oneshot ?? '—') : '—');
