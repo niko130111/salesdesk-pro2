@@ -527,57 +527,68 @@ main { max-width: 100%; margin: 0; padding: 6px 8px; }
 .pf-bar { height: 10px; background: var(--surface2); border-radius: 999px; overflow: hidden; margin: 12px 0 6px; } .pf-bar > div { height: 100%; border-radius: 999px; background: var(--primary); }
 .pf-bar.fin { height: 6px; margin: 10px 0 6px; }
 .pf-note { font-size: 12.5px; color: var(--text2); } .pf-note b { color: var(--text); }
-/* ── Cockpit Performance (11 oct. 2026) : scène dessinée en canvas 2D (profondeur, matériaux), panneaux HTML. Thème clair = blanc / contours bleutés, sombre = bleu nuit / cyan limité. ── */
-.ck { --ck-bg: #FFFFFF; --ck-bg2: #EEF4FB; --ck-glass: #FFFFFF; --ck-line: #C9D9EC; --ck-cyan: #2F6FB5; --ck-cyan-soft: rgba(47,111,181,.12); --ck-text: #183654; --ck-muted: #6B7F94; --ck-shadow: rgba(24,54,84,.14); --ck-ok: #16805D; --ck-ko: #C54757; }
-[data-theme="dark"] .ck { --ck-bg: #071321; --ck-bg2: #0A1A2C; --ck-glass: rgba(16,36,58,.9); --ck-line: rgba(86,200,237,.26); --ck-cyan: #56C8ED; --ck-cyan-soft: rgba(86,200,237,.14); --ck-text: #EAF2FA; --ck-muted: #93AEC6; --ck-shadow: rgba(0,0,0,.5); --ck-ok: #5EDBA7; --ck-ko: #FF8A98; }
-.ck { color: var(--ck-text); display: grid; gap: 14px; margin-bottom: 22px; }
+/* ── Cockpit Performance (11 oct. 2026) : six dalles de verre en relief, cartes texturées, détail du mois dans la même matière. Thème clair = blanc / contours bleutés, sombre = bleu nuit / cyan contenu. ── */
+.ck, main.ck-mode { --ck-cyan: #2F6FB5; --ck-cyan-soft: rgba(47,111,181,.12); --ck-line: #D5DFEA; --ck-muted: #66758A; --ck-text: #16212E; --ck-ok: #1F7A4D; --ck-ko: #B3261E; --ck-au: #9A6414;
+  --ck-card: linear-gradient(170deg, #FFFFFF, #F7FAFD); --ck-card-shadow: 0 1px 2px rgba(22,33,46,.05), 0 8px 24px rgba(22,33,46,.06), inset 0 1px 0 #fff;
+  --ck-hov-shadow: 0 22px 44px rgba(22,33,46,.2), 0 0 0 1px rgba(47,111,181,.4), inset 0 1px 0 #fff;
+  --ck-dalle: linear-gradient(165deg, #FFFFFF, #EEF3F9 60%, #E3EAF2); --ck-dalle-shadow: inset 0 1px 0 #fff, 0 14px 0 -6px #D9E2EC, 0 20px 0 -8px #C9D4E0, 0 22px 28px rgba(22,33,46,.14);
+  --ck-bar-bg: #E6ECF3; --ck-bar: linear-gradient(90deg, #2F6FB5, #5B9BE6); --ck-bar-ok: linear-gradient(90deg, #1F7A4D, #3FB47F); --ck-repere: #9FB0C4; --ck-grain: .05; }
+[data-theme="dark"] .ck, [data-theme="dark"] main.ck-mode { --ck-cyan: #56C8ED; --ck-cyan-soft: rgba(86,200,237,.14); --ck-line: rgba(86,200,237,.22); --ck-muted: #8FB0C8; --ck-text: #EAF2FA; --ck-ok: #5EDBA7; --ck-ko: #FF8A98; --ck-au: #FFD37A;
+  --ck-card: linear-gradient(160deg, rgba(26,52,80,.92), rgba(14,32,54,.9) 45%, rgba(9,22,40,.95)); --ck-card-shadow: 0 10px 30px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.12), inset 0 -1px 0 rgba(0,0,0,.35);
+  --ck-hov-shadow: 0 24px 50px rgba(0,0,0,.6), 0 0 0 1px rgba(86,200,237,.5), 0 0 28px rgba(86,200,237,.3), inset 0 1px 0 rgba(255,255,255,.2);
+  --ck-dalle: linear-gradient(165deg, #1C3E62, #102A47 60%, #0B1E36); --ck-dalle-shadow: inset 0 1px 0 rgba(255,255,255,.18), 0 14px 0 -6px #0A1A2E, 0 20px 0 -8px #07131F, 0 26px 36px rgba(0,0,0,.55);
+  --ck-bar-bg: rgba(0,0,0,.35); --ck-bar: linear-gradient(90deg, #2F6FB5, #56C8ED); --ck-bar-ok: linear-gradient(90deg, #1F7A4D, #5EDBA7); --ck-repere: #8FA6BF; --ck-grain: .07; }
+.ck { color: var(--ck-text); display: grid; gap: 14px; margin-bottom: 18px; }
 .ck-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 14px; flex-wrap: wrap; }
 .ck-tabs { display: inline-flex; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: var(--surface); }
 .ck-tabs button { border: 0; background: transparent; padding: 8px 14px; cursor: pointer; color: var(--text2); font-size: 13px; font-weight: 600; } .ck-tabs button.on { background: var(--ck-cyan-soft); color: var(--ck-cyan); }
 .ck-tools { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; } .ck-tools .btn { font-size: 12px; }
+/* matière commune : dégradé de lumière, liseré, reflet en coin, grain ; relief au survol */
+.ck-tile, .ck-card, .ck-stage, main.ck-mode .kpi-card, main.ck-mode .source-card, main.ck-mode #close-appels-analytics, main.ck-mode .card, main.ck-mode .deal-card { position: relative; background: var(--ck-card) !important; border: 1px solid var(--ck-line) !important; box-shadow: var(--ck-card-shadow) !important; border-radius: 16px !important; transition: transform .25s, box-shadow .25s, border-color .25s; transform-style: preserve-3d; }
+.ck-tile::before, .ck-card::before, .ck-stage::before, main.ck-mode .kpi-card::before, main.ck-mode .source-card::before, main.ck-mode #close-appels-analytics::before, main.ck-mode .card::before { content: ''; position: absolute; inset: 0; border-radius: inherit; background: radial-gradient(120% 80% at 10% 0%, rgba(255,255,255,.12), transparent 55%); pointer-events: none; }
+.ck-tile::after, .ck-card::after, .ck-dalle::after, main.ck-mode .kpi-card::after, main.ck-mode .source-card::after, main.ck-mode .card::after { content: ''; position: absolute; inset: 0; border-radius: inherit; opacity: var(--ck-grain); pointer-events: none; mix-blend-mode: overlay; background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='120' height='120' filter='url(%23n)'/></svg>"); }
+.ck-tile > *, .ck-card > *, main.ck-mode .kpi-card > :not(.noshow-tooltip), main.ck-mode .source-card > *, main.ck-mode .card > * { position: relative; }
+.ck-tile:hover, .ck-card:hover, main.ck-mode .kpi-card:hover, main.ck-mode .source-card:hover, main.ck-mode #close-appels-analytics:hover, main.ck-mode .card:hover { transform: translateY(-5px) perspective(900px) rotateX(2deg); border-color: var(--ck-cyan) !important; box-shadow: var(--ck-hov-shadow) !important; }
+main.ck-mode .kpi-card.has-noshow-tooltip:hover { transform: none; }
+main.ck-mode .kpi-value { font-family: inherit; }
+main.ck-mode .section-header .section-title, main.ck-mode .kpi-grp-t, main.ck-mode .card-title { color: var(--ck-muted); letter-spacing: .1em; }
 .ck-band { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
-.ck-tile { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px; display: flex; gap: 12px; align-items: center; box-shadow: var(--shadow); min-width: 0; }
+.ck-tile { padding: 14px 16px; display: flex; gap: 12px; align-items: center; min-width: 0; }
 .ck-tile .ico { width: 42px; height: 42px; border-radius: 12px; background: var(--ck-cyan-soft); color: var(--ck-cyan); display: grid; place-items: center; font-size: 18px; flex-shrink: 0; }
-.ck-tile .lab { font-size: 12px; color: var(--text2); } .ck-tile .v { font-size: 24px; font-weight: 800; color: var(--text); letter-spacing: -.02em; line-height: 1.15; } .ck-tile .s { font-size: 11.5px; color: var(--text3); margin-top: 2px; }
-.ck-tile .ring { margin-left: auto; width: 54px; height: 54px; border-radius: 50%; background: conic-gradient(var(--ck-cyan) calc(var(--p) * 1%), var(--surface2) 0); -webkit-mask: radial-gradient(circle, transparent 60%, #000 61%); mask: radial-gradient(circle, transparent 60%, #000 61%); flex-shrink: 0; }
+.ck-tile .lab { font-size: 11px; letter-spacing: .09em; text-transform: uppercase; color: var(--ck-muted); } .ck-tile .v { font-size: 24px; font-weight: 800; color: var(--ck-text); letter-spacing: -.02em; line-height: 1.15; } .ck-tile .s { font-size: 11.5px; color: var(--ck-muted); margin-top: 3px; }
+.ck-tile .ring { margin-left: auto; width: 54px; height: 54px; border-radius: 50%; background: conic-gradient(var(--ck-cyan) calc(var(--p) * 1%), var(--ck-bar-bg) 0); -webkit-mask: radial-gradient(circle, transparent 60%, #000 61%); mask: radial-gradient(circle, transparent 60%, #000 61%); flex-shrink: 0; }
 .ck-main { display: grid; grid-template-columns: minmax(0, 7fr) minmax(280px, 3fr); gap: 14px; align-items: stretch; }
-.ck-stage { position: relative; border-radius: 18px; overflow: hidden; background: var(--ck-bg); border: 1px solid var(--ck-line); box-shadow: var(--shadow); display: grid; grid-template-rows: 1fr auto; }
-.ck-scene { position: relative; height: 400px; } .ck-scene canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: pointer; }
-.ck-core-txt { position: absolute; left: 50%; top: 52%; transform: translate(-50%, -50%); text-align: center; pointer-events: none; z-index: 2; }
-.ck-core-txt .n { font-size: 34px; font-weight: 800; color: #fff; letter-spacing: -.02em; line-height: 1; text-shadow: 0 2px 12px rgba(0,0,0,.55); } .ck-core-txt .l { font-size: 11px; font-weight: 600; color: rgba(255,255,255,.9); margin-top: 4px; text-shadow: 0 1px 6px rgba(0,0,0,.6); }
-.ck-legende { position: absolute; right: 12px; top: 10px; font-size: 11px; color: var(--ck-muted); }
-.ck-etq { position: absolute; left: 0; top: 0; white-space: nowrap; text-align: center; transition: opacity .4s; will-change: transform; }
-.ck-etq b { display: block; font-size: 15px; font-weight: 800; letter-spacing: -.01em; color: var(--ck-text); line-height: 1.05; text-shadow: 0 1px 8px var(--ck-bg); }
-.ck-etq span { display: block; font-size: 10.5px; font-weight: 600; color: var(--ck-muted); margin-top: 1px; letter-spacing: .02em; }
-.ck-etq.centre b { font-size: 30px; } .ck-etq.centre span { font-size: 11px; }
-.ck-etq.on b { color: var(--c); } .ck-etq.on span { color: var(--ck-text); }
-[data-theme="dark"] .ck-etq b { text-shadow: 0 0 10px rgba(0,0,0,.9), 0 0 2px rgba(0,0,0,.9); }
-.ck-panels { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; padding: 10px; border-top: 1px solid var(--ck-line); background: var(--ck-bg2); }
-.ck-panel { background: var(--ck-glass); border: 1px solid var(--ck-line); border-radius: 12px; padding: 10px 12px; color: var(--ck-text); text-align: left; cursor: pointer; box-shadow: 0 6px 18px var(--ck-shadow); min-width: 0; transition: border-color .4s, box-shadow .4s; font-family: inherit; position: relative; }
-.ck-panel::before { content: ''; position: absolute; left: 12px; right: 12px; top: 0; height: 3px; border-radius: 0 0 3px 3px; background: var(--ck-c, var(--ck-cyan)); opacity: .9; transition: opacity .4s; }
-.ck-panel:hover, .ck-panel:focus-visible { border-color: var(--ck-c, var(--ck-cyan)); box-shadow: 0 6px 18px var(--ck-shadow), 0 0 0 2px var(--ck-c, var(--ck-cyan)); outline: none; }
-.ck-panel .lab { font-size: 10.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--ck-c, var(--ck-cyan)); display: flex; gap: 6px; align-items: center; }
-.ck-panel .v { font-size: 22px; font-weight: 800; letter-spacing: -.02em; line-height: 1.1; margin-top: 4px; } .ck-panel .v small { font-size: 12.5px; font-weight: 600; color: var(--ck-muted); }
-.ck-panel .s { font-size: 11.5px; color: var(--ck-muted); margin-top: 3px; line-height: 1.35; }
-.ck[data-sel]:not([data-sel=""]) .ck-panel:not(.on) { box-shadow: none; } .ck[data-sel]:not([data-sel=""]) .ck-panel:not(.on)::before { opacity: .25; } .ck[data-sel]:not([data-sel=""]) .ck-panel:not(.on) .lab { color: var(--ck-muted); }
-.ck-panel.on { border-color: var(--ck-c, var(--ck-cyan)); box-shadow: 0 6px 18px var(--ck-shadow), 0 0 0 2px var(--ck-c, var(--ck-cyan)); }
+.ck-stage { padding: 14px 18px 18px; }
+.ck-stage-h { display: flex; justify-content: space-between; gap: 10px; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--ck-muted); margin-bottom: 4px; flex-wrap: wrap; }
+.ck-dalles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; padding: 14px 4px 8px; perspective: 1200px; }
+.ck-dalle { position: relative; border-radius: 14px; padding: 16px 18px; border: 1px solid var(--ck-line); background: var(--ck-dalle); box-shadow: var(--ck-dalle-shadow); color: var(--ck-text); text-align: left; cursor: pointer; font-family: inherit; min-width: 0; transform: rotateX(10deg); transform-style: preserve-3d; transition: transform .25s, box-shadow .25s, border-color .25s; }
+.ck-dalle::before { content: ''; position: absolute; inset: 0; border-radius: 14px; background: radial-gradient(100% 70% at 15% 0%, rgba(255,255,255,.14), transparent 55%); pointer-events: none; }
+.ck-dalle > * { position: relative; }
+.ck-dalle .lab { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--ck-muted); }
+.ck-dalle .v { font-size: 34px; font-weight: 800; line-height: 1.05; margin-top: 6px; letter-spacing: -.02em; } .ck-dalle .v small { font-size: 13px; color: var(--ck-muted); font-weight: 500; }
+.ck-dalle.ok .v { color: var(--ck-ok); }
+.ck-dalle .s { font-size: 12px; color: var(--ck-muted); margin-top: 8px; line-height: 1.35; }
+.ck-dalle .bar { position: relative; height: 6px; border-radius: 99px; background: var(--ck-bar-bg); margin-top: 10px; box-shadow: inset 0 1px 2px rgba(0,0,0,.25); }
+.ck-dalle .bar i { display: block; height: 100%; border-radius: 99px; background: var(--ck-bar); box-shadow: 0 0 10px var(--ck-cyan-soft); } .ck-dalle.ok .bar i { background: var(--ck-bar-ok); }
+.ck-dalle .bar u { position: absolute; top: -3px; width: 2px; height: 12px; border-radius: 2px; margin-left: -1px; background: var(--ck-repere); }
+.ck-dalle:hover, .ck-dalle:focus-visible, .ck-dalle.on { transform: rotateX(4deg) translateY(-8px) scale(1.02); border-color: var(--ck-cyan); box-shadow: var(--ck-dalle-shadow), var(--ck-hov-shadow); outline: none; }
+.ck[data-sel]:not([data-sel=""]) .ck-dalle:not(.on) { opacity: .72; }
 .ck-side { display: grid; gap: 10px; align-content: start; min-width: 0; }
-.ck-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px; box-shadow: var(--shadow); min-width: 0; }
-.ck-card h3 { margin: 0 0 10px; font-size: 14px; font-weight: 800; color: var(--text); display: flex; justify-content: space-between; align-items: center; gap: 8px; } .ck-card h3 .btn { font-size: 11px; padding: 2px 8px; }
-.ck-ind { display: flex; gap: 12px; align-items: center; padding: 9px 0; border-top: 1px solid var(--border); } .ck-ind:first-of-type { border-top: 0; padding-top: 0; }
+.ck-card { padding: 14px 16px; min-width: 0; }
+.ck-card h3 { margin: 0 0 10px; font-size: 14px; font-weight: 800; color: var(--ck-text); display: flex; justify-content: space-between; align-items: center; gap: 8px; } .ck-card h3 .btn { font-size: 11px; padding: 2px 8px; }
+.ck-ind { display: flex; gap: 12px; align-items: center; padding: 9px 0; border-top: 1px solid var(--ck-line); } .ck-ind:first-of-type { border-top: 0; padding-top: 0; }
 .ck-ind .ico { width: 36px; height: 36px; border-radius: 10px; background: var(--ck-cyan-soft); color: var(--ck-cyan); display: grid; place-items: center; font-size: 16px; flex-shrink: 0; }
-.ck-ind .bd { flex: 1; min-width: 0; } .ck-ind .lab { font-size: 12px; color: var(--text2); } .ck-ind .v { font-size: 20px; font-weight: 800; color: var(--text); line-height: 1.15; } .ck-ind .s { font-size: 11px; color: var(--text3); }
-.ck-ind .bar { height: 5px; border-radius: 999px; background: var(--surface2); margin-top: 5px; overflow: hidden; } .ck-ind .bar > i { display: block; height: 100%; background: var(--ck-cyan); border-radius: 999px; }
-.ck-det { display: grid; gap: 0; } .ck-det .r { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; padding: 7px 0; border-top: 1px solid var(--border); } .ck-det .r:first-child { border-top: 0; } .ck-det .r span { color: var(--text2); } .ck-det .r b { color: var(--text); white-space: nowrap; } .ck-det .r.tot { font-weight: 700; } .ck-det .d { font-size: 11px; color: var(--text3); line-height: 1.4; margin-top: 2px; }
+.ck-ind .bd { flex: 1; min-width: 0; } .ck-ind .lab { font-size: 12px; color: var(--ck-muted); } .ck-ind .v { font-size: 20px; font-weight: 800; color: var(--ck-text); line-height: 1.15; } .ck-ind .s { font-size: 11px; color: var(--ck-muted); }
+.ck-ind .bar { height: 5px; border-radius: 999px; background: var(--ck-bar-bg); margin-top: 5px; overflow: hidden; } .ck-ind .bar > i { display: block; height: 100%; background: var(--ck-bar); border-radius: 999px; }
+.ck-det { display: grid; gap: 0; } .ck-det .r { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; padding: 7px 0; border-top: 1px solid var(--ck-line); } .ck-det .r:first-child { border-top: 0; } .ck-det .r span { color: var(--ck-muted); } .ck-det .r b { color: var(--ck-text); white-space: nowrap; } .ck-det .r.tot { font-weight: 700; } .ck-det .d { font-size: 11px; color: var(--ck-muted); line-height: 1.4; margin-top: 2px; }
 .ck-det .r b.ok { color: var(--ck-ok); } .ck-det .r b.ko { color: var(--ck-ko); }
 .ck-bottom { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 14px; }
 .ck-bottom canvas { width: 100%; height: 200px; display: block; }
-.ck-lg { display: flex; gap: 14px; font-size: 11px; color: var(--text3); flex-wrap: wrap; } .ck-lg i { display: inline-block; width: 18px; height: 0; border-top: 3px solid var(--ck-cyan); margin-right: 5px; vertical-align: 3px; } .ck-lg i.obj { border-top: 2px dashed var(--text3); } .ck-lg i.proj { border-top: 2px dotted var(--ck-cyan); }
-.ck-cmp { display: grid; gap: 10px; } .ck-cmp .r { display: grid; grid-template-columns: 110px 1fr 1fr; gap: 10px; align-items: center; font-size: 12.5px; color: var(--text2); } .ck-cmp .r .b { height: 18px; border-radius: 6px; background: var(--surface2); position: relative; overflow: hidden; } .ck-cmp .r .b > i { display: block; height: 100%; border-radius: 6px; background: var(--ck-cyan); } .ck-cmp .r .b.ref > i { background: var(--border2); } .ck-cmp .r .b span { position: absolute; left: 8px; top: 0; line-height: 18px; font-size: 11.5px; font-weight: 700; color: var(--text); }
-.ck-cmp .lg { display: flex; gap: 14px; font-size: 11px; color: var(--text3); } .ck-cmp .lg i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 4px; vertical-align: -1px; background: var(--ck-cyan); } .ck-cmp .lg i.ref { background: var(--border2); }
-#ck-details { margin-top: 6px; } #ck-details > summary { cursor: pointer; list-style: none; display: flex; align-items: center; gap: 10px; padding: 12px 16px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); font-weight: 700; color: var(--text); font-size: 14px; } #ck-details > summary::-webkit-details-marker { display: none; } #ck-details > summary::after { content: '+'; margin-left: auto; color: var(--ck-cyan); font-size: 20px; } #ck-details[open] > summary::after { content: '–'; } #ck-details[open] > summary { margin-bottom: 14px; }
+.ck-lg { display: flex; gap: 14px; font-size: 11px; color: var(--ck-muted); flex-wrap: wrap; } .ck-lg i { display: inline-block; width: 18px; height: 0; border-top: 3px solid var(--ck-cyan); margin-right: 5px; vertical-align: 3px; } .ck-lg i.obj { border-top: 2px dashed var(--ck-muted); } .ck-lg i.proj { border-top: 2px dotted var(--ck-cyan); }
+.ck-cmp { display: grid; gap: 10px; } .ck-cmp .r { display: grid; grid-template-columns: 110px 1fr 1fr; gap: 10px; align-items: center; font-size: 12.5px; color: var(--ck-muted); } .ck-cmp .r .b { height: 18px; border-radius: 6px; background: var(--ck-bar-bg); position: relative; overflow: hidden; } .ck-cmp .r .b > i { display: block; height: 100%; border-radius: 6px; background: var(--ck-bar); } .ck-cmp .r .b.ref > i { background: var(--ck-repere); opacity: .55; } .ck-cmp .r .b span { position: absolute; left: 8px; top: 0; line-height: 18px; font-size: 11.5px; font-weight: 700; color: var(--ck-text); }
+.ck-cmp .lg { display: flex; gap: 14px; font-size: 11px; color: var(--ck-muted); } .ck-cmp .lg i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 4px; vertical-align: -1px; background: var(--ck-cyan); } .ck-cmp .lg i.ref { background: var(--ck-repere); opacity: .55; }
 @media (max-width: 1100px) { .ck-band { grid-template-columns: repeat(2, minmax(0, 1fr)); } .ck-main, .ck-bottom { grid-template-columns: minmax(0, 1fr); } }
-@media (max-width: 700px) { .ck-scene { height: 320px; } .ck-panels { grid-template-columns: minmax(0, 1fr); } .ck-band { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 700px) { .ck-dalles { grid-template-columns: minmax(0, 1fr); } .ck-band { grid-template-columns: minmax(0, 1fr); } }
 .pf-faits { display: grid; gap: 10px; } .pf-faits .f { display: flex; justify-content: space-between; gap: 10px; font-size: 13.5px; color: var(--text2); border-bottom: 1px solid var(--border); padding-bottom: 8px; } .pf-faits .f:last-child { border-bottom: 0; padding-bottom: 0; } .pf-faits .f b { color: var(--text); font-weight: 700; }
 .pf-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 12px; }
 .pf-tunnel { display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); gap: 0; margin-top: 10px; }
@@ -9529,34 +9540,34 @@ function setTheme(pref) {
 // socle. Les chiffres restent en HTML. Mêmes calculs que la vue classique (computeKpis, sdTunnelMois, sdAttenduPourRien, getLast3FinishedMonthsStats).
 function sdPerfVue() { try { return localStorage.getItem('sd_perf_vue') === 'classique' ? 'classique' : 'cockpit'; } catch (e) { return 'cockpit'; } }
 function ckBasculerVue() { try { localStorage.setItem('sd_perf_vue', sdPerfVue() === 'cockpit' ? 'classique' : 'cockpit'); } catch (e) {} ckRangerDetails(sdPerfVue() === 'cockpit'); renderPerfTop(); }
-function ckCalme() { try { return localStorage.getItem('sd_perf_calme') === '1' || (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches); } catch (e) { return false; } }
-function ckBasculerCalme() { try { localStorage.setItem('sd_perf_calme', localStorage.getItem('sd_perf_calme') === '1' ? '0' : '1'); } catch (e) {} var b = document.getElementById('ck-btn-calme'); if (b) b.textContent = ckCalme() ? '▶ Animer' : '⏸ Réduire les animations'; if (_ck.t3 && _ck.t3.pret) ck3dBoucle(); else ckAnimer(); }
-var _ck = { sel: '', appels: {}, ctx: null, raf: 0, t0: 0, anneaux: null, cibles: {} };
-// Les anneaux : rayon relatif, inclinaison (rad), azimut (rad), couleur ; « cible » = état visé (animé) selon la sélection
-var CK_ANNEAUX = [
-  { id: 'acq', nom: 'Acquisition', r: 0.62, inc: 1.10, az: 0.15, ep: 9, c: '#5B9BE6', cd: '#7CC3F0' },
-  { id: 'rdv', nom: 'Rendez-vous', r: 0.82, inc: 1.22, az: 1.25, ep: 10, c: '#2F6FB5', cd: '#56C8ED' },
-  { id: 'conv', nom: 'Conversion', r: 1.00, inc: 1.35, az: -0.85, ep: 11, c: '#86B5EE', cd: '#A9D5F5' }
-];
+var _ck = { sel: '', appels: {}, ctx: null };
 function ckHtml(c) {
   var k = c.k, eur = c.eur, u = sdTunnelMois(getRdvs(state.month, state.year)), ap = k.jourJ || sdAttenduPourRien([]);
   var mk = c.yr + '-' + String(c.mIdx + 1).padStart(2, '0'), appels = (_closeAppels && _closeAppels.mois && _closeAppels.mois[mk]) ? _closeAppels.mois[mk] : null, outb = Array.isArray(k.outbound) ? k.outbound.length : 0;
   var pres = k.total ? Math.round(k.shows / k.total * 100) : null, suites = u.nonSignes ? Math.round(u.suites / u.nonSignes * 100) : null, OBJ = (state.targets && state.targets.ca) || 8000;
   var frais = ''; try { var lw = (loadStore()._lastWrite || ''); frais = 'SalesDesk ' + (lw ? new Date(lw).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—') + (_closeAppels && _closeAppels.maj ? ' · Close ' + new Date(_closeAppels.maj).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : ' · Close non chargé'); } catch (e) {}
   var tile = function(ico, lab, v, s, ring) { return '<div class="ck-tile"><div class="ico">' + ico + '</div><div style="min-width:0"><div class="lab">' + lab + '</div><div class="v">' + v + '</div>' + (s ? '<div class="s">' + s + '</div>' : '') + '</div>' + (ring !== undefined ? '<div class="ring" style="--p:' + ring + '"></div>' : '') + '</div>'; };
-  var panel = function(a, ico, v, s1, s2) { return '<button class="ck-panel" id="ck-p-' + a.id + '" style="--ck-c:' + (document.documentElement.getAttribute('data-theme') === 'dark' ? a.cd : a.c) + '" onclick="ckChoisir(\'' + a.id + '\')" title="Voir le détail"><div class="lab">' + ico + ' ' + a.nom + '</div><div class="v">' + v + '</div><div class="s">' + s1 + '</div>' + (s2 ? '<div class="s">' + s2 + '</div>' : '') + '</button>'; };
   var h = '<div class="ck" id="ck" data-sel="">';
   h += '<div class="ck-head"><div><h1 class="pf-h1">Performance</h1><div class="pf-sub"><span>Comprendre mes résultats</span><span>·</span><span>' + escapeHtml(state.month + ' ' + state.year) + (c.courant ? ' · ' + c.jRest + ' jour' + (c.jRest > 1 ? 's' : '') + ' de travail restant' + (c.jRest > 1 ? 's' : '') : '') + '</span><span>·</span><span title="Fraîcheur des données">' + escapeHtml(frais) + '</span></div></div>'
-    + '<div class="ck-tools"><div class="ck-tabs"><button class="on">Mois</button><button onclick="sdPerfOnglet(\'historique\')">Historique</button></div><div class="pf-mois"><button title="Mois précédent" onclick="pfMois(-1)">‹</button><span>' + escapeHtml(state.month + ' ' + state.year) + '</span><button title="Mois suivant" onclick="pfMois(1)">›</button></div><button class="btn btn-sm" id="ck-btn-calme" onclick="ckBasculerCalme()">' + (ckCalme() ? '▶ Animer' : '⏸ Réduire les animations') + '</button><button class="btn btn-sm" onclick="ckBasculerVue()" title="Les mêmes chiffres, sans la scène">Vue classique</button></div></div>';
+    + '<div class="ck-tools"><div class="ck-tabs"><button class="on">Mois</button><button onclick="sdPerfOnglet(\'historique\')">Historique</button></div><div class="pf-mois"><button title="Mois précédent" onclick="pfMois(-1)">‹</button><span>' + escapeHtml(state.month + ' ' + state.year) + '</span><button title="Mois suivant" onclick="pfMois(1)">›</button></div><button class="btn btn-sm" onclick="ckBasculerVue()" title="Les mêmes chiffres, sans la scène">Vue classique</button></div></div>';
   h += '<div class="ck-band">' + tile('💰', 'Commission acquise', eur(c.comm), (c.prime ? 'dont prime palier ' + eur(c.prime) : 'ventes du mois, date de signature'))
     + tile('🎯', 'Objectif du mois' + (c.courant && c.obj !== OBJ ? ' (absences déduites)' : ''), eur(c.obj), c.reste ? 'reste ' + eur(c.reste) + (c.courant ? ' · ' + eur(Math.round(c.reste / Math.max(1, c.jRest))) + ' par jour restant' : '') : 'atteint')
     + tile('📝', 'Signatures du mois', k.signes || 0, (c.proch ? 'prochaine prime ' + c.proch : 'primes : aucune à venir'))
     + tile('📈', 'Progression', c.pct + ' %', 'de l\'objectif du mois', c.pct) + '</div>';
-  h += '<div class="ck-main"><div class="ck-stage"><div class="ck-scene" id="ck-scene"><canvas id="ck-canvas"></canvas><div class="ck-core-txt" id="ck-core-txt"><div class="n">' + c.pct + ' %</div><div class="l">de l\'objectif</div></div><div class="ck-legende">Clic sur une étoile ou un panneau : détail · clic dans le vide : vue d\'ensemble · Échap</div></div>'
-    + '<div class="ck-panels">'
-    + panel(CK_ANNEAUX[0], '📞', appels ? (appels.sortants || 0) + ' <small>appels</small>' : '— <small>appels</small>', outb + ' RDV outbound pris', appels && outb ? '1 RDV pour ' + Math.round((appels.sortants || 0) / outb) + ' appels' : (appels ? '' : 'Close non chargé'))
-    + panel(CK_ANNEAUX[1], '📅', k.shows + ' <small>R1 tenus</small>', (pres === null ? 'présence non disponible' : pres + ' % de présence') + ' · ' + k.total + ' attendus', (u.r2Tenus || 0) + ' R2 tenus · ' + (ap.total || 0) + ' non tenus le jour J')
-    + panel(CK_ANNEAUX[2], '✍️', (k.signes || 0) + ' <small>signature' + (k.signes > 1 ? 's' : '') + ' ce mois</small>', 'closing de cohorte ' + (k.shows ? k.closing + ' %' : 'non disponible') + ' · ' + u.signes + ' / ' + k.shows + ' R1 tenus ce mois', (suites === null ? 'suites datées non disponibles' : 'suites datées ' + suites + ' %'))
+  // les six dalles : chiffre, barre = ce mois, trait = moyenne des 3 derniers mois finis (même définition)
+  var s3 = c.s3 || {}, nb3 = s3.moisAvecDonnees || 0, mois3 = null; try { mois3 = sdTunnel3Mois(); } catch (e) {}
+  var moy = function(ch) { return mois3 && mois3.mois ? mois3[ch] / mois3.mois : null; };
+  var appelsMoy = null; try { if (_closeAppels && _closeAppels.mois) { var cles = Object.keys(_closeAppels.mois).filter(function(x) { return x < mk; }).sort().slice(-3); if (cles.length) appelsMoy = cles.reduce(function(a, x) { return a + (_closeAppels.mois[x].sortants || 0); }, 0) / cles.length; } } catch (e) {}
+  var dalle = function(orb, lab, v, pctBar, repere, s, cls) { var rep = repere === null || repere === undefined || isNaN(repere) ? null : Math.max(0, Math.min(100, repere)); return '<button class="ck-dalle' + (cls ? ' ' + cls : '') + '" data-orb="' + orb + '" onclick="ckChoisir(\'' + orb + '\')" title="Voir le détail"><div class="lab">' + lab + '</div><div class="v">' + v + '</div><div class="bar"><i style="width:' + Math.max(0, Math.min(100, pctBar || 0)) + '%"></i>' + (rep !== null ? '<u style="left:' + rep + '%" title="moyenne 3 mois"></u>' : '') + '</div><div class="s">' + s + '</div></button>'; };
+  var objOutb = Math.max(1, 3 * (c.jOuv || 22)), aC = _ck.appels[mk]; // objectif outbound : 3 RDV par jour ouvré (règle d'Aujourd'hui)
+  var refA = appels ? Math.max(appelsMoy || 0, appels.sortants || 1) : 1, refS = Math.max(nb3 && s3.totalSignes ? s3.totalSignes / nb3 : 0, k.signes || 1);
+  h += '<div class="ck-main"><div class="ck-stage"><div class="ck-stage-h"><span>Les six chiffres qui comptent</span><span>barre = ce mois · trait = moyenne de tes 3 derniers mois finis</span></div><div class="ck-dalles">'
+    + dalle('acq', 'Appels', appels ? (appels.sortants || 0) : '—', appels ? (appels.sortants || 0) / refA * 100 : 0, appels && appelsMoy ? appelsMoy / refA * 100 : null, appels ? ((aC && aC.uniques !== undefined && !aC.enCours && !aC.erreur) ? aC.uniques + ' prospects · ' + aC.joints + ' conversations' : (appels.duree ? fmtDureeAppels(appels.duree) + ' en ligne' : '')) + (appelsMoy ? ' · moy. ' + Math.round(appelsMoy) : '') : 'Close non chargé')
+    + dalle('acq', 'RDV outbound pris', outb + ' <small>/ ' + objOutb + '</small>', outb / objOutb * 100, null, (appels && outb ? '1 pour ' + Math.round((appels.sortants || 0) / outb) + ' appels · ' : '') + (c.courant ? 'objectif à ce jour (3 par jour ouvré)' + (objOutb > outb ? ' · ' + (objOutb - outb) + ' de retard' : ' · dans les clous') : 'objectif 3 par jour ouvré'))
+    + dalle('rdv', 'RDV tenus ou attendus', k.total + ' <small>· ' + (k.rdvPris || 0) + ' pris</small>', k.rdvPris ? k.total / k.rdvPris * 100 : 0, moy('pris') ? moy('base') / Math.max(moy('pris'), 1) * 100 : null, (k.rdvPris - k.total) + ' annulé' + ((k.rdvPris - k.total) > 1 ? 's' : '') + ' ou déplacé' + ((k.rdvPris - k.total) > 1 ? 's' : '') + ' à l\'avance' + (moy('base') ? ' · moy. ' + Math.round(moy('base')) + ' attendus' : ''))
+    + dalle('rdv', 'Présence', (pres === null ? '—' : pres) + ' <small>%</small>', pres || 0, nb3 ? s3.showRate : null, k.shows + ' tenus · ' + (ap.total || 0) + ' non tenus le jour J' + (nb3 ? ' · moy. ' + Math.round(s3.showRate) + ' %' : ''))
+    + dalle('conv', 'Closing de cohorte', (k.shows ? k.closing : '—') + ' <small>%</small>', k.shows ? k.closing : 0, nb3 ? s3.closingRate : null, u.signes + ' / ' + k.shows + ' R1 tenus ce mois' + (nb3 ? ' · moy. ' + Math.round(s3.closingRate) + ' %' : '') + (c.courant ? ' · à consolider' : ''))
+    + dalle('conv', 'Signatures', (k.signes || 0) + ' <small>· ' + eur(c.comm) + '</small>', (k.signes || 0) / refS * 100, nb3 && s3.totalSignes ? (s3.totalSignes / nb3) / refS * 100 : null, 'suites datées ' + (suites === null ? '—' : suites + ' %') + ' · cycle ' + (k.delai === null || k.delai === undefined ? '—' : k.delai + ' j') + (nb3 ? ' · moy. ' + (s3.totalSignes / nb3).toFixed(1).replace('.', ',') + ' ventes' : ''), 'ok')
     + '</div></div><div class="ck-side" id="ck-side"></div></div>';
   h += '<div class="ck-bottom"><div class="ck-card"><h3>Trajectoire vers l\'objectif <span class="pf-note" id="ck-traj-note"></span></h3><canvas id="ck-traj" height="200"></canvas><div class="ck-lg" id="ck-traj-lg"></div></div>'
     + '<div class="ck-card"><h3>Comparaison à mes 3 derniers mois finis</h3><div class="ck-cmp" id="ck-cmp"></div></div></div>';
@@ -9565,174 +9576,24 @@ function ckHtml(c) {
 }
 function ckApres(c) {
   _ck.ctx = c; _ck.pct = c.pct; ckRendreSide(); ckDessinerTrajectoire(c); ckRendreComparaison(c); ckRangerDetails(true);
-  _ck.anneaux = CK_ANNEAUX.map(function(a) { return { id: a.id, r: a.r, inc: a.inc, az: a.az, ep: a.ep, c: a.c, cd: a.cd, k: 1, al: 1, phase: Math.random() * Math.PI * 2, vr: a.r, vinc: a.inc, vaz: a.az, vk: 1, val: 1 }; });
+  document.querySelectorAll('.ck-dalle').forEach(function(d) { d.classList.toggle('on', !!_ck.sel && d.getAttribute('data-orb') === _ck.sel); });
   if (!window._ckEcoute) { window._ckEcoute = true;
     document.addEventListener('keydown', function(e) { if (e.key === 'Escape' && _ck.sel && document.getElementById('ck')) ckChoisir(''); });
-    document.addEventListener('visibilitychange', function() { if (document.hidden) { cancelAnimationFrame(_ck.raf); _ck.raf = 0; if (_ck.t3) { cancelAnimationFrame(_ck.t3.raf); _ck.t3.raf = 0; } } else if (_ck.t3 && _ck.t3.pret) ck3dBoucle(); else ckAnimer(); });
-    window.addEventListener('resize', function() { if (document.getElementById('ck-canvas')) { if (_ck.t3 && _ck.t3.pret) ck3dTaille(); else ckDessiner(); if (_ck.ctx) ckDessinerTrajectoire(_ck.ctx); } }); }
-  var cv = document.getElementById('ck-canvas'); if (cv) cv.onclick = function(e) { var r = cv.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top, hit = ckHit(x, y); ckChoisir(hit === 'noyau' ? '' : (hit || _ck.sel)); };
-  ckAnimer(); // la scène 2D s'affiche tout de suite ; la 3D (Three.js, WebGL) la remplace dès qu'elle est prête, sinon elle reste
-  ck3dDemarrer();
+    window.addEventListener('resize', function() { if (_ck.ctx && document.getElementById('ck-traj')) ckDessinerTrajectoire(_ck.ctx); }); }
   var mk = c.yr + '-' + String(c.mIdx + 1).padStart(2, '0');
-  if (!_ck.appels[mk] && typeof COPILOT_URL !== 'undefined') { var deb = mk + '-01', fin = rlIso(new Date(c.yr, c.mIdx + 1, 0)); _ck.appels[mk] = { enCours: true }; fetch(COPILOT_URL + '/close/appels-periode?' + new URLSearchParams({ du: deb, au: fin }), { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).then(function(j) { _ck.appels[mk] = j && j.configure ? j : { erreur: true }; if (_ck.sel === 'acq') ckRendreSide(); }).catch(function() { _ck.appels[mk] = { erreur: true }; }); }
+  if (!_ck.appels[mk] && typeof COPILOT_URL !== 'undefined') { var deb = mk + '-01', fin = rlIso(new Date(c.yr, c.mIdx + 1, 0)); _ck.appels[mk] = { enCours: true }; fetch(COPILOT_URL + '/close/appels-periode?' + new URLSearchParams({ du: deb, au: fin }), { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).then(function(j) { _ck.appels[mk] = j && j.configure ? j : { erreur: true }; if (document.getElementById('ck')) renderPerfTop(); }).catch(function() { _ck.appels[mk] = { erreur: true }; }); }
 }
 // Les anciens blocs de détail (sources, types, appels, deals…) passent sous un « Analyses détaillées » dépliable quand le cockpit est affiché
 function ckRangerDetails(on) {
   var top = document.getElementById('perf-top'); if (!top || !top.parentNode) return; var main = top.parentNode, det = document.getElementById('ck-details');
-  if (on) { if (!det) { det = document.createElement('details'); det.id = 'ck-details'; det.innerHTML = '<summary>Analyses détaillées : sources, mandataires et agences, appels, ventes, historique</summary>'; main.insertBefore(det, top.nextSibling); var n = det.nextSibling; while (n) { var s = n.nextSibling; det.appendChild(n); n = s; } } }
-  else if (det) { var f = det.firstChild; var frag = document.createDocumentFragment(); while (f) { var s2 = f.nextSibling; if (f.tagName !== 'SUMMARY') frag.appendChild(f); f = s2; } main.insertBefore(frag, det); det.remove(); }
+  if (det) { var f = det.firstChild; var frag = document.createDocumentFragment(); while (f) { var s2 = f.nextSibling; if (f.tagName !== 'SUMMARY') frag.appendChild(f); f = s2; } main.insertBefore(frag, det); det.remove(); }
+  main.classList.toggle('ck-mode', !!on); // habille les anciens blocs du détail du mois dans la même matière
 }
 function ckChoisir(orb) {
   _ck.sel = orb || ''; var el = document.getElementById('ck'); if (el) el.setAttribute('data-sel', _ck.sel);
-  document.querySelectorAll('.ck-panel').forEach(function(p) { p.classList.toggle('on', p.id === 'ck-p-' + _ck.sel); });
-  (_ck.anneaux || []).forEach(function(a, i) { var base = CK_ANNEAUX[i]; if (!_ck.sel) { a.vr = base.r; a.vinc = base.inc; a.vaz = base.az; a.vk = 1; a.val = 1; } else if (a.id === _ck.sel) { a.vr = base.r * 1.12; a.vinc = 1.0; a.vaz = 0.35; a.vk = 1.25; a.val = 1; } else { a.vr = base.r * 0.9; a.vinc = base.inc + 0.18; a.vaz = base.az + 0.6; a.vk = 0.7; a.val = 0.45; } });
-  ckRendreSide(); if (_ck.t3 && _ck.t3.pret) ck3dSelection(); else ckAnimer();
+  document.querySelectorAll('.ck-dalle').forEach(function(d) { d.classList.toggle('on', !!_ck.sel && d.getAttribute('data-orb') === _ck.sel); });
+  ckRendreSide();
 }
-function ckAnimer() { cancelAnimationFrame(_ck.raf); _ck.raf = 0; var cv = document.getElementById('ck-canvas'); if (!cv) return; var calme = ckCalme(), t0 = performance.now();
-  var pas = function(now) { var el = document.getElementById('ck-canvas'); if (!el) return; var bouge = false; (_ck.anneaux || []).forEach(function(a) { ['r', 'inc', 'az', 'k', 'al'].forEach(function(p) { var v = a['v' + p], d = v - a[p]; if (Math.abs(d) > 0.0015) { a[p] += d * 0.12; bouge = true; } else a[p] = v; }); });
-    ckDessiner(calme ? 0 : (now - t0) / 1000); if (!calme || bouge) _ck.raf = requestAnimationFrame(pas); else _ck.raf = 0; };
-  _ck.raf = requestAnimationFrame(pas);
-}
-function ckHit(x, y) { var c = _ck.geo; if (!c) return ''; if (Math.hypot(x - c.cx, y - c.cy) <= c.R) return 'noyau'; var best = '', bd = 1e9; (_ck.anneaux || []).forEach(function(a) { (a.pts || []).forEach(function(p) { var d = Math.hypot(x - p.x, y - p.y); if (d < bd) { bd = d; best = a.id; } }); }); return bd < 14 ? best : ''; }
-// Rendu : projection perspective d'anneaux (cercles 3D inclinés), tri devant / derrière le noyau, matériaux par thème
-function ckDessiner(tps) {
-  var cv = document.getElementById('ck-canvas'), sc = document.getElementById('ck-scene'); if (!cv || !sc) return; var W = sc.clientWidth, H = sc.clientHeight, dpr = window.devicePixelRatio || 1; if (!W || !H) return;
-  if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
-  var g = cv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, H);
-  var sombre = document.documentElement.getAttribute('data-theme') === 'dark', cx = W * 0.5, cy = H * 0.52, R = Math.min(W, H) * 0.19, base = Math.min(W * 0.42, H * 0.62), f = 900, camZ = 1000, tilt = 0.95;
-  _ck.geo = { cx: cx, cy: cy, R: R };
-  // fond : bleu nuit uniforme + halo discret en sombre ; blanc + léger voile bleuté en clair
-  var fond = g.createRadialGradient(cx, cy + R * 0.6, R * 0.5, cx, cy, Math.max(W, H) * 0.75); if (sombre) { fond.addColorStop(0, '#0E2238'); fond.addColorStop(1, '#071321'); } else { fond.addColorStop(0, '#F3F7FC'); fond.addColorStop(1, '#FFFFFF'); } g.fillStyle = fond; g.fillRect(0, 0, W, H);
-  // socle : ellipse avec anneaux concentriques fins et ombre du noyau
-  var ry = base * 0.38, oy = cy + R * 0.95; g.save(); g.translate(cx, oy); g.scale(1, ry / base); var so = g.createRadialGradient(0, 0, R * 0.4, 0, 0, base); so.addColorStop(0, sombre ? 'rgba(86,200,237,.16)' : 'rgba(47,111,181,.12)'); so.addColorStop(0.55, sombre ? 'rgba(86,200,237,.05)' : 'rgba(47,111,181,.04)'); so.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = so; g.beginPath(); g.arc(0, 0, base, 0, Math.PI * 2); g.fill();
-  g.strokeStyle = sombre ? 'rgba(86,200,237,.18)' : 'rgba(47,111,181,.16)'; g.lineWidth = 1; [0.55, 0.78, 1].forEach(function(q) { g.beginPath(); g.arc(0, 0, base * q, 0, Math.PI * 2); g.stroke(); });
-  var om = g.createRadialGradient(0, 0, R * 0.2, 0, 0, R * 1.3); om.addColorStop(0, sombre ? 'rgba(0,0,0,.55)' : 'rgba(24,54,84,.28)'); om.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = om; g.beginPath(); g.arc(0, 0, R * 1.3, 0, Math.PI * 2); g.fill(); g.restore();
-  // anneaux : points 3D → écran ; chaque segment porte sa profondeur
-  var proj = function(x, y, z) { var s = f / (camZ - z); return { x: cx + x * s, y: cy + y * s, z: z, s: s }; };
-  var segs = [];
-  (_ck.anneaux || []).forEach(function(a) { var rr = base * a.r, N = 160, pts = []; var ca = Math.cos(a.az), sa = Math.sin(a.az), ci = Math.cos(a.inc), si = Math.sin(a.inc), ct = Math.cos(tilt), st = Math.sin(tilt);
-    for (var i = 0; i <= N; i++) { var th = i / N * Math.PI * 2, x0 = rr * Math.cos(th), y0 = rr * Math.sin(th), z0 = 0; var y1 = y0 * ci - z0 * si, z1 = y0 * si + z0 * ci, x1 = x0; var x2 = x1 * ca - y1 * sa, y2 = x1 * sa + y1 * ca, z2 = z1; var y3 = y2 * ct - z2 * st, z3 = y2 * st + z2 * ct; pts.push(proj(x2, y3, z3)); }
-    a.pts = pts.filter(function(_, i) { return i % 4 === 0; }); a.ptsTous = pts;
-    // satellite
-    var ph = a.phase + (tps || 0) * (0.08 / a.r); var idx = Math.floor(((ph % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2) / (Math.PI * 2) * N); a.sat = pts[idx]; });
-  // tracé par tronçons continus (une passe derrière le noyau, une passe devant) : pas de pointillés aux jointures, largeur et lumière selon la profondeur moyenne du tronçon
-  var dessinerRuns = function(filtre) { (_ck.anneaux || []).forEach(function(a) { var pts = a.ptsTous, N = pts.length - 1, runs = [], cur = null; for (var k = 0; k < N; k++) { var z = (pts[k].z + pts[k + 1].z) / 2, ok = filtre(z); if (ok) { if (!cur) { cur = { i0: k, i1: k + 1, z: 0, n: 0, s: 0 }; } cur.i1 = k + 1; cur.z += z; cur.n++; cur.s += pts[k].s; } else if (cur) { runs.push(cur); cur = null; } } if (cur) runs.push(cur);
-    runs.forEach(function(r) { var zm = r.z / r.n, sm = r.s / r.n, prof = (zm + base) / (2 * base), col = sombre ? a.cd : a.c, al = Math.max(0.1, Math.min(1, a.al * (0.5 + 0.5 * prof))), w = a.ep * a.k * sm * (0.6 + 0.4 * prof);
-      var trace = function(dy) { g.beginPath(); for (var i = r.i0; i <= r.i1; i++) { var pt = pts[i]; i === r.i0 ? g.moveTo(pt.x, pt.y + dy) : g.lineTo(pt.x, pt.y + dy); } g.stroke(); };
-      g.lineCap = 'round'; g.lineJoin = 'round'; g.globalAlpha = al * 0.35; g.strokeStyle = col; g.lineWidth = w * 1.9; trace(0); // halo doux
-      g.globalAlpha = al; g.lineWidth = w; trace(0);
-      g.globalAlpha = al * (a.id === _ck.sel || !_ck.sel ? 0.55 : 0.25); g.strokeStyle = '#FFFFFF'; g.lineWidth = Math.max(1, w * 0.22); trace(-w * 0.28); // arête lumineuse
-      g.globalAlpha = 1; }); }); };
-  dessinerRuns(function(z) { return z < 0; });
-  // noyau : face sombre, reflet localisé, bordure épaisse, anneau de progression
-  var sph = g.createRadialGradient(cx - R * 0.35, cy - R * 0.4, R * 0.1, cx + R * 0.15, cy + R * 0.2, R * 1.15);
-  if (sombre) { sph.addColorStop(0, '#6FB7E3'); sph.addColorStop(0.35, '#2B6FA6'); sph.addColorStop(0.75, '#0F3556'); sph.addColorStop(1, '#071E33'); } else { sph.addColorStop(0, '#FFFFFF'); sph.addColorStop(0.3, '#DCE9F7'); sph.addColorStop(0.72, '#7FA3CC'); sph.addColorStop(1, '#2E5584'); }
-  g.fillStyle = sph; g.beginPath(); g.arc(cx, cy, R, 0, Math.PI * 2); g.fill();
-  var ombreFace = g.createRadialGradient(cx + R * 0.45, cy + R * 0.5, R * 0.1, cx, cy, R); ombreFace.addColorStop(0, 'rgba(0,0,0,.42)'); ombreFace.addColorStop(0.6, 'rgba(0,0,0,.12)'); ombreFace.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = ombreFace; g.beginPath(); g.arc(cx, cy, R, 0, Math.PI * 2); g.fill();
-  var refl = g.createRadialGradient(cx - R * 0.42, cy - R * 0.48, 0, cx - R * 0.42, cy - R * 0.48, R * 0.5); refl.addColorStop(0, 'rgba(255,255,255,.85)'); refl.addColorStop(0.35, 'rgba(255,255,255,.25)'); refl.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = refl; g.beginPath(); g.arc(cx, cy, R, 0, Math.PI * 2); g.fill();
-  g.lineWidth = Math.max(4, R * 0.09); g.strokeStyle = sombre ? 'rgba(201,232,250,.55)' : 'rgba(47,111,181,.55)'; g.beginPath(); g.arc(cx, cy, R - g.lineWidth / 2, 0, Math.PI * 2); g.stroke();
-  g.lineWidth = 1.5; g.strokeStyle = sombre ? 'rgba(255,255,255,.35)' : 'rgba(255,255,255,.9)'; g.beginPath(); g.arc(cx, cy, R - Math.max(4, R * 0.09) + 1, 0, Math.PI * 2); g.stroke();
-  // progression : arc épais sur la bordure
-  var p = Math.max(0, Math.min(100, _ck.pct || 0)) / 100; g.lineCap = 'round'; g.lineWidth = Math.max(5, R * 0.11); g.strokeStyle = sombre ? 'rgba(86,200,237,.25)' : 'rgba(47,111,181,.18)'; g.beginPath(); g.arc(cx, cy, R + g.lineWidth * 0.9, 0, Math.PI * 2); g.stroke();
-  g.strokeStyle = sombre ? '#56C8ED' : '#2F6FB5'; g.beginPath(); g.arc(cx, cy, R + g.lineWidth * 0.9, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * p); g.stroke();
-  dessinerRuns(function(z) { return z >= 0; });
-  // satellites (devant si z >= 0)
-  (_ck.anneaux || []).forEach(function(a) { var s = a.sat; if (!s) return; var rs = 4 * s.s + (a.id === _ck.sel ? 2 : 0); g.globalAlpha = a.al; var gl = g.createRadialGradient(s.x, s.y, 0, s.x, s.y, rs * 3); gl.addColorStop(0, sombre ? 'rgba(255,255,255,.9)' : 'rgba(47,111,181,.9)'); gl.addColorStop(0.35, sombre ? 'rgba(86,200,237,.5)' : 'rgba(47,111,181,.35)'); gl.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gl; g.beginPath(); g.arc(s.x, s.y, rs * 3, 0, Math.PI * 2); g.fill(); g.fillStyle = sombre ? '#FFFFFF' : '#2F6FB5'; g.beginPath(); g.arc(s.x, s.y, rs, 0, Math.PI * 2); g.fill(); g.globalAlpha = 1; });
-  var txt = document.getElementById('ck-core-txt'); if (txt) { txt.style.left = cx + 'px'; txt.style.top = cy + 'px'; }
-}
-// ─── Scène 3D (Three.js r160, WebGL) : sphère de verre éclairée de l'intérieur, trois anneaux lumineux en volume, socle réfléchissant. Seule exception à la règle « sans dépendance » (décision de Nicolas, 11 oct. 2026). Repli : la scène 2D.
-var CK_THREE_URL = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/0.160.0/three.min.js';
-function ck3dSupporte() { try { var c = document.createElement('canvas'); return !!(window.WebGLRenderingContext && (c.getContext('webgl2') || c.getContext('webgl'))); } catch (e) { return false; } }
-function ck3dCharger(cb) { if (window.THREE) return cb(true); if (window._ckThreeKo) return cb(false); if (window._ckThreeAttente) { window._ckThreeAttente.push(cb); return; } window._ckThreeAttente = [cb]; var s = document.createElement('script'); s.src = CK_THREE_URL; s.async = true; s.onload = function() { (window._ckThreeAttente || []).forEach(function(f) { f(!!window.THREE); }); window._ckThreeAttente = null; }; s.onerror = function() { window._ckThreeKo = true; (window._ckThreeAttente || []).forEach(function(f) { f(false); }); window._ckThreeAttente = null; }; document.head.appendChild(s); }
-function ck3dDemarrer() {
-  if (!ck3dSupporte()) return; var sc = document.getElementById('ck-scene'); if (!sc) return;
-  ck3dCharger(function(ok) { if (!ok) return; var sc2 = document.getElementById('ck-scene'); if (!sc2 || sc2 !== sc) return; try { ck3dConstruire(sc2); } catch (e) { console.warn('[cockpit 3D] repli 2D :', e); } });
-}
-function ck3dDetruire() { var t3 = _ck.t3; if (!t3) return; cancelAnimationFrame(t3.raf); try { t3.renderer.dispose(); t3.renderer.forceContextLoss(); } catch (e) {} if (t3.canvas && t3.canvas.parentNode) t3.canvas.parentNode.removeChild(t3.canvas); if (t3.etiq && t3.etiq.parentNode) t3.etiq.parentNode.removeChild(t3.etiq); var ct = document.getElementById('ck-core-txt'); if (ct) ct.style.display = ''; _ck.t3 = null; }
-function ck3dCouleurs() { var sombre = document.documentElement.getAttribute('data-theme') === 'dark'; return sombre
-  ? { sombre: true, fond: 0x071321, socle: 0x0C2238, socleBord: 0x56C8ED, verre: 0x8FD6F3, coeur: 0x56C8ED, anneaux: [0x5B9BE6, 0x56C8ED, 0xA9D5F5], lumiere: 0xBFE9FF, grille: 0x1D4D6E }
-  : { sombre: false, fond: 0xFFFFFF, socle: 0xFAFCFE, socleBord: 0x9FBFE3, verre: 0xCFE3F7, coeur: 0x3F86D1, anneaux: [0x2F6FB5, 0x3F86D1, 0x86B5EE], lumiere: 0xFFFFFF, grille: 0xD5E1EE }; }
-function ck3dTexteHalo(couleur) { var c = document.createElement('canvas'); c.width = c.height = 128; var g = c.getContext('2d'); var gr = g.createRadialGradient(64, 64, 0, 64, 64, 64); gr.addColorStop(0, 'rgba(' + couleur + ',1)'); gr.addColorStop(0.25, 'rgba(' + couleur + ',.5)'); gr.addColorStop(0.6, 'rgba(' + couleur + ',.12)'); gr.addColorStop(0.95, 'rgba(' + couleur + ',0)'); gr.addColorStop(1, 'rgba(' + couleur + ',0)'); g.fillStyle = gr; g.fillRect(0, 0, 128, 128); var tx = new THREE.CanvasTexture(c); tx.colorSpace = THREE.SRGBColorSpace; return tx; }
-// Constellation 3D (Three.js, WebGL) : chaque statistique est une étoile reliée aux autres par le chemin qu'elle suit (appels → conversations → RDV → tenus → shows → signés → commission),
-// des particules circulent sur les liens, fond d'étoiles, parallaxe à la souris, balancement lent. Les chiffres sont des étiquettes HTML projetées (toujours nettes).
-function ck3dNoeuds(c) {
-  var k = c.k, u = sdTunnelMois(getRdvs(state.month, state.year)), ap = k.jourJ || sdAttenduPourRien([]), mk = c.yr + '-' + String(c.mIdx + 1).padStart(2, '0');
-  var mois = (_closeAppels && _closeAppels.mois && _closeAppels.mois[mk]) || null, a = _ck.appels[mk], eur = function(n) { return Math.round(n || 0).toLocaleString('fr-FR') + ' €'; };
-  var joints = a && !a.enCours && !a.erreur ? a.joints : null, outb = Array.isArray(k.outbound) ? k.outbound.length : 0, pres = k.total ? Math.round(k.shows / k.total * 100) : null;
-  var N = [
-    { id: 'centre', cat: '', lab: 'de l\'objectif', v: (_ck.pct || 0) + ' %', p: [0, 0.1, 0], t: 1.9 },
-    { id: 'appels', cat: 'acq', lab: 'appels', v: mois ? (mois.sortants || 0) : '—', p: [-3.4, 1.7, -0.3], t: 1.2 },
-    { id: 'conv', cat: 'acq', lab: 'conversations', v: joints === null ? '—' : joints, p: [-2.9, 0.2, 0.4], t: 1.0 },
-    { id: 'outb', cat: 'acq', lab: 'RDV outbound pris', v: outb, p: [-1.5, 1.6, 0.8], t: 1.05 },
-    { id: 'pris', cat: 'rdv', lab: 'RDV pris', v: k.rdvPris || 0, p: [1.4, 1.8, -0.6], t: 1.0 },
-    { id: 'attendus', cat: 'rdv', lab: 'tenus ou attendus', v: k.total || 0, p: [2.6, 0.8, 0.2], t: 1.15 },
-    { id: 'shows', cat: 'rdv', lab: 'R1 tenus · ' + (pres === null ? '—' : pres + ' %'), v: k.shows || 0, p: [3.5, -0.3, 0.8], t: 1.35 },
-    { id: 'r2', cat: 'rdv', lab: 'R2 tenus', v: (u.r2Tenus || 0) + ' / ' + (u.r2Pris || 0), p: [3.6, 1.6, -0.5], t: 0.95 },
-    { id: 'jourj', cat: 'rdv', lab: 'non tenus le jour J', v: ap.total || 0, p: [2.3, -1.4, 0.1], t: 1.05, ko: true },
-    { id: 'avance', cat: 'rdv', lab: 'annulés à l\'avance', v: (ap.annulesAvance || 0) + (ap.reprogAvance || 0), p: [3.5, -2.3, -0.7], t: 0.8, ko: true },
-    { id: 'signes', cat: 'conv', lab: 'signatures', v: k.signes || 0, p: [0.7, -1.6, 0.9], t: 1.5, ok: true },
-    { id: 'comm', cat: 'conv', lab: 'commission', v: eur(c.comm), p: [-0.8, -2.5, 0.2], t: 1.25, ok: true },
-    { id: 'closing', cat: 'conv', lab: 'closing cohorte', v: k.shows ? k.closing + ' %' : '—', p: [2.4, -2.7, -0.4], t: 0.9 },
-    { id: 'suites', cat: 'conv', lab: 'suites datées', v: u.nonSignes ? Math.round(u.suites / u.nonSignes * 100) + ' %' : '—', p: [-2.3, -1.7, 0.3], t: 0.95 },
-    { id: 'cycle', cat: 'conv', lab: 'cycle de vente', v: k.delai === null || k.delai === undefined ? '—' : k.delai + ' j', p: [-3.5, -0.9, -0.7], t: 0.85 }
-  ];
-  var E = [['appels', 'conv'], ['conv', 'outb'], ['outb', 'pris'], ['pris', 'attendus'], ['attendus', 'shows'], ['shows', 'r2'], ['shows', 'signes'], ['r2', 'signes'], ['signes', 'comm'], ['signes', 'closing'], ['attendus', 'jourj'], ['pris', 'avance'], ['shows', 'suites'], ['comm', 'cycle'], ['centre', 'comm'], ['centre', 'shows'], ['centre', 'outb'], ['suites', 'cycle'], ['conv', 'centre'], ['jourj', 'closing']];
-  return { N: N, E: E };
-}
-function ck3dConstruire(sc) {
-  ck3dDetruire(); var T = THREE, C = ck3dCouleurs(), W = sc.clientWidth, H = sc.clientHeight, c = _ck.ctx; if (!c) return;
-  var renderer = new T.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' }); renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1)); renderer.setSize(W, H); renderer.toneMapping = T.ACESFilmicToneMapping; renderer.toneMappingExposure = C.sombre ? 1.2 : 1.0; renderer.outputColorSpace = T.SRGBColorSpace;
-  var canvas = renderer.domElement; canvas.id = 'ck-canvas3d'; canvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;display:block;'; sc.appendChild(canvas);
-  var c2 = document.getElementById('ck-canvas'); if (c2) c2.style.display = 'none'; cancelAnimationFrame(_ck.raf); _ck.raf = 0;
-  var etiq = document.createElement('div'); etiq.id = 'ck-etiq'; etiq.style.cssText = 'position:absolute;inset:0;pointer-events:none;overflow:hidden;'; sc.appendChild(etiq); var coreTxt = document.getElementById('ck-core-txt'); if (coreTxt) coreTxt.style.display = 'none';
-  var scene = new T.Scene(), camera = new T.PerspectiveCamera(40, W / H, 0.1, 100); camera.position.set(0, 0.3, 9.9); camera.lookAt(0, -0.2, 0);
-  var monde = new T.Group(); scene.add(monde);
-  var G = ck3dNoeuds(c), parId = {}; G.N.forEach(function(n) { parId[n.id] = n; });
-  var colCat = function(cat, ok, ko) { if (ko) return C.sombre ? 0xFF8A98 : 0xC54757; if (ok) return C.sombre ? 0x5EDBA7 : 0x16805D; return cat === 'acq' ? C.anneaux[0] : cat === 'rdv' ? C.anneaux[1] : cat === 'conv' ? C.anneaux[2] : C.coeur; };
-  var rgb = function(hex) { return ((hex >> 16) & 255) + ',' + ((hex >> 8) & 255) + ',' + (hex & 255); };
-  var texHalo = {}, halo = function(hex) { var k = rgb(hex); if (!texHalo[k]) texHalo[k] = ck3dTexteHalo(k); return texHalo[k]; };
-  // fond d'étoiles
-  var np = C.sombre ? 420 : 160, pos = new Float32Array(np * 3); for (var i = 0; i < np; i++) { var r = 6 + Math.random() * 9, th = Math.random() * Math.PI * 2, ph = Math.acos(2 * Math.random() - 1); pos[i * 3] = r * Math.sin(ph) * Math.cos(th); pos[i * 3 + 1] = r * Math.sin(ph) * Math.sin(th) * 0.6; pos[i * 3 + 2] = -3 - Math.abs(r * Math.cos(ph)) * 0.8; }
-  var etoiles = new T.Points(new T.BufferGeometry().setAttribute('position', new T.BufferAttribute(pos, 3)), new T.PointsMaterial({ color: C.sombre ? 0x9FD4F0 : 0x9FBFE3, size: 0.045, transparent: true, opacity: C.sombre ? 0.8 : 0.5, sizeAttenuation: true, blending: C.sombre ? T.AdditiveBlending : T.NormalBlending, depthWrite: false })); scene.add(etoiles);
-  // anneaux HUD autour du centre (dans le plan caméra)
-  var hud = new T.Group(); [1.0, 1.35].forEach(function(r, i) { var m = new T.Mesh(new T.TorusGeometry(r, 0.008, 6, 160, i === 0 ? Math.PI * 1.5 : Math.PI * 2), new T.MeshBasicMaterial({ color: C.coeur, transparent: true, opacity: C.sombre ? 0.45 : 0.35 })); m.rotation.z = i === 0 ? 0.6 : 0; hud.add(m); });
-  var pct = Math.max(0, Math.min(100, _ck.pct || 0)) / 100; if (pct > 0.005) { var arc = new T.Mesh(new T.TorusGeometry(1.18, 0.035, 8, 120, Math.PI * 2 * pct), new T.MeshBasicMaterial({ color: C.coeur, transparent: true, opacity: 0.95 })); arc.rotation.z = Math.PI / 2; hud.add(arc); }
-  monde.add(hud);
-  // nœuds : halo + cœur + sphère invisible pour le survol
-  var noeuds = []; G.N.forEach(function(n) { var col = colCat(n.cat, n.ok, n.ko), g = new T.Group(); g.position.set(n.p[0], n.p[1], n.p[2]);
-    var h = new T.Sprite(new T.SpriteMaterial({ map: halo(col), transparent: true, opacity: C.sombre ? 0.85 : 0.55, depthWrite: false, blending: C.sombre ? T.AdditiveBlending : T.NormalBlending })); h.scale.set(1.1 * n.t, 1.1 * n.t, 1); g.add(h);
-    var coeur = new T.Mesh(new T.SphereGeometry(0.06 * n.t, 20, 20), new T.MeshBasicMaterial({ color: C.sombre ? 0xFFFFFF : col })); g.add(coeur);
-    var anneau = new T.Mesh(new T.TorusGeometry(0.16 * n.t, 0.012, 6, 48), new T.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.9 })); g.add(anneau);
-    var hit = new T.Mesh(new T.SphereGeometry(0.42 * n.t, 8, 8), new T.MeshBasicMaterial({ visible: false })); hit.userData.id = n.id; g.add(hit);
-    var e = document.createElement('div'); e.className = 'ck-etq' + (n.id === 'centre' ? ' centre' : ''); e.innerHTML = '<b>' + n.v + '</b><span>' + n.lab + '</span>'; e.style.setProperty('--c', '#' + col.toString(16).padStart(6, '0')); etiq.appendChild(e);
-    monde.add(g); noeuds.push({ n: n, g: g, halo: h, anneau: anneau, hit: hit, etq: e, col: col, base: n.t }); });
-  // liens : lignes + particules
-  var liens = [], partGeo = new T.SphereGeometry(0.035, 8, 8);
-  G.E.forEach(function(e) { var a = parId[e[0]], b = parId[e[1]]; if (!a || !b) return; var va = new T.Vector3().fromArray(a.p), vb = new T.Vector3().fromArray(b.p), mid = va.clone().add(vb).multiplyScalar(0.5); mid.z += 0.35; mid.y += 0.15;
-    var courbe = new T.QuadraticBezierCurve3(va, mid, vb), pts = courbe.getPoints(40), geo = new T.BufferGeometry().setFromPoints(pts), col = colCat(b.cat, b.ok, b.ko);
-    var l = new T.Line(geo, new T.LineBasicMaterial({ color: C.sombre ? 0x56C8ED : 0x5B9BE6, transparent: true, opacity: C.sombre ? 0.35 : 0.45, blending: C.sombre ? T.AdditiveBlending : T.NormalBlending, depthWrite: false })); monde.add(l);
-    var part = new T.Mesh(partGeo, new T.MeshBasicMaterial({ color: C.sombre ? 0xFFFFFF : col })); var ph = new T.Sprite(new T.SpriteMaterial({ map: halo(C.sombre ? 0x9FE3FF : col), transparent: true, opacity: 0.9, depthWrite: false, blending: C.sombre ? T.AdditiveBlending : T.NormalBlending })); ph.scale.set(0.35, 0.35, 1); part.add(ph); monde.add(part);
-    liens.push({ a: a.id, b: b.id, l: l, courbe: courbe, part: part, t: Math.random(), v: 0.08 + Math.random() * 0.08, op: l.material.opacity }); });
-  var ray = new T.Raycaster(), souris = new T.Vector2(-9, -9), parallaxe = { x: 0, y: 0 };
-  var viser = function(e) { var r = canvas.getBoundingClientRect(); souris.x = ((e.clientX - r.left) / r.width) * 2 - 1; souris.y = -((e.clientY - r.top) / r.height) * 2 + 1; parallaxe.x = souris.x; parallaxe.y = souris.y; ray.setFromCamera(souris, camera); var hits = ray.intersectObjects(noeuds.map(function(x) { return x.hit; }), false); return hits.length ? hits[0].object.userData.id : ''; };
-  canvas.addEventListener('mousemove', function(e) { var id = viser(e); _ck.t3.survol = id; canvas.style.cursor = id ? 'pointer' : 'default'; });
-  canvas.addEventListener('mouseleave', function() { parallaxe.x = 0; parallaxe.y = 0; _ck.t3.survol = ''; });
-  canvas.addEventListener('click', function(e) { var id = viser(e); if (!id) { ckChoisir(''); return; } var n = parId[id]; ckChoisir(n.cat || ''); });
-  _ck.t3 = { pret: true, renderer: renderer, scene: scene, camera: camera, monde: monde, noeuds: noeuds, liens: liens, hud: hud, etiq: etiq, canvas: canvas, raf: 0, t0: performance.now(), survol: '', parallaxe: parallaxe, parId: parId };
-  ck3dSelection(); ck3dBoucle();
-}
-function ck3dSelection() { var t3 = _ck.t3; if (!t3) return; ck3dBoucle(); }
-function ck3dTaille() { var t3 = _ck.t3, sc = document.getElementById('ck-scene'); if (!t3 || !sc) return; var W = sc.clientWidth, H = sc.clientHeight; if (!W || !H) return; t3.camera.aspect = W / H; t3.camera.updateProjectionMatrix(); t3.renderer.setSize(W, H); ck3dRendu(); }
-function ck3dRendu() { var t3 = _ck.t3; if (!t3) return false; var T = THREE, calme = ckCalme(), now = performance.now(), tps = (now - t3.t0) / 1000, sel = _ck.sel, surv = t3.survol, sc = document.getElementById('ck-scene'); if (!sc) return false; var W = sc.clientWidth, H = sc.clientHeight;
-  // balancement lent + parallaxe
-  var ry = calme ? 0 : Math.sin(tps * 0.18) * 0.16, rx = calme ? 0 : Math.sin(tps * 0.11) * 0.05; t3.monde.rotation.y += (ry + t3.parallaxe.x * 0.18 - t3.monde.rotation.y) * 0.05; t3.monde.rotation.x += (rx - t3.parallaxe.y * 0.1 - t3.monde.rotation.x) * 0.05;
-  t3.hud.quaternion.copy(t3.camera.quaternion); t3.hud.rotation.z += 0; if (!calme) { t3.hud.children[0].rotation.z = 0.6 + tps * 0.12; }
-  // nœuds : mise en avant de la catégorie choisie / survolée
-  t3.noeuds.forEach(function(x) { var n = x.n, actif = !sel || n.cat === sel || n.id === 'centre', surv2 = surv && surv === n.id; var cible = (actif ? 1 : 0.45) * (surv2 ? 1.35 : 1) * (calme ? 1 : 1 + Math.sin(tps * 1.3 + n.p[0]) * 0.04) * n.t; var s = x.halo.scale.x + (cible * 1.1 - x.halo.scale.x) * 0.12; x.halo.scale.set(s, s, 1); x.halo.material.opacity = actif ? (document.documentElement.getAttribute('data-theme') === 'dark' ? 0.85 : 0.55) : 0.25; x.anneau.material.opacity = actif ? 0.9 : 0.3;
-    var v = x.g.position.clone().applyMatrix4(t3.monde.matrixWorld).project(t3.camera); var px = (v.x + 1) / 2 * W, py = (1 - v.y) / 2 * H; var e = x.etq; e.style.transform = 'translate(' + Math.round(px) + 'px,' + Math.round(py) + 'px) translate(-50%, ' + (n.id === 'centre' ? '-50%' : (18 * n.t) + 'px') + ')'; e.style.opacity = actif ? 1 : 0.35; e.classList.toggle('on', !!surv2 || (!!sel && n.cat === sel)); });
-  t3.liens.forEach(function(L) { var a = t3.parId[L.a], b = t3.parId[L.b], actif = !sel || a.cat === sel || b.cat === sel || a.id === 'centre' || b.id === 'centre'; L.l.material.opacity += ((actif ? L.op : L.op * 0.25) - L.l.material.opacity) * 0.1; if (!calme) { L.t = (L.t + L.v / 60) % 1; } var p = L.courbe.getPoint(L.t); L.part.position.copy(p); L.part.visible = actif; });
-  t3.renderer.render(t3.scene, t3.camera); return true; }
-function ck3dBoucle() { var t3 = _ck.t3; if (!t3) return; cancelAnimationFrame(t3.raf); var n = 0; var pas = function() { if (!_ck.t3 || !document.getElementById('ck-canvas3d')) return; ck3dRendu(); n++; if (!ckCalme() || n < 90) t3.raf = requestAnimationFrame(pas); else t3.raf = 0; }; t3.raf = requestAnimationFrame(pas); }
 function ckPct(a, b) { return b ? Math.round(a / b * 100) + ' %' : 'non disponible'; }
 function ckRendreSide() {
   var side = document.getElementById('ck-side'), c = _ck.ctx; if (!side || !c) return; var k = c.k, u = sdTunnelMois(getRdvs(state.month, state.year)), ap = k.jourJ || sdAttenduPourRien([]), mk = c.yr + '-' + String(c.mIdx + 1).padStart(2, '0');
@@ -9864,7 +9725,6 @@ function renderPerfTop() {
     ? '<div class="pf-kv"><div><div class="v">' + escapeHtml((/^(\d+\s*\/\s*\d+)/.exec(T('daily-outbound-today-count')) || ['', '—'])[1]) + '</div><div class="l">pris aujourd\'hui</div></div><div><div class="v">' + escapeHtml(/^\d+$/.test(T('daily-outbound-reste')) ? T('daily-outbound-reste') : '—') + '</div><div class="l">restent cette semaine</div></div><div><div class="v">' + nbSrc(k.outbound) + '</div><div class="l">RDV outbound ce mois</div></div><div><div class="v">' + appels.length + '</div><div class="l">appels aujourd\'hui · ' + appels.filter(function(a) { return a.joint; }).length + ' joints</div></div></div>'
     : '<div class="pf-kv"><div><div class="v">' + nbSrc(k.outbound) + '</div><div class="l">RDV outbound</div></div><div><div class="v">' + nbSrc(k.inbound) + '</div><div class="l">RDV inbound</div></div><div><div class="v">' + nbSrc(k.pub) + '</div><div class="l">RDV pub</div></div></div>';
   var conv = '<div class="pf-kv"><div><div class="v">' + sdPct(k.shows, k.total) + '</div><div class="l">show rate · ' + (k.shows || 0) + ' sur ' + (k.total || 0) + '</div></div><div><div class="v">' + sdPct(k.signes, k.shows) + '</div><div class="l">closing · ' + (k.signes || 0) + ' sur ' + (k.shows || 0) + ' shows</div></div><div><div class="v">' + (k.signes ? eur(comm / k.signes) : '—') + '</div><div class="l">par vente, primes comprises</div></div></div>';
-  try { ck3dDetruire(); } catch (e) {}
   if (sdPerfVue() === 'cockpit') { try { el.innerHTML = ckHtml({ k: k, comm: comm, obj: obj, pct: pct, reste: reste, prime: prime, proch: proch, s3: s3, courant: courant, jRest: jRest, jOuv: jOuv, mIdx: mIdx, yr: yr, eur: eur }); ckApres({ k: k, comm: comm, obj: obj, pct: pct, reste: reste, s3: s3, courant: courant, jOuv: jOuv, jRest: jRest, mIdx: mIdx, yr: yr, prime: prime }); return; } catch (e) { console.warn('[cockpit] repli vue classique :', e); } }
   el.innerHTML = '<div class="pf-head"><div><h1 class="pf-h1">Performance</h1><div class="pf-sub">'
       + (courant ? '<span>' + jRest + ' jour' + (jRest > 1 ? 's' : '') + ' de travail restant' + (jRest > 1 ? 's' : '') + '</span><span>·</span><span>Absences</span><button onclick="adjustAbsence(-1)">−</button><b>' + abs + '</b><button onclick="adjustAbsence(1)">+</button>' : (futur ? '<span>Mois à venir</span>' : '<span>Mois terminé · ' + jOuv + ' jours ouvrés</span>')) + '</div></div>'
