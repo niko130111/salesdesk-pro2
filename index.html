@@ -2021,7 +2021,7 @@ select.form-input { cursor: pointer; }
   <div class="gl-4">
     <div class="gl-k"><span class="ico" data-ico="euro"></span><div class="bd"><div class="lab">Commission totale</div><div class="v" id="g-comm-total">—</div><div class="s"><span id="g-comm-avg">—</span> par vente · <span id="g-avg-info">—</span></div></div></div>
     <div class="gl-k"><span class="ico" data-ico="doc"></span><div class="bd"><div class="lab">Ventes</div><div class="v" id="g-total-signes">—</div><div class="s" id="g-avg-ventes-sub">— ventes/mois</div></div></div>
-    <div class="gl-k"><span class="ico" data-ico="cal"></span><div class="bd"><div class="lab">RDV tenus</div><div class="v" id="g-total-shows">—</div><div class="s">présence <b id="g-showrate">—</b> des R1 traités</div></div></div>
+    <div class="gl-k"><span class="ico" data-ico="cal"></span><div class="bd"><div class="lab">RDV tenus</div><div class="v" id="g-total-shows">—</div><div class="s">présence <b id="g-showrate">—</b> des RDV tenus ou attendus</div></div></div>
     <div class="gl-k"><span class="ico" data-ico="arrow"></span><div class="bd"><div class="lab">Closing</div><div class="v" id="g-closing">—</div><div class="s" title="Ventes signées sur la période divisées par les R1 vus sur la période : deux populations différentes. Le closing de Performance suit la cohorte (R1 vus ce mois qui ont signé depuis), d'où des chiffres qui ne coïncident pas en début de mois.">ventes / R1 vus, sur la période</div></div></div>
   </div>
 
@@ -2093,14 +2093,18 @@ select.form-input { cursor: pointer; }
       </div>
       <div class="gl-sst">Moyennes sur la période</div>
       <div class="gl-grid n4">
-        <div class="kpi-card"><div class="kpi-label">RDV traités</div><div class="kpi-value" id="g-total-rdv">—</div><div class="kpi-sub" id="g-avg-rdv-sub">— mois actifs</div></div>
+        <div class="kpi-card"><div class="kpi-label" title="R1 vécus + non vécus le jour J (no-show, annulé ou reprogrammé le jour même). Les annulations faites à l'avance ne comptent pas depuis mai 2026.">RDV tenus ou attendus</div><div class="kpi-value" id="g-total-rdv">—</div><div class="kpi-sub" id="g-avg-rdv-sub">— mois actifs</div></div>
         <div class="kpi-card"><div class="kpi-label">RDV / jour</div><div class="kpi-value" id="g-rdv-par-jour-global">—</div><div class="kpi-sub">sur toute la période</div></div>
         <div class="kpi-card"><div class="kpi-label">Shows / jour</div><div class="kpi-value" id="g-show-par-jour-global">—</div><div class="kpi-sub">sur toute la période</div></div>
-        <div class="kpi-card has-noshow-tooltip"><div class="kpi-label">RDV non tenus</div><div style="display:flex;align-items:baseline;gap:8px;"><div class="kpi-value" id="g-total-noshows">—</div><div style="font-size:15px;font-weight:600;color:var(--text3);" id="g-noshowrate">—</div></div><div class="kpi-sub">no show, annulés, reprogrammés · survoler pour le détail</div>
+        <div class="kpi-card has-noshow-tooltip"><div class="kpi-label">Non tenus le jour J</div><div style="display:flex;align-items:baseline;gap:8px;"><div class="kpi-value" id="g-total-noshows">—</div><div style="font-size:15px;font-weight:600;color:var(--text3);" id="g-noshowrate">—</div></div><div class="kpi-sub">no show, annulés, reprogrammés · survoler pour le détail</div>
           <div class="noshow-tooltip" id="g-noshow-tooltip">
-            <div class="noshow-tooltip-row"><span class="noshow-tooltip-label">Vrais no show</span><span class="noshow-tooltip-value" id="tt-glb-ns">—</span></div>
-            <div class="noshow-tooltip-row"><span class="noshow-tooltip-label">Annulés</span><span class="noshow-tooltip-value" id="tt-glb-an">—</span></div>
-            <div class="noshow-tooltip-row"><span class="noshow-tooltip-label">Reprogrammés</span><span class="noshow-tooltip-value" id="tt-glb-re">—</span></div>
+            <div class="noshow-tooltip-row"><span class="noshow-tooltip-label">🚫 No-show</span><span class="noshow-tooltip-value" id="tt-glb-ns">—</span></div>
+            <div class="noshow-tooltip-row"><span class="noshow-tooltip-label">❌ Annulés le jour J</span><span class="noshow-tooltip-value" id="tt-glb-an">—</span></div>
+            <div class="noshow-tooltip-row"><span class="noshow-tooltip-label">🔄 Reprogrammés le jour J</span><span class="noshow-tooltip-value" id="tt-glb-re">—</span></div>
+            <div class="noshow-tooltip-row" style="font-weight:700;"><span class="noshow-tooltip-label">= Non tenus le jour J</span><span class="noshow-tooltip-value" id="tt-glb-jj">—</span></div>
+            <div class="noshow-tooltip-row"><span class="noshow-tooltip-label">❌ Annulés à l'avance</span><span class="noshow-tooltip-value" id="tt-glb-aa">—</span></div>
+            <div class="noshow-tooltip-row"><span class="noshow-tooltip-label">🔄 Reprogrammés à l'avance</span><span class="noshow-tooltip-value" id="tt-glb-ra">—</span></div>
+            <div class="noshow-tooltip-row" style="border-top:1px solid rgba(255,255,255,.2);margin-top:4px;padding-top:4px;"><span class="noshow-tooltip-label">🚪 Annulés définitivement</span><span class="noshow-tooltip-value" id="tt-glb-def">—</span></div>
             <div class="noshow-tooltip-period" id="tt-glb-period">—</div>
           </div></div>
         <div class="kpi-card kpi-masquee"><div class="kpi-label">Transfo (RDV → vente)</div><div class="kpi-value" id="g-transfo">—</div><div class="kpi-sub">ventes / rdv pris</div></div>
@@ -3651,6 +3655,8 @@ function sdRattraperAnnuleLe(store) {
     store[k].forEach(function(r) { if (!r || r.annuleLe || String(r.presence || '').trim() !== 'Annulé' || !r.date) return; var iso = String(r.date).split('/').reverse().join('-'); var at = parCle[iso + '|' + String(r.client || '').toLowerCase().replace(/\s+/g, ' ').trim()]; if (at) r.annuleLe = at; });
   });
 }
+// Dans la base « vécus + non vécus le jour J » : avant mai 2026 tout R1 traité ; depuis, Show, No Show, ou annulé / reprogrammé le jour même (heure de Paris)
+function sdEnBase(r) { if (!r) return false; var p = String(r.presence || '').trim(); if (p === 'Show' || p === 'No Show') return true; if (p !== 'Annulé' && p !== 'Reprogrammé') return false; var iso = String(r.date || '').split('/').reverse().join('-'); if (iso < ATTENDU_DEPUIS) return true; return !!r.annuleLe && sdJourParis(r.annuleLe) === iso; }
 // Annulés définitivement : lignes Annulé du mois sans aucun R1 plus tard pour la même personne (e-mail, sinon nom), dans tout le store. Retour { total, jourJ, avance }.
 function sdAnnulesDefinitifs(rows) {
   var st = loadStore(), tous = []; Object.keys(st).forEach(function(k) { if (/^\d{4}-\d{2}$/.test(k) && Array.isArray(st[k])) st[k].forEach(function(r) { if (r && r.source !== 'R2' && r.date) tous.push(r); }); });
@@ -3701,6 +3707,26 @@ function sdRattraperAnnuleLeCalendly() {
   }).catch(function() {});
 }
 setTimeout(function() { try { sdRattraperAnnuleLeCalendly(); } catch (e) {} }, 9000);
+// Rattrapage depuis Close (après Calendly) : pour les lignes annulées / reprogrammées sans heure et reliées à une fiche Close, l'heure à laquelle
+// le statut d'opportunité est passé en « Demo Rescheduled » ou « Demo No Show / Cancelled ». C'est l'heure où Nicolas l'a noté, pas celle du prospect :
+// un basculement fait après le jour du RDV compte « jour J » (le créneau était perdu). Une fois par session, 20 s après l'ouverture.
+function sdRattraperAnnuleLeClose() {
+  if (typeof COPILOT_URL === 'undefined' || window._sdAnnulCloseFait) return; var st = loadStore(), cibles = [];
+  Object.keys(st).forEach(function(k) { if (!/^\d{4}-\d{2}$/.test(k) || !Array.isArray(st[k])) return; st[k].forEach(function(r) { if (r && !r.annuleLe && /^lead_/.test(String(r.closeLead || '')) && /^(Annulé|Reprogrammé)$/.test(String(r.presence || '').trim()) && r.source !== 'R2') cibles.push(r); }); });
+  if (!cibles.length) return; window._sdAnnulCloseFait = true;
+  var leads = []; cibles.forEach(function(r) { if (leads.indexOf(r.closeLead) < 0) leads.push(r.closeLead); });
+  rlPost('/close/statuts-rdv', { leads: leads.slice(0, 400) }).then(function(j) {
+    if (!j || !j.ok) return; var S = j.statuts || {}, st2 = loadStore(), n = 0;
+    Object.keys(st2).forEach(function(k) { if (!/^\d{4}-\d{2}$/.test(k) || !Array.isArray(st2[k])) return; st2[k].forEach(function(r) {
+      if (!r || r.annuleLe || !/^(Annulé|Reprogrammé)$/.test(String(r.presence || '').trim()) || r.source === 'R2') return; var ch = S[r.closeLead]; if (!ch || !ch.length) return;
+      var iso = String(r.date || '').split('/').reverse().join('-'), prise = String(r.datePrise || '').split('/').reverse().join('-'); if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return;
+      var tMin = Date.parse((prise && prise < iso ? prise : rlPlus(iso, -45)) + 'T00:00:00'), tMax = Date.parse(iso + 'T23:59:59') + 10 * 86400000, best = null;
+      ch.forEach(function(c) { if (!/Rescheduled|No Show|Cancelled/i.test(String(c.vers || ''))) return; var tc = Date.parse(c.at || ''); if (!tc || tc < tMin || tc > tMax) return; if (!best || Math.abs(tc - Date.parse(iso + 'T12:00:00')) < Math.abs(Date.parse(best.at) - Date.parse(iso + 'T12:00:00'))) best = c; });
+      if (!best) return; var jourC = sdJourParis(best.at); r.annuleLe = jourC > iso ? iso + 'T12:00:00+02:00' : best.at; r.annuleLeSource = 'close'; n++; }); });
+    if (n) { saveStore(st2); console.log('[annulations] heure retrouvée sur ' + n + ' ligne(s) depuis les statuts Close'); if (typeof refreshAll === 'function') refreshAll(); }
+  }).catch(function() {});
+}
+setTimeout(function() { try { sdRattraperAnnuleLeClose(); } catch (e) {} }, 20000);
 // Une migration a modifié le store en mémoire : on l'enregistre (localStorage + cloud) une fois la page prête, sinon les
 // corrections seraient recalculées à chaque chargement sans jamais être sauvegardées.
 setInterval(function() {
@@ -13183,7 +13209,8 @@ function renderGlobal() {
   // ── KPI de base ──
   // FIX SD-04 : `all` contenait les R2 ET les RDV futurs non qualifiés. Le show rate global
   // était donc structurellement sous-évalué (chaque RDV à venir comptait comme un non-show).
-  const allR1T = r1Traites(all);
+  // Même base que Performance (11 oct. 2026) : R1 vécus + non vécus le jour J ; les annulations / reports faits à l'avance (depuis mai 2026) sortent des RDV
+  const allR1Pris = r1Traites(all), allR1T = allR1Pris.filter(sdEnBase), nbAvance = allR1Pris.length - allR1T.length;
   const setSignes = setDesClientsSignes(all);
   const totalRdv    = allR1T.length;
   const totalShows  = allR1T.filter(r => normalizePresence(r.presence) === 'Show').length;
@@ -13215,7 +13242,7 @@ function renderGlobal() {
   const joursTravailles = getJoursTravailles(allR1T) || joursOuvresPeriode;
 
   // ── KPI affichage ──
-  set('g-data-info', totalRdv + ' RDV traités · ' + activeMois + ' mois · ' + joursTravailles + ' j travaillés sur ' + joursOuvresPeriode + ' ouvrés');
+  set('g-data-info', totalRdv + ' RDV tenus ou attendus' + (nbAvance ? ' (' + allR1Pris.length + ' pris, ' + nbAvance + ' annulés / reprogrammés à l\'avance depuis mai 2026)' : '') + ' · ' + activeMois + ' mois · ' + joursTravailles + ' j travaillés sur ' + joursOuvresPeriode + ' ouvrés');
   const subEl = document.getElementById('g-header-sub');
   if (subEl) subEl.textContent = fromKey ? 'Depuis ' + (filterEl?.options[filterEl?.selectedIndex]?.text||'') + ' → Aujourd\'hui' : 'Toute la période · ' + activeMois + ' mois';
   set('g-total-rdv',    totalRdv);
@@ -13306,14 +13333,15 @@ function renderGlobal() {
     const key = p[2] + '-' + p[1].padStart(2,'0');
     return key >= nsFromKey;
   });
-  const _nsGlb  = nsPool.filter(r => r.presence === 'No Show').length;
-  const _anGlb  = nsPool.filter(r => r.presence === 'Annulé').length;
-  const _reGlb  = nsPool.filter(r => r.presence === 'Reprogrammé').length;
-  const _totGlb = nsPool.length;
-  const _pctGlb = (n) => _totGlb > 0 ? ' (' + Math.round(n/_totGlb*100) + '%)' : '';
-  set('tt-glb-ns', _nsGlb + _pctGlb(_nsGlb));
-  set('tt-glb-an', _anGlb + _pctGlb(_anGlb));
-  set('tt-glb-re', _reGlb + _pctGlb(_reGlb));
+  const _apG = sdAttenduPourRien(nsPool.filter(estTraite)), _baseG = nsPool.filter(r => estTraite(r) && sdEnBase(r)).length;
+  const _pctGlb = (n) => _baseG > 0 ? ' (' + Math.round(n/_baseG*100) + '%)' : '';
+  set('tt-glb-ns', _apG.noShow + _pctGlb(_apG.noShow));
+  set('tt-glb-an', _apG.annulesJour + _pctGlb(_apG.annulesJour));
+  set('tt-glb-re', _apG.reprogJour + _pctGlb(_apG.reprogJour));
+  set('tt-glb-jj', _apG.total + ' sur ' + _baseG + _pctGlb(_apG.total));
+  set('tt-glb-aa', _apG.annulesAvance + (_apG.sansHeure ? ' (dont ' + _apG.sansHeure + ' sans heure)' : ''));
+  set('tt-glb-ra', _apG.reprogAvance + '');
+  try { const _dG = sdAnnulesDefinitifs(nsPool); set('tt-glb-def', _dG.total + (_dG.total ? ' (' + _dG.jourJ + ' le jour J · ' + _dG.avance + ' à l\'avance)' : '')); } catch (e) {}
   const [nsY, nsM] = nsFromKey.split('-');
   set('tt-glb-period', 'depuis ' + monthNamesShort[parseInt(nsM)-1].toLowerCase() + ' ' + nsY);
 
