@@ -529,6 +529,15 @@ main { max-width: 100%; margin: 0; padding: 6px 8px; }
 .pf-note { font-size: 12.5px; color: var(--text2); } .pf-note b { color: var(--text); }
 .pf-faits { display: grid; gap: 10px; } .pf-faits .f { display: flex; justify-content: space-between; gap: 10px; font-size: 13.5px; color: var(--text2); border-bottom: 1px solid var(--border); padding-bottom: 8px; } .pf-faits .f:last-child { border-bottom: 0; padding-bottom: 0; } .pf-faits .f b { color: var(--text); font-weight: 700; }
 .pf-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 12px; }
+.pf-tunnel { display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); gap: 0; margin-top: 10px; }
+@media (max-width: 1100px) { .pf-tunnel { grid-template-columns: repeat(5, minmax(0, 1fr)); } .pf-tunnel .et:nth-child(6) { border-left: 0; padding-left: 0; } }
+.pf-tunnel .et { position: relative; padding: 8px 8px 6px; border-left: 1px solid var(--border); min-width: 0; }
+.pf-tunnel .et:first-child { border-left: 0; padding-left: 0; }
+.pf-tunnel .et .n { font-size: 21px; font-weight: 800; color: var(--text); line-height: 1.1; }
+.pf-tunnel .et .l { font-size: 10px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--text3); margin-top: 2px; line-height: 1.2; }
+.pf-tunnel .et .t { font-size: 11px; color: var(--text2); margin-top: 4px; } .pf-tunnel .et .t b { color: var(--accent); }
+.pf-tunnel .et .m { font-size: 10.5px; color: var(--text3); margin-top: 2px; }
+.pf-tunnel .et.ko .t b { color: var(--red); } .pf-tunnel .et.ok .t b { color: var(--green); }
 .pf-3 .v { font-size: 26px; font-weight: 800; margin-top: 4px; color: var(--text); } .pf-3 .v small { font-size: 14px; font-weight: 500; color: var(--text3); }
 /* ── Bilan hebdo (9 oct. 2026) : un résumé, six chiffres, l'analyse en deux colonnes, les RDV, le plan ── */
 .bh .bh-ctrl { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
@@ -3640,6 +3649,22 @@ function sdRattraperAnnuleLe(store) {
     if (!/^\d{4}-\d{2}$/.test(k) || !Array.isArray(store[k])) return;
     store[k].forEach(function(r) { if (!r || r.annuleLe || String(r.presence || '').trim() !== 'Annulé' || !r.date) return; var iso = String(r.date).split('/').reverse().join('-'); var at = parCle[iso + '|' + String(r.client || '').toLowerCase().replace(/\s+/g, ' ').trim()]; if (at) r.annuleLe = at; });
   });
+}
+// Tunnel d'un mois (R1 du mois, date du RDV) : RDV pris → tenus ou attendus (base) → shows → R2 pris → R2 tenus → signés (cohorte : les R1 de ce mois qui ont fini par signer).
+function sdTunnelMois(rows) {
+  var r1 = (rows || []).filter(function(r) { return r && r.source !== 'R2' && /^(Show|No Show|Annulé|Reprogrammé)$/.test(String(r.presence || '').trim()); });
+  var jj = sdAttenduPourRien(r1), shows = r1.filter(function(r) { return r.presence === 'Show'; });
+  var base = jj.horsPeriode ? r1.length : shows.length + jj.total;
+  var signes = shows.filter(function(r) { return r.result === 'Signé'; }).length;
+  var r2Pris = shows.filter(function(r) { return String(r.dateR2 || '').trim(); }).length, r2Tenus = shows.filter(function(r) { return String(r.presenceR2 || '').trim() === 'Show'; }).length;
+  var nonSignes = shows.filter(function(r) { return r.result !== 'Signé'; }), suites = nonSignes.filter(function(r) { return String(r.dateR2 || '').trim() || (r.relanceDate && !r.relanceFait) || r.relanceFait; }).length;
+  return { pris: r1.length, base: base, shows: shows.length, r2Pris: r2Pris, r2Tenus: r2Tenus, signes: signes, nonSignes: nonSignes.length, suites: suites, jourJ: jj.total, horsPeriode: jj.horsPeriode };
+}
+// Tunnel moyen des 3 derniers mois finis (même définition), pour la ligne de repère
+function sdTunnel3Mois() {
+  var now = new Date(), st = loadStore(), acc = { pris: 0, base: 0, shows: 0, r2Pris: 0, r2Tenus: 0, signes: 0, nonSignes: 0, suites: 0, mois: 0 };
+  for (var i = 1; i <= 3; i++) { var d = new Date(now.getFullYear(), now.getMonth() - i, 1), k = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); var rows = st[k] || []; if (!rows.length) continue; var u = sdTunnelMois(rows); acc.mois++; ['pris', 'base', 'shows', 'r2Pris', 'r2Tenus', 'signes', 'nonSignes', 'suites'].forEach(function(c) { acc[c] += u[c]; }); }
+  return acc;
 }
 // Non tenus le jour J : no-show, plus les annulations et les reprogrammations faites le jour même du RDV (heure connue, lue en heure de Paris). R1 seulement.
 // Compté à partir de mai 2026 seulement : avant, Calendly ne donne pas l'heure des annulations (demande de Nicolas, 11 oct. 2026).
@@ -8912,7 +8937,7 @@ function computeKpis(month, year) {
 
   const joursOuvres = getJoursOuvres(month, year);
   const joursTravaillesMois = getJoursTravailles(rowsR1Traites) || joursOuvres; // les jours sans aucun RDV ne comptent pas
-  const rdvParJour = total > 0 ? (total / joursTravaillesMois).toFixed(1) : '0';
+  const rdvParJour = total > 0 ? (total / joursTravaillesMois).toFixed(1) : '0'; const joursTravailles = joursTravaillesMois;
   const showsParJour = shows > 0 ? (shows / joursTravaillesMois).toFixed(1) : '0';
 
   // Écart en jours entre deux dates "DD/MM/YYYY"
@@ -8973,10 +8998,13 @@ function computeKpis(month, year) {
 
   // FIX SD-05 : Mandataires + Agences doit égaler Total RDV (invariant 3).
   // On compte donc sur rowsR1Traites, pas sur rowsR1 (qui inclut les RDV futurs).
-  const mandataires = rowsR1Traites.filter(r => (r.type||'').toLowerCase().includes('mandat'));
-  const agences = rowsR1Traites.filter(r => (r.type||'').toLowerCase().includes('agence'));
+  // Même base que le Total RDV : vécus + non vécus le jour J (depuis mai 2026) ; les annulations à l'avance sortent du bloc Mandataires / Agences
+  const enBase = (r) => !baseJourJ || r.presence === 'Show' || r.presence === 'No Show' || ((r.presence === 'Annulé' || r.presence === 'Reprogrammé') && r.annuleLe && sdJourParis(r.annuleLe) === String(r.date || '').split('/').reverse().join('-'));
+  const rowsBase = rowsR1Traites.filter(enBase);
+  const mandataires = rowsBase.filter(r => (r.type||'').toLowerCase().includes('mandat'));
+  const agences = rowsBase.filter(r => (r.type||'').toLowerCase().includes('agence'));
   // Lignes traitées sans type exploitable : elles doivent être visibles, pas évaporées.
-  const sansType = rowsR1Traites.filter(r => {
+  const sansType = rowsBase.filter(r => {
     const t = (r.type||'').toLowerCase();
     return t.indexOf('mandat') < 0 && t.indexOf('agence') < 0;
   });
@@ -9015,7 +9043,7 @@ function computeKpis(month, year) {
     commission, mrr, inbound, outbound, pub, rdvParJour, showsParJour, joursOuvres,
     delai, nbDelai, hasDelai, hasOneShot, hasBonus, mandataires, agences, sansType, signesRows,
     delaiR1R2, nbDelaiR1R2, delaiPriseRdv, nbDelaiPriseRdv,
-    reprogrammes, annules, vraisNoShow, closingCohorte, cohorteShows, cohorteSignes, rdvPris, jourJ, baseJourJ };
+    reprogrammes, annules, vraisNoShow, closingCohorte, cohorteShows, cohorteSignes, rdvPris, jourJ, baseJourJ, joursTravailles };
 }
 
 // Barème de prime palier selon le mois affiché :
@@ -9211,7 +9239,7 @@ function renderKpis(kpis) {
   // RDV/jour et Shows/jour
   set('rdv-par-jour', kpis.rdvParJour);
   set('show-par-jour', kpis.showsParJour);
-  set('jours-ouvres', 'sur ' + kpis.joursOuvres + 'j ouvrés');
+  set('jours-ouvres', 'sur ' + kpis.joursTravailles + ' j avec RDV');
   set('shows-jours-ouvres', kpis.shows + ' présents');
 
   // FIX SD-05 : même population que le KPI "Total RDV" (R1 traités), sinon le total
@@ -9251,7 +9279,7 @@ function renderKpis(kpis) {
   const showsMand = mandRows.filter(r => r.presence === 'Show').length;
   const showsAg = agRows.filter(r => r.presence === 'Show').length;
 
-  const cmEl = document.getElementById('closing-mand');
+  const cmEl = document.getElementById('closing-mand'); if (cmEl) cmEl.title = 'signés / shows, R1 du mois de ce type (même base que le Total RDV)';
   if (cmEl) cmEl.textContent = showsMand > 0
     ? Math.round(signesMand/showsMand*100) + '% ' + signesMand + '/' + showsMand
     : '0% 0/' + showsMand;
@@ -9438,7 +9466,37 @@ function renderPerfTop() {
     + '<div class="pf-card pf-comm"><div><div class="pf-lab">Commission du mois</div><div class="big">' + eur(comm) + ' <small>/ ' + eur(obj) + '</small></div><div class="pf-bar"><div style="width:' + pct + '%"></div></div><div class="pf-note"><b>' + pct + ' %</b> de l\'objectif' + (courant && obj !== OBJ ? ' ajusté aux absences (' + eur(OBJ) + ' sans absence)' : '') + '</div></div>'
       + '<div class="pf-faits"><div class="f"><span>' + (courant ? 'Reste à atteindre' : (reste ? 'Il manquait' : 'Objectif')) + '</span><b>' + (reste ? eur(reste) : 'atteint' + (comm > obj ? ' (+' + eur(comm - obj) + ')' : '')) + '</b></div><div class="f"><span>Ventes signées</span><b>' + (k.signes || 0) + '</b></div><div class="f"><span>Prime palier</span><b>' + (prime ? eur(prime) : 'pas encore') + '</b></div>' + (proch && (courant || futur) ? '<div class="f"><span>Prochaine prime</span><b>' + proch + '</b></div>' : '') + '</div></div>'
     + '<div class="pf-3">' + carte('RDV tenus ou attendus', k.total || 0, rdvNec) + carte('Shows', k.shows || 0, shNec) + carte('Ventes', k.signes || 0, vNec) + '</div>'
+    + pfTunnelHtml(k)
     + '<div class="pf-card" style="margin-bottom:22px;"><div class="pf-lab">' + (courant ? 'Activité outbound' : 'RDV par source') + '</div>' + outb + '</div>';
+}
+// Tunnel du mois : où ça coince (RDV pris, RDV tenus, closing), chaque étape avec son taux de passage et la moyenne des 3 derniers mois finis
+function pfTunnelHtml(k) {
+  var rows = getRdvs(state.month, state.year), u = sdTunnelMois(rows), m3 = null; try { m3 = sdTunnel3Mois(); } catch (e) {}
+  var MOIS = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'], mk = state.year + '-' + String(MOIS.indexOf(state.month) + 1).padStart(2, '0');
+  var appels = (_closeAppels && _closeAppels.mois && _closeAppels.mois[mk]) ? (_closeAppels.mois[mk].sortants || 0) : null;
+  var outbPris = Array.isArray(k.outbound) ? k.outbound.length : 0;
+  var pct = function(a, b) { return b ? Math.round(a / b * 100) : null; }, P = function(v) { return v === null ? '—' : v + ' %'; };
+  var moy = function(c) { return m3 && m3.mois ? Math.round(m3[c] / m3.mois) : null; }, moyPct = function(a, b) { return m3 && m3[b] ? Math.round(m3[a] / m3[b] * 100) : null; };
+  var sens = function(v, ref, bas) { if (v === null || ref === null) return ''; if (v === ref) return ''; return ((v > ref) !== !!bas) ? ' ok' : ' ko'; };
+  var et = function(lib, n, taux, tauxLib, moyTxt, cls, titre) { return '<div class="et' + (cls || '') + '" title="' + escapeHtml(titre || '') + '"><div class="n">' + n + '</div><div class="l">' + lib + '</div>' + (taux !== undefined ? '<div class="t"><b>' + taux + '</b> ' + tauxLib + '</div>' : '') + (moyTxt ? '<div class="m">' + moyTxt + '</div>' : '') + '</div>'; };
+  var h = '<div class="pf-card" style="margin-bottom:12px;"><div class="pf-lab">Tunnel du mois</div><div class="pf-tunnel">';
+  h += et('Appels', appels === null ? '—' : appels, undefined, '', appels !== null && outbPris ? '1 RDV outbound pour ' + Math.round(appels / outbPris) + ' appels' : '', '', 'Appels sortants du mois (Close)');
+  h += et('RDV outbound pris', outbPris, undefined, '', moy('pris') !== null ? '' : '', '', 'RDV outbound pris ce mois (date de prise), tous mois de RDV confondus');
+  h += et('RDV du mois', u.pris, undefined, '', moy('pris') !== null ? 'moy. ' + moy('pris') + ' (3 mois)' : '', '', 'R1 du mois dont la présence est renseignée, annulations à l\'avance comprises');
+  var pB = pct(u.base, u.pris), mB = moyPct('base', 'pris');
+  h += et('Tenus ou attendus', u.base, P(pB), 'des RDV du mois', mB !== null ? 'moy. ' + mB + ' %' : '', sens(pB, mB), 'RDV vécus + non vécus le jour J (no-show, annulé ou reprogrammé le jour même)');
+  var pS = pct(u.shows, u.base), mS = moyPct('shows', 'base');
+  h += et('Shows', u.shows, P(pS), 'show rate', mS !== null ? 'moy. ' + mS + ' %' : '', sens(pS, mS), 'R1 tenus');
+  var pR2 = pct(u.r2Pris, u.nonSignes), mR2 = moyPct('r2Pris', 'nonSignes');
+  h += et('R2 pris', u.r2Pris, P(pR2), 'des shows non signés', mR2 !== null ? 'moy. ' + mR2 + ' %' : '', sens(pR2, mR2), 'R2 posé après un R1 tenu non signé ce mois');
+  var pRT = pct(u.r2Tenus, u.r2Pris), mRT = moyPct('r2Tenus', 'r2Pris');
+  h += et('R2 tenus', u.r2Tenus, P(pRT), 'des R2 pris', mRT !== null ? 'moy. ' + mRT + ' %' : '', sens(pRT, mRT), 'R2 où le prospect est venu');
+  var pC = pct(u.signes, u.shows), mC = moyPct('signes', 'shows');
+  h += et('Signés', u.signes, P(pC), 'closing (cohorte)', mC !== null ? 'moy. ' + mC + ' %' : '', sens(pC, mC), 'R1 tenus ce mois qui ont fini par signer, quel que soit le mois de signature');
+  var pSu = pct(u.suites, u.nonSignes), mSu = moyPct('suites', 'nonSignes');
+  h += et('Suites datées', u.suites, P(pSu), 'des shows non signés', mSu !== null ? 'moy. ' + mSu + ' %' : '', sens(pSu, mSu), 'R2 posé ou rappel daté après un R1 tenu non signé');
+  h += '</div></div>';
+  return h;
 }
 // Sélecteur d'année : toujours jusqu'à l'année prochaine (il s'arrêtait à 2026)
 (function() { try { var sel = document.getElementById('yearSelect'); if (!sel) return; var max = new Date().getFullYear() + 1, a = [].map.call(sel.options, function(o) { return +o.textContent; }); for (var y = Math.max.apply(null, a) + 1; y <= max; y++) { var o = document.createElement('option'); o.textContent = String(y); sel.appendChild(o); } } catch (e) {} })();
@@ -12350,7 +12408,7 @@ function chargerAppelsClose(force) {
   var ctrl = new AbortController(); var t = setTimeout(function(){ ctrl.abort(); }, 30000);
   fetch(COPILOT_URL + '/close/appels', { mode:'cors', cache:'no-store', signal: ctrl.signal })
     .then(function(r){ return r.json(); })
-    .then(function(d){ if (d && d.configure && !d.error) { _closeAppels = d; _closeAppelsAt = Date.now(); } dessinerAppelsClose(); })
+    .then(function(d){ if (d && d.configure && !d.error) { _closeAppels = d; _closeAppelsAt = Date.now(); } dessinerAppelsClose(); try { renderPerfTop(); } catch (e) {} })
     .catch(function(){ dessinerAppelsClose(); })
     .finally(function(){ clearTimeout(t); });
 }
@@ -12378,7 +12436,7 @@ function dessinerAppelsClose() {
     elA.innerHTML = '<div style="display:flex;align-items:flex-end;gap:32px;flex-wrap:wrap;">'
       + '<div><div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;">📞 Appels passés · ' + escapeHtml(state.month + ' ' + state.year) + '</div>'
       + '<div style="font-size:34px;font-weight:700;line-height:1.15;">' + (m.sortants || 0) + '</div>'
-      + '<div style="font-size:12px;color:var(--text3);">' + fmtDureeAppels(m.duree) + ' en ligne' + (rdvPris ? ' · ' + Math.round((m.sortants || 0) / rdvPris) + ' appels par RDV (' + rdvPris + ' R1)' : '') + '</div></div>'
+      + '<div style="font-size:12px;color:var(--text3);">' + fmtDureeAppels(m.duree) + ' en ligne' + (rdvPris ? ' · ' + Math.round((m.sortants || 0) / rdvPris) + ' appels par R1 du mois (' + rdvPris + ' R1 au planning, à venir compris)' : '') + '</div></div>'
       + '<div style="display:flex;align-items:flex-end;gap:6px;overflow-x:auto;padding-bottom:2px;">' + barres + '</div></div>';
   }
 }
