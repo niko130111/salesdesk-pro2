@@ -527,6 +527,70 @@ main { max-width: 100%; margin: 0; padding: 6px 8px; }
 .pf-bar { height: 10px; background: var(--surface2); border-radius: 999px; overflow: hidden; margin: 12px 0 6px; } .pf-bar > div { height: 100%; border-radius: 999px; background: var(--primary); }
 .pf-bar.fin { height: 6px; margin: 10px 0 6px; }
 .pf-note { font-size: 12.5px; color: var(--text2); } .pf-note b { color: var(--text); }
+/* ── Cockpit Performance (11 oct. 2026) : scène CSS 3D native, aucune dépendance. Thème clair = surfaces claires, thème sombre = bleu nuit / cyan. ── */
+.ck { --ck-bg: #EEF4F9; --ck-bg2: #DCE8F2; --ck-glass: rgba(255,255,255,.86); --ck-line: rgba(24,54,84,.16); --ck-cyan: #1E8FB8; --ck-cyan-soft: rgba(30,143,184,.16); --ck-text: #183654; --ck-muted: #6B7F94; --ck-ring: rgba(30,143,184,.45); --ck-core1: #EAF6FC; --ck-core2: #8CC9E6; --ck-core3: #2B6F97; --ck-shadow: rgba(24,54,84,.18); --ck-ok: #16805D; --ck-ko: #C54757; }
+[data-theme="dark"] .ck { --ck-bg: #071321; --ck-bg2: #0B1C30; --ck-glass: rgba(16,36,58,.78); --ck-line: rgba(86,200,237,.22); --ck-cyan: #56C8ED; --ck-cyan-soft: rgba(86,200,237,.14); --ck-text: #EAF2FA; --ck-muted: #8FB0C8; --ck-ring: rgba(86,200,237,.5); --ck-core1: #B6ECFF; --ck-core2: #2C8FC9; --ck-core3: #061E33; --ck-shadow: rgba(0,0,0,.45); --ck-ok: #5EDBA7; --ck-ko: #FF8A98; }
+.ck { color: var(--ck-text); display: grid; gap: 14px; margin-bottom: 22px; }
+.ck-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 14px; flex-wrap: wrap; }
+.ck-head .pf-sub { margin-top: 2px; }
+.ck-tabs { display: inline-flex; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: var(--surface); }
+.ck-tabs button { border: 0; background: transparent; padding: 8px 14px; cursor: pointer; color: var(--text2); font-size: 13px; font-weight: 600; } .ck-tabs button.on { background: var(--ck-cyan-soft); color: var(--ck-cyan); }
+.ck-tools { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.ck-tools .btn { font-size: 12px; }
+.ck-band { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.ck-tile { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px; display: flex; gap: 12px; align-items: center; box-shadow: var(--shadow); }
+.ck-tile .ico { width: 42px; height: 42px; border-radius: 12px; background: var(--ck-cyan-soft); color: var(--ck-cyan); display: grid; place-items: center; font-size: 18px; flex-shrink: 0; }
+.ck-tile .lab { font-size: 12px; color: var(--text2); } .ck-tile .v { font-size: 24px; font-weight: 800; color: var(--text); letter-spacing: -.02em; line-height: 1.15; } .ck-tile .v small { font-size: 13px; font-weight: 500; color: var(--text3); } .ck-tile .s { font-size: 11.5px; color: var(--text3); margin-top: 2px; }
+.ck-tile .ring { margin-left: auto; width: 54px; height: 54px; border-radius: 50%; background: conic-gradient(var(--ck-cyan) calc(var(--p) * 1%), var(--surface2) 0); -webkit-mask: radial-gradient(circle, transparent 60%, #000 61%); mask: radial-gradient(circle, transparent 60%, #000 61%); flex-shrink: 0; }
+.ck-main { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 14px; }
+.ck-scene { position: relative; height: 440px; border-radius: 18px; overflow: hidden; background: radial-gradient(ellipse at 50% 70%, var(--ck-bg2), var(--ck-bg) 70%); border: 1px solid var(--border); perspective: 1100px; perspective-origin: 50% 40%; }
+.ck-floor { position: absolute; left: 50%; top: 58%; width: 560px; height: 560px; margin: -280px; border-radius: 50%; transform: rotateX(72deg); background: radial-gradient(circle, var(--ck-cyan-soft) 0, transparent 62%); border: 1px solid var(--ck-line); }
+.ck-world { position: absolute; left: 50%; top: 56%; width: 0; height: 0; transform-style: preserve-3d; transform: rotateX(62deg); }
+.ck-orbit { position: absolute; left: 0; top: 0; border-radius: 50%; border: 2px solid var(--ck-ring); box-shadow: 0 0 16px var(--ck-cyan-soft), inset 0 0 16px var(--ck-cyan-soft); transform-style: preserve-3d; cursor: pointer; transition: opacity .5s, filter .5s, border-color .5s; }
+.ck-orbit.o1 { width: 300px; height: 300px; margin: -150px; transform: rotateZ(0deg) rotateX(8deg); }
+.ck-orbit.o2 { width: 400px; height: 400px; margin: -200px; transform: rotateZ(60deg) rotateX(22deg); }
+.ck-orbit.o3 { width: 500px; height: 500px; margin: -250px; transform: rotateZ(-50deg) rotateX(-18deg); }
+.ck-spin { position: absolute; inset: 0; transform-style: preserve-3d; animation: ckspin 80s linear infinite; }
+.o2 .ck-spin { animation-duration: 110s; animation-direction: reverse; } .o3 .ck-spin { animation-duration: 150s; }
+.ck-sat { position: absolute; top: -7px; left: 50%; width: 14px; height: 14px; margin-left: -7px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #fff, var(--ck-cyan)); box-shadow: 0 0 16px var(--ck-cyan), 0 0 4px #fff; transform: rotateX(-62deg); }
+.ck-core { position: absolute; left: 0; top: 0; width: 160px; height: 160px; margin: -80px; border-radius: 50%; transform: rotateX(-62deg) translateZ(0); transform-style: preserve-3d; background: radial-gradient(circle at 36% 30%, var(--ck-core1) 0, var(--ck-core2) 42%, var(--ck-core3) 100%); box-shadow: 0 0 46px var(--ck-cyan-soft), 0 26px 50px var(--ck-shadow), inset -14px -18px 36px rgba(0,0,0,.28); cursor: pointer; display: grid; place-items: center; text-align: center; }
+.ck-core::before { content: ''; position: absolute; inset: -14px; border-radius: 50%; background: conic-gradient(var(--ck-cyan) calc(var(--p) * 1%), transparent 0); -webkit-mask: radial-gradient(circle, transparent 66%, #000 67%, #000 100%); mask: radial-gradient(circle, transparent 66%, #000 67%, #000 100%); filter: drop-shadow(0 0 10px var(--ck-cyan)); }
+.ck-core::after { content: ''; position: absolute; inset: -14px; border-radius: 50%; border: 1px solid var(--ck-line); }
+.ck-core .n { font-size: 34px; font-weight: 800; color: #fff; text-shadow: 0 2px 10px rgba(0,0,0,.45); letter-spacing: -.02em; line-height: 1; } .ck-core .l { font-size: 11px; color: rgba(255,255,255,.85); margin-top: 4px; text-shadow: 0 1px 6px rgba(0,0,0,.5); }
+.ck-shadow { position: absolute; left: 0; top: 0; width: 200px; height: 200px; margin: -100px; border-radius: 50%; background: radial-gradient(circle, rgba(0,0,0,.35), transparent 70%); transform: translateZ(-30px); }
+.ck-panel { position: absolute; background: var(--ck-glass); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 1px solid var(--ck-line); border-radius: 14px; padding: 10px 14px; color: var(--ck-text); text-align: left; cursor: pointer; box-shadow: 0 12px 30px var(--ck-shadow); min-width: 170px; transition: opacity .5s, transform .5s, box-shadow .3s; font-family: inherit; }
+.ck-panel:hover, .ck-panel:focus-visible { box-shadow: 0 12px 30px var(--ck-shadow), 0 0 0 2px var(--ck-cyan); outline: none; transform: translateY(-2px); }
+.ck-panel .lab { font-size: 10.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--ck-cyan); display: flex; gap: 6px; align-items: center; }
+.ck-panel .v { font-size: 24px; font-weight: 800; letter-spacing: -.02em; line-height: 1.1; margin-top: 2px; } .ck-panel .v small { font-size: 13px; font-weight: 600; color: var(--ck-muted); }
+.ck-panel .s { font-size: 11.5px; color: var(--ck-muted); margin-top: 2px; }
+.ck-panel.p-acq { left: 18px; top: 16px; } .ck-panel.p-rdv { right: 18px; top: 28px; } .ck-panel.p-conv { left: 26px; bottom: 18px; }
+.ck-legende { position: absolute; right: 14px; bottom: 10px; font-size: 11px; color: var(--ck-muted); }
+.ck[data-sel="acq"] .ck-orbit:not(.o1), .ck[data-sel="rdv"] .ck-orbit:not(.o2), .ck[data-sel="conv"] .ck-orbit:not(.o3) { opacity: .22; }
+.ck[data-sel="acq"] .ck-orbit.o1, .ck[data-sel="rdv"] .ck-orbit.o2, .ck[data-sel="conv"] .ck-orbit.o3 { border-color: var(--ck-cyan); filter: brightness(1.25) drop-shadow(0 0 10px var(--ck-cyan)); }
+.ck[data-sel="acq"] .ck-panel:not(.p-acq), .ck[data-sel="rdv"] .ck-panel:not(.p-rdv), .ck[data-sel="conv"] .ck-panel:not(.p-conv) { opacity: .35; }
+.ck[data-sel="acq"] .ck-panel.p-acq, .ck[data-sel="rdv"] .ck-panel.p-rdv, .ck[data-sel="conv"] .ck-panel.p-conv { box-shadow: 0 12px 30px var(--ck-shadow), 0 0 0 2px var(--ck-cyan); transform: scale(1.04); }
+.ck[data-sel] .ck-world { transition: transform .8s cubic-bezier(.2,.8,.2,1); }
+.ck[data-sel="acq"] .ck-world { transform: rotateX(62deg) rotateZ(14deg) scale(1.08); } .ck[data-sel="rdv"] .ck-world { transform: rotateX(62deg) rotateZ(-20deg) scale(1.05); } .ck[data-sel="conv"] .ck-world { transform: rotateX(62deg) rotateZ(26deg) scale(1.02); }
+.ck-world { transition: transform .8s cubic-bezier(.2,.8,.2,1); }
+.ck-side { display: grid; gap: 10px; align-content: start; }
+.ck-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px; box-shadow: var(--shadow); }
+.ck-card h3 { margin: 0 0 10px; font-size: 14px; font-weight: 800; color: var(--text); display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.ck-card h3 .btn { font-size: 11px; padding: 2px 8px; }
+.ck-ind { display: flex; gap: 12px; align-items: center; padding: 8px 0; border-top: 1px solid var(--border); } .ck-ind:first-of-type { border-top: 0; padding-top: 0; }
+.ck-ind .ico { width: 36px; height: 36px; border-radius: 10px; background: var(--ck-cyan-soft); color: var(--ck-cyan); display: grid; place-items: center; font-size: 16px; flex-shrink: 0; }
+.ck-ind .bd { flex: 1; min-width: 0; } .ck-ind .lab { font-size: 12px; color: var(--text2); } .ck-ind .v { font-size: 20px; font-weight: 800; color: var(--text); line-height: 1.15; } .ck-ind .s { font-size: 11px; color: var(--text3); }
+.ck-ind .bar { height: 5px; border-radius: 999px; background: var(--surface2); margin-top: 5px; overflow: hidden; } .ck-ind .bar > i { display: block; height: 100%; background: var(--ck-cyan); border-radius: 999px; }
+.ck-det { display: grid; gap: 6px; } .ck-det .r { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; padding: 6px 0; border-top: 1px solid var(--border); } .ck-det .r:first-child { border-top: 0; } .ck-det .r span { color: var(--text2); } .ck-det .r b { color: var(--text); white-space: nowrap; } .ck-det .r.tot { font-weight: 700; } .ck-det .d { font-size: 11px; color: var(--text3); line-height: 1.4; margin-top: 2px; }
+.ck-det .r b.ok { color: var(--ck-ok); } .ck-det .r b.ko { color: var(--ck-ko); }
+.ck-bottom { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 14px; }
+.ck-bottom canvas { width: 100%; height: 190px; display: block; }
+.ck-cmp { display: grid; gap: 10px; } .ck-cmp .r { display: grid; grid-template-columns: 110px 1fr 1fr; gap: 10px; align-items: center; font-size: 12.5px; color: var(--text2); } .ck-cmp .r .b { height: 18px; border-radius: 6px; background: var(--surface2); position: relative; overflow: hidden; } .ck-cmp .r .b > i { display: block; height: 100%; border-radius: 6px; background: var(--ck-cyan); } .ck-cmp .r .b.ref > i { background: var(--border2); } .ck-cmp .r .b span { position: absolute; left: 8px; top: 0; line-height: 18px; font-size: 11.5px; font-weight: 700; color: var(--text); }
+.ck-cmp .lg { display: flex; gap: 14px; font-size: 11px; color: var(--text3); } .ck-cmp .lg i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 4px; vertical-align: -1px; background: var(--ck-cyan); } .ck-cmp .lg i.ref { background: var(--border2); }
+.ck.calme .ck-spin { animation: none !important; } .ck.pause .ck-spin { animation-play-state: paused; }
+@media (prefers-reduced-motion: reduce) { .ck .ck-spin { animation: none !important; } .ck .ck-world, .ck .ck-panel { transition: none !important; } }
+@keyframes ckspin { to { transform: rotateZ(360deg); } }
+@media (max-width: 1100px) { .ck-band { grid-template-columns: repeat(2, minmax(0, 1fr)); } .ck-main, .ck-bottom { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 700px) { .ck-scene { height: 380px; } .ck-orbit.o3 { width: 380px; height: 380px; margin: -190px; } .ck-orbit.o2 { width: 300px; height: 300px; margin: -150px; } .ck-orbit.o1 { width: 220px; height: 220px; margin: -110px; } .ck-panel { min-width: 140px; padding: 8px 10px; } .ck-panel .v { font-size: 19px; } }
 .pf-faits { display: grid; gap: 10px; } .pf-faits .f { display: flex; justify-content: space-between; gap: 10px; font-size: 13.5px; color: var(--text2); border-bottom: 1px solid var(--border); padding-bottom: 8px; } .pf-faits .f:last-child { border-bottom: 0; padding-bottom: 0; } .pf-faits .f b { color: var(--text); font-weight: 700; }
 .pf-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 12px; }
 .pf-tunnel { display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); gap: 0; margin-top: 10px; }
@@ -9473,6 +9537,142 @@ function setTheme(pref) {
 })();
 // ── Performance, haut de page : tout suit le mois choisi. Commission réalisée / objectif au centre, puis RDV · Shows · Ventes, puis l'activité outbound.
 // Mois en cours : objectif ajusté aux absences, reste à faire et rythme par jour. Mois passé : simple bilan réalisé / cible.
+// ═══════════ Cockpit Performance (11 oct. 2026) ═══════════
+// Scène CSS 3D (noyau = progression vers l'objectif, trois orbites = Acquisition / Rendez-vous / Conversion), panneaux HTML lisibles,
+// mêmes calculs que la vue classique (computeKpis, sdTunnelMois, sdAttenduPourRien, getLast3FinishedMonthsStats). Rien d'inventé : « Non disponible » sinon.
+function sdPerfVue() { try { return localStorage.getItem('sd_perf_vue') === 'classique' ? 'classique' : 'cockpit'; } catch (e) { return 'cockpit'; } }
+function ckBasculerVue() { try { localStorage.setItem('sd_perf_vue', sdPerfVue() === 'cockpit' ? 'classique' : 'cockpit'); } catch (e) {} renderPerfTop(); }
+function ckCalme() { try { return localStorage.getItem('sd_perf_calme') === '1'; } catch (e) { return false; } }
+function ckBasculerCalme() { try { localStorage.setItem('sd_perf_calme', ckCalme() ? '0' : '1'); } catch (e) {} var c = document.querySelector('#perf-top .ck'); if (c) c.classList.toggle('calme', ckCalme()); var b = document.getElementById('ck-btn-calme'); if (b) b.textContent = ckCalme() ? '▶ Animer' : '⏸ Réduire les animations'; }
+var _ck = { sel: '', appels: {}, ctx: null };
+function ckHtml(c) {
+  var k = c.k, eur = c.eur, u = sdTunnelMois(getRdvs(state.month, state.year)), ap = k.jourJ || sdAttenduPourRien([]), M = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+  var mk = c.yr + '-' + String(c.mIdx + 1).padStart(2, '0'), appels = (_closeAppels && _closeAppels.mois && _closeAppels.mois[mk]) ? _closeAppels.mois[mk] : null, outb = Array.isArray(k.outbound) ? k.outbound.length : 0;
+  var pres = k.total ? Math.round(k.shows / k.total * 100) : null, suites = u.nonSignes ? Math.round(u.suites / u.nonSignes * 100) : null;
+  var frais = ''; try { var lw = (loadStore()._lastWrite || ''); frais = 'SalesDesk ' + (lw ? new Date(lw).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—') + (_closeAppels && _closeAppels.maj ? ' · Close ' + new Date(_closeAppels.maj).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : ' · Close non chargé'); } catch (e) {}
+  var tile = function(ico, lab, v, s, ring) { return '<div class="ck-tile"><div class="ico">' + ico + '</div><div><div class="lab">' + lab + '</div><div class="v">' + v + '</div>' + (s ? '<div class="s">' + s + '</div>' : '') + '</div>' + (ring !== undefined ? '<div class="ring" style="--p:' + ring + '"></div>' : '') + '</div>'; };
+  var panel = function(cls, orb, ico, lab, v, s1, s2) { return '<button class="ck-panel ' + cls + '" data-orb="' + orb + '" onclick="ckChoisir(\'' + orb + '\')" title="Voir le détail"><div class="lab">' + ico + ' ' + lab + '</div><div class="v">' + v + '</div><div class="s">' + s1 + '</div>' + (s2 ? '<div class="s">' + s2 + '</div>' : '') + '</button>'; };
+  var h = '<div class="ck' + (ckCalme() ? ' calme' : '') + '" id="ck" data-sel="">';
+  h += '<div class="ck-head"><div><h1 class="pf-h1">Performance</h1><div class="pf-sub"><span>Comprendre mes résultats</span><span>·</span><span>' + escapeHtml(state.month + ' ' + state.year) + (c.courant ? ' · ' + c.jRest + ' jour' + (c.jRest > 1 ? 's' : '') + ' de travail restant' + (c.jRest > 1 ? 's' : '') : '') + '</span><span>·</span><span title="Fraîcheur des données">' + escapeHtml(frais) + '</span></div></div>'
+    + '<div class="ck-tools"><div class="ck-tabs"><button class="on">Mois</button><button onclick="sdPerfOnglet(\'historique\')">Historique</button></div><div class="pf-mois"><button title="Mois précédent" onclick="pfMois(-1)">‹</button><span>' + escapeHtml(state.month + ' ' + state.year) + '</span><button title="Mois suivant" onclick="pfMois(1)">›</button></div><button class="btn btn-sm" id="ck-btn-calme" onclick="ckBasculerCalme()">' + (ckCalme() ? '▶ Animer' : '⏸ Réduire les animations') + '</button><button class="btn btn-sm" onclick="ckBasculerVue()" title="Les mêmes chiffres, sans la scène">Vue classique</button></div></div>';
+  // bande des résultats essentiels : acquis, objectif, signatures, progression ; primes et reste en secondaire
+  h += '<div class="ck-band">' + tile('💰', 'Commission acquise', eur(c.comm), (c.prime ? 'dont prime palier ' + eur(c.prime) : 'ventes du mois, date de signature'))
+    + tile('🎯', 'Objectif du mois' + (c.courant && c.obj !== ((state.targets && state.targets.ca) || 8000) ? ' (absences déduites)' : ''), eur(c.obj), c.reste ? 'reste ' + eur(c.reste) + (c.courant ? ' · ' + eur(Math.round(c.reste / Math.max(1, c.jRest))) + ' par jour restant' : '') : 'atteint')
+    + tile('📝', 'Signatures du mois', k.signes || 0, (c.proch ? 'prochaine prime ' + c.proch : 'primes : aucune à venir'))
+    + tile('📈', 'Progression', c.pct + ' %', 'de l\'objectif du mois', c.pct) + '</div>';
+  // scène
+  h += '<div class="ck-main"><div class="ck-scene" id="ck-scene"><div class="ck-floor"></div><div class="ck-world">'
+    + '<div class="ck-shadow"></div>'
+    + '<div class="ck-orbit o1" onclick="ckChoisir(\'acq\')" title="Acquisition"><div class="ck-spin"><i class="ck-sat"></i></div></div>'
+    + '<div class="ck-orbit o2" onclick="ckChoisir(\'rdv\')" title="Rendez-vous"><div class="ck-spin"><i class="ck-sat"></i></div></div>'
+    + '<div class="ck-orbit o3" onclick="ckChoisir(\'conv\')" title="Conversion"><div class="ck-spin"><i class="ck-sat"></i></div></div>'
+    + '<div class="ck-core" style="--p:' + c.pct + '" onclick="ckChoisir(\'\')" title="Vue d\'ensemble"><div><div class="n">' + c.pct + ' %</div><div class="l">de l\'objectif</div></div></div>'
+    + '</div>'
+    + panel('p-acq', 'acq', '📞', 'Acquisition', appels ? (appels.sortants || 0) + ' <small>appels</small>' : '— <small>appels</small>', outb + ' RDV outbound pris', appels && outb ? '1 RDV pour ' + Math.round((appels.sortants || 0) / outb) + ' appels' : (appels ? '' : 'Close non chargé'))
+    + panel('p-rdv', 'rdv', '📅', 'Rendez-vous', k.shows + ' <small>R1 tenus</small>', (pres === null ? 'présence non disponible' : pres + ' % de présence') + ' · ' + k.total + ' attendus', (u.r2Tenus || 0) + ' R2 tenus · ' + (ap.total || 0) + ' non tenus le jour J')
+    + panel('p-conv', 'conv', '✍️', 'Conversion', (k.signes || 0) + ' <small>signature' + (k.signes > 1 ? 's' : '') + ' ce mois</small>', 'closing de cohorte ' + (k.shows ? k.closing + ' %' : 'non disponible') + ' · ' + u.signes + ' signé' + (u.signes > 1 ? 's' : '') + ' / ' + k.shows + ' R1 tenus ce mois', (suites === null ? 'suites datées non disponibles' : 'suites datées ' + suites + ' %'))
+    + '<div class="ck-legende">Clic sur une orbite ou un panneau : détail · clic sur le noyau : vue d\'ensemble · Échap</div>'
+    + '</div><div class="ck-side" id="ck-side"></div></div>';
+  // évolution et comparaison
+  h += '<div class="ck-bottom"><div class="ck-card"><h3>Trajectoire vers l\'objectif <span class="pf-note" id="ck-traj-note"></span></h3><canvas id="ck-traj" height="190"></canvas></div>'
+    + '<div class="ck-card"><h3>Comparaison à mes 3 derniers mois finis</h3><div class="ck-cmp" id="ck-cmp"></div></div></div>';
+  h += '</div>';
+  return h;
+}
+function ckApres(c) {
+  _ck.ctx = c; ckRendreSide(); ckDessinerTrajectoire(c); ckRendreComparaison(c);
+  if (!window._ckEcoute) { window._ckEcoute = true; document.addEventListener('keydown', function(e) { if (e.key === 'Escape' && _ck.sel && document.getElementById('ck')) ckChoisir(''); }); document.addEventListener('visibilitychange', function() { var el = document.getElementById('ck'); if (el) el.classList.toggle('pause', document.hidden); }); }
+  var mk = c.yr + '-' + String(c.mIdx + 1).padStart(2, '0');
+  if (!_ck.appels[mk] && typeof COPILOT_URL !== 'undefined') { var deb = mk + '-01', fin = rlIso(new Date(c.yr, c.mIdx + 1, 0)); _ck.appels[mk] = { enCours: true }; fetch(COPILOT_URL + '/close/appels-periode?' + new URLSearchParams({ du: deb, au: fin }), { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).then(function(j) { _ck.appels[mk] = j && j.configure ? j : { erreur: true }; if (_ck.sel === 'acq') ckRendreSide(); }).catch(function() { _ck.appels[mk] = { erreur: true }; }); }
+}
+function ckChoisir(orb) { _ck.sel = orb || ''; var el = document.getElementById('ck'); if (el) el.setAttribute('data-sel', _ck.sel); ckRendreSide(); }
+function ckPct(a, b) { return b ? Math.round(a / b * 100) + ' %' : 'non disponible'; }
+function ckRendreSide() {
+  var side = document.getElementById('ck-side'), c = _ck.ctx; if (!side || !c) return; var k = c.k, u = sdTunnelMois(getRdvs(state.month, state.year)), ap = k.jourJ || sdAttenduPourRien([]), mk = c.yr + '-' + String(c.mIdx + 1).padStart(2, '0');
+  var ind = function(ico, lab, v, s, p) { return '<div class="ck-ind"><div class="ico">' + ico + '</div><div class="bd"><div class="lab">' + lab + '</div><div class="v">' + v + '</div>' + (p !== null && p !== undefined ? '<div class="bar"><i style="width:' + Math.max(0, Math.min(100, p)) + '%"></i></div>' : '') + '<div class="s">' + s + '</div></div></div>'; };
+  var r = function(lab, v, cls, def) { return '<div class="r' + (cls === 'tot' ? ' tot' : '') + '"><span>' + lab + (def ? '<div class="d">' + def + '</div>' : '') + '</span><b class="' + (cls && cls !== 'tot' ? cls : '') + '">' + v + '</b></div>'; };
+  var ferme = '<button class="btn btn-sm" onclick="ckChoisir(\'\')" title="Fermer (Échap)">✕ Fermer</button>';
+  if (!_ck.sel) {
+    var pres = k.total ? Math.round(k.shows / k.total * 100) : null, suites = u.nonSignes ? Math.round(u.suites / u.nonSignes * 100) : null;
+    side.innerHTML = '<div class="ck-card"><h3>Lecture de la performance</h3>'
+      + ind('👥', 'Présence', pres === null ? 'Non disponible' : pres + ' %', k.shows + ' / ' + k.total + ' RDV tenus ou attendus', pres)
+      + ind('📄', 'Suites datées', suites === null ? 'Non disponible' : suites + ' %', u.suites + ' / ' + u.nonSignes + ' R1 tenus non signés (R2 posé ou rappel daté)', suites)
+      + ind('⏱', 'Cycle de vente', k.delai === null || k.delai === undefined ? 'Non disponible' : k.delai + ' jours', k.nbDelai ? k.nbDelai + ' signature' + (k.nbDelai > 1 ? 's' : '') + ' · moyenne R1 → signature' : 'aucune signature datée ce mois', null)
+      + '</div>';
+    return;
+  }
+  if (_ck.sel === 'acq') {
+    var a = _ck.appels[mk], mois = (_closeAppels && _closeAppels.mois && _closeAppels.mois[mk]) || null, outb = Array.isArray(k.outbound) ? k.outbound.length : 0;
+    var sort = mois ? (mois.sortants || 0) : null, uniq = a && !a.enCours && !a.erreur ? a.uniques : null, joints = a && !a.enCours && !a.erreur ? a.joints : null;
+    side.innerHTML = '<div class="ck-card"><h3>📞 Acquisition ' + ferme + '</h3><div class="ck-det">'
+      + r('Appels sortants', sort === null ? 'Non disponible' : sort, '', 'Close · appels passés ce mois, toutes fiches')
+      + r('Prospects uniques appelés', uniq === null ? (a && a.enCours ? 'chargement…' : 'Non disponible') : uniq, '', 'fiches Close distinctes appelées')
+      + r('Conversations obtenues', joints === null ? (a && a.enCours ? 'chargement…' : 'Non disponible') : joints, '', 'appels décrochés (Close)')
+      + r('RDV outbound pris', outb, 'tot', 'pris ce mois sur ton lien (date de prise), quel que soit le mois du RDV')
+      + r('Conversations → RDV', joints && outb ? ckPct(outb, joints) : 'Non disponible', '', 'RDV outbound pris / conversations')
+      + r('Appels par RDV', sort && outb ? Math.round(sort / outb) : 'Non disponible', '', 'appels sortants / RDV outbound pris')
+      + '</div></div>';
+    return;
+  }
+  if (_ck.sel === 'rdv') {
+    var pris = k.rdvPris || 0, av = (ap.annulesAvance || 0) + (ap.reprogAvance || 0), defi = null; try { defi = sdAnnulesDefinitifs(getRdvs(state.month, state.year).filter(function(x) { return x.source !== 'R2'; })); } catch (e) {}
+    side.innerHTML = '<div class="ck-card"><h3>📅 Rendez-vous ' + ferme + '</h3><div class="ck-det">'
+      + r('RDV pris (R1 du mois)', pris, '', 'présence renseignée, annulations à l\'avance comprises')
+      + r('Tenus ou attendus', k.total, 'tot', 'vécus + non vécus le jour J ; base de tous les taux')
+      + r('R1 tenus', k.shows + ' <small>(' + ckPct(k.shows, k.total) + ')</small>', 'ok', 'présence = R1 tenus / tenus ou attendus')
+      + r('R2 tenus', u.r2Tenus + ' / ' + u.r2Pris + ' pris', '', 'R2 posés après un R1 tenu ce mois')
+      + r('No-show', ap.noShow || 0, 'ko', 'pas venu, pas prévenu')
+      + r('Annulés le jour J', ap.annulesJour || 0, 'ko', '') + r('Reprogrammés le jour J', ap.reprogJour || 0, 'ko', '')
+      + r('Non tenus le jour J', (ap.total || 0) + ' <small>(' + ckPct(ap.total || 0, k.total) + ')</small>', 'tot', 'créneau bloqué pour rien')
+      + r('Annulés / reprogrammés à l\'avance', av + (ap.sansHeure ? ' <small>(dont ' + ap.sansHeure + ' sans heure)</small>' : ''), '', 'hors base : le créneau a pu être réutilisé')
+      + r('Annulés définitivement', defi ? defi.total : 'Non disponible', '', 'aucun R1 plus tard pour la même personne')
+      + '</div></div>';
+    return;
+  }
+  if (_ck.sel === 'conv') {
+    var ventes = k.signesRows || [], apresR2 = ventes.filter(function(v) { return String(v.dateR2 || '').trim() && String(v.presenceR2 || '').trim() === 'Show'; }).length;
+    side.innerHTML = '<div class="ck-card"><h3>✍️ Conversion ' + ferme + '</h3><div class="ck-det">'
+      + r('Signatures ce mois', k.signes || 0, 'tot', 'date de signature, quel que soit le mois du R1')
+      + r('dont après un R2', apresR2, '', 'R2 tenu avant la signature') + r('dont directes après le R1', Math.max(0, (k.signes || 0) - apresR2), '', '')
+      + r('Closing de cohorte', k.shows ? k.closing + ' %' : 'Non disponible', '', u.signes + ' signé' + (u.signes > 1 ? 's' : '') + ' / ' + k.shows + ' R1 tenus ce mois' + (c.courant ? ' · mois en cours : à consolider' : ''))
+      + r('Suites datées', u.nonSignes ? ckPct(u.suites, u.nonSignes) : 'Non disponible', '', u.suites + ' / ' + u.nonSignes + ' R1 tenus non signés')
+      + r('R2 pris', u.nonSignes ? ckPct(u.r2Pris, u.nonSignes) : 'Non disponible', '', u.r2Pris + ' / ' + u.nonSignes + ' R1 tenus non signés')
+      + r('Délai R1 → signature', k.delai === null || k.delai === undefined ? 'Non disponible' : k.delai + ' j', '', k.nbDelai ? 'moyenne sur ' + k.nbDelai + ' signature' + (k.nbDelai > 1 ? 's' : '') : 'aucune signature datée')
+      + '</div></div>';
+  }
+}
+// Trajectoire : commission cumulée par date de signature (ventes du mois), face à la ligne d'objectif répartie sur les jours ouvrés. Les primes ne sont pas datables : indiquées à part.
+function ckDessinerTrajectoire(c) {
+  var cv = document.getElementById('ck-traj'); if (!cv) return; var k = c.k, dIM = new Date(c.yr, c.mIdx + 1, 0).getDate(), W = cv.clientWidth || 600, H = 190; cv.width = W * (window.devicePixelRatio || 1); cv.height = H * (window.devicePixelRatio || 1); var g = cv.getContext('2d'); g.scale(window.devicePixelRatio || 1, window.devicePixelRatio || 1);
+  var css = getComputedStyle(document.getElementById('ck')), cyan = css.getPropertyValue('--ck-cyan').trim() || '#1E8FB8', muted = css.getPropertyValue('--ck-muted').trim() || '#888', line = css.getPropertyValue('--ck-line').trim() || '#ccc', txt = getComputedStyle(document.body).getPropertyValue('--text').trim() || '#333';
+  var parJour = Array(dIM + 1).fill(0), sansDate = 0, now = new Date(), aujourdhui = c.courant ? now.getDate() : dIM;
+  (k.signesRows || []).forEach(function(v) { var p = String(v.dateSignature || v.date || '').split('/'); var j = p.length === 3 && +p[1] === c.mIdx + 1 && +p[2] === c.yr ? +p[0] : 0; var m = getComm(v); if (j >= 1 && j <= dIM) parJour[j] += m; else sansDate += m; });
+  var cum = [], s = 0; for (var j = 1; j <= dIM; j++) { s += parJour[j]; cum.push(s); }
+  var primes = Math.max(0, (c.comm || 0) - s - sansDate);
+  var ouvres = []; for (var d = 1; d <= dIM; d++) { var dd = new Date(c.yr, c.mIdx, d); ouvres.push(dd.getDay() !== 0 && dd.getDay() !== 6 && !(typeof rlFerie === 'function' && rlFerie(rlIso(dd)))); }
+  var nbO = ouvres.filter(Boolean).length || 1, objLigne = [], cpt = 0; for (var d2 = 0; d2 < dIM; d2++) { if (ouvres[d2]) cpt++; objLigne.push(c.obj * cpt / nbO); }
+  var max = Math.max(c.obj, s, 1) * 1.08, pl = 44, pr = 10, pt = 12, pb = 24, x = function(j) { return pl + (W - pl - pr) * (j - 1) / Math.max(1, dIM - 1); }, y = function(v) { return pt + (H - pt - pb) * (1 - v / max); };
+  g.clearRect(0, 0, W, H); g.font = '11px system-ui, sans-serif'; g.fillStyle = muted; g.strokeStyle = line; g.lineWidth = 1;
+  for (var i = 0; i <= 3; i++) { var v = max * i / 3; g.beginPath(); g.moveTo(pl, y(v)); g.lineTo(W - pr, y(v)); g.stroke(); g.fillText(Math.round(v / 100) * 100 >= 1000 ? Math.round(v / 1000) + ' k€' : Math.round(v) + ' €', 2, y(v) + 4); }
+  [1, 5, 10, 15, 20, 25, dIM].forEach(function(j) { g.fillText(j + ' ' + ['janv.','févr.','mars','avr.','mai','juin','juil.','août','sept.','oct.','nov.','déc.'][c.mIdx], x(j) - 10, H - 6); });
+  g.setLineDash([5, 4]); g.strokeStyle = muted; g.beginPath(); for (var a = 0; a < dIM; a++) { a === 0 ? g.moveTo(x(1), y(objLigne[0])) : g.lineTo(x(a + 1), y(objLigne[a])); } g.stroke(); g.setLineDash([]);
+  g.strokeStyle = cyan; g.lineWidth = 2.5; g.beginPath(); for (var b = 0; b < aujourdhui; b++) { b === 0 ? g.moveTo(x(1), y(cum[0])) : g.lineTo(x(b + 1), y(cum[b])); } g.stroke();
+  g.fillStyle = cyan; for (var q = 1; q <= aujourdhui; q++) { if (parJour[q] > 0) { g.beginPath(); g.arc(x(q), y(cum[q - 1]), 4, 0, Math.PI * 2); g.fill(); } }
+  if (c.courant) { g.strokeStyle = line; g.setLineDash([2, 3]); g.beginPath(); g.moveTo(x(aujourdhui), pt); g.lineTo(x(aujourdhui), H - pb); g.stroke(); g.setLineDash([]); }
+  var note = document.getElementById('ck-traj-note'); if (note) note.textContent = (k.signesRows || []).length ? ('ventes datées ' + Math.round(s).toLocaleString('fr-FR') + ' €' + (primes > 0 ? ' · primes non datables ' + Math.round(primes).toLocaleString('fr-FR') + ' €, hors courbe' : '') + (sansDate > 0 ? ' · ' + Math.round(sansDate).toLocaleString('fr-FR') + ' € sans date de signature' : '')) : 'aucune vente ce mois';
+}
+// Comparaison : le mois affiché face à la moyenne des 3 derniers mois finis, sur les mêmes définitions (présence, closing cohorte, commission)
+function ckRendreComparaison(c) {
+  var el = document.getElementById('ck-cmp'), k = c.k, s3 = c.s3 || {}; if (!el) return; var nb = s3.moisAvecDonnees || 0;
+  if (!nb) { el.innerHTML = '<div class="pf-note">Pas encore 3 mois finis d\'historique.</div>'; return; }
+  var ligne = function(lab, v, ref, unite, maxv) { var m = Math.max(maxv || 0, v || 0, ref || 0, 1); return '<div class="r"><span>' + lab + '</span><div class="b"><i style="width:' + Math.round((v || 0) / m * 100) + '%"></i><span>' + (v === null ? '—' : Math.round(v).toLocaleString('fr-FR') + unite) + '</span></div><div class="b ref"><i style="width:' + Math.round((ref || 0) / m * 100) + '%"></i><span>' + (ref === null ? '—' : Math.round(ref).toLocaleString('fr-FR') + unite) + '</span></div></div>'; };
+  el.innerHTML = '<div class="lg"><span><i></i>' + escapeHtml(state.month) + (c.courant ? ' (en cours)' : '') + '</span><span><i class="ref"></i>moyenne ' + nb + ' mois</span></div>'
+    + ligne('Présence', k.total ? Math.round(k.shows / k.total * 100) : null, s3.showRate, ' %', 100)
+    + ligne('Closing cohorte', k.shows ? k.closing : null, s3.closingRate, ' %', 100)
+    + ligne('Commission', c.comm, nb ? s3.totalCommission / nb : null, ' €', 0)
+    + ligne('Signatures', k.signes || 0, nb ? s3.totalSignes / nb : null, '', 0)
+    + '<div class="pf-note" style="margin-top:4px;">' + (c.courant ? 'Mois en cours : la comparaison à nombre de jours travaillés équivalent arrive en phase 2 ; ici c\'est le mois entier face à des mois complets.' : 'Mois complet face à la moyenne de tes 3 derniers mois finis.') + '</div>';
+}
 function pfMois(d) {
   var M = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
   var ms = document.getElementById('monthSelect'), ys = document.getElementById('yearSelect'); var i = M.indexOf(ms.value) + d, y = parseInt(ys.value, 10);
@@ -9511,6 +9711,7 @@ function renderPerfTop() {
     ? '<div class="pf-kv"><div><div class="v">' + escapeHtml((/^(\d+\s*\/\s*\d+)/.exec(T('daily-outbound-today-count')) || ['', '—'])[1]) + '</div><div class="l">pris aujourd\'hui</div></div><div><div class="v">' + escapeHtml(/^\d+$/.test(T('daily-outbound-reste')) ? T('daily-outbound-reste') : '—') + '</div><div class="l">restent cette semaine</div></div><div><div class="v">' + nbSrc(k.outbound) + '</div><div class="l">RDV outbound ce mois</div></div><div><div class="v">' + appels.length + '</div><div class="l">appels aujourd\'hui · ' + appels.filter(function(a) { return a.joint; }).length + ' joints</div></div></div>'
     : '<div class="pf-kv"><div><div class="v">' + nbSrc(k.outbound) + '</div><div class="l">RDV outbound</div></div><div><div class="v">' + nbSrc(k.inbound) + '</div><div class="l">RDV inbound</div></div><div><div class="v">' + nbSrc(k.pub) + '</div><div class="l">RDV pub</div></div></div>';
   var conv = '<div class="pf-kv"><div><div class="v">' + sdPct(k.shows, k.total) + '</div><div class="l">show rate · ' + (k.shows || 0) + ' sur ' + (k.total || 0) + '</div></div><div><div class="v">' + sdPct(k.signes, k.shows) + '</div><div class="l">closing · ' + (k.signes || 0) + ' sur ' + (k.shows || 0) + ' shows</div></div><div><div class="v">' + (k.signes ? eur(comm / k.signes) : '—') + '</div><div class="l">par vente, primes comprises</div></div></div>';
+  if (sdPerfVue() === 'cockpit') { try { el.innerHTML = ckHtml({ k: k, comm: comm, obj: obj, pct: pct, reste: reste, prime: prime, proch: proch, s3: s3, courant: courant, jRest: jRest, jOuv: jOuv, mIdx: mIdx, yr: yr, eur: eur }); ckApres({ k: k, comm: comm, obj: obj, s3: s3, courant: courant, jOuv: jOuv, mIdx: mIdx, yr: yr, prime: prime }); return; } catch (e) { console.warn('[cockpit] repli vue classique :', e); } }
   el.innerHTML = '<div class="pf-head"><div><h1 class="pf-h1">Performance</h1><div class="pf-sub">'
       + (courant ? '<span>' + jRest + ' jour' + (jRest > 1 ? 's' : '') + ' de travail restant' + (jRest > 1 ? 's' : '') + '</span><span>·</span><span>Absences</span><button onclick="adjustAbsence(-1)">−</button><b>' + abs + '</b><button onclick="adjustAbsence(1)">+</button>' : (futur ? '<span>Mois à venir</span>' : '<span>Mois terminé · ' + jOuv + ' jours ouvrés</span>')) + '</div></div>'
       + '<div class="pf-mois"><button title="Mois précédent" onclick="pfMois(-1)">‹</button><span>' + escapeHtml(state.month + ' ' + state.year) + '</span><button title="Mois suivant" onclick="pfMois(1)">›</button></div></div>'
