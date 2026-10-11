@@ -602,6 +602,12 @@ main.ck-mode .section-header .section-title, main.ck-mode .kpi-grp-t, main.ck-mo
 main.ck-mode .kpi-grid.kpi-groupes, main.ck-mode .mid-grid, main.ck-mode .sources-grid, main.ck-mode .section-header:has(> .section-title), main.ck-mode #alert-banner, main.ck-mode > .section-header { display: none !important; }
 main.ck-mode .chart-section .section-header { display: flex !important; }
 main.ck-mode #ck-det-appels h3, main.ck-mode #ck-det-comm h3 { margin: 0; }
+main.ck-mode .ck-card .card, main.ck-mode .ck-card .card:hover, main.ck-mode .ck-card #close-appels-analytics, main.ck-mode .ck-card #close-appels-analytics:hover { transform: none !important; box-shadow: none !important; background: transparent !important; border: 0 !important; border-radius: 0 !important; transition: none; }
+main.ck-mode .ck-card .card::before, main.ck-mode .ck-card #close-appels-analytics::before { display: none; }
+#ck-det-comm { grid-column: 1 / -1; }
+main.ck-mode #ck-comm-src { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr); column-gap: 36px; grid-template-areas: 't r' 'a r' 's r' 'm r'; align-content: start; align-items: start; }
+main.ck-mode #ck-comm-src > .card-title { grid-area: t; } main.ck-mode #ck-comm-src > .commission-amount { grid-area: a; } main.ck-mode #ck-comm-src > .commission-sub { grid-area: s; } main.ck-mode #ck-comm-src > .commission-rows { grid-area: r; margin-top: 0; } main.ck-mode #ck-comm-src > div:last-child { grid-area: m; }
+@media (max-width: 1100px) { main.ck-mode #ck-comm-src { display: block; } }
 @media (max-width: 1100px) { .ck-band { grid-template-columns: repeat(2, minmax(0, 1fr)); } .ck-main, .ck-bottom, .ck-grid2 { grid-template-columns: minmax(0, 1fr); } .ck-k4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 700px) { .ck-dalles { grid-template-columns: minmax(0, 1fr); } .ck-band { grid-template-columns: minmax(0, 1fr); } }
 .pf-faits { display: grid; gap: 10px; } .pf-faits .f { display: flex; justify-content: space-between; gap: 10px; font-size: 13.5px; color: var(--text2); border-bottom: 1px solid var(--border); padding-bottom: 8px; } .pf-faits .f:last-child { border-bottom: 0; padding-bottom: 0; } .pf-faits .f b { color: var(--text); font-weight: 700; }
@@ -2230,6 +2236,7 @@ select.form-input { cursor: pointer; }
     <div style="display:flex;gap:6px;"><span id="ctl-at" style="font-size:12px;color:var(--text3);align-self:center;"></span><button class="btn btn-sm" onclick="renderControle(true, true)">↻ Retester</button></div>
   </div>
   <div id="ctl-problemes"></div>
+  <div id="ctl-sauvegardes" class="pipeline-col" style="background:var(--surface);margin-bottom:14px;"></div>
   <div class="pipeline-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px;align-items:start;">
     <div class="pipeline-col" style="background:var(--surface);"><div class="pipeline-col-title" style="margin-bottom:8px;">🔌 Connexions</div><div id="ctl-connexions"></div></div>
     <div class="pipeline-col" style="background:var(--surface);"><div class="pipeline-col-title" style="margin-bottom:8px;">🚨 Incidents</div><div class="d" style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin:4px 0;">Pannes (7 jours)</div><div id="ctl-incidents"></div><div class="d" style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin:12px 0 4px;">Close dit autre chose</div><div id="ctl-verif"></div></div>
@@ -3506,8 +3513,25 @@ function setSyncStatus(status) {
   if (status === 'loading') poser('🔄 Chargement...', 'var(--accent)');
 }
 
+// Garde anti-écrasement (11 oct. 2026, après un store cloud écrasé par un appareil resté sur des données du 9 oct.) :
+// avant chaque écriture on relit l'horodatage du cloud ; s'il a été réécrit par un autre appareil depuis notre dernier chargement,
+// ou si notre chargement initial avait échoué, on n'écrase pas — on prévient et on demande de recharger.
+async function sdCloudConflit(data) {
+  try {
+    const res = await fetch(SUPA_URL + '/rest/v1/' + SUPA_TABLE + '?id=eq.' + SUPA_ID + '&select=data->>_lastWrite', { headers: supaAuthHeaders() });
+    if (!res.ok) return false;
+    const rows = await res.json(); const distant = (rows && rows[0] && rows[0]._lastWrite) || '';
+    if (!distant || distant === _sdCloudVu || distant === data._lastWrite) return false;
+    if (_sdCloudVu !== null && distant < _sdCloudVu) return false;
+    console.warn('[sync] écriture bloquée : le cloud a été réécrit ailleurs (' + distant + '), dernier vu ici : ' + _sdCloudVu);
+    setSyncStatus('error'); _syncErreur = true;
+    if (!window._sdConflitSignale) { window._sdConflitSignale = true; try { alert('⚠️ Les données du cloud ont été modifiées depuis un autre appareil.\n\nPour ne rien écraser, la sauvegarde est bloquée : recharge la page (tes dernières modifs seront à refaire).'); } catch (e) {} }
+    return true;
+  } catch (e) { return false; }
+}
 async function supabaseSave(data, _retry) {
   try {
+    if (!_retry && await sdCloudConflit(data)) return false;
     const res = await fetch(SUPA_URL + '/rest/v1/' + SUPA_TABLE + '?id=eq.' + SUPA_ID, {
       method: 'PATCH',
       headers: Object.assign({ 'Content-Type': 'application/json', 'Prefer': 'return=minimal' }, supaAuthHeaders()),
@@ -3515,6 +3539,7 @@ async function supabaseSave(data, _retry) {
     });
     if ((res.status === 401 || res.status === 403) && !_retry && await supaAuthRequise(res.status)) return supabaseSave(data, true);
     if (!res.ok) throw new Error('PATCH failed ' + res.status);
+    _sdCloudVu = data._lastWrite || _sdCloudVu;
     setSyncStatus('saved');
     return true;
   } catch(e) {
@@ -3921,11 +3946,13 @@ function loadStore() {
 // Arbitrage par horodatage _lastWrite (posé par saveStore) : le plus récent gagne.
 // En cas d'égalité ou d'absence d'horodatage, le local est prioritaire — on ne perd pas
 // une saisie faite hors-ligne pour un cloud potentiellement périmé.
+var _sdCloudVu = null; // horodatage (_lastWrite) du cloud tel que cet appareil l'a vu en dernier : null = chargement initial raté (on ne sait pas ce qu'il contient)
 var _sdDonneesPretes = false; // vrai dès que les données sont fiables : store local présent, ou cloud chargé (ou cloud injoignable)
 try { _sdDonneesPretes = !!localStorage.getItem('salesdesk_rdvs'); } catch (e) {}
 async function initFromSupabase() {
   var cloudData = null;
   try { cloudData = await supabaseLoad(); } finally { if (!_sdDonneesPretes) { _sdDonneesPretes = true; try { refreshAll(); } catch (e) {} } }
+  _sdCloudVu = cloudData ? (cloudData._lastWrite || '') : null;
   if (!cloudData || Object.keys(cloudData).length === 0) return;
   let local = {};
   try { local = JSON.parse(localStorage.getItem('salesdesk_rdvs') || '{}'); } catch(e) { local = {}; }
@@ -6066,7 +6093,7 @@ function sdBackupStore(store) {
   } catch (e) { console.warn('[backup] impossible (stockage plein ?) :', e && e.message); }
 }
 // Au chargement : on purge les vieilles sauvegardes qui saturent le stockage du navigateur (on garde les 2 dernières)
-try { (function() { var cles = []; for (var i = 0; i < localStorage.length; i++) { var k = localStorage.key(i); if (k && k.indexOf('salesdesk_rdvs_backup_') === 0) cles.push(k); } cles.sort(); while (cles.length > 2) localStorage.removeItem(cles.shift()); })(); } catch (e) {}
+try { (function() { var cles = []; for (var i = 0; i < localStorage.length; i++) { var k = localStorage.key(i); if (k && k.indexOf('salesdesk_rdvs_backup_') === 0) cles.push(k); } cles.sort(); while (cles.length > 3) localStorage.removeItem(cles.shift()); })(); } catch (e) {}
 function fcSupprimerAnciens(i) {
   var g = (window._fcGroupes || [])[i]; if (!g) return;
   var store = loadStore(), n = 0;
@@ -11146,7 +11173,38 @@ function ctlRemplirExtras() { // depuis Automatisations ou Config, sans passer p
   var go = function() { if (!_ctl) return; try { ctlInjecterExtras(ctlExtrasHtml(_ctl)); } catch (e) {} };
   if (_ctl) go(); else if (typeof chargerControle === 'function') { try { var p = chargerControle(false); if (p && p.then) p.then(go); else setTimeout(go, 1500); } catch (e) {} }
 }
+// Sauvegardes locales du store (clés salesdesk_rdvs_backup_*) : liste + restauration en un clic (11 oct. 2026, après l'écrasement du cloud par un appareil resté sur les données du 9 oct.)
+function ctlRendreSauvegardes() {
+  var el = document.getElementById('ctl-sauvegardes'); if (!el) return;
+  var cles = []; try { for (var i = 0; i < localStorage.length; i++) { var k = localStorage.key(i); if (k && k.indexOf('salesdesk_rdvs_backup_') === 0) cles.push(k); } } catch (e) {}
+  cles.sort().reverse();
+  var cur = null; try { cur = loadStore(); } catch (e) {}
+  var resume = function(d) { var oct = 0, mois = 0, traites = 0; Object.keys(d || {}).forEach(function(k) { if (!/^\d{4}-\d{2}$/.test(k) || !Array.isArray(d[k])) return; mois++; d[k].forEach(function(r) { if (r && r.source !== 'R2' && /^(Show|No Show|Annulé|Reprogrammé)$/.test(String(r.presence || '').trim())) traites++; }); }); return { mois: mois, traites: traites, lw: (d && d._lastWrite) || '' }; };
+  var fmt = function(iso) { if (!iso) return '—'; var d = new Date(iso); return isNaN(d) ? iso : d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' }) + ' ' + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }); };
+  var rc = cur ? resume(cur) : null;
+  var h = '<div class="pipeline-col-title" style="margin-bottom:6px;">🗄 Sauvegardes locales <span style="font-weight:400;color:var(--text3);font-size:11.5px;">— copies du store faites par ce navigateur avant une modif sensible</span></div>';
+  h += '<div class="d" style="font-size:11.5px;color:var(--text3);margin-bottom:8px;">Données actuelles : ' + (rc ? rc.traites + ' R1 traités · dernière écriture ' + fmt(rc.lw) : '—') + '. Restaurer remplace les données actuelles par la copie (les données actuelles sont d\'abord sauvegardées), puis la page se recharge et le cloud est mis à jour.</div>';
+  if (!cles.length) h += '<div class="ctl-ligne"><span>Aucune sauvegarde locale.</span></div>';
+  cles.forEach(function(k) {
+    var d = null; try { d = JSON.parse(localStorage.getItem(k) || 'null'); } catch (e) {}
+    var r = d ? resume(d) : null, faite = +k.replace(/\D/g, '').slice(0, 13);
+    h += '<div class="ctl-ligne" style="align-items:center;"><div style="flex:1;"><b>Copie du ' + fmt(new Date(faite).toISOString()) + '</b> <span class="d">· données écrites le ' + (r ? fmt(r.lw) : '?') + ' · ' + (r ? r.traites + ' R1 traités · ' + r.mois + ' mois' : 'illisible') + (k.indexOf('_ecrase') > 0 ? ' · version écrasée' : '') + '</span></div>'
+      + (d ? '<button class="btn btn-sm" onclick="ctlRestaurerSauvegarde(\'' + k + '\')">Restaurer</button>' : '') + '</div>';
+  });
+  el.innerHTML = h;
+}
+function ctlRestaurerSauvegarde(cle) {
+  var d = null; try { d = JSON.parse(localStorage.getItem(cle) || 'null'); } catch (e) {}
+  if (!d) { alert('Sauvegarde illisible.'); return; }
+  if (!confirm('Restaurer cette copie ? Les données actuelles seront d\'abord sauvegardées, puis remplacées, et le cloud mis à jour.')) return;
+  try { var cur = loadStore(); localStorage.setItem('salesdesk_rdvs_backup_' + Date.now() + '_avant_restauration', JSON.stringify(cur)); } catch (e) {}
+  var ancien = {}; Object.keys(d).forEach(function(k) { ancien[k] = d[k]; });
+  saveStore(ancien); // horodate maintenant → ce store devient le plus récent partout
+  if (typeof showCopyToast === 'function') showCopyToast('✓ Sauvegarde restaurée, envoi au cloud…');
+  setTimeout(function() { location.reload(); }, 2500);
+}
 function renderControle(recharger, retester) {
+  try { ctlRendreSauvegardes(); } catch (e) { console.warn('[contrôle] sauvegardes :', e); }
   var page = document.getElementById('page-controle'); if (!page) return;
   if (recharger) { document.getElementById('ctl-at').textContent = retester ? 'test des connexions…' : 'chargement…'; chargerControle(true, retester).then(function() { renderControle(false); }); if (!_ctl) return; }
   var j = _ctl || { connexions: [], problemes: [], sms: [], mails: [], journal: [], ecritures: [], automations: [] };
