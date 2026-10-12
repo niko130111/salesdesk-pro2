@@ -3762,6 +3762,7 @@ function sdMigrerOneShot(store) {
   try { sdRattraperAnnuleLe(_res); } catch (e) {}
   try { sdCorrigerAdeline(_res); } catch (e) {}
   try { sdCorrigerSignatures(_res); } catch (e) {}
+  try { sdCorrigerLignes12Oct(_res); } catch (e) {}
   try { if (_avantMig && JSON.stringify(_res) !== _avantMig) window._sdMigrationAEnregistrer = true; } catch (e) {}
   return _res;
 }
@@ -3785,14 +3786,37 @@ var SD_CORRECTIONS_SIGNATURES = [
   { mk: '2026-09', client: 'melanie anastase', date: '15/09/2026', avant: { dateSignature: '16/09/2026' }, apres: { dateSignature: '15/09/2026' } },
   { mk: '2026-09', client: 'virginie mallet', date: '21/09/2026', avant: { dateSignature: '22/09/2026' }, apres: { dateSignature: '21/09/2026' } },
   { mk: '2025-10', client: 'mathieu chamard', date: '11/10/2025', avant: { result: 'Signé' }, apres: { date: '17/10/2025', dateSignature: '23/10/2025' } },
-  { mk: '2025-12', client: 'alexandre luyat', date: '31/12/2025', avant: { result: 'Signé' }, apres: { date: '29/12/2025', dateSignature: '30/12/2025' } }
+  { mk: '2025-12', client: 'alexandre luyat', date: '31/12/2025', avant: { result: 'Signé' }, apres: { date: '29/12/2025', dateSignature: '30/12/2025' } },
+  { mk: '2026-01', client: 'sylvain riowal', date: '12/01/2026', avant: { result: 'Signé' }, apres: { date: '07/01/2026', dateSignature: '10/01/2026' } },
+  { mk: '2026-03', client: 'guillaume sage', date: '30/03/2026', avant: { dateSignature: '30/03/2026' }, apres: { dateSignature: '31/03/2026' } },
+  { mk: '2025-10', client: 'lakkdhar dris', date: '09/10/2025', avant: {}, apres: { client: 'Lakhdar Dris', clientAvant: 'Lakkdhar dris' } },
+  { mk: '2025-11', client: 'jm guigou', date: '28/11/2025', avant: {}, apres: { client: 'Jean-Marc Guigou', clientAvant: 'JM GUIGOU' } },
+  { mk: '2025-09', client: 'felix bonno', date: '15/09/2025', avant: { client: 'Felix Bonno' }, apres: { client: 'Félix Bonno' } }
 ];
+// Lignes à déplacer d'un mois à l'autre, ou ventes saisies sur une démo fantôme (12/10/2026, confirmé par Nicolas et Close)
+function sdCorrigerLignes12Oct(store) {
+  var nn = function(r) { return String((r && r.client) || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim(); }, sauve = false, fait = 0;
+  var sauver = function() { if (!sauve) { try { if (typeof sdBackupStore === 'function') sdBackupStore(store); } catch (e) {} sauve = true; } };
+  var trouver = function(mk, client, date) { var rows = store[mk]; if (!Array.isArray(rows)) return -1; return rows.findIndex(function(x) { return x && nn(x) === client && x.date === date; }); };
+  // Benjamin Guinet : démo le 26/09/2025, Won le 01/10/2025 ; la ligne « Show Signé » du 26/10/2025 ne correspond à aucun RDV
+  var iF = trouver('2025-10', 'benjamin guinet', '26/10/2025'), iV = trouver('2025-09', 'benjamin guinet', '26/09/2025');
+  if (iF >= 0 && iV >= 0 && store['2025-10'][iF].result === 'Signé') { sauver(); var f = store['2025-10'][iF], v = store['2025-09'][iV];
+    v.result = 'Signé'; v.dateSignature = '01/10/2025'; v.dateSignatureSource = 'nicolas+close'; ['pack', 'freq', 'tier', 'fms', 'oneshot', 'commission', 'remise'].forEach(function(c) { if (f[c] !== undefined && f[c] !== '') v[c] = f[c]; });
+    v.correction = 'Vente du 01/10/2025 rattachée à cette démo (ligne du 26/10/2025 retirée, 12/10/2026)'; store['2025-10'].splice(iF, 1); fait++; }
+  // Séverine Roda : RDV le 31/10/2025, signée le 01/11/2025 (la ligne était datée du 30/11)
+  var iR = trouver('2025-11', 'severine roda', '30/11/2025');
+  if (iR >= 0 && store['2025-11'][iR].result === 'Signé') { sauver(); var r = store['2025-11'].splice(iR, 1)[0]; r.date = '31/10/2025'; r.dateSignature = '01/11/2025'; r.dateSignatureSource = 'nicolas+close'; r.correction = 'RDV du 31/10/2025, signé le 01/11/2025 (ligne datée du 30/11, 12/10/2026)'; (store['2025-10'] = store['2025-10'] || []).push(r); fait++; }
+  // Félix Bonno : RDV le 27/05/2026, signé le 08/06/2026 (ligne datée du 01/07/2026 et rangée en juin)
+  var iB = trouver('2026-06', 'felix bonno', '01/07/2026');
+  if (iB >= 0 && store['2026-06'][iB].result === 'Signé') { sauver(); var b = store['2026-06'].splice(iB, 1)[0]; b.client = 'Félix Bonno'; b.clientAvant = 'felix bonno'; b.date = '27/05/2026'; b.dateSignature = '08/06/2026'; b.dateSignatureSource = 'nicolas+close'; b.correction = 'RDV du 27/05/2026, signé le 08/06/2026 (ligne datée du 01/07, 12/10/2026)'; (store['2026-05'] = store['2026-05'] || []).push(b); fait++; }
+  if (fait) console.log('[correction] ' + fait + ' ligne(s) déplacée(s) ou fusionnée(s) d\'après Close');
+}
 function sdCorrigerSignatures(store) {
   var nn = function(r) { return String((r && r.client) || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\s+/g, ' ').trim(); }, fait = 0, sauve = false;
   SD_CORRECTIONS_SIGNATURES.forEach(function(c) { var rows = store && store[c.mk]; if (!Array.isArray(rows)) return;
     var r = rows.find(function(x) { return x && nn(x) === c.client && x.date === c.date && Object.keys(c.avant).every(function(k) { return x[k] === c.avant[k]; }); }); if (!r) return;
     if (!sauve) { try { if (typeof sdBackupStore === 'function') sdBackupStore(store); } catch (e) {} sauve = true; }
-    Object.keys(c.apres).forEach(function(k) { r[k] = c.apres[k]; }); r.dateSignatureSource = 'nicolas+close'; r.correction = (r.correction ? r.correction + ' · ' : '') + 'dates vérifiées dans Close le 12/10/2026'; fait++; });
+    Object.keys(c.apres).forEach(function(k) { r[k] = c.apres[k]; }); if (c.apres.dateSignature) r.dateSignatureSource = 'nicolas+close'; r.correction = (r.correction ? r.correction + ' · ' : '') + (c.apres.client ? 'nom corrigé d\'après Close' : 'dates vérifiées dans Close') + ' le 12/10/2026'; fait++; });
   if (fait) console.log('[correction] ' + fait + ' date(s) de RDV ou de signature corrigée(s) d\'après Close');
 }
 // 10/10/2026 : « annuleLe » = quand le RDV a été annulé (Calendly ou toi). Sert à la stat « attendu pour rien » (no-show + annulé le jour même).
