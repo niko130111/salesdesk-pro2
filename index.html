@@ -11401,6 +11401,36 @@ function chargerSms(force) {
   if (typeof COPILOT_URL === 'undefined') return;
   if (_smsList && Date.now() - _smsAt < 60000 && !force) return;
   fetch(COPILOT_URL + '/sms', { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).then(function(j) { _smsList = j.sms || []; _smsMode = { mode: j.mode, configure: j.configure }; try { if (!document.getElementById('fc-dup-overlay') || !document.getElementById('fc-dup-overlay').classList.contains('open')) sdPopupValiderSms(); } catch (e) {}; _smsAt = Date.now(); renderMaJournee(); }).catch(function() {});
+  fetch(COPILOT_URL + '/mails/a-valider', { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.ok ? r.json() : { mails: [] }; }).then(function(j) { var avant = (_mailsAV || []).length; _mailsAV = j.mails || []; try { if (!document.getElementById('fc-dup-overlay') || !document.getElementById('fc-dup-overlay').classList.contains('open')) sdPopupValiderMails(); } catch (e) {} if (avant !== _mailsAV.length) { try { renderAujourdhui(); } catch (e) {} } }).catch(function() {});
+}
+// ── Mails à valider (12 oct. 2026) : un mail de prise de RDV qui porte le chiffre du CRM attend ici, en brouillon dans Close. Valider (avec ou sans la phrase, texte modifiable) ou Ne pas envoyer. ──
+var _mailsAV = null, _mailsAVVus = {}, _mailsAVSans = {};
+function sdPopupValiderMails(force) {
+  var l = (_mailsAV || []).filter(function(x) { return x.statut === 'a_valider'; }); if (!l.length) return false;
+  if (!force && l.every(function(x) { return _mailsAVVus[x.id]; })) return false; l.forEach(function(x) { _mailsAVVus[x.id] = 1; });
+  var ov = document.getElementById('fc-dup-overlay');
+  if (!ov) { ov = document.createElement('div'); ov.id = 'fc-dup-overlay'; ov.className = 'modal-overlay'; ov.style.zIndex = '1300'; ov.innerHTML = '<div class="modal" id="fc-dup-modal"></div>'; document.body.appendChild(ov); }
+  ov.onclick = function(ev) { if (ev.target === ov) fermerModalDoublon(); }; ov.classList.add('open');
+  var Q = function(v) { return JSON.stringify(v).replace(/"/g, '&quot;'); };
+  var hh = function(iso) { var d = new Date(iso); return isNaN(d) ? '' : (d.toDateString() === new Date().toDateString() ? 'aujourd\'hui ' : d.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric' }) + ' ') + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }); };
+  var html = '<div class="fc-dup" style="width:min(680px,92vw);max-width:100%;box-sizing:border-box;"><div style="font-size:17px;font-weight:800;">✋ ' + l.length + ' mail' + (l.length > 1 ? 's' : '') + ' à valider avant envoi</div><div class="fc-muted" style="margin:2px 0 12px;">Mail' + (l.length > 1 ? 's' : '') + ' de prise de RDV avec le chiffre du CRM RealAdvisor. Relis, corrige si besoin, puis Valider. Il reste en brouillon dans Close tant que tu n\'as pas cliqué.</div>'
+    + l.map(function(x) { var sans = !!_mailsAVSans[x.id], prevuPasse = Date.parse(x.prevu || 0) < Date.now() + 3 * 60000;
+      return '<div style="border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:10px;"><div style="display:flex;justify-content:space-between;gap:10px;align-items:baseline;flex-wrap:wrap;"><b>' + sdNomLien(x.nom || '', x.email || '', 'fermerModalDoublon();') + '</b><span class="fc-muted" style="font-size:12px;">' + escapeHtml((x.canal === 'inbound' ? 'RDV pris par un SDR' : 'RDV pris sur ton lien') + (x.start ? ' · RDV ' + hh(x.start) : '') + ' · part ' + (prevuPasse ? '3 min après ta validation' : hh(x.prevu))) + '</span></div>'
+        + '<div class="fc-muted" style="font-size:12.5px;margin-top:6px;"><b>Objet :</b> ' + escapeHtml(x.sujet || '') + (x.demandes && !sans ? ' · <b>chiffre :</b> ' + escapeHtml(x.demandes) + (x.ville_demandes ? ' autour de ' + escapeHtml(x.ville_demandes) : '') : '') + '</div>'
+        + '<textarea id="mav-' + x.id + '" style="width:100%;box-sizing:border-box;min-height:220px;margin-top:8px;font-family:var(--font);font-size:13px;line-height:1.45;padding:8px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg);color:var(--text);">' + escapeHtml(sans ? x.texteSans || '' : x.texte || '') + '</textarea>'
+        + '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px;flex-wrap:wrap;"><button class="btn btn-sm" style="color:var(--red);border-color:var(--red);" onclick="sdMailValiderAction(' + Q(x.id) + ',\'annuler\',this)">Ne pas envoyer</button><button class="btn btn-sm" onclick="_mailsAVSans[' + Q(x.id) + ']=' + (sans ? 'false' : 'true') + ';sdPopupValiderMails(true)">' + (sans ? 'Remettre la phrase' : 'Retirer la phrase') + '</button><button class="btn btn-sm btn-primary" onclick="sdMailValiderAction(' + Q(x.id) + ',\'valider\',this)">✓ Valider</button></div></div>'; }).join('')
+    + '<div style="text-align:right;"><button class="btn btn-sm" onclick="fermerModalDoublon()">Plus tard</button></div></div>';
+  document.getElementById('fc-dup-modal').innerHTML = html; return true;
+}
+function sdMailValiderAction(id, action, btn) {
+  var ta = document.getElementById('mav-' + id), texte = ta ? ta.value.trim() : ''; if (action === 'valider' && !texte) { alert('Le mail est vide.'); return; }
+  var x = (_mailsAV || []).find(function(m) { return m.id === id; }) || {}, sans = !!_mailsAVSans[id], base = String((sans ? x.texteSans : x.texte) || '').trim();
+  btn.disabled = true; btn.textContent = action === 'valider' ? 'Validation…' : 'Annulation…';
+  rlPost('/mails/a-valider/' + encodeURIComponent(id) + '/' + action, action === 'valider' ? { sansPhrase: sans, texte: texte === base ? '' : texte } : {}).then(function(r) {
+    if (r && r.ok === false) throw new Error(r.error || 'refus');
+    if (typeof showCopyToast === 'function') showCopyToast(action === 'valider' ? '✓ Mail validé : départ ' + (r && r.envoi ? new Date(r.envoi).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : 'programmé') : '✖ Mail retiré, il ne partira pas');
+    _mailsAV = (_mailsAV || []).filter(function(m) { return m.id !== id; }); if (!sdPopupValiderMails(true)) fermerModalDoublon(); try { renderAujourdhui(); } catch (e) {}
+  }).catch(function(e) { btn.disabled = false; btn.textContent = action === 'valider' ? '✓ Valider' : 'Ne pas envoyer'; alert('Copilot : ' + e.message); });
 }
 // ── SMS à valider (règle du 11 oct. 2026) : tout SMS qui porte un chiffre du CRM attend ta validation dans cette fenêtre. Tu relis, tu corriges si besoin, puis Envoyer ; ou Annuler. Rien ne part sans ce clic. ──
 var _smsValidVus = {};
@@ -12837,6 +12867,7 @@ function renderAujourdhui() {
     var ech = enRetard ? '<span class="late">en retard depuis le ' + escapeHtml(new Date(i.date + 'T12:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) + (h ? ' à ' + h : '')) + '</span>' : (h ? (arrivee ? '<span class="late">prévu à ' + escapeHtml(h) + '</span>' : 'à ' + escapeHtml(h)) : (estAuj ? 'aujourd\'hui' : 'ce jour'));
     var raison = [!estConfig(i) && !texteDe(i) ? LIBC[i.col] || '' : '', tent(i)].filter(Boolean).join(' · ');
     return { cle: 'tache|' + i.cle, titre: titreTache(i), det: '<a onclick="ouvrirFicheClient(' + Q(id.nom) + ',' + Q(id.email) + ',\'\',' + Q((i.t && i.t.lead) || '') + ')">' + escapeHtml(nomAff(id.nom)) + '</a> · ' + ech + (raison ? ' · ' + escapeHtml(raison) : ''), btn: boutonTache(i), rang: enRetard ? 1 : (h ? (arrivee ? 0 : 5) : (estConfig(i) ? 3 : 4)) }; };
+  try { (_mailsAV || []).filter(function(x) { return x.statut === 'a_valider'; }).forEach(function(x) { ajoute({ cle: 'mailav|' + x.id, titre: 'Valider le mail de prise de RDV', det: sdNomLien(x.nom || '', x.email || '') + ' · avec le chiffre du CRM · en attente de ton clic', btn: { lib: 'Relire', on: 'sdPopupValiderMails(true)', titre: 'Il reste en brouillon dans Close tant que tu ne l\'as pas validé' }, rang: 0 }); }); } catch (e) {}
   try { var _an = st._annulations || {}; Object.keys(_an).forEach(function(u) { var x = _an[u]; if (x.vu || x.deplace) return;
     var nn = (function() { var n = ((_nouv.data || {}).rdv || []).find(function(r0) { return r0.deplace && fcNormNom(r0.nom) === fcNormNom(x.nom); }); return n ? ' · nouveau créneau : ' + fcFrDepuisIso(n.date) + ' à ' + n.heure : ''; })();
     ajoute({ cle: 'annul|' + u, titre: x.deplace ? 'A déplacé son RDV' : 'A annulé son RDV', det: '<a onclick="ouvrirFicheClient(' + Q(x.nom) + ',\'\')">' + escapeHtml(nomAff(x.nom)) + '</a> · ' + escapeHtml((x.date === todayIso ? 'aujourd\'hui' : fcFrDepuisIso(x.date)) + ' à ' + x.heure + (x.raison ? ' · « ' + x.raison + ' »' : '') + nn + (x.note ? ' · noté ' + x.note : '')), btn: x.deplace ? { lib: 'Vu', on: 'sdAnnulVu(' + Q(u) + ')' } : { lib: 'Que faire ?', on: 'sdAnnulQuoiFaire(' + Q(u) + ')' }, rang: 0 }); }); } catch (e) {}
