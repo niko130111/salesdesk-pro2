@@ -1212,6 +1212,8 @@ nav #nav-more-dot, nav #nav-settings-dot { background: var(--sd-amber) !importan
 .fc-dup .fc-dup-item:hover { border-color: var(--accent); background: var(--accent-bg); }
 @media (max-width: 700px) { .fc-panel { width: 100vw; max-width: 100vw; } }
 .modal-overlay.open { display: flex; }
+#fc-dup-modal .fc-dup > div:first-child { cursor: move; }
+.fc-panel.fc-etroite .fc-synth { grid-template-columns: minmax(0, 1fr) !important; } .fc-panel.fc-etroite .fc-kv { grid-template-columns: 120px minmax(0, 1fr) !important; } /* fiche resserrée à côté d'une fenêtre : une seule colonne */ /* tirer le titre pour déplacer la fenêtre */
 .modal-overlay.a-gauche { justify-content: flex-start; padding-left: 24px; background: rgba(0,0,0,.14); } /* fenêtre après appel, onboarding : à gauche, la fiche prospect reste lisible */
 .modal { background: var(--surface); border-radius: var(--radius-lg); padding: 24px; width: 480px; max-width: 95vw; max-height: 85vh; overflow-y: auto; box-shadow: 0 20px 50px rgba(0,0,0,0.15); }
 .modal-title { font-size: 16px; font-weight: 600; margin-bottom: 20px; }
@@ -2492,208 +2494,11 @@ select.form-input { cursor: pointer; }
 
 <!-- ===================== CALENDLY PAGE ===================== -->
 <!-- ===================== PREP RDV PAGE — Fiche de préparation d'un RDV ===================== -->
-<div id="page-preprdv" class="page">
-<main>
-
-  <!-- Header avec bouton retour et titre -->
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;gap:12px;">
-    <div style="display:flex;align-items:center;gap:12px;">
-      <button class="btn btn-sm" onclick="closePrepRdv()">← Retour</button>
-      <div>
-        <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);">📋 Fiche de préparation RDV</div>
-        <div id="prep-rdv-title" style="font-size:18px;font-weight:700;color:var(--text);margin-top:2px;">—</div>
-        <div id="prep-rdv-meta" style="font-size:12px;color:var(--text3);margin-top:2px;"></div>
-      </div>
-    </div>
-    <div style="display:flex;gap:8px;align-items:center;">
-      <span id="prep-rdv-save-status" style="font-size:11px;color:var(--text3);"></span>
-      <button class="btn btn-sm btn-primary" onclick="copyPrepPromptForGPT()" title="Copie un prompt complet à coller dans ChatGPT ou Claude.ai">📋 Copier prompt ChatGPT/Claude</button>
-    </div>
-  </div>
-
-  <!-- ZONE 1 : INPUTS — éléments fournis par toi -->
-  <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px;margin-bottom:16px;">
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
-      <div style="width:24px;height:24px;border-radius:6px;background:var(--accent);color:white;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;">1</div>
-      <div style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text);">Tes inputs (à remplir avant la prep)</div>
-    </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
-      <div class="form-group">
-        <label class="form-label">📊 Lien estimation du secteur</label>
-        <input type="url" class="form-input prep-input" data-field="estimationLink" placeholder="https://realadvisor.fr/estimation/...">
-      </div>
-      <div class="form-group">
-        <label class="form-label">🌐 Site internet du prospect</label>
-        <input type="url" class="form-input prep-input" data-field="siteProspect" placeholder="https://...">
-      </div>
-      <div class="form-group" style="grid-column:1/-1;">
-        <label class="form-label">📞 Transcription / notes du 1er appel (prise de RDV)</label>
-        <textarea class="form-input prep-input" data-field="transcription" placeholder="Colle ici la transcription ou tes notes du 1er appel..." style="min-height:100px;font-family:var(--font);resize:vertical;"></textarea>
-      </div>
-      <div class="form-group">
-        <label class="form-label">👤 Agent immo de référence sur son secteur</label>
-        <input type="text" class="form-input prep-input" data-field="agentRef" placeholder="Nom de l'agent / agence">
-      </div>
-      <div class="form-group">
-        <label class="form-label">🔢 Nombre d'estimations sur son secteur</label>
-        <input type="number" class="form-input prep-input" data-field="nbEstimations" placeholder="Ex: 250">
-      </div>
-      <div class="form-group" style="grid-column:1/-1;">
-        <label class="form-label">📋 Prospects reçus par cet agent de référence (un par ligne)</label>
-        <textarea class="form-input prep-input" data-field="prospectsRef" placeholder="Ex:&#10;- Marie Dupont (vendeuse à Lyon)&#10;- Jean Martin (Lille, urgent)&#10;..." style="min-height:80px;font-family:var(--font);resize:vertical;"></textarea>
-      </div>
-    </div>
-  </div>
-
-  <!-- ZONE 2 : RÉPONSE IA — réponse de ChatGPT/Claude collée ici -->
-  <div style="background:var(--surface);border:2px solid var(--green);border-radius:var(--radius-lg);padding:20px;margin-bottom:16px;">
-    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:14px;">
-      <div style="display:flex;align-items:center;gap:8px;">
-        <div style="width:24px;height:24px;border-radius:6px;background:var(--green);color:white;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;">2</div>
-        <div style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text);">Réponse IA <span style="font-weight:400;text-transform:none;color:var(--text3);font-size:12px;">— colle ici la réponse de ChatGPT ou Claude</span></div>
-      </div>
-      <button class="btn btn-sm" onclick="clearAiResponse()" style="font-size:11px;">🗑 Effacer</button>
-    </div>
-    <div style="font-size:12px;color:var(--text3);background:var(--green-bg);padding:10px 14px;border-radius:var(--radius);margin-bottom:12px;line-height:1.5;">
-      💡 <b>Comment ça marche :</b> 1️⃣ Remplis tes inputs en Zone 1 · 2️⃣ Clique <b>"📋 Copier prompt ChatGPT/Claude"</b> en haut · 3️⃣ Va sur <a href="https://chatgpt.com" target="_blank" style="color:var(--accent);">ChatGPT</a> ou <a href="https://claude.ai" target="_blank" style="color:var(--accent);">Claude.ai</a> · 4️⃣ Colle le prompt et lance · 5️⃣ Reviens ici et colle la réponse complète ci-dessous.
-    </div>
-    <textarea class="form-input prep-input" data-field="aiResponse" placeholder="Colle ici la réponse complète de ChatGPT ou Claude…" style="width:100%;min-height:200px;font-family:var(--font);resize:vertical;line-height:1.6;"></textarea>
-  </div>
-
-  <!-- ZONE 3 : NOTES PERSO -->
-  <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px;margin-bottom:16px;">
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
-      <div style="width:24px;height:24px;border-radius:6px;background:var(--orange);color:white;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;">3</div>
-      <div style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text);">Tes notes perso</div>
-    </div>
-    <textarea class="form-input prep-input" data-field="notesPerso" placeholder="Ajoute ici ce qui te manque, tes intuitions, ton plan d'action, les questions à poser, les points à creuser…" style="width:100%;min-height:140px;font-family:var(--font);resize:vertical;"></textarea>
-  </div>
-
-</main>
-</div>
+<!-- page-preprdv (page masquée, jamais ouverte) retirée le 12/10/2026 -->
 
 
 <!-- ===================== POST-RDV PAGE — Email R1, Email pré-R2 et Analyse ===================== -->
-<div id="page-postrdv" class="page">
-<main>
-
-  <!-- Header avec bouton retour et titre -->
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;gap:12px;">
-    <div style="display:flex;align-items:center;gap:12px;">
-      <button class="btn btn-sm" onclick="closePostRdv()">← Retour</button>
-      <div>
-        <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--orange);">📬 Post-RDV</div>
-        <div id="postrdv-title" style="font-size:18px;font-weight:700;color:var(--text);margin-top:2px;">—</div>
-        <div id="postrdv-meta" style="font-size:12px;color:var(--text3);margin-top:2px;"></div>
-      </div>
-    </div>
-    <div style="display:flex;gap:8px;align-items:center;">
-      <span id="postrdv-save-status" style="font-size:11px;color:var(--text3);"></span>
-      <button class="btn btn-primary" onclick="closePostRdvAndFinish()" style="display:flex;align-items:center;gap:6px;font-weight:600;">
-        ✅ Terminer le RDV
-      </button>
-    </div>
-  </div>
-
-  <!-- Onglets internes pour navigation rapide -->
-  <div style="display:flex;gap:4px;margin-bottom:16px;border-bottom:1px solid var(--border);overflow-x:auto;">
-    <button class="postrdv-tab-btn" data-tab="transcription" onclick="switchPostRdvTab('transcription')" style="padding:8px 14px;border:none;background:none;cursor:pointer;font-family:var(--font);font-size:12px;font-weight:600;color:var(--accent);border-bottom:2px solid var(--accent);margin-bottom:-1px;white-space:nowrap;">📝 1. Transcription R1</button>
-    <button class="postrdv-tab-btn" data-tab="email-r1" onclick="switchPostRdvTab('email-r1')" style="padding:8px 14px;border:none;background:none;cursor:pointer;font-family:var(--font);font-size:12px;font-weight:500;color:var(--text3);border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap;">✉️ 2. Email après R1</button>
-    <button class="postrdv-tab-btn" data-tab="analyse" onclick="switchPostRdvTab('analyse')" style="padding:8px 14px;border:none;background:none;cursor:pointer;font-family:var(--font);font-size:12px;font-weight:500;color:var(--text3);border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap;">🔥 3. Debrief par les closers</button>
-  </div>
-
-  <!-- ═══════════════════════════════════════════════
-       SECTION 1 — TRANSCRIPTION R1
-  ═══════════════════════════════════════════════ -->
-  <div id="postrdv-section-transcription" class="postrdv-section" style="display:block;">
-    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px;margin-bottom:16px;">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
-        <div style="width:24px;height:24px;border-radius:6px;background:var(--accent);color:white;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;">1</div>
-        <div style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text);">Transcription du R1</div>
-      </div>
-      <div style="font-size:12px;color:var(--text3);background:var(--accent-bg);padding:10px 14px;border-radius:var(--radius);margin-bottom:12px;line-height:1.5;">
-        💡 Va sur <a href="https://app.claap.io" target="_blank" style="color:var(--accent);">Claap</a> → ouvre l'enregistrement du R1 → onglet Transcription → sélectionne tout (Ctrl+A) → copie (Ctrl+C) → reviens ici et colle ci-dessous.
-      </div>
-      <textarea class="form-input postrdv-input" data-field="transcription" placeholder="Colle ici la transcription complète du R1 récupérée depuis Claap…" style="width:100%;min-height:280px;font-family:var(--font);resize:vertical;line-height:1.5;font-size:13px;"></textarea>
-      <div id="postrdv-transcription-stats" style="margin-top:8px;font-size:11px;color:var(--text3);"></div>
-    </div>
-  </div>
-
-  <!-- ═══════════════════════════════════════════════
-       SECTION 2 — EMAIL APRÈS R1
-  ═══════════════════════════════════════════════ -->
-  <div id="postrdv-section-email-r1" class="postrdv-section" style="display:none;">
-    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px;margin-bottom:16px;">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
-        <div style="width:24px;height:24px;border-radius:6px;background:var(--orange);color:white;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;">2</div>
-        <div style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text);">Email de fin de R1</div>
-      </div>
-
-      <div style="background:var(--soft-orange);border:1px solid var(--soft-orange-line);border-radius:var(--radius);padding:12px 14px;margin-bottom:14px;font-size:12px;color:var(--text2);line-height:1.5;">
-        💡 <b>Comment générer l'email :</b><br>
-        1️⃣ Vérifie que la transcription est bien dans la <a href="#" onclick="switchPostRdvTab('transcription');return false;" style="color:var(--accent);">section 1</a><br>
-        2️⃣ Clique sur <b>"📋 Copier prompt ChatGPT/Claude"</b> ci-dessous<br>
-        3️⃣ Va sur <a href="https://chatgpt.com" target="_blank" style="color:var(--accent);">ChatGPT</a> ou <a href="https://claude.ai" target="_blank" style="color:var(--accent);">Claude.ai</a> et colle<br>
-        4️⃣ Reviens ici et colle la réponse dans les champs ci-dessous<br>
-        5️⃣ Clique <b>"📨 Ouvrir dans Gmail"</b> → un brouillon Gmail s'ouvre avec ta signature, prêt à envoyer
-      </div>
-
-      <button class="btn btn-primary" onclick="copyEmailR1PromptForGPT()" style="background:var(--orange);border-color:var(--orange);margin-bottom:14px;">📋 Copier prompt ChatGPT/Claude</button>
-
-      <div class="form-row">
-        <div class="form-group">
-          <label class="form-label">À (email destinataire)</label>
-          <input type="email" class="form-input postrdv-input" data-field="emailR1To" placeholder="prospect@example.com">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Objet du mail</label>
-          <input type="text" class="form-input postrdv-input" data-field="emailR1Subject" placeholder="Ex: Sandrine – Récap + visio jeudi 8 mai">
-        </div>
-      </div>
-
-      <div class="form-group" style="margin-top:8px;">
-        <label class="form-label">Corps du mail (généré par ChatGPT/Claude)</label>
-        <textarea class="form-input postrdv-input" data-field="emailR1Body" placeholder="Colle ici le mail généré par ChatGPT/Claude…&#10;&#10;Ta signature sera ajoutée automatiquement à l'envoi." style="width:100%;min-height:340px;font-family:var(--font);resize:vertical;line-height:1.6;"></textarea>
-      </div>
-
-      <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;">
-        <button class="btn btn-primary" onclick="openEmailR1InGmail()" style="background:var(--green);border-color:var(--green);">📨 Ouvrir dans Gmail</button>
-        <button class="btn btn-sm" onclick="copyEmailR1FullBody()" style="font-size:12px;">📋 Copier le mail (avec signature)</button>
-        <button class="btn btn-sm" onclick="clearEmailR1Body()" style="font-size:12px;">🗑 Effacer</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ═══════════════════════════════════════════════
-       SECTION 3 — ANALYSE R1 (par ChatGPT/Claude — multi-coachs brutal)
-  ═══════════════════════════════════════════════ -->
-  <div id="postrdv-section-analyse" class="postrdv-section" style="display:none;">
-    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px;margin-bottom:16px;">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
-        <div style="width:24px;height:24px;border-radius:6px;background:var(--green);color:white;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;">3</div>
-        <div style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text);">Analyse du R1 par un panel de closers</div>
-      </div>
-
-      <div style="background:var(--green-bg);border:1px solid var(--soft-green);border-radius:var(--radius);padding:12px 14px;margin-bottom:14px;font-size:12px;color:var(--text2);line-height:1.5;">
-        🎯 <b>Comment ça marche :</b><br>
-        1️⃣ Vérifie que la transcription est dans la <a href="#" onclick="switchPostRdvTab('transcription');return false;" style="color:var(--accent);">section 1</a><br>
-        2️⃣ Clique <b>"📋 Copier prompt analyse"</b> ci-dessous<br>
-        3️⃣ Va sur <a href="https://chatgpt.com" target="_blank" style="color:var(--accent);">ChatGPT</a> ou <a href="https://claude.ai" target="_blank" style="color:var(--accent);">Claude.ai</a> et colle<br>
-        4️⃣ Tu reçois un debrief brutal d'un panel de closers (Belfort, Cardone, Voss, Aguilar)<br>
-        5️⃣ Reviens ici, colle la réponse dans le champ ci-dessous → mémorisée pour ton bilan hebdo plus tard
-      </div>
-
-      <button class="btn btn-primary" onclick="copyAnalysePromptForGPT()" style="background:var(--green);border-color:var(--green);margin-bottom:14px;">📋 Copier prompt analyse ChatGPT/Claude</button>
-
-      <div class="form-group" style="margin-top:8px;">
-        <label class="form-label">🔥 Debrief retourné par les closers (Belfort / Cardone / Voss / Aguilar)</label>
-        <textarea class="form-input postrdv-input" data-field="analyseAi" placeholder="Colle ici la réponse complète de ChatGPT ou Claude…&#10;&#10;C'est ce qui sera utilisé plus tard pour générer ton bilan hebdo de progression." style="min-height:300px;font-family:var(--font);resize:vertical;line-height:1.6;"></textarea>
-      </div>
-    </div>
-  </div>
-
-</main>
-</div>
+<!-- page-postrdv (page masquée, jamais ouverte) retirée le 12/10/2026 -->
 
 
 <!-- ===================== SETTINGS PAGE ===================== -->
@@ -4269,10 +4074,22 @@ function sdDemanderConfirmation(titre, texte, opts) { // (sdConfirmer existe dé
 }
 function fcPlacerAGauche(ov, largeur) { // fenêtre à gauche de la fiche ouverte : la fiche reste visible ; sur écran moyen la fiche se resserre, sur petit écran la fenêtre reste centrée
   try { var nav = document.querySelector('nav'), nb = nav ? nav.getBoundingClientRect() : null, sb = (nb && nb.height > nb.width) ? Math.round(nb.width) : 0, vw = window.innerWidth, panel = document.querySelector('#fc-overlay.open .fc-panel'), W = largeur || 480;
-    if (!panel) return; var fiche = Math.min(980, vw - sb - W - 36); if (fiche < 520) return;
-    panel.style.width = fiche + 'px'; ov.style.paddingLeft = (sb + 12) + 'px'; ov.classList.add('a-gauche'); ov.dataset.fiche = '1'; } catch (e) {}
+    if (!panel) return; var fiche = Math.min(980, vw - sb - W - 36);
+    if (fiche >= 440) { panel.style.width = fiche + 'px'; panel.classList.toggle('fc-etroite', fiche < 700); } ov.style.paddingLeft = (sb + 12) + 'px'; ov.classList.add('a-gauche'); ov.dataset.fiche = '1'; } catch (e) {}
 }
-function fermerModalDoublon() { if (window._sdConfirmResolve) { var _r = window._sdConfirmResolve; window._sdConfirmResolve = null; try { _r(false); } catch (e) {} } try { var _o = document.getElementById('fc-dup-overlay'); if (_o) { _o.classList.remove('a-gauche'); delete _o.dataset.vd; if (_o.dataset.fiche) { delete _o.dataset.fiche; _o.style.paddingLeft = ''; var _p = document.querySelector('#fc-overlay .fc-panel'); if (_p) _p.style.width = ''; } var _m = document.getElementById('fc-dup-modal'); if (_m) _m.style.width = ''; } } catch (e) {} var ov = document.getElementById('fc-dup-overlay'); if (ov) ov.classList.remove('open'); }
+// Fenêtres (onboarding, aperçu d'un message, après appel…) : on les déplace en tirant leur titre (12 oct. 2026)
+(function() {
+  var drag = null;
+  document.addEventListener('mousedown', function(ev) {
+    var t = ev.target, m = document.getElementById('fc-dup-modal'); if (!m || ev.button !== 0) return;
+    var titre = t.closest && t.closest('#fc-dup-modal .fc-dup > div:first-child'); if (!titre || t.closest('button, a, input, select, textarea, .fc-nomlien')) return;
+    var cur = (m.dataset.dx ? [+m.dataset.dx, +m.dataset.dy] : [0, 0]); drag = { x: ev.clientX, y: ev.clientY, dx: cur[0], dy: cur[1], m: m }; ev.preventDefault(); document.body.style.userSelect = 'none';
+  });
+  document.addEventListener('mousemove', function(ev) { if (!drag) return; var dx = drag.dx + ev.clientX - drag.x, dy = drag.dy + ev.clientY - drag.y; drag.m.style.transform = 'translate(' + dx + 'px,' + dy + 'px)'; drag.m.dataset.dx = dx; drag.m.dataset.dy = dy; });
+  document.addEventListener('mouseup', function() { if (drag) { drag = null; document.body.style.userSelect = ''; } });
+})();
+function sdRecentrerModal() { var m = document.getElementById('fc-dup-modal'); if (m) { m.style.transform = ''; delete m.dataset.dx; delete m.dataset.dy; } }
+function fermerModalDoublon() { try { sdRecentrerModal(); } catch (e) {} if (window._sdConfirmResolve) { var _r = window._sdConfirmResolve; window._sdConfirmResolve = null; try { _r(false); } catch (e) {} } try { var _o = document.getElementById('fc-dup-overlay'); if (_o) { _o.classList.remove('a-gauche'); delete _o.dataset.vd; if (_o.dataset.fiche) { delete _o.dataset.fiche; _o.style.paddingLeft = ''; var _p = document.querySelector('#fc-overlay .fc-panel'); if (_p) { _p.style.width = ''; _p.classList.remove('fc-etroite'); } } var _m = document.getElementById('fc-dup-modal'); if (_m) _m.style.width = ''; } } catch (e) {} var ov = document.getElementById('fc-dup-overlay'); if (ov) ov.classList.remove('open'); }
 function fermerModalPlusTard() { window._sdChaine = false; fermerModalDoublon(); }
 function fermerFicheClient() { document.getElementById('fc-overlay').classList.remove('open'); }
 function fcOnglet(t) { _fc.tab = t; fcRendre(); }
@@ -4581,16 +4398,6 @@ function fcRendreProchaineEtape() {
   el.innerHTML = '<div style="width:100%">' + labHtml + '<div class="q">' + escapeHtml(lib) + '</div>' + (det ? '<div class="d">' + escapeHtml(det) + '</div>' : '') + '</div><div class="acts">' + fcBoutonsSuivi(itS || fcItemFiche()) + '</div>';
 }
 
-function fcAnnulerRdvDepuisFiche() {
-  var last = _fc.rows[0]; if (!last || last._monthKey === undefined || last._storeKey === undefined) return;
-  var iso = frVersIsoSd(last.date), lundi = rlLundiDe(iso);
-  var lancer = function() { sdAnnulationChoix({ nom: _fc.nom, iso: iso, heure: last.heure || '', mk: last._monthKey, idx: last._storeKey, motif: 'rdv annulé (fiche)', apres: function() {
-    _fc.rows = fcLignesFiche();
-    var p = (_fc.nom || '').trim().split(/\s+/)[0] || '', civ = /^(m|mr|mme|mlle|monsieur|madame|me)\.?$/i.test(p), prenom = civ ? '' : ' ' + p.charAt(0).toUpperCase() + p.slice(1).toLowerCase();
-    fcRepondreMail('Re : notre rendez-vous du ' + last.date, 'Bonjour' + prenom + ',\n\nMerci pour votre message, et aucun souci pour le report : l\'essentiel est que tout aille bien de votre côté.\n\nJe vous propose de reprendre rendez-vous dès que vous serez disponible : vous pouvez réserver directement un créneau ici ' + CALENDLY_R1 + ' ou me donner vos disponibilités, je m\'adapte.\n\nÀ très vite,');
-  } }); };
-  if (_auj.calEtat[lundi] === 'ok') lancer(); else { try { aujChargerSemaine(lundi); } catch (e) {} var t0 = Date.now(); (function att() { if (_auj.calEtat[lundi] === 'ok' || Date.now() - t0 > 8000) lancer(); else setTimeout(att, 300); })(); }
-}
 // Ouvre l'onglet Mails de la fiche avec un brouillon (objet, texte) prêt à relire et envoyer
 function fcRepondreMail(objet, texte) {
   _fc.tab = 'mails'; fcRendre();
@@ -4605,7 +4412,7 @@ function fcOnboarding() {
   var lead = ''; try { lead = _fc.leadChoisi || sdLeadPour(_fc.nom, _fc.email || '') || ((_fc.close && _fc.close.leads && _fc.close.leads[0]) || {}).id || ''; } catch (e) {}
   var ov = document.getElementById('fc-dup-overlay');
   if (!ov) { ov = document.createElement('div'); ov.id = 'fc-dup-overlay'; ov.className = 'modal-overlay'; ov.style.zIndex = '1300'; ov.innerHTML = '<div class="modal" id="fc-dup-modal"></div>'; document.body.appendChild(ov); }
-  ov.onclick = function(ev) { if (ev.target === ov) fermerModalDoublon(); }; ov.classList.add('open'); document.getElementById('fc-dup-modal').style.width = 'min(640px, 94vw)'; fcPlacerAGauche(ov, 640); // à gauche de la fiche, plus large que le cadre standard : elle reste lisible pendant la configuration
+  ov.onclick = function(ev) { if (ev.target === ov) fermerModalDoublon(); }; ov.classList.add('open'); document.getElementById('fc-dup-modal').style.width = 'min(680px, 94vw)'; fcPlacerAGauche(ov, 680); // à gauche de la fiche, plus large que le cadre standard : elle reste lisible pendant la configuration
   var m = document.getElementById('fc-dup-modal'); m.innerHTML = '<div class="fc-dup"><div style="font-size:15px;font-weight:700;">🚀 Onboarding — ' + escapeHtml(_fc.nom) + '</div><div class="fc-muted" style="margin-top:8px;">Lecture de Close (champs, opportunité, vidéo du R1)…</div></div>';
   if (typeof COPILOT_URL === 'undefined') { m.innerHTML = '<div class="fc-dup">Copilot éteint : l\'onboarding écrit dans Close via le copilot.<div style="margin-top:10px;text-align:right;"><button class="btn btn-sm" onclick="fermerModalDoublon()">Fermer</button></div></div>'; return; }
   var pChamps = fetch(COPILOT_URL + '/close/onboarding/champs?' + new URLSearchParams(lead ? { lead: lead } : {}), { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); });
@@ -4638,7 +4445,8 @@ function fcOnboarding() {
       return '<div data-dep="' + escapeHtml(dep) + '"' + (dep ? ' style="display:none;"' : '') + '><div class="fc-muted" style="font-size:11px;' + ((manque && !dep && !/^BDR - Contract$/i.test(d.nom)) || aVerifier[d.nom] ? 'color:var(--orange);font-weight:700;' : '') + '">' + escapeHtml(d.nom) + (aVerifier[d.nom] ? ' · à vérifier' : (manque && !dep && !/^BDR - Contract$/i.test(d.nom) ? ' · à compléter' : '')) + '</div>' + corps + '</div>';
     }).join(''); };
     var html = faire(defs, deja, pre), htmlLead = faire(defsLead, dejaLead, preLead);
-    m.innerHTML = '<div class="fc-dup" style="width:min(720px,92vw);max-width:100%;box-sizing:border-box;"><div style="font-size:16px;font-weight:700;">🚀 Onboarding — ' + escapeHtml(_fc.nom) + '</div><div class="fc-muted" style="margin:4px 0 10px;">' + (opp ? 'Opportunité Close « ' + escapeHtml(opp.statut || '') + ' »' + (opp.valeur ? ' · ' + escapeHtml(opp.valeur) : '') + '. ' : '<b style="color:var(--red)">Aucune opportunité trouvée sur la fiche Close : crée-la (ou passe-la en Won) avant d\'écrire.</b> ') + 'Relis, complète l\'orange, puis valide : les champs sont écrits sur l\'opportunité.</div>'
+    setTimeout(function() { fcPlacerAGauche(ov, 680); }, 0); // la fiche a pu se redessiner pendant la lecture de Close
+    m.innerHTML = '<div class="fc-dup" style="width:100%;max-width:100%;box-sizing:border-box;"><div style="font-size:16px;font-weight:700;">🚀 Onboarding — ' + escapeHtml(_fc.nom) + '</div><div class="fc-muted" style="margin:4px 0 10px;">' + (opp ? 'Opportunité Close « ' + escapeHtml(opp.statut || '') + ' »' + (opp.valeur ? ' · ' + escapeHtml(opp.valeur) : '') + '. ' : '<b style="color:var(--red)">Aucune opportunité trouvée sur la fiche Close : crée-la (ou passe-la en Won) avant d\'écrire.</b> ') + 'Relis, complète l\'orange, puis valide : les champs sont écrits sur l\'opportunité.</div>'
       + '<div id="ob-champs" style="display:grid;grid-template-columns:1fr 1fr;gap:8px 12px;">' + html + '</div>'
       + (defsLead.length ? '<div style="margin:14px 0 6px;font-weight:700;font-size:13px;">Fiche Close (BDR)</div><div id="ob-champs-lead" style="display:grid;grid-template-columns:1fr 1fr;gap:8px 12px;">' + htmlLead + '</div>' : '')
       + fcContratBloc(lead)
@@ -4710,9 +4518,6 @@ function fcAppelerFiche(ev, cle) {
   if (!url && !x.tel) { if (typeof showCopyToast === 'function') showCopyToast('Fiche Close introuvable pour cet appel'); return; }
   fcAppeler(ev, x.tel || '', url);
 }
-function fcAppelerDepuisFiche() { var a = document.querySelector('#fc-contact a[href^="tel:"]'); if (a) a.click(); else if (typeof showCopyToast === 'function') showCopyToast('Pas de numéro sur la fiche'); }
-function fcCalerRdvDepuisFiche() { var last = _fc.rows[0] || {}, r2 = SD_INTERESSE.indexOf(String(last.result || '').trim()) >= 0; if (typeof COPILOT_URL === 'undefined') { fcCalendlyDepuisFiche(); return; } var lead = _fc.rows.map(function(r) { return r.closeLead; }).find(Boolean) || sdLeadPour(_fc.nom, _fc.email || '') || ''; sdReserverCalendly({ type: r2 ? 'r2' : 'r1', nom: _fc.nom, email: _fc.email || last.email || '', tel: '', cp: last.cp || '', lead: lead, cle: '' }, function(j) { if (typeof showCopyToast === 'function') showCopyToast('✓ RDV réservé : ' + fcFrDepuisIso(j.date) + ' à ' + j.heure); try { refreshAll(); } catch (e) {} fcRendre(); }); }
-function fcCalendlyDepuisFiche() { var last = _fc.rows[0] || {}; var faux = { cle: 'fiche', nom: _fc.nom, col: SD_INTERESSE.indexOf(String(last.result || '').trim()) >= 0 ? 'r2' : 'rdv', rel: null, row: last, t: null }; window._rlItems = (window._rlItems || []).filter(function(x) { return x.cle !== 'fiche'; }).concat([faux]); rlCalendly('fiche'); }
 // Suivi : R2 planifié / relance (locale ou copilot) / rien → à décider
 function fcIsoDepuisFr(d) { var m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(d || ''); return m ? m[3] + '-' + m[2] + '-' + m[1] : ''; }
 function fcFrDepuisIso(d) { return d ? String(d).split('-').reverse().join('/') : ''; }
@@ -5342,16 +5147,6 @@ function fcHtmlOffreTab() {
   if (cles.deal) out += '<div class="fc-card"><div class="fc-card-t"><span>D\'après Close</span></div><div class="v" style="font-size:13.5px;">' + escapeHtml(cles.deal) + '</div></div>';
   return out;
 }
-function fcHtmlOffre() {
-  var r = _fc.rows.find(function(x) { return x.source !== 'R2'; }) || _fc.rows[0]; if (!r) return '';
-  var items = [['Pack', r.pack], ['Fréquence', r.freq], ['Tier', r.tier], ['FMS', r.fms], ['Remise', r.remise], ['One shot', r.oneshot === 'O' ? 'oui' : ''], ['Commission', r.result === 'Signé' && typeof getComm === 'function' ? Math.round(getComm(r)).toLocaleString('fr-FR') + ' €' : '']].filter(function(x) { return x[1]; });
-  if (!items.length) return '';
-  return '<div style="margin-bottom:12px;padding:10px 14px;border-radius:12px;border:1px solid var(--border);background:var(--surface);"><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--text3);margin-bottom:6px;">Offre</div><div style="display:flex;gap:14px;flex-wrap:wrap;font-size:13px;">' + items.map(function(x) { return '<span><span style="color:var(--text3);">' + x[0] + '</span> <b>' + escapeHtml(String(x[1])) + '</b></span>'; }).join('') + '</div></div>';
-}
-function fcHtmlRdv() {
-  if (!_fc.rows.length) return '<div class="fc-empty">Aucun RDV enregistré à ce nom.</div>';
-  return fcHtmlOffre() + fcHtmlRdvListe();
-}
 function fcHtmlRdvListe() {
   if (!_fc.rows.length) return '';
   var cl = fcClients(loadStore())[_fc.cle] || {}, claap = cl.claap || {};
@@ -5574,7 +5369,7 @@ function fcNotesInput(v) {
     var et2 = document.getElementById('fc-notes-etat'); if (et2) et2.textContent = '✓ enregistré';
   }, 700);
 }
-function sdModalOuverte() { return !!document.querySelector('.modal-overlay.open, #fc-overlay.open, #ar-overlay.open, #cp-overlay.open'); } // une fenêtre est déjà à l'écran : une ouverture automatique attend
+// une fenêtre est déjà à l'écran : une ouverture automatique attend
 document.addEventListener('keydown', function(ev) { // Échap : la fenêtre du dessus seulement, sans valider ; puis la fiche ; puis la recherche
   if (ev.key !== 'Escape') return;
   var dup = document.getElementById('fc-dup-overlay'); if (dup && dup.classList.contains('open')) { fermerModalDoublon(); return; }
@@ -12402,7 +12197,6 @@ function sdVerifDemainMaj() {
   aujRendreDemain(faireLignes(true), nOui, nRel, nAnn, tot, jour);
 }
 // ── RDV annulé par le prospect (vérification de demain, fiche) : ligne en Annulé (compte comme no-show), événement Calendly annulé (mail d'annulation, rappels stoppés), statut Close, tâche « Relancer » dans 2 jours ouvrés. Renvoie la date de relance. ──
-function sdIgnorerRepro(monthKey, idx) { var st = loadStore(), r = (st[monthKey] || [])[idx]; if (!r) return; if (typeof sdBackupStore === 'function') sdBackupStore(st); r.reproIgnore = true; saveStore(st); renderAujourdhui(); if (typeof showCopyToast === 'function') showCopyToast('Retiré de « À faire » : ' + r.client); }
 // Prospect qui annule et dit qu'il n'est pas intéressé : la ligne garde Annulé et porte « pas intéressé », aucun rappel, Close passe en Not interested / Lost (demande du 9 oct. 2026)
 // « Laisser tomber » un RDV annulé / reprogrammé jamais repris (12 oct. 2026) : 1er clic arme le bouton, 2e clic confirme. Retiré des priorités, note Close, opportunité → Lost - Cancelled, SMS programmés annulés. Le résultat de la ligne n'est pas touché (stats inchangées).
 function sdLaisserTomberRepro(btn, monthKey, idx) {
@@ -13383,8 +13177,6 @@ function svNotesInput(v, cle, nom, email) { // même note que dans la fiche (mê
   _fcNotesTimer = setTimeout(function() { var store = loadStore(), cls = fcClients(store), cl = cls[cle] || { nom: nom, email: email, notes: '', claap: {} }; cl.notes = v; cl.nom = nom; cl.email = email; cls[cle] = cl; saveStore(store); var et2 = document.getElementById('sv-notes-etat'); if (et2) et2.textContent = '✓ enregistré'; }, 700);
 }
 function svTache(cle) { var it = (window._rlItems || []).find(function(i) { return i.cle === cle; }); if (!it) return; var id = rlIdentite(it); fcTacheClose({ nom: id.nom || it.nom, email: id.email || '', lead: id.lead || '', cle: it.cle }); }
-function svDemain(cle) { svDeplacerVers([cle], rlJourOuvre(rlIso(new Date()), 1), ''); }
-function svDeplacer(cle) { var it = (window._rlItems || []).find(function(i) { return i.cle === cle; }); if (!it) return; rlDateModal('Déplacer ' + it.nom, 'La tâche Close passe à cette date. Rien d\'autre ne change.', rlJourOuvre(rlIso(new Date()), 1), function(d, h) { svDeplacerVers([cle], d, h); }, true); }
 function svCocher(cle, on) { _sv.coches = _sv.coches || {}; if (on) _sv.coches[cle] = 1; else delete _sv.coches[cle]; svMajSelection(); }
 function svCochees() { return Object.keys(_sv.coches || {}); }
 function svToutCocher(on) { _sv.coches = {}; if (on) (_sv.visibles || []).forEach(function(c) { _sv.coches[c] = 1; }); renderRelancesPage(); }
@@ -14682,21 +14474,6 @@ function openPrepRdv(btn) {
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-function closePrepRdv() {
-  // Sauvegarder avant de quitter
-  savePrepRdvData();
-  _currentPrepRdvId = null;
-
-  // Retour à la page Quotidien
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
-  document.getElementById('page-aujourdhui').classList.add('active'); setTimeout(function() { try { renderAujourdhui(); } catch (e) {} }, 0);
-  // Réactiver l'onglet Quotidien
-  const dailyTab = document.querySelector('.nav-tab[data-page=aujourdhui]');
-  if (dailyTab) dailyTab.classList.add('active');
-  try { navMajPlus(); } catch (e) {}
-  renderDaily();
-}
 
 function bindPrepInputs() {
   document.querySelectorAll('#page-preprdv .prep-input').forEach(input => {
@@ -14766,124 +14543,7 @@ window.addEventListener('load', () => {
 // ============================================================
 // 4. COPIER LE PROMPT POUR CHATGPT / CLAUDE.AI
 // ============================================================
-function copyPrepPromptForGPT() {
-  if (!_currentPrepRdvId) {
-    alert('⚠️ Ouvre d\'abord une fiche de prep depuis un RDV.');
-    return;
-  }
 
-  // Sauvegarder avant pour avoir les dernières valeurs
-  savePrepRdvData();
-
-  // Récupérer toutes les données
-  const store = loadStore();
-  const data = (store._prepRdvs || {})[_currentPrepRdvId] || {};
-  const prospectName = document.getElementById('prep-rdv-title').textContent || '—';
-  const prospectMeta = document.getElementById('prep-rdv-meta').textContent || '';
-
-  // Construire le prompt
-  let prompt = `Tu es un assistant commercial senior spécialisé dans la prospection B2B immobilière. Je suis BDR chez RealAdvisor (solution d'estimation et de génération de mandats pour agents immobiliers).
-
-J'ai un RDV de vente à préparer avec un prospect (un agent immo / mandataire / agence). Voici toutes les infos dont je dispose :
-
-═══════════════════════════════════════
-👤 PROSPECT
-═══════════════════════════════════════
-Nom : ${prospectName}
-Contexte RDV : ${prospectMeta}
-`;
-
-  if (data.siteProspect) {
-    prompt += `Site internet : ${data.siteProspect}\n`;
-  }
-
-  if (data.transcription) {
-    prompt += `\n═══════════════════════════════════════
-📞 TRANSCRIPTION / NOTES DU 1ER APPEL (prise de RDV)
-═══════════════════════════════════════
-${data.transcription}\n`;
-  }
-
-  prompt += `\n═══════════════════════════════════════
-📊 CONTEXTE MARCHÉ LOCAL
-═══════════════════════════════════════
-`;
-  if (data.estimationLink) prompt += `Estimation du secteur : ${data.estimationLink}\n`;
-  if (data.nbEstimations) prompt += `Volume d'estimations sur son secteur : ${data.nbEstimations}\n`;
-  if (data.agentRef) prompt += `Agent immo de référence sur ce même secteur (cas client RealAdvisor) : ${data.agentRef}\n`;
-  if (data.prospectsRef) prompt += `Exemples de prospects livrés à cet agent référent :\n${data.prospectsRef}\n`;
-
-  prompt += `
-═══════════════════════════════════════
-🎯 CE QUE JE TE DEMANDE
-═══════════════════════════════════════
-
-Fais-moi une prep complète de RDV en 4 sections claires :
-
-**1. RECHERCHE WEB SUR LE PROSPECT**
-Va chercher sur LinkedIn, Google, Facebook, Instagram, Pappers/Société.com ce que tu peux trouver sur ${prospectName}${data.siteProspect ? ' et ' + data.siteProspect : ''}. Trouve :
-- Son ancienneté dans le métier
-- Sa zone d'activité réelle
-- Sa taille (mandataire seul / équipe / agence)
-- Son réseau (iad, Capifrance, Safti, etc. ou agence indépendante)
-- Tout signal pertinent (avis Google, posts LinkedIn récents, événements, niche éventuelle)
-
-**2. PROFIL PSYCHO PROBABLE**
-À partir de la transcription du 1er appel et de ce que tu trouves sur le web, donne-moi un profil psychologique précis :
-- Style de communication probable (direct/relationnel/analytique/expressif)
-- Sensibilités (prix, ego, performance, tranquillité, sécurité)
-- Freins probables au closing
-- Leviers d'achat probables
-- Niveau de maturité business (junior / confirmé / senior)
-
-**3. PISTES POUR ORIENTER LE RDV**
-- 1 accroche d'ouverture personnalisée (qui montre que je me suis renseigné)
-- 3 angles d'attaque adaptés à son profil
-- 5 questions clés à poser (priorisées)
-- 2-3 cas clients à citer (en cohérence avec son profil)
-- Anticipation des 3 objections les plus probables + réponses prêtes
-
-**4. ÉLÉMENTS À RESSORTIR ABSOLUMENT EN RDV**
-La liste prioritaire des 3-5 éléments qui doivent obligatoirement sortir pendant le RDV (preuves chiffrées, références locales, exemples concrets). Notamment l'estimation du secteur et les ${data.nbEstimations || 'estimations'} disponibles, et l'exemple de ${data.agentRef || 'l\'agent référent'} si pertinent.
-
-═══════════════════════════════════════
-
-Important :
-- Sois concret, pas générique
-- Cite tes sources web quand tu en utilises
-- Pas de fluff, va à l'essentiel
-- Format clair avec des bullet points et des sous-titres pour que je puisse scanner rapidement avant le RDV`;
-
-  // Copier dans le presse-papier
-  if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(prompt).then(() => {
-      showCopyToast('✅ Prompt copié ! Va sur ChatGPT ou Claude.ai et colle-le.');
-    }).catch(err => {
-      // Fallback : afficher le prompt dans une textarea pour copie manuelle
-      fallbackCopy(prompt);
-    });
-  } else {
-    fallbackCopy(prompt);
-  }
-}
-
-function fallbackCopy(text) {
-  // Créer une textarea temporaire pour la copie
-  const ta = document.createElement('textarea');
-  ta.value = text;
-  ta.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:80%;height:60%;z-index:10000;padding:14px;border:2px solid var(--accent);border-radius:8px;font-family:var(--font);font-size:13px;background:white;';
-  document.body.appendChild(ta);
-  ta.select();
-  try {
-    document.execCommand('copy');
-    showCopyToast('✅ Prompt copié ! Va sur ChatGPT ou Claude.ai et colle-le.');
-    document.body.removeChild(ta);
-  } catch(e) {
-    alert('Impossible de copier automatiquement. Le prompt s\'affiche, sélectionne tout et copie manuellement (Ctrl+A puis Ctrl+C).');
-    // Garder la textarea visible
-    setTimeout(() => { try { document.body.removeChild(ta); } catch(e) {} }, 30000);
-  }
-}
 
 function showCopyToast(msg) {
   const toast = document.createElement('div');
@@ -14893,14 +14553,6 @@ function showCopyToast(msg) {
   setTimeout(() => toast.remove(), 4000);
 }
 
-function clearAiResponse() {
-  if (!confirm('Effacer la réponse IA collée ?')) return;
-  const input = document.querySelector('#page-preprdv .prep-input[data-field="aiResponse"]');
-  if (input) {
-    input.value = '';
-    savePrepRdvData();
-  }
-}
 
 // ═══════════════════════════════════════════════════════════════
 // 5. PAGE POST-RDV — Email R1, Email pré-R2, Analyse
@@ -14917,22 +14569,6 @@ Sales France
 Nicolas.lapeyre@realadvisor.com`;
 
 // Template email avant R2 (J-1)
-function buildEmailR2Template(prenom, jour, heure) {
-  const p = prenom || '[Prénom]';
-  const j = jour || '[jour]';
-  const h = heure || '[heure]';
-  return `Bonjour ${p},
-
-Suite à notre échange, je vous confirme notre point prévu ${j} à ${h}.
-
-L'idée sera simplement de faire un point ensemble sur ce que nous avons vu, et voir si vous souhaitez avancer sur la mise en place, ou non.
-
-De mon côté, tout est prêt, donc si vous êtes OK, on pourra avancer rapidement derrière.
-
-Cela nous permettra dans tous les cas de prendre une décision claire et d'éviter de rester dans le flou.
-
-À très vite,${NICOLAS_SIGNATURE}`;
-}
 
 
 // Le PROMPT EMAIL R1 — Nicolas RealAdvisor (intégré tel quel)
@@ -15225,394 +14861,33 @@ let _currentPostRdvId = null;
 let _currentPostRdvName = null;
 let _currentPostRdvEmail = null;
 
-function openEmailR1(btn) {
-  // Renommé conceptuellement en "openPostRdv" mais on garde le nom pour la compat avec le bouton
-  return openPostRdv(btn);
-}
 
-function openPostRdv(btn) {
-  const card = btn.closest('.rdv-card');
-  if (!card) return;
 
-  const name = card.dataset.name;
-  const email = card.dataset.email || '';
-  const source = card.dataset.source;
-  const rdvDate = card.dataset.date;
-  const timeEl = card.querySelector('.rdv-time');
-  const heure = timeEl ? timeEl.textContent.trim() : '';
-
-  const cardId = card.id || ('dcal-' + Date.now());
-  _currentPostRdvId = cardId + '-' + (rdvDate || '');
-  _currentPostRdvName = name || '';
-  _currentPostRdvEmail = email || '';
-
-  // Ouvrir la page
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
-  document.getElementById('page-postrdv').classList.add('active');
-
-  // Header
-  document.getElementById('postrdv-title').textContent = name || '—';
-  document.getElementById('postrdv-meta').textContent =
-    [rdvDate, heure, source, email].filter(Boolean).join(' · ');
-
-  // Charger les données existantes
-  loadPostRdvData(_currentPostRdvId);
-
-  // Pré-remplir destinataires si vides
-  const emailR1To = document.querySelector('#page-postrdv .postrdv-input[data-field="emailR1To"]');
-  if (emailR1To && !emailR1To.value && email) emailR1To.value = email;
-  const emailR2To = document.querySelector('#page-postrdv .postrdv-input[data-field="emailR2To"]');
-  if (emailR2To && !emailR2To.value && email) emailR2To.value = email;
-
-  // Pré-remplir prénom dans la section R2 si vide
-  const r2Prenom = document.querySelector('#page-postrdv .postrdv-input[data-field="r2Prenom"]');
-  if (r2Prenom && !r2Prenom.value && name) {
-    const prenom = name.split(' ')[0];
-    r2Prenom.value = prenom;
-  }
-
-  // Brancher les listeners
-  bindPostRdvInputs();
-
-  // Activer le 1er onglet par défaut
-  switchPostRdvTab('transcription');
-
-  // Mettre à jour stats transcription
-  updateTranscriptionStats();
-
-  // Générer email R2 si tous les champs sont là
-  generateEmailR2Body();
-
-  window.scrollTo({ top: 0, behavior: 'smooth' });
-}
-
-function closePostRdv() {
-  savePostRdvData();
-  _currentPostRdvId = null;
-  _currentPostRdvName = null;
-  _currentPostRdvEmail = null;
-
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
-  document.getElementById('page-aujourdhui').classList.add('active'); setTimeout(function() { try { renderAujourdhui(); } catch (e) {} }, 0);
-  const dailyTab = document.querySelector('.nav-tab[data-page=aujourdhui]');
-  if (dailyTab) dailyTab.classList.add('active');
-  try { navMajPlus(); } catch (e) {}
-  renderDaily();
-}
 
 
 // Termine le RDV depuis la page Post-RDV : sauvegarde + marque traité + retour Quotidien + toast
-function closePostRdvAndFinish() {
-  // Sauvegarde explicite avant fermeture (au cas où le debounce 500ms n'aurait pas eu le temps)
-  if (typeof savePostRdvData === 'function') savePostRdvData();
-  // Mémorise les infos AVANT que closePostRdv ne les reset
-  var prospectName = _currentPostRdvName || 'le client';
-  var rdvId = _currentPostRdvId;
-  var prospectEmail = _currentPostRdvEmail || '';
-  // Marque le RDV comme traité aujourd'hui pour qu'il bascule dans "Déjà traités"
-  if (rdvId && typeof markRdvAsProcessed === 'function') {
-    markRdvAsProcessed(rdvId, {
-      name: prospectName,
-      email: prospectEmail,
-      processedFrom: 'postrdv'
-    });
-  }
-  // Ferme et retourne sur Quotidien (recharge la liste avec la card maintenant masquée)
-  closePostRdv();
-  // Toast de confirmation visuel
-  if (typeof showCopyToast === 'function') {
-    showCopyToast('✅ RDV de ' + prospectName + ' terminé et déplacé dans "Déjà traités"');
-  }
-}
 
-function switchPostRdvTab(tab) {
-  // Cacher toutes les sections
-  document.querySelectorAll('.postrdv-section').forEach(s => s.style.display = 'none');
-  // Afficher la section active
-  const section = document.getElementById('postrdv-section-' + tab);
-  if (section) section.style.display = 'block';
-  // Mettre à jour les onglets
-  document.querySelectorAll('.postrdv-tab-btn').forEach(btn => {
-    if (btn.dataset.tab === tab) {
-      btn.style.color = 'var(--accent)';
-      btn.style.borderBottomColor = 'var(--accent)';
-      btn.style.fontWeight = '600';
-    } else {
-      btn.style.color = 'var(--text3)';
-      btn.style.borderBottomColor = 'transparent';
-      btn.style.fontWeight = '500';
-    }
-  });
-}
 
-function bindPostRdvInputs() {
-  document.querySelectorAll('#page-postrdv .postrdv-input').forEach(input => {
-    input.removeEventListener('input', _postRdvInputHandler);
-    input.addEventListener('input', _postRdvInputHandler);
-  });
-}
 
 let _postRdvSaveTimeout = null;
-function _postRdvInputHandler(e) {
-  if (_postRdvSaveTimeout) clearTimeout(_postRdvSaveTimeout);
-  const statusEl = document.getElementById('postrdv-save-status');
-  if (statusEl) { statusEl.textContent = '⏳ Sauvegarde...'; statusEl.style.color = 'var(--orange)'; }
-  // Stats transcription en live
-  if (e && e.target && e.target.dataset.field === 'transcription') {
-    updateTranscriptionStats();
-  }
-  _postRdvSaveTimeout = setTimeout(() => {
-    savePostRdvData();
-    if (statusEl) {
-      statusEl.textContent = '✅ Sauvegardé';
-      statusEl.style.color = 'var(--green)';
-      setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 2000);
-    }
-  }, 500);
-}
 
-function loadPostRdvData(rdvId) {
-  if (!rdvId) return;
-  const store = loadStore();
-  if (!store._postRdvs) store._postRdvs = {};
-  const data = store._postRdvs[rdvId] || {};
-  document.querySelectorAll('#page-postrdv .postrdv-input').forEach(input => {
-    const field = input.dataset.field;
-    if (field) input.value = data[field] || '';
-  });
-}
 
-function savePostRdvData() {
-  if (!_currentPostRdvId) return;
-  const store = loadStore();
-  if (!store._postRdvs) store._postRdvs = {};
-  if (!store._postRdvs[_currentPostRdvId]) store._postRdvs[_currentPostRdvId] = {};
-  document.querySelectorAll('#page-postrdv .postrdv-input').forEach(input => {
-    const field = input.dataset.field;
-    if (field) store._postRdvs[_currentPostRdvId][field] = input.value;
-  });
-  store._postRdvs[_currentPostRdvId]._lastUpdate = new Date().toISOString();
-  store._postRdvs[_currentPostRdvId]._prospectName = _currentPostRdvName;
-  store._postRdvs[_currentPostRdvId]._prospectEmail = _currentPostRdvEmail;
-  saveStore(store);
-}
 
-function updateTranscriptionStats() {
-  const ta = document.querySelector('#page-postrdv .postrdv-input[data-field="transcription"]');
-  const stats = document.getElementById('postrdv-transcription-stats');
-  if (!ta || !stats) return;
-  const text = ta.value || '';
-  const chars = text.length;
-  const words = text.trim() ? text.trim().split(/\s+/).length : 0;
-  if (chars > 0) {
-    stats.textContent = `${chars.toLocaleString('fr-FR')} caractères · ${words.toLocaleString('fr-FR')} mots`;
-  } else {
-    stats.textContent = '';
-  }
-}
 
 // ─── Section 2 : EMAIL R1 ──────────────────────────────────
 
 
-function copyEmailR1PromptForGPT() {
-  if (!_currentPostRdvId) {
-    alert('⚠️ Ouvre d\'abord une fiche Post-RDV depuis un RDV.');
-    return;
-  }
-  savePostRdvData();
-  const store = loadStore();
-  const data = (store._postRdvs || {})[_currentPostRdvId] || {};
-  const transcription = (data.transcription || '').trim();
 
-  if (!transcription) {
-    alert('⚠️ Colle d\'abord la transcription du R1 dans la section 1.');
-    switchPostRdvTab('transcription');
-    return;
-  }
 
-  // Construire le prompt complet : variables en haut + le prompt R1 ci-dessous
-  const prospectName = _currentPostRdvName || '—';
-  const prospectEmail = _currentPostRdvEmail || '';
 
-  const promptComplet = `═══════════════════════════════════════
-CONTEXTE DU RDV
-═══════════════════════════════════════
-Prospect : ${prospectName}
-Email : ${prospectEmail}
 
-═══════════════════════════════════════
-TRANSCRIPTION DU R1 (à analyser)
-═══════════════════════════════════════
-${transcription}
-
-═══════════════════════════════════════
-INSTRUCTIONS POUR RÉDIGER LE MAIL
-═══════════════════════════════════════
-${PROMPT_EMAIL_R1}`;
-
-  if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(promptComplet).then(() => {
-      showCopyToast('✅ Prompt copié ! Va sur ChatGPT ou Claude.ai et colle-le.');
-    }).catch(() => fallbackCopy(promptComplet));
-  } else {
-    fallbackCopy(promptComplet);
-  }
-}
-
-function getEmailR1FullBody() {
-  const body = document.querySelector('#page-postrdv .postrdv-input[data-field="emailR1Body"]')?.value || '';
-  if (!body.trim()) return '';
-  // Si la signature est déjà dans le mail (ChatGPT a fait court), on l'ajoute pas
-  if (body.includes('Nicolas Lapeyre') && body.includes('+33 6 15 27 01 72')) {
-    return body;
-  }
-  return body + NICOLAS_SIGNATURE;
-}
-
-function copyEmailR1FullBody() {
-  const fullBody = getEmailR1FullBody();
-  if (!fullBody) { alert('⚠️ Le corps du mail est vide.'); return; }
-  if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(fullBody).then(() => {
-      showCopyToast('✅ Mail copié dans le presse-papier (avec ta signature).');
-    }).catch(() => fallbackCopy(fullBody));
-  } else {
-    fallbackCopy(fullBody);
-  }
-}
-
-function openEmailR1InGmail() {
-  const to = document.querySelector('#page-postrdv .postrdv-input[data-field="emailR1To"]')?.value || '';
-  const subject = document.querySelector('#page-postrdv .postrdv-input[data-field="emailR1Subject"]')?.value || '';
-  const body = getEmailR1FullBody();
-  if (!body) { alert('⚠️ Le corps du mail est vide.'); return; }
-  if (!to) { alert('⚠️ L\'email du destinataire est vide.'); return; }
-  if (!subject) {
-    if (!confirm('L\'objet est vide. Continuer quand même ?')) return;
-  }
-  const url = 'https://mail.google.com/mail/?view=cm&fs=1&tf=1'
-    + '&to=' + encodeURIComponent(to)
-    + '&su=' + encodeURIComponent(subject)
-    + '&body=' + encodeURIComponent(body);
-  window.open(url, '_blank');
-  showCopyToast('📨 Brouillon Gmail ouvert dans un nouvel onglet');
-}
-
-function clearEmailR1Body() {
-  if (!confirm('Effacer le corps du mail R1 ?')) return;
-  const body = document.querySelector('#page-postrdv .postrdv-input[data-field="emailR1Body"]');
-  if (body) { body.value = ''; savePostRdvData(); }
-}
 
 // ─── Section 3 : EMAIL pré-R2 ───────────────────────────────
-function generateEmailR2Body() {
-  const prenom = document.querySelector('#page-postrdv .postrdv-input[data-field="r2Prenom"]')?.value || '';
-  const jour = document.querySelector('#page-postrdv .postrdv-input[data-field="r2Jour"]')?.value || '';
-  const heure = document.querySelector('#page-postrdv .postrdv-input[data-field="r2Heure"]')?.value || '';
-  const bodyEl = document.querySelector('#page-postrdv .postrdv-input[data-field="emailR2Body"]');
-  if (!bodyEl) return;
-  // Ne pas écraser si l'utilisateur a déjà modifié manuellement
-  // Sauf si l'un des 3 champs change ET que le body était vide ou matche le template
-  const currentBody = bodyEl.value;
-  const newBody = buildEmailR2Template(prenom, jour, heure);
-  // On regenère si le body est vide OU s'il matche un ancien template (commence par "Bonjour")
-  if (!currentBody || currentBody.startsWith('Bonjour')) {
-    bodyEl.value = newBody;
-    if (_postRdvSaveTimeout) clearTimeout(_postRdvSaveTimeout);
-    _postRdvSaveTimeout = setTimeout(() => savePostRdvData(), 500);
-  }
-}
 
 
 
 
 
-function copyAnalysePromptForGPT() {
-  if (!_currentPostRdvId) { alert('⚠️ Ouvre d\'abord une fiche Post-RDV.'); return; }
-  savePostRdvData();
-  const store = loadStore();
-  const data = (store._postRdvs || {})[_currentPostRdvId] || {};
-  const transcription = (data.transcription || '').trim();
-
-  if (!transcription) {
-    alert('⚠️ Colle d\'abord la transcription du R1 dans la section 1.');
-    switchPostRdvTab('transcription');
-    return;
-  }
-
-  const prospectName = _currentPostRdvName || '—';
-
-  const prompt = `Tu es un panel de 4 closers légendaires qui débriefent un commercial junior, sans concession, sans politesse de façade. La vérité, brutale, cash, sans filtre. Tu dois lui faire mal pour qu'il progresse.
-
-LE PANEL :
-🐺 JORDAN BELFORT — Loup de Wall Street. Obsédé par la conviction, le ton, l'énergie au téléphone. Te dit cash quand t'as molli, quand tu as laissé un blanc, quand t'es passé à côté d'un closing.
-🎯 GRANT CARDONE — 10X. Hardseller. Te défonce sur le manque de push, les questions de closing trop molles, l'absence de follow-up agressif, la peur de demander.
-🧠 CHRIS VOSS — ex-négociateur FBI. Maître des objections et de l'écoute tactique. Te dit où tu as mal géré une objection, raté un mirroring, ou parlé quand il fallait écouter.
-🇫🇷 MICHAEL AGUILAR — closer français, pragmatique. Te recadre sur la méthode, la structure du RDV, le respect des étapes (découverte, pitch, closing), la posture.
-
-CONTEXTE :
-- Je suis Nicolas Lapeyre, BDR/Sales chez RealAdvisor (solution d'estimation immobilière en ligne pour agents et mandataires)
-- Mon objectif : transformer un R1 en R2, puis closer en visio
-- Voici la transcription brute d'un R1 que je viens de faire avec ${prospectName}
-
-═══════════════════════════════════════
-TRANSCRIPTION DU R1
-═══════════════════════════════════════
-${transcription}
-
-═══════════════════════════════════════
-CE QUE TU DOIS ME RENDRE
-═══════════════════════════════════════
-
-Format : un debrief STRUCTURÉ en 6 parties, brutal, cash, sans filtre. Chaque coach intervient quand son expertise s'applique. Cite les passages PRÉCIS de la transcription que tu critiques (verbatim entre guillemets).
-
-**1. NOTE GLOBALE /10** — Une note honnête. 10 = closing parfait. 5 = banalement médiocre. 3 = catastrophe.
-
-**2. 🐺 BELFORT — TON & CONVICTION**
-- Énergie / conviction tu en as eu ? Quand t'as molli ?
-- Y a-t-il eu des silences morts ? Des hésitations ?
-- T'as joué le statut ou t'as quémandé ?
-
-**3. 🎯 CARDONE — PUSH & CLOSING**
-- Tu as VRAIMENT fermé ou tu as laissé filer ?
-- Est-ce que tu as demandé l'engagement ? Le R2 ? Le paiement ?
-- Si tu pouvais refaire ce RDV, qu'est-ce qu'il te faut pousser plus fort ?
-
-**4. 🧠 VOSS — OBJECTIONS & ÉCOUTE**
-- Liste TOUTES les objections (même camouflées) du prospect
-- Comment tu as répondu vs comment t'aurais DÛ répondre
-- T'as parlé trop, écouté pas assez ? Cite des moments précis
-
-**5. 🇫🇷 AGUILAR — MÉTHODE & POSTURE**
-- Découverte : tu as creusé en profondeur ou tu as survolé ?
-- Pitch : structuré ou décousu ?
-- Closing : cadré ou flou ?
-- Posture : leadership ou suiveur ?
-
-**6. ⚡ L'AXE D'AMÉLIORATION PRIORITAIRE**
-UNE seule chose à corriger ABSOLUMENT pour le prochain RDV. La plus impactante. Sois précis et concret : "Tu dois faire X parce que tu as fait Y, et la prochaine fois tu fais Z."
-
-═══════════════════════════════════════
-
-RÈGLES :
-- Pas de bisounours. Si c'est nul, dis que c'est nul.
-- Cite des passages VERBATIM de la transcription
-- Pas de jargon vide ("travaille ta posture") → sois concret ("à 4'12 quand il dit X, tu réponds Y, alors qu'il fallait dire Z")
-- Si Nicolas a bien fait quelque chose, dis-le, mais brièvement. L'objectif c'est qu'il progresse, pas qu'il se félicite.
-- Si la transcription est trop courte ou pauvre, dis-le clairement et fais une analyse partielle.
-
-GO.`;
-
-  if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(prompt).then(() => {
-      showCopyToast('✅ Prompt analyse copié ! Va sur ChatGPT ou Claude.ai et colle-le.');
-    }).catch(() => fallbackCopy(prompt));
-  } else {
-    fallbackCopy(prompt);
-  }
-}
 
 
 // =====================================================
@@ -15815,15 +15090,6 @@ function sendMakeWebhook(payload) { // Make n'est plus utilisé (annulations et 
 // =====================================================
 // PAQUET 4 : Settings Make
 // =====================================================
-function saveMakeWebhookSettings() {
-  var input = document.getElementById('make-webhook-url'); if (!input) return;
-  var url = input ? input.value.trim() : '';
-  var store = (typeof loadStore === 'function') ? loadStore() : {};
-  if (!store._settings) store._settings = {};
-  store._settings.makeWebhookUrl = url;
-  if (typeof saveStore === 'function') saveStore(store);
-  if (typeof showCopyToast === 'function') showCopyToast('Webhook Make sauvegarde');
-}
 
 function loadMakeWebhookSettings() {
   var store = (typeof loadStore === 'function') ? loadStore() : {};
@@ -15832,98 +15098,10 @@ function loadMakeWebhookSettings() {
   if (input) input.value = url;
 }
 
-function testMakeWebhook() {
-  var store = (typeof loadStore === 'function') ? loadStore() : {};
-  var url = (store._settings && store._settings.makeWebhookUrl) || '';
-  if (!url) { alert('Configure d abord l URL du webhook Make.'); return; }
-  fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      action: 'test',
-      message: 'Test depuis SalesDesk Pro',
-      timestamp: new Date().toISOString()
-    })
-  }).then(function(r) {
-    if (r.ok) {
-      if (typeof showCopyToast === 'function') showCopyToast('Test envoye - verifie sur Make');
-    } else {
-      alert('Erreur : code ' + r.status);
-    }
-  }).catch(function(e) { alert('Erreur reseau : ' + e.message); });
-}
 
 // Test sécurisé Reschedule — envoie un payload complet avec données fictives
-function testMakeWebhookReschedule() {
-  var store = (typeof loadStore === 'function') ? loadStore() : {};
-  var url = (store._settings && store._settings.makeWebhookUrl) || '';
-  if (!url) { alert('Configure d abord l URL du webhook Make.'); return; }
-
-  // Calcul d'une date dans 7 jours (fictive pour le test)
-  var futur = new Date(); futur.setDate(futur.getDate() + 7);
-  var ancien = new Date(); ancien.setDate(ancien.getDate() + 3);
-  var fmt = function(d) { return String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear(); };
-
-  var payload = {
-    action: 'reschedule',
-    eventId: 'test-event-id-fictif-2026',
-    prospectName: 'TEST MAKE - A SUPPRIMER',
-    prospectEmail: 'test-fictif@example.com',
-    oldDate: fmt(ancien),
-    newDate: fmt(futur),
-    newTime: '14:30',
-    reason: 'Test sécurisé depuis SalesDesk Pro - aucun vrai client concerne'
-  };
-
-  fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
-  }).then(function(r) {
-    if (r.ok) {
-      if (typeof showCopyToast === 'function') {
-        showCopyToast('Test Reschedule envoye - Make voit maintenant tous les champs');
-      }
-      console.log('[Test Reschedule] Payload envoye:', payload);
-    } else {
-      alert('Erreur : code ' + r.status);
-    }
-  }).catch(function(e) { alert('Erreur reseau : ' + e.message); });
-}
 
 // Test sécurisé Cancel — envoie un payload complet avec données fictives
-function testMakeWebhookCancel() {
-  var store = (typeof loadStore === 'function') ? loadStore() : {};
-  var url = (store._settings && store._settings.makeWebhookUrl) || '';
-  if (!url) { alert('Configure d abord l URL du webhook Make.'); return; }
-
-  var ancien = new Date(); ancien.setDate(ancien.getDate() + 3);
-  var fmt = function(d) { return String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear(); };
-
-  var payload = {
-    action: 'cancel',
-    eventId: 'test-event-id-fictif-2026',
-    prospectName: 'TEST MAKE - A SUPPRIMER',
-    prospectEmail: 'test-fictif@example.com',
-    rdvDate: fmt(ancien),
-    reason: 'Test securise depuis SalesDesk Pro - aucun vrai client concerne'
-  };
-
-  fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
-  }).then(function(r) {
-    if (r.ok) {
-      if (typeof showCopyToast === 'function') {
-        showCopyToast('Test Cancel envoye - Make voit maintenant tous les champs');
-      }
-      console.log('[Test Cancel] Payload envoye:', payload);
-    } else {
-      alert('Erreur : code ' + r.status);
-    }
-  }).catch(function(e) { alert('Erreur reseau : ' + e.message); });
-}
 
 window.addEventListener('load', function() {
   setTimeout(loadMakeWebhookSettings, 1500);
@@ -16813,8 +15991,6 @@ function ecCarte(c) {
   else if (c.crm === 'deja' && c.crmNom) acts.push('<button class="btn btn-primary" onclick="ecOuvrirFiche(' + Q(c.crmNom) + ',false,' + Q(c.crmEmail || '') + ')">Ouvrir la fiche</button>');
   return x + '<div class="acts">' + acts.join('') + '</div></div>';
 }
-function ecOuvrirFiche(nom, fictif) { if (fictif) { showCopyToast('Démonstration : « ' + nom + ' » est fictif, il n\'a pas de fiche.'); return; } ouvrirFicheClient(nom, ''); }
-function ecBrouillon(nom, tache) { showCopyToast('Démonstration : ' + (tache ? 'la proposition de tâche' : 'le brouillon de relance') + ' arrivera à l\'étape 5 (rien n\'est envoyé ni créé).'); }
 function ecPoser(q) { var i = document.getElementById('ec-q'); if (i) i.value = q; ecEnvoyer(); }
 var EC_DEMO = /[?&]eclaireur=demo\b/.test(location.search); // démonstration seulement sur demande explicite ; sinon, recherches réelles via le copilot
 function ecEnvoyer() {
