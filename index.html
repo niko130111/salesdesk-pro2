@@ -11094,6 +11094,12 @@ function chargerControle(force, retester) {
     .catch(function(e) { _ctl = { ok: false, copilotAbsent: !(e && e.ancienne), copilotAncien: !!(e && e.ancienne), connexions: [], problemes: [], sms: [], mails: [], journal: [], ecritures: [], automations: [] }; _ctlAt = Date.now(); return _ctl; })
     .then(function(j) { dessinerAlertesControle(); return j; });
 }
+// Incidents « vus » (12 oct. 2026) : un incident orange marqué vu ne s'affiche plus (bandeau, badge) tant que son texte ne change pas ; les rouges restent toujours visibles.
+function ctlCleIncident(x) { return String((x && x.quoi) || '').replace(/\d{2}:\d{2}/g, '').replace(/\s+/g, ' ').trim(); }
+function ctlIncidentsVus() { try { return loadStore()._incidentsVus || {}; } catch (e) { return {}; } }
+function ctlEstVu(x) { return x && x.niveau !== 'rouge' && !!ctlIncidentsVus()[ctlCleIncident(x)]; }
+function ctlMarquerVu(cle, vu) { var st = loadStore(); st._incidentsVus = st._incidentsVus || {}; if (vu) st._incidentsVus[cle] = new Date().toISOString(); else delete st._incidentsVus[cle]; Object.keys(st._incidentsVus).forEach(function(k) { if (Date.now() - Date.parse(st._incidentsVus[k]) > 30 * 86400000) delete st._incidentsVus[k]; }); saveStore(st); dessinerAlertesControle(); }
+function ctlToutVu() { var st = loadStore(); st._incidentsVus = st._incidentsVus || {}; ctlTousProblemes().forEach(function(x) { if (x.niveau !== 'rouge') st._incidentsVus[ctlCleIncident(x)] = new Date().toISOString(); }); saveStore(st); dessinerAlertesControle(); if (typeof showCopyToast === 'function') showCopyToast('Incidents marqués vus : ils reviennent s\'ils changent'); }
 function ctlTousProblemes() {
   var p = ctlProblemesLocaux().concat((_ctl && _ctl.problemes) || []);
   var vus = {}; p = p.filter(function(x) { var k = String(x.quoi || '').replace(/\d{2}:\d{2}/g, '').trim(); if (vus[k]) return false; vus[k] = 1; return true; }); // une alerte par incident, même si le gardien l'a vu plusieurs fois
@@ -11103,14 +11109,14 @@ function ctlTousProblemes() {
   return p;
 }
 function dessinerAlertesControle() {
-  var p = ctlTousProblemes(), rouges = p.filter(function(x) { return x.niveau === 'rouge'; });
+  var p = ctlTousProblemes().filter(function(x) { return !ctlEstVu(x); }), rouges = p.filter(function(x) { return x.niveau === 'rouge'; });
   var badge = document.getElementById('nav-controle-badge'); if (badge) { badge.style.display = p.length ? '' : 'none'; badge.textContent = p.length; badge.style.background = rouges.length ? 'var(--red)' : 'var(--orange)'; }
   ['controle-alerte-daily', 'controle-alerte-mesrdv', 'controle-alerte-auj'].forEach(function(id) {
     var el = document.getElementById(id); if (!el) return;
     if (!p.length) { el.style.display = 'none'; return; }
     el.className = 'controle-alerte' + (rouges.length ? ' rouge' : ''); el.style.display = '';
     var aVerif = p.some(function(x) { return x.zone === 'verif'; });
-    el.innerHTML = (typeof aujIco === 'function' ? aujIco('alert') : '') + '<span class="t">' + p.length + ' incident' + (p.length > 1 ? 's' : '') + ' à vérifier</span>' + (aVerif ? '<button class="btn btn-sm" onclick="sdPopupVerifClose()">Corriger ici</button>' : '') + '<a onclick="mjAller(\'Contrôle\')">→ Contrôle</a>' + (rouges.length ? '<span class="det">' + escapeHtml(rouges[0].quoi) + '</span>' : '');
+    el.innerHTML = (typeof aujIco === 'function' ? aujIco('alert') : '') + '<span class="t">' + p.length + ' incident' + (p.length > 1 ? 's' : '') + ' à vérifier</span>' + (aVerif ? '<button class="btn btn-sm" onclick="sdPopupVerifClose()">Corriger ici</button>' : '') + (!rouges.length ? '<button class="btn btn-sm" title="Masquer ces incidents tant qu\'ils ne changent pas" onclick="ctlToutVu()">Vu</button>' : '') + '<a onclick="mjAller(\'Contrôle\')">→ Contrôle</a>' + (rouges.length ? '<span class="det">' + escapeHtml(rouges[0].quoi) + '</span>' : '');
   });
   if (document.getElementById('page-controle') && document.getElementById('page-controle').classList.contains('active')) renderControle(false);
 }
@@ -11288,7 +11294,7 @@ function renderControle(recharger, retester) {
   var L = function(ico, titre, detail) { return '<div class="ctl-ligne"><span>' + ico + '</span><span style="flex:1;"><div>' + titre + '</div>' + (detail ? '<div class="d">' + detail + '</div>' : '') + '</span></div>'; };
   document.getElementById('ctl-at').textContent = j.at ? 'testé ' + fr(j.at) + (j.demarre_at ? ' · copilot démarré ' + fr(j.demarre_at) : '') : (j.copilotAbsent ? 'copilot injoignable' : '');
   var p = ctlTousProblemes();
-  document.getElementById('ctl-problemes').innerHTML = p.length ? '<div class="controle-alerte' + (p.some(function(x) { return x.niveau === 'rouge'; }) ? '' : ' orange') + '" style="flex-direction:column;align-items:flex-start;gap:4px;">' + p.map(function(x) { return '<div>' + (x.niveau === 'rouge' ? '🔴' : '🟠') + ' ' + escapeHtml(x.quoi) + '</div>'; }).join('') + '</div>' : '<div style="padding:10px 14px;border-radius:12px;background:var(--soft-green);border:1px solid var(--green);color:var(--green);font-weight:700;margin-bottom:12px;">🟢 Tout est connecté, rien en erreur.</div>';
+  document.getElementById('ctl-problemes').innerHTML = p.length ? '<div class="controle-alerte' + (p.some(function(x) { return x.niveau === 'rouge'; }) ? '' : ' orange') + '" style="flex-direction:column;align-items:flex-start;gap:4px;">' + p.map(function(x) { var vu = ctlEstVu(x), cle = JSON.stringify(ctlCleIncident(x)).replace(/"/g, '&quot;'); return '<div style="display:flex;gap:10px;align-items:baseline;width:100%;' + (vu ? 'opacity:.55;' : '') + '"><span style="flex:1;min-width:0;">' + (x.niveau === 'rouge' ? '🔴' : '🟠') + ' ' + escapeHtml(x.quoi) + (vu ? ' <small>(vu, masqué du bandeau)</small>' : '') + '</span>' + (x.niveau !== 'rouge' ? '<button class="btn btn-sm" style="flex:none;" onclick="ctlMarquerVu(' + cle + ',' + (vu ? 'false' : 'true') + ')">' + (vu ? 'Réafficher' : 'Vu') + '</button>' : '') + '</div>'; }).join('') + '</div>' : '<div style="padding:10px 14px;border-radius:12px;background:var(--soft-green);border:1px solid var(--green);color:var(--green);font-weight:700;margin-bottom:12px;">🟢 Tout est connecté, rien en erreur.</div>';
   // connexions : SalesDesk d'abord, puis copilot
   var cx = '';
   cx += L(typeof _syncErreur !== 'undefined' && _syncErreur ? '🔴' : '🟢', 'Supabase (sauvegarde en ligne)', (typeof _supaEmail !== 'undefined' && _supaEmail) ? 'connecté : ' + escapeHtml(_supaEmail) : 'clé publique seule');
