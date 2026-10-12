@@ -4192,12 +4192,13 @@ function renderCreneaux() {
 }
 // Historique des RDV du prospect lu dans Close par le copilot (12 oct. 2026) : déjà rencontré ? quand, avec qui, comment ça s'est fini — pour ne plus fouiller Close en prépa
 var _sdHisto = {};
-function sdHistoRdv(nom, email, avant, apres) { // renvoie la réponse si elle est là, sinon lance la lecture et rappelle « apres » quand elle arrive
+function sdHistoRdv(nom, email, avant, apres, opt) { // renvoie la réponse si elle est là, sinon lance la lecture et rappelle « apres » quand elle arrive
   if (typeof COPILOT_URL === 'undefined' || !nom) return null;
-  var cle = fcNormNom(nom) + '|' + String(email || '').toLowerCase() + '|' + (avant || ''), e = _sdHisto[cle];
+  opt = opt || {}; var lead = /^lead_/.test(String(opt.lead || '')) ? String(opt.lead) : '', tel = String(opt.tel || '').trim(); // 12 oct. 2026 : la fiche Close (puis le téléphone) fait foi, pas le nom — « Guy-Hoquet » seul ramenait les RDV d'une autre agence
+  var cle = fcNormNom(nom) + '|' + String(email || '').toLowerCase() + '|' + (avant || '') + '|' + lead + '|' + tel, e = _sdHisto[cle];
   if (e && Date.now() - e.at < 1800000) { if (e.enCours && apres) e.attente.push(apres); return e.data; }
   e = _sdHisto[cle] = { at: Date.now(), enCours: true, data: null, attente: apres ? [apres] : [] };
-  fetch(COPILOT_URL + '/close/historique-rdv?' + new URLSearchParams({ nom: nom, email: email || '', avant: avant || '' }), { mode: 'cors', cache: 'no-store' })
+  fetch(COPILOT_URL + '/close/historique-rdv?' + new URLSearchParams(Object.assign({ nom: nom, email: email || '', avant: avant || '' }, lead ? { lead: lead } : {}, tel ? { tel: tel } : {})), { mode: 'cors', cache: 'no-store' })
     .then(function(r) { return r.json(); }).then(function(j) { e.data = j && j.ok ? j : { ok: false }; }).catch(function() { e.data = { ok: false }; })
     .then(function() { e.enCours = false; var a = e.attente; e.attente = []; a.forEach(function(f) { try { f(); } catch (x) {} }); });
   return null;
@@ -5308,7 +5309,7 @@ function fcHtmlSynthese() {
   var et = _fc.etape || { lib: '', det: '' };
   var next = '<div class="fc-card"><div class="fc-card-t"><span>Prochaine étape</span></div><div class="fc-big">' + escapeHtml(et.lib || '—') + '</div>' + (et.det ? '<div class="fc-muted" style="margin-bottom:6px;">' + escapeHtml(et.det) + '</div>' : '')
     + (j && j.prochaine ? '<div class="fc-kv"><span class="k">Objectif</span><span class="v">' + escapeHtml(j.prochaine) + '</span></div>' : '') + '<div class="fc-kv"><span class="k">Responsable</span><span class="v">Nicolas</span></div></div>';
-  var nomH = _fc.nom, hF = sdHistoRdv(_fc.nom, _fc.email || '', '', function() { if (_fc.nom === nomH && _fc.tab === 'synthese' && document.querySelector('#fc-overlay.open')) fcRendre(); });
+  var nomH = _fc.nom, hF = sdHistoRdv(_fc.nom, _fc.email || '', '', function() { if (_fc.nom === nomH && _fc.tab === 'synthese' && document.querySelector('#fc-overlay.open')) fcRendre(); }, { lead: _fc.leadChoisi || '', tel: fcTelConnu() });
   next += '<div class="fc-card"><div class="fc-card-t"><span>Rendez-vous dans Close</span></div>' + (sdHistoListe(hF, 6) || '<div class="fc-muted">' + escapeHtml(sdHistoTexte(hF)) + '</div>') + '</div>';
   var offre = '';
   if (r1 && (r1.pack || r1.freq || r1.attenteSignature || r1.result === 'Signé' || cles.deal)) {
@@ -12853,7 +12854,7 @@ function renderAujourdhui() {
   if (prochainIdx >= 0 && (estAuj || jour > todayIso)) {
     var rp = rdvs[prochainIdx], mp = moments[prochainIdx], pp = prepDe(rp), rowP = rp.row || {}, nomJsP = Q(rp.nom), emailJsP = Q(rp.email || '');
     var bl = rp.r2 ? { lignes: ['<div class="bl"><b>R2 :</b><span>validation et lancement ; tout le dossier est dans la fiche.</span></div>'], vide: false } : briefLignes(pp, 3, rp);
-    if (!rp.r2) { var hP = sdHistoRdv(rp.nom, rp.email || '', jour, function() { if (document.getElementById('auj-prochain')) renderAujourdhui(); }); bl.lignes.unshift('<div class="bl"><b>Historique :</b><span>' + escapeHtml(sdHistoTexte(hP)) + '</span></div>'); }
+    if (!rp.r2) { var hP = sdHistoRdv(rp.nom, rp.email || '', jour, function() { if (document.getElementById('auj-prochain')) renderAujourdhui(); }, { lead: rowP.closeLead || sdLeadPour(rp.nom, rp.email || '') || '', tel: rowP.tel || rowP.telephone || '' }); bl.lignes.unshift('<div class="bl"><b>Historique :</b><span>' + escapeHtml(sdHistoTexte(hP)) + '</span></div>'); }
     var compteP = mp.enCours ? '' : (estAuj && mp.mins !== null && mp.mins > 0 ? (mp.mins < 60 ? 'dans ' + mp.mins + ' min' : 'dans ' + Math.floor(mp.mins / 60) + ' h' + (mp.mins % 60 ? String(mp.mins % 60).padStart(2, '0') : '')) : '');
     var ficheB = '<button class="btn" onclick="ouvrirFicheClient(' + nomJsP + ',' + emailJsP + ')">' + aujIco('doc') + 'Ouvrir la fiche</button>';
     var prepB = rp.r2 ? '' : '<button class="btn" onclick="' + cible(rp.nom, rp.email, jour) + '">' + aujIco('cal') + (pp.etat === 'ok' ? 'Voir la préparation' : 'Préparer le RDV') + '</button>';
