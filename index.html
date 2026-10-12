@@ -777,13 +777,13 @@ details.gl-details > .body { padding: 0 20px 20px; }
 .sv-vide { padding: 30px 18px; color: var(--text3); text-align: center; font-size: 14px; }
 @media (max-width: 1100px) { .sv-grid { grid-template-columns: 1fr; } .sv-liste, .sv-pan { max-height: none; position: static; } }
 /* Onglet Automatisations : les messages par étape du parcours, texte modifiable et interrupteur */
-.svc { display: flex; align-items: center; gap: 8px; padding: 3px 10px 3px 4px; border-radius: 999px; color: #fff; background: linear-gradient(120deg, var(--svc-a), var(--svc-b)); transition: background .4s; height: 30px; box-sizing: border-box; }
-.svc .ic { width: 22px; height: 22px; border-radius: 50%; background: rgba(255,255,255,.22); display: grid; place-items: center; font-size: 12px; }
-.svc .ic.bump { animation: svcBump .6s ease; } @keyframes svcBump { 0% { transform: scale(1); } 40% { transform: scale(1.3) rotate(-12deg); } 100% { transform: scale(1); } }
-.svc .n { font-size: 15px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; } .svc .n small { font-size: 11px; font-weight: 600; opacity: .85; margin-left: 3px; }
-.svc .d { display: flex; flex-direction: column; gap: 2px; min-width: 96px; } .svc .m { font-size: 10.5px; font-weight: 600; opacity: .95; white-space: nowrap; }
-.svc .b { height: 3px; border-radius: 999px; background: rgba(255,255,255,.28); overflow: hidden; } .svc .b i { display: block; height: 100%; border-radius: 999px; background: #fff; }
-.svc .j { font-size: 11px; font-weight: 700; background: rgba(255,255,255,.22); border-radius: 999px; padding: 1px 7px; white-space: nowrap; }
+.svc { display: flex; align-items: center; gap: 10px; padding: 5px 14px 5px 6px; border-radius: 999px; color: #fff; background: linear-gradient(120deg, var(--svc-a), var(--svc-b)); box-shadow: 0 4px 14px -8px rgba(0,0,0,.35); transition: background .4s; }
+.svc .ic { width: 32px; height: 32px; border-radius: 50%; background: rgba(255,255,255,.22); display: grid; place-items: center; font-size: 16px; }
+.svc .ic.bump { animation: svcBump .6s ease; } @keyframes svcBump { 0% { transform: scale(1); } 40% { transform: scale(1.25) rotate(-12deg); } 100% { transform: scale(1); } }
+.svc .n { font-size: 22px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; } .svc .n small { font-size: 12px; font-weight: 600; opacity: .85; margin-left: 4px; }
+.svc .d { display: flex; flex-direction: column; gap: 4px; min-width: 150px; } .svc .m { font-size: 12px; font-weight: 600; opacity: .95; white-space: nowrap; }
+.svc .b { height: 5px; border-radius: 999px; background: rgba(255,255,255,.28); overflow: hidden; } .svc .b i { display: block; height: 100%; border-radius: 999px; background: #fff; }
+.svc .j { font-size: 12px; font-weight: 700; background: rgba(255,255,255,.22); border-radius: 999px; padding: 3px 9px; white-space: nowrap; }
 .cr-concl { margin: 0; padding-left: 22px; display: flex; flex-direction: column; gap: 8px; font-size: 15px; line-height: 1.5; color: var(--text); } .cr-concl li::marker { font-weight: 800; color: var(--sd-action, var(--accent)); }
 .auj-dem-jour { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text3); padding: 12px 0 4px; border-top: 1px solid var(--border); margin-top: 4px; } .auj-dem-jour:first-of-type { border-top: 0; margin-top: 0; }
 .au-aide { margin: -6px 0 18px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); } .au-aide summary { cursor: pointer; padding: 10px 14px; font-size: 13px; font-weight: 600; color: var(--text2); } .au-aide-c { padding: 0 16px 12px; font-size: 13px; color: var(--text2); line-height: 1.5; } .au-aide-c ul { margin: 4px 0 8px 18px; padding: 0; } .au-aide-c code { font-size: 12px; background: var(--surface2); border-radius: 5px; padding: 1px 5px; }
@@ -2304,9 +2304,9 @@ select.form-input { cursor: pointer; }
 <div id="page-relances" class="page">
   <div class="section-header" style="margin-bottom:6px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
     <div><h1 class="pf-h1" style="margin:0;">Suivi</h1></div>
-    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;"><div id="sv-compteur"></div><div id="rl-filtres" style="display:flex;gap:6px;flex-wrap:wrap;"></div></div>
+    <div id="rl-filtres" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
   </div>
-  <div id="rl-resume" style="font-size:12px;color:var(--text3);margin-bottom:12px;"></div>
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:4px;"><div id="rl-resume" style="font-size:12px;color:var(--text3);margin-bottom:8px;flex:1;min-width:0;"></div><div id="sv-compteur" style="margin-top:-2px;"></div></div>
   <div id="sv-file"></div>
   <div id="rl-semaine"></div>
   <div class="pipeline-grid" id="rl-colonnes" style="display:grid;overflow-x:auto;grid-template-columns:repeat(5,minmax(200px,1fr));gap:12px;align-items:start;">
