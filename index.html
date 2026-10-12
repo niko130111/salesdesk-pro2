@@ -1049,6 +1049,7 @@ nav #nav-more-dot, nav #nav-settings-dot { background: var(--sd-amber) !importan
 .auj-prio .d .late { color: var(--sd-red); font-weight: 600; }
 .auj-prio .d a { cursor: pointer; color: inherit; text-decoration: underline dotted; } .auj-prio .d a:hover { color: var(--sd-action); }
 .auj-prio .act { flex: none; display: flex; gap: 6px; align-items: center; }
+.auj-prio .act.deux { flex-direction: column; align-items: stretch; } .auj-prio .act.deux .btn { justify-content: center; height: 28px; } /* deux actions : empilées, le texte garde sa largeur */
 .auj-prio .act .btn { height: 32px; padding: 0 12px; font-size: 12.5px; font-weight: 600; border-radius: 9px; border-color: var(--sd-action); color: var(--sd-action); background: var(--surface); display: inline-flex; align-items: center; white-space: nowrap; }
 .auj-prio .act .btn:hover { background: var(--sd-action-soft); }
 .auj-prio.etat { opacity: .8; } .auj-prio.etat .t { font-weight: 600; }
@@ -12698,7 +12699,7 @@ function renderAujourdhui() {
   prios.sort(function(a, b) { return a.rang - b.rang; });
   var nbP = prios.length, visibles = _auj.prioTout ? prios : prios.slice(0, 3), attentes = apres.filter(function(x) { return x.attente; });
   document.getElementById('auj-prio-count').textContent = nbP;
-  var suivre = visibles.map(function(p) { return '<div class="auj-prio"><span class="ck" aria-hidden="true"></span><span class="bd"><div class="t">' + escapeHtml(p.titre) + '</div><div class="d">' + p.det + '</div></span><span class="act">' + [p.btn, p.btn2].filter(Boolean).map(function(b) { return '<button class="btn btn-sm" title="' + escapeHtml(b.titre || '') + '" onclick="' + b.on + '">' + escapeHtml(b.lib) + '</button>'; }).join('') + '</span></div>'; }).join('');
+  var suivre = visibles.map(function(p) { return '<div class="auj-prio"><span class="ck" aria-hidden="true"></span><span class="bd"><div class="t">' + escapeHtml(p.titre) + '</div><div class="d">' + p.det + '</div></span><span class="act' + (p.btn && p.btn2 ? ' deux' : '') + '">' + [p.btn, p.btn2].filter(Boolean).map(function(b) { return '<button class="btn btn-sm" title="' + escapeHtml(b.titre || '') + '" onclick="' + b.on + '">' + escapeHtml(b.lib) + '</button>'; }).join('') + '</span></div>'; }).join('');
   var autresRet = retard.filter(function(i) { return !estSign(i) && !estPrioRetard(i); }).length, autres = autresRet + dus.filter(function(i) { return !estSign(i) && !hDe(i); }).length;
   if (!nbP) suivre = '<div class="auj-empty" style="padding:8px 0;">' + (estAuj ? 'Rien d\'urgent pour l\'instant.' : 'Rien de prévu ce jour.') + (!_tachesClose || _tachesClose.error ? ' <span class="fc-muted">Tâches Close ' + (!_tachesClose ? 'en cours de lecture' : 'indisponibles') + ' : la liste peut être incomplète.</span>' : '') + '</div>';
   else if (_tachesClose && _tachesClose.error) suivre = '<div class="auj-etat" style="color:var(--sd-amber);margin:0 0 6px;">Tâches Close indisponibles : liste partielle (SalesDesk seul).</div>' + suivre;
