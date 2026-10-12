@@ -8670,7 +8670,8 @@ function persistCalendlyEventsToStore(weekEvents) {
         heure: heureStr,
         client: ev.name,
         email: ev.email || '',
-        source: ev.source || 'Inbound', // 'Inbound', 'Outbound' ou 'R2'
+        source: (function() { var o = ev.source === 'Outbound' ? (loadOutboundOverrides()[String(ev.email || '').toLowerCase().trim()] || '') : ''; return (o === 'Inbound' || o === 'PUB') ? o : (ev.source || 'Inbound'); })(), // 'Inbound', 'Outbound' ou 'R2' ; un outbound reclassé « Pris par un SDR » / PUB dans Aujourd'hui garde ce choix
+        sourceOrigine: (ev.source === 'Outbound' && /^(Inbound|PUB)$/.test(loadOutboundOverrides()[String(ev.email || '').toLowerCase().trim()] || '')) ? 'Outbound' : undefined,
         type: 'Mandataire',
         presence: '',
         result: '',
@@ -9164,7 +9165,7 @@ function sdOutboundDuMois(monthKey) {
   cand.sort(function(a, b) { return (a.createdAt - b.createdAt) || (a.start - b.start); });
   var vus = {}, comptes = [], exclus = [];
   cand.forEach(function(e) { var cle = String(e.email || '').toLowerCase().trim() || ('n:' + fcNormNom(e.name)), o = ovr[String(e.email || '').toLowerCase().trim()];
-    if (o && o !== 'Outbound') { exclus.push({ r: e.r, raison: 'reclassé en ' + o }); return; }
+    if (o && o !== 'Outbound') { exclus.push({ r: e.r, raison: o === 'Inbound' ? 'pris par un SDR' : o === 'Reschedule' ? 'reprise' : 'reclassé en ' + o }); return; }
     var rep = null; try { rep = typeof sdOutboundReprise === 'function' ? sdOutboundReprise(e) : null; } catch (x) {}
     if (rep && !o) { exclus.push({ r: e.r, raison: rep.bdr ? 'RDV avec ' + rep.bdr + ' le ' + String(rep.date).slice(0, 5) : 'déjà vu < 2 mois' }); return; }
     if (vus[cle]) { exclus.push({ r: e.r, raison: 'doublon' }); return; }
@@ -9748,17 +9749,33 @@ function sdEstOneShot(r) { return !!(r && r.dateSignature && r.date && String(r.
 function sdJoursR1Signature(r) { try { var a = String(r.date).split('/'), b = String(r.dateSignature).split('/'); if (a.length !== 3 || b.length !== 3) return null; return Math.round((new Date(+b[2], +b[1] - 1, +b[0]) - new Date(+a[2], +a[1] - 1, +a[0])) / 86400000); } catch (e) { return null; } }
 function sdOneShotMois(monthKey) { var v = []; try { v = sdVentesDuMois(monthKey); } catch (e) {} var n = v.filter(sdEstOneShot).length; return { n: n, total: v.length, pct: v.length ? Math.round(n / v.length * 100) : null }; }
 function pfL(cle, html) { return '<span class="pf-liste" title="Voir les noms" onclick="event.stopPropagation();sdPerfListe(' + JSON.stringify(cle).replace(/"/g, '&quot;') + ')">' + html + '</span>'; }
+// Reclasser un RDV pris sur le lien outbound (12 oct. 2026, Nicolas : « un SDR l'a pris par mon agenda ») : même réglage que l'onglet Outbound (salesdesk_outbound_overrides, par e-mail) ;
+// « Pris par un SDR » ou « PUB » passe aussi la ligne SalesDesk dans cette source (sourceOrigine garde « Outbound » pour revenir en arrière). Sauvegarde du store avant.
+function sdOutboundReclasser(email, source, quand) {
+  email = String(email || '').toLowerCase().trim(); if (!email) return; source = String(source || '');
+  var vise = function(r) { if (!r || r.source === 'R2' || String(r.email || '').toLowerCase().trim() !== email) return false; var p = String(r.datePrise || r.date || '').split('/'); if (p.length !== 3) return false; return +new Date(+p[2], +p[1] - 1, +p[0], 12) >= Date.now() - 62 * 86400000; };
+  var change = function(r, appliquer) { if (source === 'Inbound' || source === 'PUB') { if (r.source === 'Outbound' || (r.sourceOrigine === 'Outbound' && r.source !== source)) { if (appliquer) { if (!r.sourceOrigine) r.sourceOrigine = 'Outbound'; r.source = source; } return true; } return false; }
+    if (r.sourceOrigine === 'Outbound') { if (appliquer) { r.source = 'Outbound'; delete r.sourceOrigine; } return true; } return false; };
+  var st = loadStore(), lignes = []; Object.keys(st).forEach(function(k) { if (/^\d{4}-\d{2}$/.test(k) && Array.isArray(st[k])) st[k].forEach(function(r) { if (vise(r) && change(r, false)) lignes.push(r); }); });
+  if (lignes.length) { if (typeof sdBackupStore === 'function') sdBackupStore(st); else localStorage.setItem('salesdesk_rdvs_backup_' + Date.now(), JSON.stringify(st)); lignes.forEach(function(r) { change(r, true); }); saveStore(st); }
+  saveOutboundOverride(email, source || 'Outbound');
+  try { renderDaily(); } catch (e) {} try { renderAujourdhui(); } catch (e) {} try { if (typeof renderRdvTable === 'function') renderRdvTable(); } catch (e) {}
+  if (typeof showCopyToast === 'function') showCopyToast(source === 'Inbound' ? '✓ Pris par un SDR : passé en Inbound, ne compte plus en outbound' : source === 'Reschedule' ? '✓ Reprise : ne compte plus en outbound' : source === 'PUB' ? '✓ Passé en PUB' : '✓ Compté en outbound');
+  setTimeout(function() { try { sdOutboundListe(quand); } catch (e) {} }, 150);
+}
 function sdOutboundListe(quand) { // Aujourd'hui : liste derrière « Outbound x / y » et « Semaine x / y »
   var os = window._sdOutboundSemaine || {}, L = (quand === 'jour' ? os.jour : os.liste) || [], X = (quand === 'jour' ? os.exclusJour : os.exclusSemaine) || [];
   var dt = function(d) { try { return d ? new Date(d).toLocaleDateString('fr-FR', { weekday: 'short', day: '2-digit', month: '2-digit' }) + ' ' + new Date(d).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '—'; } catch (e) { return '—'; } };
-  var ligne = function(e, badge) { return '<div class="pf-l"><span class="n">' + sdNomLien(e.name || e.email || '?', e.email || '', 'fermerModalDoublon();') + '<small>' + escapeHtml('pris ' + dt(e.createdAt) + ' · RDV ' + dt(e.start)) + '</small></span><span class="b">' + (e.annule ? '<span class="pf-b ko">annulé depuis</span>' : '') + badge + '</span></div>'; };
+  var ovrO = loadOutboundOverrides(), selR = function(e) { var em = String(e.email || '').toLowerCase().trim(); if (!em) return ''; var o = ovrO[em] || ''; // 12 oct. 2026 : corriger ici un RDV pris sur ton lien par quelqu'un d'autre (SDR…) — même réglage que l'onglet Outbound
+    return '<select class="input" style="font-size:11.5px;padding:3px 6px;width:auto;margin-left:6px;" title="Corriger la source de ce RDV" onchange="sdOutboundReclasser(' + JSON.stringify(em).replace(/"/g, '&quot;') + ', this.value, ' + JSON.stringify(quand || 'jour').replace(/"/g, '&quot;') + ')">' + [['', 'Outbound'], ['Inbound', 'Pris par un SDR'], ['Reschedule', 'Reprise'], ['PUB', 'PUB']].map(function(x) { return '<option value="' + x[0] + '"' + (o === x[0] ? ' selected' : '') + '>' + x[1] + '</option>'; }).join('') + '</select>'; };
+  var ligne = function(e, badge) { return '<div class="pf-l"><span class="n">' + sdNomLien(e.name || e.email || '?', e.email || '', 'fermerModalDoublon();') + '<small>' + escapeHtml('pris ' + dt(e.createdAt) + ' · RDV ' + dt(e.start)) + '</small></span><span class="b">' + (e.annule ? '<span class="pf-b ko">annulé depuis</span>' : '') + badge + selR(e) + '</span></div>'; };
   var titre = quand === 'jour' ? 'RDV outbound pris aujourd\'hui' : 'RDV outbound pris cette semaine', cible = quand === 'jour' ? '' : (os.cible ? ' · objectif ' + os.cible : '');
   var ov = document.getElementById('fc-dup-overlay');
   if (!ov) { ov = document.createElement('div'); ov.id = 'fc-dup-overlay'; ov.className = 'modal-overlay'; ov.style.zIndex = '1300'; ov.innerHTML = '<div class="modal" id="fc-dup-modal"></div>'; document.body.appendChild(ov); }
   ov.onclick = function(ev) { if (ev.target === ov) fermerModalDoublon(); }; ov.classList.add('open');
   document.getElementById('fc-dup-modal').innerHTML = '<div class="fc-dup pf-pop"><div class="pf-pop-h"><div><div class="t">' + titre + ' <span>' + L.length + '</span></div><div class="fc-muted">' + (quand === 'jour' ? 'Pris sur ton lien Calendly depuis ce matin' : 'Pris sur ton lien Calendly depuis lundi') + cible + ' · un par prospect sur 2 mois.</div></div><button class="btn btn-sm" onclick="fermerModalDoublon()">Fermer</button></div>'
     + '<div class="pf-pop-l">' + (L.length ? L.map(function(e) { return ligne(e, '<span class="pf-b ok">compté</span>'); }).join('') : '<div class="fc-muted" style="padding:14px 0;">Aucun RDV outbound pris ' + (quand === 'jour' ? 'aujourd\'hui' : 'cette semaine') + ' pour l\'instant.</div>')
-    + (X.length ? '<div class="fc-muted" style="margin:14px 0 4px;font-weight:600;">Pris mais non comptés · ' + X.length + '</div>' + X.map(function(x) { return ligne(x.e, '<span class="pf-b mu" title="' + escapeHtml(({ 'déjà vu < 2 mois': 'Reprise : un RDV a déjà eu lieu ou était prévu avec cette personne il y a moins de 2 mois', 'doublon': 'Même e-mail déjà compté dans la période' }[x.raison] || (/^RDV avec /.test(x.raison) ? 'Un autre BDR a eu un RDV avec ce prospect il y a moins de 2 mois (lu dans Close) : pas un outbound' : 'Reclassé à la main dans l\'onglet Outbound'))) + '">' + escapeHtml(x.raison) + '</span>'); }).join('') : '') + '</div></div>';
+    + (X.length ? '<div class="fc-muted" style="margin:14px 0 4px;font-weight:600;">Pris mais non comptés · ' + X.length + '</div>' + X.map(function(x) { return ligne(x.e, '<span class="pf-b mu" title="' + escapeHtml(({ 'déjà vu < 2 mois': 'Reprise : un RDV a déjà eu lieu ou était prévu avec cette personne il y a moins de 2 mois', 'doublon': 'Même e-mail déjà compté dans la période' }[x.raison] || (/^RDV avec /.test(x.raison) ? 'Un autre BDR a eu un RDV avec ce prospect il y a moins de 2 mois (lu dans Close) : pas un outbound' : 'Corrigé à la main (Aujourd\'hui ou onglet Outbound)'))) + '">' + escapeHtml(x.raison) + '</span>'); }).join('') : '') + '</div></div>';
 }
 function sdPerfListe(cle) {
   var rows = getRdvs(state.month, state.year), k = computeKpis(state.month, state.year);
@@ -10368,7 +10385,7 @@ function renderDaily() {
   // Étape 3 : Affichage page Quotidien
   var outboundReste = Math.max(0, outboundCible - rdvOutboundSemaine);
   // Listes derrière « Outbound » et « Semaine » d'Aujourd'hui (12 oct. 2026) : les RDV comptés, et ceux pris dans la période mais non comptés, avec la raison
-  var _sdExclusOutbound = function(debut, fin) { var comptes = _uniqueOutbounds.filter(function(e) { return e.createdAt >= debut && e.createdAt <= fin; }); return _sourceEvents.filter(function(e) { return e.source === 'Outbound' && e.createdAt && e.createdAt >= debut && e.createdAt <= fin && comptes.indexOf(e) < 0; }).map(function(e) { var ovr = _outboundOverrides[_getOverrideKey(e)], rp = !ovr && typeof sdOutboundReprise === 'function' ? sdOutboundReprise(e) : null, raison = ovr && ovr !== 'Outbound' ? 'reclassé en ' + ovr : rp ? (rp.bdr ? 'RDV avec ' + rp.bdr + ' le ' + String(rp.date).slice(0, 5) : 'déjà vu < 2 mois') : 'doublon'; return { e: e, raison: raison }; }); };
+  var _sdExclusOutbound = function(debut, fin) { var comptes = _uniqueOutbounds.filter(function(e) { return e.createdAt >= debut && e.createdAt <= fin; }); return _sourceEvents.filter(function(e) { return e.source === 'Outbound' && e.createdAt && e.createdAt >= debut && e.createdAt <= fin && comptes.indexOf(e) < 0; }).map(function(e) { var ovr = _outboundOverrides[_getOverrideKey(e)], rp = !ovr && typeof sdOutboundReprise === 'function' ? sdOutboundReprise(e) : null, raison = ovr && ovr !== 'Outbound' ? (ovr === 'Inbound' ? 'pris par un SDR' : ovr === 'Reschedule' ? 'reprise' : 'reclassé en ' + ovr) : rp ? (rp.bdr ? 'RDV avec ' + rp.bdr + ' le ' + String(rp.date).slice(0, 5) : 'déjà vu < 2 mois') : 'doublon'; return { e: e, raison: raison }; }); };
   window._sdOutboundSemaine = { pris: _outboundThisWeek.length, pts: rdvOutboundSemaine, cible: outboundCible, liste: _outboundThisWeek.slice(), jour: _outboundToday.slice(), exclusSemaine: _sdExclusOutbound(_weekMonday, _weekFriday), exclusJour: _sdExclusOutbound(_todayStart, _todayEnd) }; // repris par la barre du haut d'Aujourd'hui
   // Le compteur est pondéré (Mandataire = 1, Agences = 2). "7" ne veut donc dire ni
   // 7 RDV ni 7 prospects : on affiche les deux pour que le reste-à-faire soit actionnable.
