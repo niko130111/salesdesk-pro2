@@ -3071,13 +3071,6 @@ tell application "System Events" to keystroke "d" using {command down, shift dow
             <button class="btn btn-sm" onclick="loadCalendlyDay()">🔄 Rafraîchir</button>
             <button class="btn btn-sm btn-primary" onclick="openModal('calendlyConnectModal')">⚙️ Configurer</button>
           </div>
-<div class="section-header" style="margin-bottom:16px;">
-    <div class="section-title">🔗 Intégration Calendly</div>
-    <div class="flex gap-8">
-      <button class="btn btn-sm" onclick="loadCalendlyDay()">🔄 Rafraîchir</button>
-      <button class="btn btn-sm btn-primary" onclick="openModal('calendlyConnectModal')">⚙️ Configurer Calendly</button>
-    </div>
-  </div>
 
   <!-- CONNECT CARD -->
   <div class="calendly-connect" id="calendly-connect-card">
@@ -3096,6 +3089,8 @@ tell application "System Events" to keystroke "d" using {command down, shift dow
       <div style="font-size:13px;font-weight:600;color:var(--green);">Calendly connecté — synchronisation active</div>
       <div style="margin-left:auto;font-size:11px;color:var(--text3);" id="last-sync-label">Dernière synchro : maintenant</div>
     </div>
+    <div class="fc-muted" style="font-size:13px;margin:-4px 0 6px;">Les RDV se traitent dans Aujourd'hui et la fiche client ; Calendly alimente l'agenda tout seul.</div>
+    <div id="cal-semaine-ancienne" hidden><!-- ancienne vue semaine à pastilles (12 oct. 2026) : masquée, elle réécrivait présence et résultat des lignes déjà remplies ; les éléments restent pour le code qui les met à jour -->
     <!-- Navigation semaine -->
     <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 18px;margin-bottom:14px;display:flex;align-items:center;gap:12px;">
       <button class="btn btn-sm" onclick="changeWeek(-1)">← Sem. préc.</button>
@@ -3113,7 +3108,8 @@ tell application "System Events" to keystroke "d" using {command down, shift dow
 
     </div>
     </div>
-    <div style="margin-top:16px;display:flex;gap:8px;">
+    </div>
+    <div hidden style="margin-top:16px;gap:8px;">
       <button class="btn btn-primary" onclick="saveCalendlyRdv()">💾 Enregistrer résultats dans le dashboard</button>
       <button class="btn" onclick="markAllNoShow()">✗ Marquer tout No Show</button>
     </div>
