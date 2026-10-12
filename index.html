@@ -4977,12 +4977,13 @@ function rlDateModal(titre, texte, dateDefaut, cb, avecHeure) {
 }
 // Défaire la dernière écriture Close (journal du copilot) : on montre ce que c'était, on confirme, on remet
 function rlDefaire(btn) {
-  fetch(COPILOT_URL + '/close/ecritures?n=20', { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).then(function(j) {
-    var e = (j.ecritures || []).find(function(x) { return !x.defait && x.type !== 'defaire'; });
-    if (!e) { alert('Rien à défaire.'); return; }
-    var lib = { tache: { decaler: 'tâche déplacée', deplacer_existante: 'tâche déplacée', terminer: 'tâche terminée', creer: 'tâche créée' }, appel: { sans_reponse: 'appel sans réponse loggé' }, escalade: { undefined: 'escalade au manager' }, mail_r1: { draft: 'brouillon de mail', outbox: 'mail envoyé' } };
-    var quoi = ((lib[e.type] || {})[e.action]) || e.type, quand = new Date(e.at).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
-    if (!confirm('Défaire : ' + quoi + ' (' + quand + ')' + (e.apres && e.apres.text ? '\n« ' + e.apres.text + ' »' : '') + ' ?')) return;
+  fetch(COPILOT_URL + '/close/defaisable', { mode: 'cors', cache: 'no-store' }).then(function(r) { if (r.status === 404) return fetch(COPILOT_URL + '/close/ecritures?n=20', { mode: 'cors', cache: 'no-store' }).then(function(r2) { return r2.json(); }).then(function(j2) { return { ecriture: (j2.ecritures || []).find(function(x) { return !x.defait && x.type !== 'defaire'; }) || null }; }); return r.json(); }).then(function(j) {
+    var e = j && j.ecriture; // la dernière action de Nicolas qu'on sait défaire (les automatisations ne comptent pas)
+    if (!e) { alert('Rien à défaire : aucune action récente de ta part ne peut être annulée.'); return; }
+    var lib = { tache: { decaler: 'tâche déplacée', deplacer_existante: 'tâche déplacée', terminer: 'tâche terminée', creer: 'tâche créée' }, appel: { sans_reponse: 'appel sans réponse loggé' }, escalade: { undefined: 'escalade au manager' }, mail_r1: { draft: 'brouillon de mail', outbox: 'mail envoyé' }, statut: { pas_interesse: 'statut Close « pas intéressé »', laisser_tomber: 'statut Close « laissé tomber »', show: 'statut Close « démo faite »', no_show: 'statut Close « no-show »', annule: 'statut Close « annulé »', reprogramme: 'statut Close « reprogrammé »', mail_envoye: 'statut Close « offre envoyée »' } };
+    var quoi = ((lib[e.type] || {})[e.action]) || (e.type === 'statut' ? 'changement de statut Close' : e.type === 'tache' ? 'action sur une tâche' : 'dernière action'), quand = new Date(e.at).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+    var qui = e.nom || e.to || ''; // le prospect concerné quand le journal le connaît
+    if (!confirm('Défaire : ' + quoi + (qui ? ' · ' + qui : '') + ' (' + quand + ')' + (e.apres && e.apres.text ? '\n« ' + e.apres.text + ' »' : '') + ' ?')) return;
     if (btn) btn.disabled = true;
     return rlPost('/close/defaire', {}).then(function(r) { if (typeof showCopyToast === 'function') showCopyToast('↶ ' + (r.detail || 'défait')); if (e.type === 'escalade' && r.detail) alert(r.detail); chargerTachesClose(rlPlus(_rlLundi, -7), rlPlus(_rlLundi, 13), true); setTimeout(dessinerRelances, 400); }).catch(function(x) { alert('Impossible de défaire : ' + x.message); }).then(function() { if (btn) btn.disabled = false; });
   }).catch(function() { alert('Copilot injoignable.'); });
