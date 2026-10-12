@@ -2826,7 +2826,8 @@ select.form-input { cursor: pointer; }
           <div style="margin-top:12px;display:flex;gap:8px;"><button class="btn btn-sm" onclick="renderEtatSysteme(true)">↻ Actualiser</button><button class="btn btn-sm" onclick="etatSauvegarderMaintenant()">💾 Sauvegarder maintenant (copilot + SalesDesk)</button></div>
         </div>
       </div>
-      <div class="settings-section" id="settings-online">
+      <div class="settings-section" id="settings-online-supabase"><div class="settings-card"><h3>💾 Sauvegarde en ligne</h3><p style="font-size:13px;color:var(--text2);margin:0;">Tes données sont sauvegardées automatiquement dans Supabase à chaque modification, et le copilot en garde une copie chaque nuit. Rien à configurer. Les copies locales et le bouton « Restaurer » sont dans <a style="color:var(--accent);cursor:pointer;" onclick="mjAller('Contrôle')">Contrôle</a>.</p></div></div>
+      <div class="settings-section" id="settings-online" hidden><!-- ancienne sauvegarde JSONBin (12 oct. 2026) : remplacée par Supabase, masquée -->
         <div class="settings-card">
           <h3>💾 Sauvegarde en ligne</h3>
           <p style="font-size:13px;color:var(--text2);margin-bottom:16px;">
@@ -7528,7 +7529,7 @@ function cfgCopilotRedemarrer(btn) {
 }
 // ====== SETTINGS ======
 // Objectifs & Config en quatre groupes : chaque groupe empile ses sections (les sections existantes ne bougent pas)
-var SETTINGS_GROUPES = { profil: ['objectifs', 'profil', 'commission', 'equipe'], connexions: ['cles', 'calendly'], ia: ['modeles'], sauvegardes: ['backup', 'online', 'etat'] };
+var SETTINGS_GROUPES = { profil: ['objectifs', 'profil', 'commission', 'equipe'], connexions: ['cles', 'calendly'], ia: ['modeles'], sauvegardes: ['backup', 'online-supabase', 'etat'] }; // 12 oct. 2026 : l'ancienne section JSONBin (online) n'est plus affichée
 function showSettingsGroupe(g, el) {
   var ids = SETTINGS_GROUPES[g] || SETTINGS_GROUPES.profil;
   document.querySelectorAll('.settings-section').forEach(function(x) { x.classList.remove('active'); });
@@ -9000,7 +9001,7 @@ window.addEventListener('load', async () => {
   await initOnlineStorage();
   
   // Si connecté online, charger les données depuis le cloud
-  if (_jsonbinId && _jsonbinKey) {
+  if (false && _jsonbinId && _jsonbinKey) { // JSONBin abandonné pour Supabase (12 oct. 2026) : ne plus jamais recharger ces vieilles données par-dessus le store
     document.getElementById('online-connected-card') && 
       (document.getElementById('online-connected-card').style.display = 'block');
     const onlineData = await loadFromOnline();
