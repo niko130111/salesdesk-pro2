@@ -777,6 +777,13 @@ details.gl-details > .body { padding: 0 20px 20px; }
 .sv-vide { padding: 30px 18px; color: var(--text3); text-align: center; font-size: 14px; }
 @media (max-width: 1100px) { .sv-grid { grid-template-columns: 1fr; } .sv-liste, .sv-pan { max-height: none; position: static; } }
 /* Onglet Automatisations : les messages par étape du parcours, texte modifiable et interrupteur */
+.svc { display: flex; align-items: center; gap: 12px; padding: 7px 14px 7px 8px; border-radius: 999px; color: #fff; box-shadow: 0 6px 18px -8px rgba(0,0,0,.35); background: linear-gradient(120deg, var(--svc-a), var(--svc-b)); transition: background .4s; }
+.svc .ic { width: 38px; height: 38px; border-radius: 50%; background: rgba(255,255,255,.22); display: grid; place-items: center; font-size: 19px; }
+.svc .ic.bump { animation: svcBump .6s ease; } @keyframes svcBump { 0% { transform: scale(1); } 40% { transform: scale(1.25) rotate(-12deg); } 100% { transform: scale(1); } }
+.svc .n { font-size: 26px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; } .svc .n small { font-size: 12px; font-weight: 600; opacity: .85; margin-left: 4px; }
+.svc .d { display: flex; flex-direction: column; gap: 4px; min-width: 150px; } .svc .m { font-size: 12px; font-weight: 600; opacity: .95; white-space: nowrap; }
+.svc .b { height: 6px; border-radius: 999px; background: rgba(255,255,255,.28); overflow: hidden; } .svc .b i { display: block; height: 100%; border-radius: 999px; background: #fff; }
+.svc .j { font-size: 12px; font-weight: 700; background: rgba(255,255,255,.22); border-radius: 999px; padding: 3px 9px; white-space: nowrap; }
 .cr-concl { margin: 0; padding-left: 22px; display: flex; flex-direction: column; gap: 8px; font-size: 15px; line-height: 1.5; color: var(--text); } .cr-concl li::marker { font-weight: 800; color: var(--sd-action, var(--accent)); }
 .auj-dem-jour { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text3); padding: 12px 0 4px; border-top: 1px solid var(--border); margin-top: 4px; } .auj-dem-jour:first-of-type { border-top: 0; margin-top: 0; }
 .au-aide { margin: -6px 0 18px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); } .au-aide summary { cursor: pointer; padding: 10px 14px; font-size: 13px; font-weight: 600; color: var(--text2); } .au-aide-c { padding: 0 16px 12px; font-size: 13px; color: var(--text2); line-height: 1.5; } .au-aide-c ul { margin: 4px 0 8px 18px; padding: 0; } .au-aide-c code { font-size: 12px; background: var(--surface2); border-radius: 5px; padding: 1px 5px; }
@@ -2296,7 +2303,7 @@ select.form-input { cursor: pointer; }
 </div>
 <div id="page-relances" class="page">
   <div class="section-header" style="margin-bottom:6px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
-    <div><h1 class="pf-h1" style="margin:0;">Suivi</h1></div>
+    <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;"><h1 class="pf-h1" style="margin:0;">Suivi</h1><div id="sv-compteur"></div></div>
     <div id="rl-filtres" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
   </div>
   <div id="rl-resume" style="font-size:12px;color:var(--text3);margin-bottom:12px;"></div>
@@ -4689,7 +4696,8 @@ function fcAppelerFiche(ev, cle) {
   }
   // panneau du Suivi (pas de surimpression) : l'item sélectionné, jamais le bandeau de la dernière fiche ouverte (bug du 9 oct. : appel vers la mauvaise personne)
   var x = (typeof _sv !== 'undefined' && _sv.tel && _sv.tel[cle]) || {}, it = (window._rlItems || []).find(function(i) { return i.cle === cle; });
-  var url = x.url || (it && it.t && it.t.lead ? 'https://app.close.com/lead/' + it.t.lead + '/' : '');
+  var leadT = it && it.t && it.t.lead ? it.t.lead : '', url = leadT ? 'https://app.close.com/lead/' + leadT + '/' : x.url || ''; // la fiche de la tâche Close d'abord, toujours (12 oct. 2026)
+  if (leadT && x.lead && x.lead !== leadT) x = {}; // numéro lu sur une autre fiche : ignoré
   if (!url && _fc && _fc.cle && it && fcNormNom(_fc.nom) === fcNormNom(it.nom)) url = (_fc.leadChoisi || ((_fc.close && _fc.close.leads && _fc.close.leads[0]) || {}).id) ? 'https://app.close.com/lead/' + (_fc.leadChoisi || _fc.close.leads[0].id) + '/' : '';
   if (!url && !x.tel) { if (typeof showCopyToast === 'function') showCopyToast('Fiche Close introuvable pour cet appel'); return; }
   fcAppeler(ev, x.tel || '', url);
@@ -11780,7 +11788,7 @@ function chargerAppelsSemaine(force) {
 function chargerAppelsJour(force) {
   if (typeof COPILOT_URL === 'undefined') return; try { chargerAppelsSemaine(force); } catch (e) {}
   if (_appelsJour && Date.now() - _appelsJourAt < 60000 && !force) return;
-  fetch(COPILOT_URL + '/close/appels-jour' + (force ? '?force=1' : ''), { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).then(function(j) { _appelsJour = j.appels || []; _appelsJourAt = Date.now(); renderMaJournee(); dessinerRelances(); }).catch(function() {});
+  fetch(COPILOT_URL + '/close/appels-jour' + (force ? '?force=1' : ''), { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).then(function(j) { _appelsJour = j.appels || []; _appelsJourAt = Date.now(); renderMaJournee(); try { svDessinerCompteur(); } catch (e) {} dessinerRelances(); }).catch(function() {});
 }
 // Appels du jour non encore constatés, pour une carte : même fiche Close, ou même personne (nom / contacts de la fiche)
 function rlAppelsPour(it) {
@@ -12853,13 +12861,13 @@ function renderAujourdhui() {
   var estSign = function(i) { return estConfig(i) || !!(i.row && i.row.attenteSignature) || /signature|contrat/i.test(((i.t && i.t.texte) || '') + ' ' + ((i.row && i.row.relanceCond) || '') + ' ' + ((i.rel && i.rel.relance && i.rel.relance.condition) || '')); };
   var identite = function(i) { try { var id = rlIdentite(i); return { nom: id.nom || i.nom, email: id.email || '' }; } catch (e) { return { nom: i.nom, email: (i.row && i.row.email) || '' }; } };
   var boutonTache = function(i) { // le bouton dit ce que la tâche est vraiment ; « Appeler » seulement quand l'appel est la tâche
-    var id = identite(i), nomJs = Q(id.nom), emailJs = Q(id.email), tx = texteDe(i);
+    var id = identite(i), nomJs = Q(id.nom), emailJs = Q(id.email), leadJs = Q((i.t && i.t.lead) || ''), tx = texteDe(i);
     if (estConfig(i)) return { lib: 'Configurer', on: 'sdOnboardingPour(' + nomJs + ',' + emailJs + ')', titre: 'Onboarding : remplit les champs Close du client signé' };
     if (/\bmail\b|e-mail|écrire|envoyer/i.test(tx)) return { lib: 'Écrire le mail', on: 'sdMailPour(' + nomJs + ',' + emailJs + ')', titre: tx };
-    if (estSign(i)) return { lib: 'Ouvrir la fiche', on: 'ouvrirFicheClient(' + nomJs + ',' + emailJs + ')', titre: 'Signature en attente : Signé, Contrat envoyé ou Appeler depuis la fiche' };
-    if (i.col === 'aclasser') return { lib: 'Classer', on: 'ouvrirFicheClient(' + nomJs + ',' + emailJs + ')', titre: 'Tâche Close sans motif connu : à classer depuis la fiche' };
+    if (estSign(i)) return { lib: 'Ouvrir la fiche', on: 'ouvrirFicheClient(' + nomJs + ',' + emailJs + ',\'\',' + leadJs + ')', titre: 'Signature en attente : Signé, Contrat envoyé ou Appeler depuis la fiche' };
+    if (i.col === 'aclasser') return { lib: 'Classer', on: 'ouvrirFicheClient(' + nomJs + ',' + emailJs + ',\'\',' + leadJs + ')', titre: 'Tâche Close sans motif connu : à classer depuis la fiche' };
     if (['r2', 'nsin', 'nsout', 'rdv', 'rappel'].indexOf(i.col) >= 0 || /rappel|appel|téléphon|call/i.test(tx)) return { lib: 'Appeler', on: 'svAppeler(event,' + Q(i.cle) + ')', titre: 'Close ouvre la fiche et compose ; Alt + clic = appel via le Mac' };
-    return { lib: 'Ouvrir la fiche', on: 'ouvrirFicheClient(' + nomJs + ',' + emailJs + ')', titre: tx };
+    return { lib: 'Ouvrir la fiche', on: 'ouvrirFicheClient(' + nomJs + ',' + emailJs + ',\'\',' + leadJs + ')', titre: tx };
   };
   var titreTache = function(i) { if (estConfig(i)) return 'Configurer le client signé'; if (estSign(i)) return 'Relancer pour signature'; var tx = texteDe(i); if (tx) return tx.length > 64 ? tx.slice(0, 61) + '…' : tx; return ({ r2: 'Rappeler après le R1', nsin: 'Relancer après no-show', nsout: 'Relancer après no-show', rdv: 'Reprendre un RDV', aclasser: 'Classer la tâche', rappel: 'Rappel demandé' })[i.col] || 'Relancer'; };
   var tent = function(i) { try { var s = rlSuivi(i); return s && s.tentatives ? s.tentatives + ' appel' + (s.tentatives > 1 ? 's' : '') + ' sans réponse' : ''; } catch (e) { return ''; } };
@@ -13351,10 +13359,10 @@ function svCharger(it) { // contexte Close du prospect choisi (une fois par pros
       .then(function(j) { _sv.ctx[cle] = j || { error: 'vide' }; if (_sv.sel === cle) renderRelancesPage(); }).catch(function() { _sv.ctx[cle] = { error: 'le copilot n\'a pas répondu' }; if (_sv.sel === cle) renderRelancesPage(); }); };
   // même règle que la fiche : la fiche Close qui porte le contact d'abord (sinon on lisait parfois une fiche agence vide, sans l'appel du SDR)
   fetch(COPILOT_URL + '/close/contact?' + new URLSearchParams({ email: email, nom: it.nom }), { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); })
-    .then(function(j) { var mx = sdMeilleurLead(j.leads || [], it.nom, email, sdLead, { impose: !!(it.t && it.t.lead), tel: row.tel || row.telephone || '' }), l = mx.lead || (j.leads || [])[0]; var tel = ''; if (l) (l.contacts || []).some(function(c) { tel = ((c.tels || [])[0]) || ''; return !!tel; }); _sv.tel[cle] = { tel: tel, url: l ? l.url : '', lead: mx.id || '', divergent: mx.divergent }; lireDernier(mx.id || sdLead); if (_sv.sel === cle) renderRelancesPage(); })
+    .then(function(j) { var mx = sdMeilleurLead(j.leads || [], it.nom, email, sdLead, { impose: !!(it.t && it.t.lead), tel: row.tel || row.telephone || '' }), l = mx.lead || (mx.impose ? null : (j.leads || [])[0]); var tel = ''; if (l) (l.contacts || []).some(function(c) { tel = ((c.tels || [])[0]) || ''; return !!tel; }); _sv.tel[cle] = { tel: tel, url: l ? l.url : (mx.id ? 'https://app.close.com/lead/' + mx.id + '/' : ''), lead: mx.id || '', divergent: mx.divergent }; /* 12 oct. 2026 : fiche imposée par la tâche mais absente de la recherche par nom → jamais la première fiche venue (« Guy-Hoquet » appelait Guillaume Baptista) */ lireDernier(mx.id || sdLead); if (_sv.sel === cle) renderRelancesPage(); })
     .catch(function() { lireDernier(sdLead); });
 }
-function svAppeler(ev, cle) { var x = _sv.tel[cle] || {}, it = (window._rlItems || []).find(function(i) { return i.cle === cle; }); var url = x.url || (it && it.t && it.t.lead ? 'https://app.close.com/lead/' + it.t.lead + '/' : ''); if (!url && !x.tel) { if (typeof showCopyToast === 'function') showCopyToast('Fiche Close introuvable pour cet appel'); return; } fcAppeler(ev, x.tel || '', url); }
+function svAppeler(ev, cle) { var x = _sv.tel[cle] || {}, it = (window._rlItems || []).find(function(i) { return i.cle === cle; }); var leadT = it && it.t && it.t.lead ? it.t.lead : '', url = leadT ? 'https://app.close.com/lead/' + leadT + '/' : (x.url || ''); if (leadT && x.lead && x.lead !== leadT) x = {}; if (!url && !x.tel) { if (typeof showCopyToast === 'function') showCopyToast('Fiche Close introuvable pour cet appel'); return; } fcAppeler(ev, x.tel || '', url); }
 function svDeplacerVers(cles, date, heure) {
   var its = cles.map(function(c) { return (window._rlItems || []).find(function(i) { return i.cle === c; }); }).filter(function(i) { return i && i.t; });
   if (!its.length) { if (typeof showCopyToast === 'function') showCopyToast('Aucune tâche Close à déplacer dans la sélection'); return; }
@@ -13435,19 +13443,20 @@ function svRendreFile(items, today) {
   var pan = '';
   if (sel) {
     svCharger(sel);
+    var leadJs = JSON.stringify(String((sel.t && sel.t.lead) || sel.lead || (sel.row && sel.row.closeLead) || '')).replace(/"/g, '&quot;'); // la fiche s'ouvre par son identifiant Close (12 oct. 2026 : « Guy-Hoquet » ouvrait une autre agence Guy Hoquet)
     var cleJs = JSON.stringify(sel.cle).replace(/"/g, '&quot;'), row = (sel.rel && sel.rel.row) || sel.row || {}, t = sel.t, email = (sel.rel && sel.rel.r && sel.rel.r.email) || row.email || '';
     var nomJs = JSON.stringify(sel.nom).replace(/"/g, '&quot;'), emailJs = JSON.stringify(email).replace(/"/g, '&quot;');
     var sv = rlSuivi(sel), nbT = sv.tentatives || 0, gere = RL_MOTIFS_GERES.indexOf(sel.col) >= 0, tel = (_sv.tel[sel.cle] || {}).tel || '';
     var motifLib = (M.find(function(m) { return m[0] === sel.col; }) || [0, 'À classer'])[1];
     var ech = sel.date < today ? 'en retard depuis le ' + fcFrDepuisIso(sel.date) : (sel.date === today ? 'à faire aujourd\'hui' + (t && t.heure ? ' à ' + t.heure : '') : 'prévu le ' + fcFrDepuisIso(sel.date));
-    pan = '<h2 onclick="ouvrirFicheClient(' + nomJs + ',' + emailJs + ')" title="Ouvrir la fiche">' + escapeHtml(sel.nom) + '</h2>'
+    pan = '<h2 onclick="ouvrirFicheClient(' + nomJs + ',' + emailJs + ',\'\',' + leadJs + ')" title="Ouvrir la fiche">' + escapeHtml(sel.nom) + '</h2>'
       + '<div class="meta">' + escapeHtml([motifLib, row.type, row.source, ech, nbT ? nbT + ' appel' + (nbT > 1 ? 's' : '') + ' sans réponse' : ''].filter(Boolean).join(' · ')) + '</div>'
       + (svRaison(sel) ? '<div class="meta" style="color:var(--text);margin-top:6px;">📌 ' + escapeHtml(svRaison(sel)) + '</div>' : '')
       + '<div class="sv-acts" style="flex-wrap:wrap;">' + fcBoutonsSuivi(sel) + '</div>'
       + (t ? '<div class="sv-acts2">' + (t ? '<select title="Changer le motif" onchange="rlClasser(' + JSON.stringify(t.id).replace(/"/g, '&quot;') + ', this.value)" style="height:28px;font-size:12px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text2);"><option value="">Motif : ' + escapeHtml(motifLib) + '</option><option value="r2">R2 sans réponse</option><option value="rdv">Prise de RDV</option><option value="nsin">No-show inbound</option><option value="nsout">No-show outbound</option></select>' : '') + '</div>' : '')
       + rlChipAppels(sel, items.indexOf(sel)) + rlChipRdvPris(sel);
     pan += svFicheHtml(sel, email);
-    pan += '<div style="margin-top:12px;font-size:12px;"><a style="color:var(--accent);cursor:pointer;font-weight:600;" onclick="ouvrirFicheClient(' + nomJs + ',' + emailJs + ')">Ouvrir la fiche complète ›</a>' + (t && t.url ? ' · <a style="color:var(--text3);" href="' + escapeHtml(t.url) + '" target="_blank" rel="noopener">voir dans Close ↗</a>' : '') + '</div>';
+    pan += '<div style="margin-top:12px;font-size:12px;"><a style="color:var(--accent);cursor:pointer;font-weight:600;" onclick="ouvrirFicheClient(' + nomJs + ',' + emailJs + ',\'\',' + leadJs + ')">Ouvrir la fiche complète ›</a>' + (t && t.url ? ' · <a style="color:var(--text3);" href="' + escapeHtml(t.url) + '" target="_blank" rel="noopener">voir dans Close ↗</a>' : '') + '</div>';
   }
   _sv.visibles = ordre.filter(function(it) { return it.t; }).map(function(it) { return it.cle; });
   _sv.coches = _sv.coches || {}; Object.keys(_sv.coches).forEach(function(c) { if (_sv.visibles.indexOf(c) < 0) delete _sv.coches[c]; });
@@ -13458,6 +13467,23 @@ function svRendreFile(items, today) {
   el.innerHTML = bar + '<div class="sv-grid"><div><div class="sv-liste" id="sv-liste">' + tete + selbar + liste + '</div></div><div class="sv-pan">' + pan + '</div></div>';
   try { document.getElementById('sv-liste').scrollTop = posListe; } catch (e) {}
   try { var on = el.querySelector('.sv-l.on'), box = document.getElementById('sv-liste'); if (on && box && (on.offsetTop < box.scrollTop + 30 || on.offsetTop > box.scrollTop + box.clientHeight - 60)) box.scrollTop = Math.max(0, on.offsetTop - 80); } catch (e) {}
+}
+// Compteur d'appels du Suivi (12 oct. 2026) : appels passés aujourd'hui (Close), joints, et ta moyenne par jour ouvré du mois en repère. Couleur et message changent avec la progression.
+var _svcMois = null, _svcMoisAt = 0, _svcDernier = null;
+function svDessinerCompteur() {
+  var el = document.getElementById('sv-compteur'); if (!el) return;
+  try { chargerAppelsJour(false); } catch (e) {}
+  var now = new Date(), mk = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+  if (typeof COPILOT_URL !== 'undefined' && (!_svcMois || _svcMois.mk !== mk || Date.now() - _svcMoisAt > 30 * 60000)) { _svcMoisAt = Date.now(); var du = mk + '-01', au = rlIso(new Date(now.getFullYear(), now.getMonth() + 1, 0));
+    fetch(COPILOT_URL + '/close/appels-periode?' + new URLSearchParams({ du: du, au: au }), { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).then(function(j) { if (j && j.configure) { _svcMois = { mk: mk, total: j.total || 0 }; svDessinerCompteur(); } }).catch(function() {}); }
+  if (!_appelsJour) { el.innerHTML = ''; return; }
+  var n = _appelsJour.length, jn = _appelsJour.filter(function(a) { return a.joint; }).length;
+  var jours = 0; for (var d = new Date(now.getFullYear(), now.getMonth(), 1); rlIso(d) < rlIso(now); d.setDate(d.getDate() + 1)) { var w = d.getDay(); if (w && w !== 6 && !rlFerie(rlIso(d))) jours++; }
+  var moy = _svcMois && jours ? Math.round(Math.max(0, _svcMois.total - n) / jours) : 0, pct = moy ? Math.round(100 * n / moy) : 0;
+  var msg = !n ? 'Premier appel ? C\'est parti 🚀' : !moy ? (n >= 20 ? 'Belle série 🔥' : 'Ça démarre 💪') : pct >= 100 ? 'Au-dessus de ta moyenne 🏆 +' + (n - moy) : pct >= 60 ? 'Ça chauffe 🔥 plus que ' + (moy - n) : 'Échauffement 💪 encore ' + (moy - n) + ' pour ta moyenne';
+  var c = !n ? ['#64748b', '#94a3b8'] : pct >= 100 ? ['#059669', '#10b981'] : pct >= 60 ? ['#4f46e5', '#7c3aed'] : ['#ea580c', '#f59e0b'];
+  var bump = _svcDernier !== null && n > _svcDernier; _svcDernier = n;
+  el.innerHTML = '<div class="svc" style="--svc-a:' + c[0] + ';--svc-b:' + c[1] + ';" title="Appels passés aujourd\'hui dans Close' + (moy ? ' · ta moyenne : ' + moy + ' par jour ouvré ce mois' : '') + '"><span class="ic' + (bump ? ' bump' : '') + '">📞</span><span class="n">' + n + '<small>appel' + (n > 1 ? 's' : '') + '</small></span><span class="d"><span class="m">' + escapeHtml(msg) + '</span>' + (moy ? '<span class="b"><i style="width:' + Math.min(100, pct) + '%"></i></span>' : '') + '</span><span class="j">✅ ' + jn + ' joint' + (jn > 1 ? 's' : '') + '</span></div>';
 }
 function renderRelancesPage() {
   var page = document.getElementById('page-relances'); if (!page) return;
@@ -13482,6 +13508,7 @@ function renderRelancesPage() {
     document.getElementById('rl-semaine').style.display = 'none'; document.getElementById('rl-colonnes').style.display = 'none'; document.getElementById('sv-file').style.display = '';
     var _ob = document.getElementById('rl-orphelines'); if (_ob) _ob.innerHTML = '';
     svRendreFile(items, today);
+    try { svDessinerCompteur(); } catch (e) {}
     var _sans = (typeof sdRdvsSansAction === 'function') ? sdRdvsSansAction() : [];
     document.getElementById('rl-sans-date').innerHTML = _sans.length ? '⚠️ ' + _sans.length + ' RDV sans prochaine action (ni R2, ni relance datée) — <a href="#" onclick="sdClasserEnChaine();return false;">les traiter</a>' : '';
     return;
