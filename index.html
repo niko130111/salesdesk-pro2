@@ -777,6 +777,7 @@ details.gl-details > .body { padding: 0 20px 20px; }
 .sv-vide { padding: 30px 18px; color: var(--text3); text-align: center; font-size: 14px; }
 @media (max-width: 1100px) { .sv-grid { grid-template-columns: 1fr; } .sv-liste, .sv-pan { max-height: none; position: static; } }
 /* Onglet Automatisations : les messages par étape du parcours, texte modifiable et interrupteur */
+.cr-concl { margin: 0; padding-left: 22px; display: flex; flex-direction: column; gap: 8px; font-size: 15px; line-height: 1.5; color: var(--text); } .cr-concl li::marker { font-weight: 800; color: var(--sd-action, var(--accent)); }
 .auj-dem-jour { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text3); padding: 12px 0 4px; border-top: 1px solid var(--border); margin-top: 4px; } .auj-dem-jour:first-of-type { border-top: 0; margin-top: 0; }
 .au-aide { margin: -6px 0 18px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); } .au-aide summary { cursor: pointer; padding: 10px 14px; font-size: 13px; font-weight: 600; color: var(--text2); } .au-aide-c { padding: 0 16px 12px; font-size: 13px; color: var(--text2); line-height: 1.5; } .au-aide-c ul { margin: 4px 0 8px 18px; padding: 0; } .au-aide-c code { font-size: 12px; background: var(--surface2); border-radius: 5px; padding: 1px 5px; }
 .au-modes { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; margin-bottom: 18px; }
@@ -4147,7 +4148,21 @@ function renderCreneaux() {
   var parHeure = '<div class="cr-scroll"><table><tr><th class="l"></th>' + heures.map(function(h) { return '<th>' + h + ' h</th>'; }).join('') + '</tr>'
     + '<tr><th class="l">Non tenus J</th>' + heures.map(function(h) { return caseNT(R.H[h]); }).join('') + '</tr>'
     + '<tr><th class="l">Closing</th>' + heures.map(function(h) { return caseCl(R.H[h]); }).join('') + '</tr></table></div>';
-  var h = '<div class="pf-card cr-lecture">' + (lecture || 'Pas encore assez de RDV par créneau pour conclure (' + CR_SEUIL + ' RDV minimum par case).') + '</div>';
+  // Conclusion en trois lignes (12 oct. 2026, demandée par Nicolas) : le problème de fond, où placer ses RDV, quand il vend le mieux. Recalculée avec les filtres.
+  var concl = [];
+  if (assez.length >= 2) {
+    var ecartPts = pc(assez[0].c.nt, assez[0].c.base) - pc(assez[assez.length - 1].c.nt, assez[assez.length - 1].c.base);
+    concl.push(ecartPts <= 12
+      ? '<b>Ton vrai problème n\'est pas l\'horaire.</b> ' + moyNT + ' % de tes R1 ne sont pas tenus le jour J, et ton meilleur et ton pire créneau ne sont qu\'à ' + ecartPts + ' points d\'écart : le levier, c\'est la confirmation.'
+      : '<b>L\'horaire compte.</b> De ' + pc(assez[assez.length - 1].c.nt, assez[assez.length - 1].c.base) + ' % à ' + pc(assez[0].c.nt, assez[0].c.base) + ' % de R1 non tenus le jour J selon le créneau (moyenne ' + moyNT + ' %) : choisis tes créneaux.');
+    var hs = Object.keys(R.H).map(Number).filter(function(x) { return R.H[x].base >= CR_SEUIL; }).sort(function(a, b) { return pc(R.H[a].nt, R.H[a].base) - pc(R.H[b].nt, R.H[b].base); });
+    var hB = hs[0], hW = hs.slice(-2).sort(function(a, b) { return a - b; }), mieux2 = assez[assez.length - 1], pire2 = assez[0];
+    if (hs.length >= 3) concl.push('<b>Place tes RDV le ' + mieux2.lib + ' et à ' + hB + ' h</b> (' + pc(R.H[hB].nt, R.H[hB].base) + ' % de non tenus' + (R.H[hB].show >= CR_SEUIL_V ? ', closing ' + pc(R.H[hB].sig, R.H[hB].show) + ' %' : '') + '). Évite ' + hW.map(function(x) { return x + ' h'; }).join(' et ') + ' (' + hW.map(function(x) { return pc(R.H[x].nt, R.H[x].base) + ' %'; }).join(' et ') + ' de non tenus) et le ' + pire2.lib + ' (' + pc(pire2.c.nt, pire2.c.base) + ' %).');
+    var m0 = C['d0'] || { sig: 0, show: 0 }, m1 = C['d1'] || { sig: 0, show: 0 }, c0 = pc(m0.sig, m0.show), c1 = pc(m1.sig, m1.show);
+    var hv = Object.keys(R.H).map(Number).filter(function(x) { return R.H[x].show >= 20; }).sort(function(a, b) { return pc(R.H[a].sig, R.H[a].show) - pc(R.H[b].sig, R.H[b].show); })[0];
+    if (c0 !== null && c1 !== null) concl.push((Math.abs(c0 - c1) < 2 ? '<b>Tu vends autant le matin que l\'après-midi</b> (' + c0 + ' % et ' + c1 + ' % de closing).' : '<b>Tu vends mieux ' + (c1 > c0 ? 'l\'après-midi' : 'le matin') + '</b> : ' + Math.max(c0, c1) + ' % de closing, contre ' + Math.min(c0, c1) + ' % ' + (c1 > c0 ? 'le matin' : 'l\'après-midi') + '.') + (hv !== undefined ? ' ' + hv + ' h est ton pire créneau de vente : ' + R.H[hv].sig + ' vente' + (R.H[hv].sig > 1 ? 's' : '') + ' sur ' + R.H[hv].show + ' démos (' + pc(R.H[hv].sig, R.H[hv].show) + ' %).' : ''));
+  }
+  var h = '<div class="pf-card cr-lecture">' + (concl.length ? '<ol class="cr-concl">' + concl.map(function(x) { return '<li>' + x + '</li>'; }).join('') + '</ol>' : 'Pas encore assez de RDV par créneau pour conclure (' + CR_SEUIL + ' RDV minimum par case).') + '</div>';
   h += '<div class="cr-grille">';
   h += '<div class="pf-card"><div class="cr-t">Non tenus le jour J</div><div class="cr-st">No-show + annulés ou reprogrammés le jour même, sur les R1 tenus ou attendus ce jour-là. Moyenne ' + moyNT + ' %.</div>' + tableau(caseNT)
     + '<div class="cr-leg"><span><i style="background:color-mix(in srgb, var(--red) 45%, var(--surface2))"></i>pire que ta moyenne</span><span><i style="background:color-mix(in srgb, var(--green) 45%, var(--surface2))"></i>mieux que ta moyenne</span><span>grisé : moins de ' + CR_SEUIL + ' RDV</span></div></div>';
