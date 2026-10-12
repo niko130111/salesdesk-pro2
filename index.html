@@ -567,6 +567,19 @@ main.ck-mode .section-header .section-title, main.ck-mode .kpi-grp-t, main.ck-mo
 .ck-stage { padding: 14px 18px 18px; }
 .ck-stage-h { display: flex; justify-content: space-between; gap: 10px; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--ck-muted); margin-bottom: 4px; flex-wrap: wrap; }
 .ck-dalles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; padding: 14px 4px 8px; perspective: 1200px; }
+/* Performance : chiffres cliquables → liste des noms (12 oct. 2026) */
+.pf-liste { cursor: pointer; border-radius: 4px; text-decoration: underline dotted 1px; text-underline-offset: 3px; text-decoration-color: color-mix(in srgb, currentColor 45%, transparent); }
+.pf-liste:hover { text-decoration-color: currentColor; background: color-mix(in srgb, var(--sd-action, #3b5bdb) 10%, transparent); }
+.auj-ind.pf-clic { cursor: pointer; } .auj-ind.pf-clic:hover { background: var(--surface2); border-radius: 10px; }
+.pf-pop { width: min(560px, 92vw); max-width: 100%; box-sizing: border-box; }
+.pf-pop-h { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; margin-bottom: 10px; }
+.pf-pop-h .t { font-size: 17px; font-weight: 800; color: var(--text); } .pf-pop-h .t span { font-size: 13px; font-weight: 700; color: var(--text2); background: var(--surface2); border-radius: 999px; padding: 1px 8px; margin-left: 4px; vertical-align: 2px; }
+.pf-pop-l { max-height: min(60vh, 520px); overflow-y: auto; border-top: 1px solid var(--border); }
+.pf-l { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 8px 2px; border-bottom: 1px solid var(--border); }
+.pf-l .n { min-width: 0; display: flex; flex-direction: column; font-weight: 600; font-size: 13.5px; color: var(--text); } .pf-l .n small { font-weight: 400; font-size: 12px; color: var(--text2); }
+.pf-l .b { flex: none; display: flex; gap: 6px; align-items: center; font-size: 13px; }
+.pf-b { font-size: 11.5px; font-weight: 600; border-radius: 999px; padding: 2px 8px; background: var(--surface2); color: var(--text2); white-space: nowrap; }
+.pf-b.ok { background: var(--soft-teal, #e6f6ef); color: var(--sd-green, #1a7f4b); } .pf-b.ko { background: var(--soft-red); color: var(--sd-red, #c0392b); }
 .ck-dalle { position: relative; border-radius: 14px; padding: 16px 18px; border: 1px solid var(--ck-line); background: var(--ck-dalle); box-shadow: var(--ck-dalle-shadow); color: var(--ck-text); text-align: left; cursor: pointer; font-family: inherit; min-width: 0; transform: rotateX(10deg); transform-style: preserve-3d; transition: transform .25s, box-shadow .25s, border-color .25s; }
 .ck-dalle::before { content: ''; position: absolute; inset: 0; border-radius: 14px; background: radial-gradient(100% 70% at 15% 0%, rgba(255,255,255,.14), transparent 55%); pointer-events: none; }
 .ck-dalle > * { position: relative; }
@@ -1396,10 +1409,10 @@ select.form-input { cursor: pointer; }
       <div class="nav-more-menu" id="nav-more-menu">
         <div class="nav-more-grp">Dossiers</div>
         <button class="nav-tab" data-page="pipeline" onclick="showPage('pipeline',this);togglePeriodSelector(false);renderPipeline()"><span class="nav-ico">▤</span>Pipeline <small>kanban</small></button>
-        <button class="nav-tab" data-page="rdvtable" onclick="showPage('rdvtable',this);togglePeriodSelector(true)"><span class="nav-ico">▥</span>Rendez-vous <small>tableau</small></button>
         <div class="nav-more-grp grp-bas">Réglages</div>
         <button class="nav-tab" data-page="automatisations" onclick="showPage('automatisations',this);togglePeriodSelector(false);renderAutomatisations(true)"><span class="nav-ico">↻</span>Automatisations</button>
         <button class="nav-tab" data-page="controle" onclick="showPage('controle',this);togglePeriodSelector(false);renderControle(true)"><span class="nav-ico">⛨</span>Contrôle<span id="nav-controle-badge" style="display:none;margin-left:6px;background:var(--red);color:#fff;font-size:10px;padding:1px 6px;border-radius:99px;font-weight:700;"></span></button>
+        <button class="nav-tab" data-page="rdvtable" title="Le tableau de toutes les lignes RDV : corriger un champ, supprimer un doublon, saisir un RDV passé" onclick="showPage('rdvtable',this);togglePeriodSelector(true)"><span class="nav-ico">▥</span>Données brutes <small>tableau</small></button>
         <button class="nav-tab" data-page="settings" onclick="showPage('settings',this);togglePeriodSelector(false)"><span class="nav-ico">⚙</span>Objectifs & Config<span id="nav-settings-dot" style="display:none;width:7px;height:7px;border-radius:50%;background:var(--red);margin-left:6px;vertical-align:middle;"></span></button>
       </div>
     </div>
@@ -9601,9 +9614,9 @@ function ckHtml(c) {
   var h = '<div class="ck" id="ck" data-sel="">';
   h += '<div class="ck-head"><div><h1 class="pf-h1">Performance</h1><div class="pf-sub"><span>Comprendre mes résultats</span><span>·</span><span>' + escapeHtml(state.month + ' ' + state.year) + (c.courant ? ' · ' + c.jRest + ' jour' + (c.jRest > 1 ? 's' : '') + ' de travail restant' + (c.jRest > 1 ? 's' : '') : '') + '</span><span>·</span><span title="Fraîcheur des données">' + escapeHtml(frais) + '</span></div></div>'
     + '<div class="ck-tools"><div class="ck-tabs"><button class="on">Mois</button><button onclick="sdPerfOnglet(\'historique\')">Historique</button></div><div class="pf-mois"><button title="Mois précédent" onclick="pfMois(-1)">‹</button><span>' + escapeHtml(state.month + ' ' + state.year) + '</span><button title="Mois suivant" onclick="pfMois(1)">›</button></div><button class="btn btn-sm" onclick="ckBasculerVue()" title="Les mêmes chiffres, sans la scène">Vue classique</button></div></div>';
-  h += '<div class="ck-band">' + tile('💰', 'Commission acquise', eur(c.comm), (c.prime ? 'dont prime palier ' + eur(c.prime) : 'ventes du mois, date de signature'))
+  h += '<div class="ck-band">' + tile('💰', 'Commission acquise', pfL('signes', eur(c.comm)), (c.prime ? 'dont prime palier ' + eur(c.prime) : 'ventes du mois, date de signature'))
     + tile('🎯', 'Objectif du mois' + (c.courant && c.obj !== OBJ ? ' (absences déduites)' : ''), eur(c.obj), c.reste ? 'reste ' + eur(c.reste) + (c.courant ? ' · ' + eur(Math.round(c.reste / Math.max(1, c.jRest))) + ' par jour restant' : '') : 'atteint')
-    + tile('📝', 'Signatures du mois', k.signes || 0, (c.proch ? 'prochaine prime ' + c.proch : 'primes : aucune à venir'))
+    + tile('📝', 'Signatures du mois', pfL('signes', k.signes || 0), (c.proch ? 'prochaine prime ' + c.proch : 'primes : aucune à venir'))
     + tile('📈', 'Progression', c.pct + ' %', 'de l\'objectif du mois', c.pct) + '</div>';
   // les six dalles : chiffre, barre = ce mois, trait = moyenne des 3 derniers mois finis (même définition)
   var s3 = c.s3 || {}, nb3 = s3.moisAvecDonnees || 0, mois3 = null; try { mois3 = sdTunnel3Mois(); } catch (e) {}
@@ -9614,11 +9627,11 @@ function ckHtml(c) {
   var refA = appels ? Math.max(appelsMoy || 0, appels.sortants || 1) : 1, refS = Math.max(nb3 && s3.totalSignes ? s3.totalSignes / nb3 : 0, k.signes || 1);
   h += '<div class="ck-main"><div class="ck-stage"><div class="ck-stage-h"><span>Les six chiffres qui comptent</span><span>barre = ce mois · trait = moyenne de tes 3 derniers mois finis</span></div><div class="ck-dalles">'
     + dalle('acq', 'Appels', appels ? (appels.sortants || 0) : '—', appels ? (appels.sortants || 0) / refA * 100 : 0, appels && appelsMoy ? appelsMoy / refA * 100 : null, appels ? ((aC && aC.uniques !== undefined && !aC.enCours && !aC.erreur) ? aC.uniques + ' prospects · ' + aC.joints + ' conversations' : (appels.duree ? fmtDureeAppels(appels.duree) + ' en ligne' : '')) + (appelsMoy ? ' · moy. ' + Math.round(appelsMoy) : '') : 'Close non chargé')
-    + dalle('acq', 'RDV outbound pris', outb + ' <small>/ ' + objOutb + '</small>', outb / objOutb * 100, null, (appels && outb ? '1 pour ' + Math.round((appels.sortants || 0) / outb) + ' appels · ' : '') + (c.courant ? 'objectif à ce jour (3 par jour ouvré)' + (objOutb > outb ? ' · ' + (objOutb - outb) + ' de retard' : ' · dans les clous') : 'objectif 3 par jour ouvré'))
-    + dalle('rdv', 'RDV tenus ou attendus', k.total + ' <small>· ' + (k.rdvPris || 0) + ' pris</small>', k.rdvPris ? k.total / k.rdvPris * 100 : 0, moy('pris') ? moy('base') / Math.max(moy('pris'), 1) * 100 : null, (k.rdvPris - k.total) + ' annulé' + ((k.rdvPris - k.total) > 1 ? 's' : '') + ' ou déplacé' + ((k.rdvPris - k.total) > 1 ? 's' : '') + ' à l\'avance' + (moy('base') ? ' · moy. ' + Math.round(moy('base')) + ' attendus' : ''))
-    + dalle('rdv', 'Présence', (pres === null ? '—' : pres) + ' <small>%</small>', pres || 0, nb3 ? s3.showRate : null, k.shows + ' tenus · ' + (ap.total || 0) + ' non tenus le jour J' + (nb3 ? ' · moy. ' + Math.round(s3.showRate) + ' %' : ''))
-    + dalle('conv', 'Closing', (k.shows ? k.closing : '—') + ' <small>%</small>', k.shows ? k.closing : 0, nb3 ? s3.closingRate : null, u.signes + ' signé' + (u.signes > 1 ? 's' : '') + ' sur ' + k.shows + ' R1 tenus ce mois' + (nb3 ? ' · moy. ' + Math.round(s3.closingRate) + ' %' : '') + (c.courant ? ' · encore ouvert' : ''))
-    + dalle('conv', 'Signatures', (k.signes || 0) + ' <small>· ' + eur(c.comm) + '</small>', (k.signes || 0) / refS * 100, nb3 && s3.totalSignes ? (s3.totalSignes / nb3) / refS * 100 : null, 'suites datées ' + (suites === null ? '—' : suites + ' %') + ' · cycle ' + (k.delai === null || k.delai === undefined ? '—' : k.delai + ' j') + (nb3 ? ' · moy. ' + (s3.totalSignes / nb3).toFixed(1).replace('.', ',') + ' ventes' : ''), 'ok')
+    + dalle('acq', 'RDV outbound pris', pfL('outbound', outb) + ' <small>/ ' + objOutb + '</small>', outb / objOutb * 100, null, (appels && outb ? '1 pour ' + Math.round((appels.sortants || 0) / outb) + ' appels · ' : '') + (c.courant ? 'objectif à ce jour (3 par jour ouvré)' + (objOutb > outb ? ' · ' + (objOutb - outb) + ' de retard' : ' · dans les clous') : 'objectif 3 par jour ouvré'))
+    + dalle('rdv', 'RDV tenus ou attendus', pfL('base', k.total) + ' <small>· ' + pfL('pris', (k.rdvPris || 0) + ' pris') + '</small>', k.rdvPris ? k.total / k.rdvPris * 100 : 0, moy('pris') ? moy('base') / Math.max(moy('pris'), 1) * 100 : null, pfL('avance', (k.rdvPris - k.total) + ' annulé' + ((k.rdvPris - k.total) > 1 ? 's' : '') + ' ou déplacé' + ((k.rdvPris - k.total) > 1 ? 's' : '') + ' à l\'avance') + (moy('base') ? ' · moy. ' + Math.round(moy('base')) + ' attendus' : ''))
+    + dalle('rdv', 'Présence', pfL('shows', (pres === null ? '—' : pres) + ' <small>%</small>'), pres || 0, nb3 ? s3.showRate : null, pfL('shows', k.shows + ' tenus') + ' · ' + pfL('nontenus', (ap.total || 0) + ' non tenus le jour J') + (nb3 ? ' · moy. ' + Math.round(s3.showRate) + ' %' : ''))
+    + dalle('conv', 'Closing', pfL('closing', (k.shows ? k.closing : '—') + ' <small>%</small>'), k.shows ? k.closing : 0, nb3 ? s3.closingRate : null, u.signes + ' signé' + (u.signes > 1 ? 's' : '') + ' sur ' + k.shows + ' R1 tenus ce mois' + (nb3 ? ' · moy. ' + Math.round(s3.closingRate) + ' %' : '') + (c.courant ? ' · encore ouvert' : ''))
+    + dalle('conv', 'Signatures', pfL('signes', (k.signes || 0) + ' <small>· ' + eur(c.comm) + '</small>'), (k.signes || 0) / refS * 100, nb3 && s3.totalSignes ? (s3.totalSignes / nb3) / refS * 100 : null, 'suites datées ' + (suites === null ? '—' : suites + ' %') + ' · cycle ' + (k.delai === null || k.delai === undefined ? '—' : k.delai + ' j') + (nb3 ? ' · moy. ' + (s3.totalSignes / nb3).toFixed(1).replace('.', ',') + ' ventes' : ''), 'ok')
     + '</div></div><div class="ck-side" id="ck-side"></div></div>';
   h += '<div class="ck-bottom"><div class="ck-card"><h3>Trajectoire vers l\'objectif <span class="pf-note" id="ck-traj-note"></span></h3><canvas id="ck-traj" height="200"></canvas><div class="ck-lg" id="ck-traj-lg"></div></div>'
     + '<div class="ck-card"><h3>Comparaison à mes 3 derniers mois finis</h3><div class="ck-cmp" id="ck-cmp"></div></div></div>';
@@ -9635,6 +9648,61 @@ function ckApres(c) {
   var mk = c.yr + '-' + String(c.mIdx + 1).padStart(2, '0');
   if (!_ck.appels[mk] && typeof COPILOT_URL !== 'undefined') { var deb = mk + '-01', fin = rlIso(new Date(c.yr, c.mIdx + 1, 0)); _ck.appels[mk] = { enCours: true }; fetch(COPILOT_URL + '/close/appels-periode?' + new URLSearchParams({ du: deb, au: fin }), { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).then(function(j) { _ck.appels[mk] = j && j.configure ? j : { erreur: true }; if (document.getElementById('ck')) renderPerfTop(); }).catch(function() { _ck.appels[mk] = { erreur: true }; }); }
 }
+// Performance : un clic sur un chiffre ouvre la liste des RDV qui le composent (12 oct. 2026). Mêmes filtres que le chiffre affiché ; un nom ouvre la fiche client.
+function pfL(cle, html) { return '<span class="pf-liste" title="Voir les noms" onclick="event.stopPropagation();sdPerfListe(' + JSON.stringify(cle).replace(/"/g, '&quot;') + ')">' + html + '</span>'; }
+function sdOutboundListe(quand) { // Aujourd'hui : liste derrière « Outbound x / y » et « Semaine x / y »
+  var os = window._sdOutboundSemaine || {}, L = (quand === 'jour' ? os.jour : os.liste) || [], X = (quand === 'jour' ? os.exclusJour : os.exclusSemaine) || [];
+  var dt = function(d) { try { return d ? new Date(d).toLocaleDateString('fr-FR', { weekday: 'short', day: '2-digit', month: '2-digit' }) + ' ' + new Date(d).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '—'; } catch (e) { return '—'; } };
+  var ligne = function(e, badge) { return '<div class="pf-l"><span class="n">' + sdNomLien(e.name || e.email || '?', e.email || '', 'fermerModalDoublon();') + '<small>' + escapeHtml('pris ' + dt(e.createdAt) + ' · RDV ' + dt(e.start)) + '</small></span><span class="b">' + (e.annule ? '<span class="pf-b ko">annulé depuis</span>' : '') + badge + '</span></div>'; };
+  var titre = quand === 'jour' ? 'RDV outbound pris aujourd\'hui' : 'RDV outbound pris cette semaine', cible = quand === 'jour' ? '' : (os.cible ? ' · objectif ' + os.cible : '');
+  var ov = document.getElementById('fc-dup-overlay');
+  if (!ov) { ov = document.createElement('div'); ov.id = 'fc-dup-overlay'; ov.className = 'modal-overlay'; ov.style.zIndex = '1300'; ov.innerHTML = '<div class="modal" id="fc-dup-modal"></div>'; document.body.appendChild(ov); }
+  ov.onclick = function(ev) { if (ev.target === ov) fermerModalDoublon(); }; ov.classList.add('open');
+  document.getElementById('fc-dup-modal').innerHTML = '<div class="fc-dup pf-pop"><div class="pf-pop-h"><div><div class="t">' + titre + ' <span>' + L.length + '</span></div><div class="fc-muted">' + (quand === 'jour' ? 'Pris sur ton lien Calendly depuis ce matin' : 'Pris sur ton lien Calendly depuis lundi') + cible + ' · un par prospect sur 2 mois.</div></div><button class="btn btn-sm" onclick="fermerModalDoublon()">Fermer</button></div>'
+    + '<div class="pf-pop-l">' + (L.length ? L.map(function(e) { return ligne(e, '<span class="pf-b ok">compté</span>'); }).join('') : '<div class="fc-muted" style="padding:14px 0;">Aucun RDV outbound pris ' + (quand === 'jour' ? 'aujourd\'hui' : 'cette semaine') + ' pour l\'instant.</div>')
+    + (X.length ? '<div class="fc-muted" style="margin:14px 0 4px;font-weight:600;">Pris mais non comptés · ' + X.length + '</div>' + X.map(function(x) { return ligne(x.e, '<span class="pf-b mu" title="' + escapeHtml({ 'déjà vu < 2 mois': 'Reprise : un RDV a déjà eu lieu ou était prévu avec cette personne il y a moins de 2 mois', 'doublon': 'Même e-mail déjà compté dans la période' }[x.raison] || 'Reclassé à la main dans l\'onglet Outbound') + '">' + escapeHtml(x.raison) + '</span>'); }).join('') : '') + '</div></div>';
+}
+function sdPerfListe(cle) {
+  var rows = getRdvs(state.month, state.year), k = computeKpis(state.month, state.year);
+  var r1 = rows.filter(function(r) { return r && r.source !== 'R2' && /^(Show|No Show|Annulé|Reprogrammé)$/.test(String(r.presence || '').trim()); });
+  var iso = function(r) { return String(r.date || '').split('/').reverse().join('-'); };
+  var jourJ = function(r) { return !!r.annuleLe && sdJourParis(r.annuleLe) === iso(r); };
+  var base = r1.filter(sdEnBase), shows = r1.filter(function(r) { return r.presence === 'Show'; });
+  var etat = function(r) { var p = String(r.presence || '').trim(); if (p === 'Show') return r.result === 'Signé' ? ['Signé', 'ok'] : ['Tenu', 'ok']; if (p === 'No Show') return ['No-show', 'ko']; if (p === 'Annulé' || p === 'Reprogrammé') { var av = sdEnBase(r) ? 'le jour J' : 'à l\'avance'; return [p + ' ' + av, sdEnBase(r) ? 'ko' : 'mu']; } return [p || 'à venir', 'mu']; };
+  var L = null, titre = '', note = '', mode = 'rdv';
+  var src = /^src:/.test(cle) ? cle.slice(4) : '';
+  if (cle === 'base') { L = base; titre = 'RDV tenus ou attendus'; note = 'R1 du mois vécus, plus ceux non tenus le jour J (no-show, annulé ou déplacé le jour même).'; }
+  else if (cle === 'pris') { L = r1; titre = 'RDV pris'; note = 'Tous les R1 du mois avec une présence notée, y compris ceux annulés ou déplacés à l\'avance.'; }
+  else if (cle === 'shows') { L = shows; titre = 'RDV tenus'; note = 'R1 du mois où la personne était présente.'; }
+  else if (cle === 'nontenus') { L = base.filter(function(r) { return r.presence !== 'Show'; }); titre = 'Non tenus le jour J'; note = 'No-show, plus les annulations et déplacements faits le jour même du RDV.'; }
+  else if (cle === 'noshow') { L = r1.filter(function(r) { return r.presence === 'No Show'; }); titre = 'No-show'; }
+  else if (cle === 'annulesJour') { L = r1.filter(function(r) { return r.presence === 'Annulé' && jourJ(r); }); titre = 'Annulés le jour J'; }
+  else if (cle === 'reprogJour') { L = r1.filter(function(r) { return r.presence === 'Reprogrammé' && jourJ(r); }); titre = 'Reprogrammés le jour J'; }
+  else if (cle === 'avance') { L = r1.filter(function(r) { return !sdEnBase(r); }); titre = 'Annulés ou déplacés à l\'avance'; note = 'Hors base : le créneau a pu être réutilisé.'; }
+  else if (cle === 'closing') { L = shows.filter(function(r) { return r.result === 'Signé'; }); titre = 'Closing : R1 tenus ce mois qui ont signé'; note = shows.length + ' R1 tenus ce mois, dont ' + L.length + ' signé' + (L.length > 1 ? 's' : '') + '.'; }
+  else if (cle === 'signes') { L = (k.signesRows || []).slice(); titre = 'Signatures du mois'; note = 'Ventes signées ce mois (date de signature), quel que soit le mois du R1.'; mode = 'vente'; }
+  else if (cle === 'outbound') { L = (k.outbound || []).slice(); titre = 'RDV outbound pris'; note = 'RDV outbound dont la prise tombe ce mois, quelle que soit la date du RDV.'; mode = 'outbound'; }
+  else if (cle === 'mand') { L = (k.mandataires || []).slice(); titre = 'Mandataires'; note = 'Même base que le total RDV.'; }
+  else if (cle === 'agences') { L = (k.agences || []).slice(); titre = 'Agences'; note = 'Même base que le total RDV.'; }
+  else if (src) { L = base.filter(function(r) { return r.source === src; }); titre = src + ' · RDV tenus ou attendus'; var av2 = r1.filter(function(r) { return r.source === src && !sdEnBase(r); }).length; if (av2) note = 'Plus ' + av2 + ' annulé' + (av2 > 1 ? 's' : '') + ' ou déplacé' + (av2 > 1 ? 's' : '') + ' à l\'avance, hors base.'; }
+  if (!L) return;
+  var isoP = function(r) { return String(r.datePrise || r.date || '').split('/').reverse().join('-'); }, isoS = function(r) { return String(r.dateSignature || r.date || '').split('/').reverse().join('-'); };
+  var cleTri = mode === 'outbound' ? isoP : mode === 'vente' ? isoS : iso;
+  L.sort(function(a, b) { return cleTri(a).localeCompare(cleTri(b)) || String(a.client || '').localeCompare(String(b.client || '')); });
+  var vus = {}, doublons = {}; if (mode === 'outbound') L.forEach(function(r) { var c0 = String(r.email || '').toLowerCase().trim() || fcNormNom(r.client || ''); if (vus[c0]) doublons[c0] = 1; vus[c0] = 1; });
+  var fr = function(d) { return String(d || '').slice(0, 5); };
+  var ligne = function(r) {
+    var nom = sdNomLien(r.client, r.email || '', 'fermerModalDoublon();'), info = [], badge = '';
+    if (mode === 'vente') { info.push((r.pack || '') + (r.freq ? ' · ' + r.freq : '')); info.push('signé le ' + fr(r.dateSignature || r.date)); info.push('R1 le ' + fr(r.date)); badge = '<b>' + Math.round(getComm(r) || 0).toLocaleString('fr-FR') + ' €</b>'; }
+    else if (mode === 'outbound') { var c0 = String(r.email || '').toLowerCase().trim() || fcNormNom(r.client || ''); info.push('pris le ' + fr(r.datePrise || r.date)); info.push('RDV le ' + fr(r.date)); info.push(r.type || ''); var e = etat(r); badge = (doublons[c0] ? '<span class="pf-b mu">2 RDV ce mois</span>' : '') + '<span class="pf-b ' + e[1] + '">' + escapeHtml(e[0]) + '</span>'; }
+    else { info.push(fr(r.date) + (r.heure ? ' ' + r.heure : '')); info.push(r.source || ''); info.push(r.type || ''); var e2 = etat(r); badge = '<span class="pf-b ' + e2[1] + '">' + escapeHtml(e2[0]) + '</span>'; }
+    return '<div class="pf-l"><span class="n">' + nom + '<small>' + escapeHtml(info.filter(Boolean).join(' · ')) + '</small></span><span class="b">' + badge + '</span></div>'; };
+  var ov = document.getElementById('fc-dup-overlay');
+  if (!ov) { ov = document.createElement('div'); ov.id = 'fc-dup-overlay'; ov.className = 'modal-overlay'; ov.style.zIndex = '1300'; ov.innerHTML = '<div class="modal" id="fc-dup-modal"></div>'; document.body.appendChild(ov); }
+  ov.onclick = function(ev) { if (ev.target === ov) fermerModalDoublon(); }; ov.classList.add('open');
+  document.getElementById('fc-dup-modal').innerHTML = '<div class="fc-dup pf-pop"><div class="pf-pop-h"><div><div class="t">' + escapeHtml(titre) + ' <span>' + L.length + '</span></div><div class="fc-muted">' + escapeHtml(state.month + ' ' + state.year) + (note ? ' · ' + escapeHtml(note) : '') + '</div></div><button class="btn btn-sm" onclick="fermerModalDoublon()">Fermer</button></div>'
+    + '<div class="pf-pop-l">' + (L.length ? L.map(ligne).join('') : '<div class="fc-muted" style="padding:14px 0;">Personne ce mois.</div>') + '</div></div>';
+}
 // Détail du mois (direction « Dalles », 11 oct. 2026) : cartes générées depuis les mêmes calculs — rendez-vous (barre tenus / no-show / annulés / déplacés / à l'avance),
 // ventes et deals, rythme et suivi, mandataires vs agences, sources. Les anciens blocs équivalents sont masqués en mode cockpit ; appels, commission (avec les primes) et historique restent.
 function ckDetailHtml(c) {
@@ -9644,22 +9712,22 @@ function ckDetailHtml(c) {
   var av = pris - base, moyTxt = function(v, u2) { return nb3 && v !== null && v !== undefined ? ' · moy. ' + v + (u2 || '') : ''; };
   var kpi = function(lab, v, s, cls) { return '<div class="ck-k"><div class="lab">' + lab + '</div><div class="v' + (cls ? ' ' + cls : '') + '">' + v + '</div><div class="s">' + s + '</div></div>'; };
   var stack = function(parts) { var tot = parts.reduce(function(a, p) { return a + p[0]; }, 0) || 1; return '<div class="ck-stack">' + parts.map(function(p) { return p[0] ? '<i class="' + p[1] + '" style="width:' + (p[0] / tot * 100) + '%" title="' + p[2] + '"></i>' : ''; }).join('') + '</div>'; };
-  var lg = function(parts) { return '<div class="ck-lg2">' + parts.map(function(p) { return '<span><i class="' + p[1] + '"></i>' + p[0] + ' ' + p[2] + '</span>'; }).join('') + '</div>'; };
+  var lg = function(parts) { return '<div class="ck-lg2">' + parts.map(function(p) { var t = '<i class="' + p[1] + '"></i>' + p[0] + ' ' + p[2]; return '<span>' + (p[3] ? pfL(p[3], t) : t) + '</span>'; }).join('') + '</div>'; };
   // rendez-vous
   var h = '<div class="ck-sec"><span>Détail du mois — ' + escapeHtml(state.month + ' ' + state.year) + '</span><span>comparaison : moyenne de tes ' + (nb3 || 3) + ' derniers mois finis</span></div><div class="ck-grid2" id="ck-detail">';
   h += '<div class="ck-card" id="ck-det-appels"></div>'; // reçoit le bloc Appels existant
   h += '<div class="ck-card"><h3>📅 Rendez-vous <small>base : vécus + non vécus le jour J</small></h3><div class="ck-k3">'
-    + kpi('Total RDV', base, pris + ' pris · dont ' + (Array.isArray(k.outbound) ? k.outbound.length : 0) + ' outbound' + moyTxt(nb3 ? Math.round(s3.totalRdv / nb3) : null))
-    + kpi('Show rate', P(k.shows, base), k.shows + ' présent' + (k.shows > 1 ? 's' : '') + moyTxt(nb3 ? Math.round(s3.showRate) : null, ' %'), 'ok')
-    + kpi('Non tenus le jour J', P(ap.total || 0, base), (ap.total || 0) + ' sur ' + base + moyTxt(nb3 && s3.jourJRate !== null ? s3.jourJRate : null, ' %'), 'ko') + '</div>'
+    + kpi('Total RDV', pfL('base', base), pfL('pris', pris + ' pris') + ' · dont ' + pfL('outbound', (Array.isArray(k.outbound) ? k.outbound.length : 0) + ' outbound') + moyTxt(nb3 ? Math.round(s3.totalRdv / nb3) : null))
+    + kpi('Show rate', pfL('shows', P(k.shows, base)), pfL('shows', k.shows + ' présent' + (k.shows > 1 ? 's' : '')) + moyTxt(nb3 ? Math.round(s3.showRate) : null, ' %'), 'ok')
+    + kpi('Non tenus le jour J', pfL('nontenus', P(ap.total || 0, base)), pfL('nontenus', (ap.total || 0) + ' sur ' + base) + moyTxt(nb3 && s3.jourJRate !== null ? s3.jourJRate : null, ' %'), 'ko') + '</div>'
     + stack([[k.shows, 'a', k.shows + ' tenus'], [ap.noShow || 0, 'b', (ap.noShow || 0) + ' no-show'], [ap.annulesJour || 0, 'b2', (ap.annulesJour || 0) + ' annulés le jour J'], [ap.reprogJour || 0, 'b3', (ap.reprogJour || 0) + ' reprogrammés le jour J'], [av, 'c', av + ' à l\'avance']])
-    + lg([[k.shows, 'a', 'tenus'], [ap.noShow || 0, 'b', 'no-show'], [ap.annulesJour || 0, 'b2', 'annulés le jour J'], [ap.reprogJour || 0, 'b3', 'reprogrammés le jour J'], [av, 'c', 'à l\'avance (hors base)']])
+    + lg([[k.shows, 'a', 'tenus', 'shows'], [ap.noShow || 0, 'b', 'no-show', 'noshow'], [ap.annulesJour || 0, 'b2', 'annulés le jour J', 'annulesJour'], [ap.reprogJour || 0, 'b3', 'reprogrammés le jour J', 'reprogJour'], [av, 'c', 'à l\'avance (hors base)', 'avance']])
     + (defi && defi.total ? '<div class="ck-note">🚪 ' + defi.total + ' annulé' + (defi.total > 1 ? 's' : '') + ' définitivement (jamais repris) : ' + defi.jourJ + ' le jour J · ' + defi.avance + ' à l\'avance</div>' : '') + '</div>';
   // ventes et deals
   var ventes = k.signesRows || [], mk = c.yr + '-' + String(c.mIdx + 1).padStart(2, '0');
   h += '<div class="ck-card"><h3>💰 Ventes <button class="btn btn-sm" onclick="openModal(\'newDealModal\')">+ Ajouter</button></h3><div class="ck-k3">'
-    + kpi('Signés', k.signes || 0, 'date de signature' + moyTxt(nb3 ? (s3.totalSignes / nb3).toFixed(1).replace('.', ',') : null), 'ok')
-    + kpi('Closing', k.shows ? k.closing + ' %' : '—', u.signes + ' / ' + k.shows + ' R1 tenus ce mois' + moyTxt(nb3 ? Math.round(s3.closingRate) : null, ' %'))
+    + kpi('Signés', pfL('signes', k.signes || 0), 'date de signature' + moyTxt(nb3 ? (s3.totalSignes / nb3).toFixed(1).replace('.', ',') : null), 'ok')
+    + kpi('Closing', pfL('closing', k.shows ? k.closing + ' %' : '—'), pfL('closing', u.signes + ' / ' + k.shows + ' R1 tenus ce mois') + moyTxt(nb3 ? Math.round(s3.closingRate) : null, ' %'))
     + kpi('Commission', eur(c.comm), (ventes.filter(function(v) { return v.freq === 'Mensuelle'; }).length) + ' mensuelle' + (ventes.filter(function(v) { return v.freq === 'Mensuelle'; }).length > 1 ? 's' : '') + ' · ' + (ventes.filter(function(v) { return v.freq === 'Annuelle'; }).length) + ' annuelle' + (ventes.filter(function(v) { return v.freq === 'Annuelle'; }).length > 1 ? 's' : ''), 'au') + '</div>'
     + (ventes.length ? ventes.map(function(v) { return '<div class="ck-deal"><span><b>' + sdNomLien(v.client, v.email || '') + '</b> <small>' + escapeHtml((v.pack || '') + (v.freq ? ' · ' + v.freq : '')) + '</small></span><b>' + eur(getComm(v)) + '</b></div>'; }).join('') : '<div class="ck-note">Aucune vente signée ce mois.</div>') + '</div>';
   // rythme et suivi
@@ -9671,10 +9739,10 @@ function ckDetailHtml(c) {
     + kpi('Prise → RDV', k.delaiPriseRdv === null || k.delaiPriseRdv === undefined ? '—' : k.delaiPriseRdv + ' j', (k.nbDelaiPriseRdv || 0) + ' RDV') + '</div>'
     + '<div class="ck-det" style="margin-top:10px"><div class="r"><span>RDV par jour avec RDV</span><b>' + (k.rdvParJour || '0') + ' <small>sur ' + (k.joursTravailles || 0) + ' j</small></b></div><div class="r"><span>Shows par jour</span><b>' + (k.showsParJour || '0') + '</b></div><div class="r"><span>Suites datées après R1 non signé</span><b class="ok">' + (u.nonSignes ? P(u.suites, u.nonSignes) : '—') + '</b></div><div class="r"><span>R2 pris après R1 non signé</span><b>' + (u.nonSignes ? P(u.r2Pris, u.nonSignes) : '—') + ' <small>' + u.r2Tenus + ' tenu' + (u.r2Tenus > 1 ? 's' : '') + '</small></b></div></div></div>';
   // mandataires vs agences (même base)
-  var typeRow = function(nom, rs) { var sh = rs.filter(function(r) { return r.presence === 'Show'; }).length, sg = rs.filter(function(r) { return r.result === 'Signé'; }).length, nt = rs.length - sh; return '<div class="r"><span>' + nom + ' · ' + rs.length + ' RDV</span><b>' + (sh ? Math.round(sg / sh * 100) + ' %' : '—') + ' <small>' + sg + '/' + sh + ' shows</small></b></div>' + stack([[sh, 'a', sh + ' tenus'], [nt, 'b', nt + ' non tenus le jour J']]); };
-  h += '<div class="ck-card"><h3>🏷 Mandataires vs agences <small>même base que le Total RDV</small></h3><div class="ck-det">' + typeRow('Mandataires', k.mandataires || []) + typeRow('Agences', k.agences || []) + ((k.sansType || []).length ? '<div class="ck-note">⚠ ' + k.sansType.length + ' RDV sans type, à requalifier dans Rendez-vous</div>' : '') + '</div>' + lg([[0, 'a', 'tenus'], [0, 'b', 'non tenus le jour J']]).replace(/<span><i class="a"><\/i>0 /, '<span><i class="a"></i>').replace(/<span><i class="b"><\/i>0 /, '<span><i class="b"></i>') + '</div>';
+  var typeRow = function(nom, rs, cle) { var sh = rs.filter(function(r) { return r.presence === 'Show'; }).length, sg = rs.filter(function(r) { return r.result === 'Signé'; }).length, nt = rs.length - sh; return '<div class="r"><span>' + pfL(cle, nom + ' · ' + rs.length + ' RDV') + '</span><b>' + (sh ? Math.round(sg / sh * 100) + ' %' : '—') + ' <small>' + sg + '/' + sh + ' shows</small></b></div>' + stack([[sh, 'a', sh + ' tenus'], [nt, 'b', nt + ' non tenus le jour J']]); };
+  h += '<div class="ck-card"><h3>🏷 Mandataires vs agences <small>même base que le Total RDV</small></h3><div class="ck-det">' + typeRow('Mandataires', k.mandataires || [], 'mand') + typeRow('Agences', k.agences || [], 'agences') + ((k.sansType || []).length ? '<div class="ck-note">⚠ ' + k.sansType.length + ' RDV sans type, à requalifier dans Données brutes</div>' : '') + '</div>' + lg([[0, 'a', 'tenus'], [0, 'b', 'non tenus le jour J']]).replace(/<span><i class="a"><\/i>0 /, '<span><i class="a"></i>').replace(/<span><i class="b"><\/i>0 /, '<span><i class="b"></i>') + '</div>';
   // sources
-  var srcRow = function(nom, rs) { var p = rs.length, sh = rs.filter(function(r) { return r.presence === 'Show'; }).length, sg = rs.filter(function(r) { return r.result === 'Signé'; }).length, jj = sdAttenduPourRien(rs), b = jj.horsPeriode ? p : sh + jj.total, nt = b - sh, a2 = p - b; return '<div class="r"><span>' + nom + ' · ' + b + ' RDV' + (a2 ? ' <small>' + p + ' pris · ' + a2 + ' à l\'avance</small>' : '') + '</span><b>show ' + P(sh, b) + ' · closing ' + (sh ? Math.round(sg / sh * 100) + ' %' : '—') + ' · ' + sg + ' vente' + (sg > 1 ? 's' : '') + '</b></div>' + stack([[sh, 'a', sh + ' tenus'], [nt, 'b', nt + ' non tenus le jour J']]); };
+  var srcRow = function(nom, rs) { var p = rs.length, sh = rs.filter(function(r) { return r.presence === 'Show'; }).length, sg = rs.filter(function(r) { return r.result === 'Signé'; }).length, jj = sdAttenduPourRien(rs), b = jj.horsPeriode ? p : sh + jj.total, nt = b - sh, a2 = p - b; return '<div class="r"><span>' + pfL('src:' + nom, nom + ' · ' + b + ' RDV') + (a2 ? ' <small>' + p + ' pris · ' + a2 + ' à l\'avance</small>' : '') + '</span><b>show ' + P(sh, b) + ' · closing ' + (sh ? Math.round(sg / sh * 100) + ' %' : '—') + ' · ' + sg + ' vente' + (sg > 1 ? 's' : '') + '</b></div>' + stack([[sh, 'a', sh + ' tenus'], [nt, 'b', nt + ' non tenus le jour J']]); };
   h += '<div class="ck-card"><h3>🧭 Par source</h3><div class="ck-det">' + srcRow('Inbound', r1.filter(function(r) { return r.source === 'Inbound'; })) + srcRow('Outbound', r1.filter(function(r) { return r.source === 'Outbound'; })) + srcRow('PUB', r1.filter(function(r) { return r.source === 'PUB'; })) + '</div></div>';
   h += '<div class="ck-card" id="ck-det-comm"></div>'; // reçoit le bloc Commission existant (primes, réel)
   h += '</div>';
@@ -10197,7 +10265,9 @@ function renderDaily() {
 
   // Étape 3 : Affichage page Quotidien
   var outboundReste = Math.max(0, outboundCible - rdvOutboundSemaine);
-  window._sdOutboundSemaine = { pris: _outboundThisWeek.length, pts: rdvOutboundSemaine, cible: outboundCible }; // repris par la barre du haut d'Aujourd'hui
+  // Listes derrière « Outbound » et « Semaine » d'Aujourd'hui (12 oct. 2026) : les RDV comptés, et ceux pris dans la période mais non comptés, avec la raison
+  var _sdExclusOutbound = function(debut, fin) { var comptes = _uniqueOutbounds.filter(function(e) { return e.createdAt >= debut && e.createdAt <= fin; }); return _sourceEvents.filter(function(e) { return e.source === 'Outbound' && e.createdAt && e.createdAt >= debut && e.createdAt <= fin && comptes.indexOf(e) < 0; }).map(function(e) { var ovr = _outboundOverrides[_getOverrideKey(e)], raison = ovr && ovr !== 'Outbound' ? 'reclassé en ' + ovr : (!ovr && typeof sdOutboundReprise === 'function' && sdOutboundReprise(e)) ? 'déjà vu < 2 mois' : 'doublon'; return { e: e, raison: raison }; }); };
+  window._sdOutboundSemaine = { pris: _outboundThisWeek.length, pts: rdvOutboundSemaine, cible: outboundCible, liste: _outboundThisWeek.slice(), jour: _outboundToday.slice(), exclusSemaine: _sdExclusOutbound(_weekMonday, _weekFriday), exclusJour: _sdExclusOutbound(_todayStart, _todayEnd) }; // repris par la barre du haut d'Aujourd'hui
   // Le compteur est pondéré (Mandataire = 1, Agences = 2). "7" ne veut donc dire ni
   // 7 RDV ni 7 prospects : on affiche les deux pour que le reste-à-faire soit actionnable.
   S('daily-outbound-reste', outboundReste > 0 ? outboundReste : '\u2713');
@@ -12526,8 +12596,8 @@ function renderAujourdhui() {
     var mo = /^(\d+)\s*\/\s*(\d+)/.exec(T('daily-outbound-today-count')), faitO = mo && +mo[1] >= +mo[2];
     var ap = (typeof _appelsJour !== 'undefined' && _appelsJour) ? _appelsJour : null, jn = ap ? ap.filter(function(a) { return a.joint; }).length : 0;
     var ind = [];
-    if (estAuj) ind.push('<div class="auj-ind' + (faitO ? ' ok' : '') + '" title="RDV Outbound pris aujourd\'hui / objectif du jour">' + aujIco('phone') + (mo ? '<span>Outbound <b>' + mo[1] + ' / ' + mo[2] + '</b></span><span class="bar"><i style="width:' + Math.min(100, Math.round(100 * +mo[1] / Math.max(1, +mo[2]))) + '%"></i></span>' : '<span class="muted">Objectif outbound du jour indisponible</span>') + '</div>');
-    var os = window._sdOutboundSemaine; if (estAuj && os) ind.push('<div class="auj-ind' + (os.cible && os.pts >= os.cible ? ' ok' : '') + '" title="RDV Outbound pris cette semaine (depuis lundi) / objectif de la semaine">' + aujIco('phone') + '<span>Semaine <b>' + os.pts + ' / ' + os.cible + '</b></span><span class="bar"><i style="width:' + Math.min(100, Math.round(100 * os.pts / Math.max(1, os.cible))) + '%"></i></span></div>');
+    if (estAuj) ind.push('<div class="auj-ind pf-clic' + (faitO ? ' ok' : '') + '" title="RDV Outbound pris aujourd\'hui / objectif du jour · clic : la liste" onclick="sdOutboundListe(\'jour\')">' + aujIco('phone') + (mo ? '<span>Outbound <b>' + mo[1] + ' / ' + mo[2] + '</b></span><span class="bar"><i style="width:' + Math.min(100, Math.round(100 * +mo[1] / Math.max(1, +mo[2]))) + '%"></i></span>' : '<span class="muted">Objectif outbound du jour indisponible</span>') + '</div>');
+    var os = window._sdOutboundSemaine; if (estAuj && os) ind.push('<div class="auj-ind pf-clic' + (os.cible && os.pts >= os.cible ? ' ok' : '') + '" title="RDV Outbound pris cette semaine (depuis lundi) / objectif de la semaine · clic : la liste" onclick="sdOutboundListe(\'semaine\')">' + aujIco('phone') + '<span>Semaine <b>' + os.pts + ' / ' + os.cible + '</b></span><span class="bar"><i style="width:' + Math.min(100, Math.round(100 * os.pts / Math.max(1, os.cible))) + '%"></i></span></div>');
     if (estAuj) ind.push('<div class="auj-ind" title="Appels passés aujourd\'hui (Close et téléphone), dont ceux où tu as eu la personne">' + aujIco('phone') + (ap ? '<span><b>' + ap.length + '</b> appel' + (ap.length > 1 ? 's' : '') + ' · <b>' + jn + '</b> joint' + (jn > 1 ? 's' : '') + '</span>' : '<span class="muted">' + (copilotLa ? 'Appels : lecture en cours' : 'Appels indisponibles sans copilot') + '</span>') + '</div>');
     ind.push('<div class="auj-ind">' + aujIco('cal') + '<span><b>' + rdvs.length + '</b> RDV ' + (estAuj ? 'aujourd\'hui' : 'ce jour') + (horsJour.length ? ' <span class="muted">· ' + libHors + '</span>' : '') + '</span></div>');
     document.getElementById('auj-pilot').innerHTML = ind.join('');
