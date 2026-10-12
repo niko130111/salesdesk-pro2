@@ -641,6 +641,22 @@ main.ck-mode #ck-comm-src > .card-title { grid-area: t; } main.ck-mode #ck-comm-
 .pf-tunnel .et .m { font-size: 10.5px; color: var(--text3); margin-top: 2px; }
 .pf-tunnel .et.ko .t b { color: var(--red); } .pf-tunnel .et.ok .t b { color: var(--green); }
 .pf-3 .v { font-size: 26px; font-weight: 800; margin-top: 4px; color: var(--text); } .pf-3 .v small { font-size: 14px; font-weight: 500; color: var(--text3); }
+/* ── Créneaux des RDV (12 oct. 2026) : jour de semaine × demi-journée, en %, avec le nombre de RDV derrière chaque chiffre ── */
+.cr .cr-ctrl { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.cr .cr-seg { display: inline-flex; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: var(--surface); }
+.cr .cr-seg button { border: 0; background: transparent; padding: 7px 12px; font-size: 12.5px; color: var(--text2); cursor: pointer; font-weight: 600; } .cr .cr-seg button + button { border-left: 1px solid var(--border); }
+.cr .cr-seg button.on { background: var(--sd-action-soft, var(--accent-bg)); color: var(--sd-action, var(--accent)); }
+.cr .cr-lecture { font-size: 15px; line-height: 1.55; color: var(--text); margin-bottom: 14px; } .cr .cr-lecture b { font-weight: 800; }
+.cr .cr-grille { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); gap: 14px; margin-bottom: 14px; }
+.cr .cr-t { font-size: 15px; font-weight: 800; color: var(--text); } .cr .cr-st { font-size: 12px; color: var(--text3); margin: 2px 0 10px; }
+.cr .cr-scroll { overflow-x: auto; } .cr .cr-large { grid-column: 1 / -1; }
+.cr table { border-collapse: separate; border-spacing: 4px; width: 100%; font-variant-numeric: tabular-nums; }
+.cr th { font-size: 11px; font-weight: 700; color: var(--text3); text-transform: uppercase; letter-spacing: .05em; padding: 2px 4px; text-align: center; white-space: nowrap; } .cr th.l { text-align: left; }
+.cr td.c { border-radius: 10px; padding: 8px 2px; text-align: center; background: var(--surface2); min-width: 46px; }
+.cr td.c .v { font-size: 18px; font-weight: 800; color: var(--text); line-height: 1.1; } .cr td.c .n { font-size: 10.5px; color: var(--text3); margin-top: 2px; white-space: nowrap; }
+.cr td.c.peu .v { color: var(--text3); font-weight: 600; font-size: 14px; } .cr td.c.tot { outline: 1px dashed var(--border); }
+.cr .cr-leg { display: flex; gap: 14px; flex-wrap: wrap; font-size: 11.5px; color: var(--text3); margin-top: 8px; } .cr .cr-leg i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
+.cr .cr-note { font-size: 12px; color: var(--text3); line-height: 1.5; }
 /* ── Bilan hebdo (9 oct. 2026) : un résumé, six chiffres, l'analyse en deux colonnes, les RDV, le plan ── */
 .bh .bh-ctrl { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 .bh .bh-etat { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; font-size: 12.5px; color: var(--text3); margin: -6px 0 14px; min-height: 20px; }
@@ -1408,6 +1424,7 @@ select.form-input { cursor: pointer; }
     <button class="nav-tab" data-page="prospection" onclick="showPage('prospection',this);togglePeriodSelector(false);renderProspection()"><span class="nav-ico">☏</span>Prospection</button>
     <button class="nav-tab" data-page="analytics" onclick="showPage('analytics',this);togglePeriodSelector(false);chargerAppelsClose();renderDaily();setTimeout(function(){try{refreshKpis();renderPerfTop();}catch(e){}},60)"><span class="nav-ico">◔</span>Performance</button>
     <button class="nav-tab" data-page="bilan" onclick="showPage('bilan',this);togglePeriodSelector(false);renderBilan()"><span class="nav-ico">✎</span>Bilan hebdo</button>
+    <button class="nav-tab" data-page="creneaux" onclick="showPage('creneaux',this);togglePeriodSelector(false);renderCreneaux()"><span class="nav-ico">◷</span>Créneaux</button>
     <div class="nav-more" id="nav-more">
       <button class="nav-tab nav-more-btn" id="nav-more-btn" onclick="navPlus(event)">Plus ▾<span id="nav-more-dot" style="display:none;width:7px;height:7px;border-radius:50%;background:var(--red);margin-left:6px;vertical-align:middle;"></span></button>
       <div class="nav-more-menu" id="nav-more-menu">
@@ -2112,6 +2129,15 @@ select.form-input { cursor: pointer; }
 </main>
 </div>
 
+<div id="page-creneaux" class="page">
+<main class="cr">
+  <div class="pf-head">
+    <div><h1 class="pf-h1">Créneaux des RDV</h1><div class="pf-sub">Tes R1 par jour de semaine et demi-journée : où ils ne se tiennent pas le jour J, où ils se tiennent, où ils mènent à une vente.</div></div>
+    <div class="cr-ctrl" id="cr-ctrl"></div>
+  </div>
+  <div id="cr-corps"></div>
+</main>
+</div>
 <div id="page-global" class="page">
 <main class="gl">
   <!-- ════ GLOBAL (refonte visuelle du 9 oct. 2026) : mêmes chiffres, mêmes fonctions de calcul (renderGlobal), seule la mise en page change ════ -->
@@ -4028,6 +4054,101 @@ function fcLignesFiche() {
   return out;
 }
 // Point d'entrée : nom (+ email connu, + date du RDV cliqué). Deux personnes différentes du même nom (emails distincts) → popup pour choisir.
+// ── Créneaux des RDV (12 oct. 2026) : pour chaque jour de semaine × demi-journée, le taux de R1 non tenus le jour J, la part des R1 tenus, le closing.
+// Heure du RDV : celle de SalesDesk, sinon l'agenda Close (via le copilot, même jour + nom dans le titre ou même fiche). Annulations comptées le jour J seulement si l'heure d'annulation est connue.
+var _cr = { periode: 'tout', source: '', close: null, chargement: false };
+var CR_JOURS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven'], CR_SEUIL = 15, CR_SEUIL_V = 10;
+function crNorm(t) { return String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim(); }
+function crChargerClose(force) {
+  if (typeof COPILOT_URL === 'undefined' || _cr.chargement || (_cr.close && _cr.close.ok && !force)) return;
+  _cr.chargement = true;
+  fetch(COPILOT_URL + '/close/heures-rdv' + (force ? '?force=1' : ''), { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); })
+    .then(function(j) { _cr.close = j && j.ok ? j : { ok: false, rdvs: [] }; }).catch(function() { _cr.close = { ok: false, rdvs: [] }; })
+    .then(function() { _cr.chargement = false; var pg = document.getElementById('page-creneaux'); if (pg && pg.classList.contains('active')) renderCreneaux(); });
+}
+function crHeure(r, iso, idx) {
+  var h = String(r.heure || '').trim(); if (/^\d{1,2}:\d{2}/.test(h)) return { h: (h.length === 4 ? '0' + h : h).slice(0, 5), src: 'sd' };
+  var L = idx[iso]; if (!L) return null;
+  var c = crNorm(r.client), toks = c.split(' ').filter(function(t) { return t.length > 2; });
+  var cands = L.filter(function(m) { return c && (m.t.indexOf(c) >= 0 || (toks.length && toks.every(function(t) { return m.t.indexOf(t) >= 0; }))); });
+  if (!cands.length) { var lg = toks.slice().sort(function(a, b) { return b.length - a.length; })[0]; if (lg && lg.length >= 5) cands = L.filter(function(m) { return m.t.indexOf(lg) >= 0; }); }
+  if (!cands.length) { var lead = ''; try { lead = sdLeadPour(r.client, r.email || '') || ''; } catch (e) {} if (lead) cands = L.filter(function(m) { return m.lead === lead; }); }
+  var hs = {}; cands.forEach(function(m) { hs[m.h] = 1; }); var k = Object.keys(hs); return k.length === 1 ? { h: k[0], src: 'close' } : null;
+}
+function crCalculer() {
+  var st = loadStore(), idx = {}, now = new Date(), auj = rlIso(now);
+  ((_cr.close && _cr.close.rdvs) || []).forEach(function(m) { (idx[m.d] = idx[m.d] || []).push({ h: m.h, t: crNorm(m.t), lead: m.lead }); });
+  var depuis = _cr.periode === 'mai' ? '2026-05-01' : _cr.periode === '12m' ? rlIso(new Date(now.getFullYear() - 1, now.getMonth(), now.getDate())) : '';
+  var cell = function() { return { base: 0, nt: 0, ns: 0, aj: 0, rj: 0, show: 0, sig: 0 }; };
+  var C = {}, H = {}, T = cell(), info = { sd: 0, close: 0, sansHeure: 0, avance: 0, annulInconnu: 0, debut: '' };
+  Object.keys(st).forEach(function(k) { if (!/^\d{4}-\d{2}$/.test(k) || !Array.isArray(st[k])) return; st[k].forEach(function(r) {
+    if (!r || r.source === 'R2') return; var p = String(r.presence || '').trim(); if (!/^(Show|No Show|Annulé|Reprogrammé)$/.test(p)) return;
+    if (_cr.source && r.source !== _cr.source) return;
+    var iso = String(r.date || '').split('/').reverse().join('-'); if (!/^\d{4}-\d{2}-\d{2}$/.test(iso) || iso > auj || (depuis && iso < depuis)) return;
+    var dw = new Date(iso + 'T12:00:00').getDay(); if (dw === 0 || dw === 6) return;
+    var cat = p === 'Show' ? 'show' : p === 'No Show' ? 'ns' : '';
+    if (!cat) { if (!r.annuleLe) { info.annulInconnu++; return; } if (sdJourParis(r.annuleLe) !== iso) { info.avance++; return; } cat = p === 'Annulé' ? 'aj' : 'rj'; }
+    var hh = crHeure(r, iso, idx); if (!hh) { info.sansHeure++; return; } info[hh.src]++; if (!info.debut || iso < info.debut) info.debut = iso;
+    var hr = parseInt(hh.h, 10), demi = hr < 12 ? 0 : 1, j = dw - 1;
+    var cibles = [C[j + '-' + demi] = C[j + '-' + demi] || cell(), C['j' + j] = C['j' + j] || cell(), C['d' + demi] = C['d' + demi] || cell(), T, H[hr] = H[hr] || cell()];
+    cibles.forEach(function(c) { c.base++; if (cat === 'show') { c.show++; if (r.result === 'Signé') c.sig++; } else { c.nt++; c[cat]++; } });
+  }); });
+  return { C: C, H: H, T: T, info: info };
+}
+function renderCreneaux() {
+  var el = document.getElementById('cr-corps'), ctl = document.getElementById('cr-ctrl'); if (!el) return;
+  crChargerClose(false);
+  var seg = function(cle, opts) { return '<div class="cr-seg">' + opts.map(function(o) { return '<button class="' + (_cr[cle] === o[0] ? 'on' : '') + '" onclick="_cr.' + cle + '=\'' + o[0] + '\';renderCreneaux()">' + o[1] + '</button>'; }).join('') + '</div>'; };
+  ctl.innerHTML = seg('periode', [['tout', 'Tout l\'historique'], ['12m', '12 derniers mois'], ['mai', 'Depuis mai 2026']]) + seg('source', [['', 'Toutes'], ['Inbound', 'Inbound'], ['Outbound', 'Outbound'], ['PUB', 'PUB']]);
+  var R = crCalculer(), C = R.C, T = R.T, I = R.info, pc = function(n, d) { return d ? Math.round(100 * n / d) : null; };
+  if (!T.base) { el.innerHTML = '<div class="pf-card cr-note">' + (_cr.chargement ? 'Lecture des heures dans Close…' : 'Aucun R1 avec une heure sur cette période.') + '</div>'; return; }
+  var moyNT = pc(T.nt, T.base), moyCl = pc(T.sig, T.show), parts = 10;
+  var teinte = function(ecart, couleurBon, couleurMauvais) { if (ecart === null) return ''; var a = Math.min(55, Math.round(Math.abs(ecart) * 2.4)); return a < 4 ? '' : 'background:color-mix(in srgb, ' + (ecart >= 0 ? couleurBon : couleurMauvais) + ' ' + a + '%, var(--surface2));'; };
+  // une case : valeur en %, nombre en dessous, grisée si trop peu de RDV
+  var caseNT = function(c, tot) { c = c || { base: 0, nt: 0, ns: 0, aj: 0, rj: 0 }; var v = pc(c.nt, c.base), peu = c.base < CR_SEUIL;
+    return '<td class="c' + (peu ? ' peu' : '') + (tot ? ' tot' : '') + '" style="' + (peu ? '' : teinte(v === null ? null : moyNT - v, 'var(--green)', 'var(--red)')) + '" title="' + c.base + ' RDV · ' + c.ns + ' no-show · ' + c.aj + ' annulés le jour J · ' + c.rj + ' reprogrammés le jour J">'
+      + '<div class="v">' + (v === null ? '—' : v + ' %') + '</div><div class="n">' + (peu && c.base ? 'peu de RDV · ' : '') + c.base + ' RDV</div></td>'; };
+  var caseTenus = function(c, tot) { c = c || { show: 0, base: 0 }; var v = pc(c.show, T.show);
+    return '<td class="c' + (tot ? ' tot' : '') + '" style="' + (tot || !v ? '' : 'background:color-mix(in srgb, var(--accent) ' + Math.min(60, Math.round(v * 3)) + '%, var(--surface2));') + '" title="' + c.show + ' R1 tenus sur ' + T.show + ' · présence ' + (pc(c.show, c.base) === null ? '—' : pc(c.show, c.base) + ' %') + '">'
+      + '<div class="v">' + (v === null ? '—' : v + ' %') + '</div><div class="n">' + c.show + ' tenus</div></td>'; };
+  var caseCl = function(c, tot) { c = c || { show: 0, sig: 0 }; var v = pc(c.sig, c.show), peu = c.show < CR_SEUIL_V;
+    return '<td class="c' + (peu ? ' peu' : '') + (tot ? ' tot' : '') + '" style="' + (peu ? '' : teinte(v === null || moyCl === null ? null : v - moyCl, 'var(--green)', 'var(--red)')) + '" title="' + c.sig + ' vente(s) sur ' + c.show + ' R1 tenus">'
+      + '<div class="v">' + (v === null ? '—' : v + ' %') + '</div><div class="n">' + c.sig + ' / ' + c.show + '</div></td>'; };
+  var tableau = function(fn) {
+    var tete = '<tr><th class="l"></th>' + CR_JOURS.map(function(j) { return '<th>' + j + '</th>'; }).join('') + '<th>Semaine</th></tr>';
+    var lignes = ['Matin', 'Après-midi'].map(function(lab, d) { return '<tr><th class="l">' + lab + '</th>' + CR_JOURS.map(function(_, j) { return fn(C[j + '-' + d]); }).join('') + fn(C['d' + d], true) + '</tr>'; }).join('');
+    var jour = '<tr><th class="l">Journée</th>' + CR_JOURS.map(function(_, j) { return fn(C['j' + j], true); }).join('') + fn(T, true) + '</tr>';
+    return '<div class="cr-scroll"><table>' + tete + lignes + jour + '</table></div>';
+  };
+  // lecture : pire et meilleur créneau sur les non tenus (assez de RDV), meilleur closing (indicatif)
+  var cases = []; CR_JOURS.forEach(function(j, ji) { ['matin', 'après-midi'].forEach(function(d, di) { var c = C[ji + '-' + di]; if (c) cases.push({ lib: ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi'][ji] + ' ' + d, c: c }); }); });
+  var assez = cases.filter(function(x) { return x.c.base >= CR_SEUIL; }).sort(function(a, b) { return pc(b.c.nt, b.c.base) - pc(a.c.nt, a.c.base); });
+  var lecture = '', net = function(c) { var p0 = T.nt / T.base, z = Math.abs(c.nt / c.base - p0) / Math.sqrt(p0 * (1 - p0) / c.base); return z >= 2 ? ' <span style="color:var(--text3);font-size:13px;">(écart net)</span>' : ' <span style="color:var(--text3);font-size:13px;">(écart à confirmer : peut venir du hasard)</span>'; };
+  if (assez.length >= 2) { var pire = assez[0], mieux = assez[assez.length - 1];
+    lecture = 'Tu perds le plus de R1 le jour J le <b style="color:var(--red)">' + pire.lib + '</b> : ' + pc(pire.c.nt, pire.c.base) + ' % (' + pire.c.base + ' RDV), contre ' + moyNT + ' % en moyenne' + net(pire.c) + '. Le créneau le plus fiable est le <b style="color:var(--green)">' + mieux.lib + '</b> : ' + pc(mieux.c.nt, mieux.c.base) + ' % (' + mieux.c.base + ' RDV)' + net(mieux.c) + '.'; }
+  var hRisque = Object.keys(R.H).map(Number).filter(function(x) { return R.H[x].base >= CR_SEUIL; }).sort(function(a, b) { return pc(R.H[b].nt, R.H[b].base) - pc(R.H[a].nt, R.H[a].base); })[0];
+  if (hRisque !== undefined && lecture) lecture += ' Heure la plus risquée : <b style="color:var(--red)">' + hRisque + ' h</b>, ' + pc(R.H[hRisque].nt, R.H[hRisque].base) + ' % de non tenus (' + R.H[hRisque].base + ' RDV)' + net(R.H[hRisque]) + '.';
+  var cl = cases.filter(function(x) { return x.c.show >= CR_SEUIL_V; }).sort(function(a, b) { return pc(b.c.sig, b.c.show) - pc(a.c.sig, a.c.show); });
+  if (cl.length && T.sig) lecture += ' Closing le plus haut : ' + cl[0].lib + ', ' + pc(cl[0].c.sig, cl[0].c.show) + ' % (' + cl[0].c.sig + ' vente' + (cl[0].c.sig > 1 ? 's' : '') + ' sur ' + cl[0].c.show + ' R1 tenus).';
+  // par heure
+  var heures = Object.keys(R.H).map(Number).sort(function(a, b) { return a - b; });
+  var parHeure = '<div class="cr-scroll"><table><tr><th class="l"></th>' + heures.map(function(h) { return '<th>' + h + ' h</th>'; }).join('') + '</tr>'
+    + '<tr><th class="l">Non tenus J</th>' + heures.map(function(h) { return caseNT(R.H[h]); }).join('') + '</tr>'
+    + '<tr><th class="l">Closing</th>' + heures.map(function(h) { return caseCl(R.H[h]); }).join('') + '</tr></table></div>';
+  var h = '<div class="pf-card cr-lecture">' + (lecture || 'Pas encore assez de RDV par créneau pour conclure (' + CR_SEUIL + ' RDV minimum par case).') + '</div>';
+  h += '<div class="cr-grille">';
+  h += '<div class="pf-card"><div class="cr-t">Non tenus le jour J</div><div class="cr-st">No-show + annulés ou reprogrammés le jour même, sur les R1 tenus ou attendus ce jour-là. Moyenne ' + moyNT + ' %.</div>' + tableau(caseNT)
+    + '<div class="cr-leg"><span><i style="background:color-mix(in srgb, var(--red) 45%, var(--surface2))"></i>pire que ta moyenne</span><span><i style="background:color-mix(in srgb, var(--green) 45%, var(--surface2))"></i>mieux que ta moyenne</span><span>grisé : moins de ' + CR_SEUIL + ' RDV</span></div></div>';
+  h += '<div class="pf-card"><div class="cr-t">Où tu réalises tes R1</div><div class="cr-st">Part de tes R1 tenus dans chaque créneau (' + T.show + ' R1 tenus en tout). Survole une case pour son taux de présence.</div>' + tableau(caseTenus) + '</div>';
+  h += '<div class="pf-card"><div class="cr-t">Closing par créneau du R1</div><div class="cr-st">Ventes ÷ R1 tenus dans ce créneau, vente comptée sur le créneau du R1 même si elle a été signée plus tard. Moyenne ' + (moyCl === null ? '—' : moyCl + ' %') + ', ' + T.sig + ' ventes : <b>indicatif</b>, une case change avec une seule vente.</div>' + tableau(caseCl)
+    + '<div class="cr-leg"><span>sous le % : ventes / R1 tenus</span><span>grisé : moins de ' + CR_SEUIL_V + ' R1 tenus</span></div></div>';
+  h += '<div class="pf-card cr-large"><div class="cr-t">Heure par heure</div><div class="cr-st">Heure de début du RDV, tous jours confondus.</div>' + parHeure + '</div>';
+  h += '</div>';
+  h += '<div class="pf-card cr-note">' + T.base + ' R1 analysés' + (I.debut ? ' depuis le ' + I.debut.split('-').reverse().join('/') : '') + ' · heure tirée de SalesDesk pour ' + I.sd + ', retrouvée dans l\'agenda Close pour ' + I.close
+    + (I.sansHeure ? ' · ' + I.sansHeure + ' sans heure retrouvée, exclus' : '') + (I.avance ? ' · ' + I.avance + ' annulés ou déplacés à l\'avance, hors base' : '') + (I.annulInconnu ? ' · ' + I.annulInconnu + ' annulés sans heure d\'annulation, exclus' : '')
+    + '. Demi-journée : matin = RDV qui commence avant 12 h. R2 exclus.' + (_cr.close && !_cr.close.ok ? ' <b style="color:var(--red)">Agenda Close injoignable : seules les heures de SalesDesk sont utilisées.</b>' : '') + (_cr.chargement ? ' Lecture de l\'agenda Close…' : ' <a style="cursor:pointer;color:var(--accent)" onclick="crChargerClose(true)">Relire Close</a>') + '</div>';
+  el.innerHTML = h;
+}
 // Historique des RDV du prospect lu dans Close par le copilot (12 oct. 2026) : déjà rencontré ? quand, avec qui, comment ça s'est fini — pour ne plus fouiller Close en prépa
 var _sdHisto = {};
 function sdHistoRdv(nom, email, avant, apres) { // renvoie la réponse si elle est là, sinon lance la lecture et rappelle « apres » quand elle arrive
