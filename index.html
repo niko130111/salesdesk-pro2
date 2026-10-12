@@ -3761,6 +3761,7 @@ function sdMigrerOneShot(store) {
   var _res = sdRestaurerPasBudget(store);
   try { sdRattraperAnnuleLe(_res); } catch (e) {}
   try { sdCorrigerAdeline(_res); } catch (e) {}
+  try { sdCorrigerSignatures(_res); } catch (e) {}
   try { if (_avantMig && JSON.stringify(_res) !== _avantMig) window._sdMigrationAEnregistrer = true; } catch (e) {}
   return _res;
 }
@@ -3778,6 +3779,21 @@ function sdCorrigerAdeline(store) {
   rJ.correction = 'Vente du 07/02/2026 rattachée à ce RDV (ligne du 30/02/2026 retirée, 12/10/2026)';
   fev.splice(iF, 1);
   console.log('[correction] Nicolas Adeline : vente rattachée au RDV du 30/01/2026, ligne du 30/02/2026 retirée');
+}
+// 12/10/2026 : dates confirmées par Nicolas après vérification dans Close. Chaque correction ne s'applique que si la ligne a encore l'ancienne valeur (rejouable, sauvegarde avant).
+var SD_CORRECTIONS_SIGNATURES = [
+  { mk: '2026-09', client: 'melanie anastase', date: '15/09/2026', avant: { dateSignature: '16/09/2026' }, apres: { dateSignature: '15/09/2026' } },
+  { mk: '2026-09', client: 'virginie mallet', date: '21/09/2026', avant: { dateSignature: '22/09/2026' }, apres: { dateSignature: '21/09/2026' } },
+  { mk: '2025-10', client: 'mathieu chamard', date: '11/10/2025', avant: { result: 'Signé' }, apres: { date: '17/10/2025', dateSignature: '23/10/2025' } },
+  { mk: '2025-12', client: 'alexandre luyat', date: '31/12/2025', avant: { result: 'Signé' }, apres: { date: '29/12/2025', dateSignature: '30/12/2025' } }
+];
+function sdCorrigerSignatures(store) {
+  var nn = function(r) { return String((r && r.client) || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\s+/g, ' ').trim(); }, fait = 0, sauve = false;
+  SD_CORRECTIONS_SIGNATURES.forEach(function(c) { var rows = store && store[c.mk]; if (!Array.isArray(rows)) return;
+    var r = rows.find(function(x) { return x && nn(x) === c.client && x.date === c.date && Object.keys(c.avant).every(function(k) { return x[k] === c.avant[k]; }); }); if (!r) return;
+    if (!sauve) { try { if (typeof sdBackupStore === 'function') sdBackupStore(store); } catch (e) {} sauve = true; }
+    Object.keys(c.apres).forEach(function(k) { r[k] = c.apres[k]; }); r.dateSignatureSource = 'nicolas+close'; r.correction = (r.correction ? r.correction + ' · ' : '') + 'dates vérifiées dans Close le 12/10/2026'; fait++; });
+  if (fait) console.log('[correction] ' + fait + ' date(s) de RDV ou de signature corrigée(s) d\'après Close');
 }
 // 10/10/2026 : « annuleLe » = quand le RDV a été annulé (Calendly ou toi). Sert à la stat « attendu pour rien » (no-show + annulé le jour même).
 // Les lignes Annulé d'avant n'ont pas cette heure : on la recopie depuis les annulations Calendly déjà vues (_annulations), rejouable.
@@ -9661,6 +9677,10 @@ function ckApres(c) {
   if (!_ck.appels[mk] && typeof COPILOT_URL !== 'undefined') { var deb = mk + '-01', fin = rlIso(new Date(c.yr, c.mIdx + 1, 0)); _ck.appels[mk] = { enCours: true }; fetch(COPILOT_URL + '/close/appels-periode?' + new URLSearchParams({ du: deb, au: fin }), { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).then(function(j) { _ck.appels[mk] = j && j.configure ? j : { erreur: true }; if (document.getElementById('ck')) renderPerfTop(); }).catch(function() { _ck.appels[mk] = { erreur: true }; }); }
 }
 // Performance : un clic sur un chiffre ouvre la liste des RDV qui le composent (12 oct. 2026). Mêmes filtres que le chiffre affiché ; un nom ouvre la fiche client.
+// One shot (12 oct. 2026) : vente signée le jour même du R1, d'après les dates (date de signature = date du R1). La case « 1SHOT » n'est pas lue : elle contredit les dates sur 15 ventes.
+function sdEstOneShot(r) { return !!(r && r.dateSignature && r.date && String(r.dateSignature).trim() === String(r.date).trim()); }
+function sdJoursR1Signature(r) { try { var a = String(r.date).split('/'), b = String(r.dateSignature).split('/'); if (a.length !== 3 || b.length !== 3) return null; return Math.round((new Date(+b[2], +b[1] - 1, +b[0]) - new Date(+a[2], +a[1] - 1, +a[0])) / 86400000); } catch (e) { return null; } }
+function sdOneShotMois(monthKey) { var v = []; try { v = sdVentesDuMois(monthKey); } catch (e) {} var n = v.filter(sdEstOneShot).length; return { n: n, total: v.length, pct: v.length ? Math.round(n / v.length * 100) : null }; }
 function pfL(cle, html) { return '<span class="pf-liste" title="Voir les noms" onclick="event.stopPropagation();sdPerfListe(' + JSON.stringify(cle).replace(/"/g, '&quot;') + ')">' + html + '</span>'; }
 function sdOutboundListe(quand) { // Aujourd'hui : liste derrière « Outbound x / y » et « Semaine x / y »
   var os = window._sdOutboundSemaine || {}, L = (quand === 'jour' ? os.jour : os.liste) || [], X = (quand === 'jour' ? os.exclusJour : os.exclusSemaine) || [];
@@ -9692,6 +9712,7 @@ function sdPerfListe(cle) {
   else if (cle === 'reprogJour') { L = r1.filter(function(r) { return r.presence === 'Reprogrammé' && jourJ(r); }); titre = 'Reprogrammés le jour J'; }
   else if (cle === 'avance') { L = r1.filter(function(r) { return !sdEnBase(r); }); titre = 'Annulés ou déplacés à l\'avance'; note = 'Hors base : le créneau a pu être réutilisé.'; }
   else if (cle === 'closing') { L = shows.filter(function(r) { return r.result === 'Signé'; }); titre = 'Closing : R1 tenus ce mois qui ont signé'; note = shows.length + ' R1 tenus ce mois, dont ' + L.length + ' signé' + (L.length > 1 ? 's' : '') + '.'; }
+  else if (cle === 'oneshot') { L = (k.signesRows || []).slice(); var n1 = L.filter(sdEstOneShot).length; titre = 'One shot : ventes signées le jour du R1'; note = n1 + ' sur ' + L.length + ' vente' + (L.length > 1 ? 's' : '') + ' du mois signée' + (n1 > 1 ? 's' : '') + ' le jour même du R1.'; mode = 'vente'; }
   else if (cle === 'signes') { L = (k.signesRows || []).slice(); titre = 'Signatures du mois'; note = 'Ventes signées ce mois (date de signature), quel que soit le mois du R1.'; mode = 'vente'; }
   else if (cle === 'outbound') { L = (k.outbound || []).slice(); titre = 'RDV outbound pris'; note = 'RDV outbound dont la prise tombe ce mois, quelle que soit la date du RDV.'; mode = 'outbound'; }
   else if (cle === 'mand') { L = (k.mandataires || []).slice(); titre = 'Mandataires'; note = 'Même base que le total RDV.'; }
@@ -9705,7 +9726,7 @@ function sdPerfListe(cle) {
   var fr = function(d) { return String(d || '').slice(0, 5); };
   var ligne = function(r) {
     var nom = sdNomLien(r.client, r.email || '', 'fermerModalDoublon();'), info = [], badge = '';
-    if (mode === 'vente') { info.push((r.pack || '') + (r.freq ? ' · ' + r.freq : '')); info.push('signé le ' + fr(r.dateSignature || r.date)); info.push('R1 le ' + fr(r.date)); badge = '<b>' + Math.round(getComm(r) || 0).toLocaleString('fr-FR') + ' €</b>'; }
+    if (mode === 'vente') { info.push((r.pack || '') + (r.freq ? ' · ' + r.freq : '')); info.push('signé le ' + fr(r.dateSignature || r.date)); info.push('R1 le ' + fr(r.date)); var dj = r.dateSignature ? sdJoursR1Signature(r) : null; badge = (r.dateSignature ? (dj === 0 ? '<span class="pf-b ok">one shot</span>' : '<span class="pf-b mu">' + (dj === null ? '?' : (dj > 0 ? 'J+' + dj : 'date à vérifier')) + '</span>') : '<span class="pf-b mu">sans date de signature</span>') + '<b>' + Math.round(getComm(r) || 0).toLocaleString('fr-FR') + ' €</b>'; }
     else if (mode === 'outbound') { var c0 = String(r.email || '').toLowerCase().trim() || fcNormNom(r.client || ''); info.push('pris le ' + fr(r.datePrise || r.date)); info.push('RDV le ' + fr(r.date)); info.push(r.type || ''); var e = etat(r); badge = (doublons[c0] ? '<span class="pf-b mu">2 RDV ce mois</span>' : '') + '<span class="pf-b ' + e[1] + '">' + escapeHtml(e[0]) + '</span>'; }
     else { info.push(fr(r.date) + (r.heure ? ' ' + r.heure : '')); info.push(r.source || ''); info.push(r.type || ''); var e2 = etat(r); badge = '<span class="pf-b ' + e2[1] + '">' + escapeHtml(e2[0]) + '</span>'; }
     return '<div class="pf-l"><span class="n">' + nom + '<small>' + escapeHtml(info.filter(Boolean).join(' · ')) + '</small></span><span class="b">' + badge + '</span></div>'; };
@@ -9737,10 +9758,12 @@ function ckDetailHtml(c) {
     + (defi && defi.total ? '<div class="ck-note">🚪 ' + defi.total + ' annulé' + (defi.total > 1 ? 's' : '') + ' définitivement (jamais repris) : ' + defi.jourJ + ' le jour J · ' + defi.avance + ' à l\'avance</div>' : '') + '</div>';
   // ventes et deals
   var ventes = k.signesRows || [], mk = c.yr + '-' + String(c.mIdx + 1).padStart(2, '0');
-  h += '<div class="ck-card"><h3>💰 Ventes <button class="btn btn-sm" onclick="openModal(\'newDealModal\')">+ Ajouter</button></h3><div class="ck-k3">'
+  var os1 = sdOneShotMois(mk), os3 = (function() { var n = 0, t = 0; for (var i = 1; i <= 3; i++) { var d = new Date(c.yr, c.mIdx - i, 1), x = sdOneShotMois(d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0')); n += x.n; t += x.total; } return t ? Math.round(n / t * 100) : null; })();
+  h += '<div class="ck-card"><h3>💰 Ventes <button class="btn btn-sm" onclick="openModal(\'newDealModal\')">+ Ajouter</button></h3><div class="ck-k4">'
     + kpi('Signés', pfL('signes', k.signes || 0), 'date de signature' + moyTxt(nb3 ? (s3.totalSignes / nb3).toFixed(1).replace('.', ',') : null), 'ok')
     + kpi('Closing', pfL('closing', k.shows ? k.closing + ' %' : '—'), pfL('closing', u.signes + ' / ' + k.shows + ' R1 tenus ce mois') + moyTxt(nb3 ? Math.round(s3.closingRate) : null, ' %'))
-    + kpi('Commission', eur(c.comm), (ventes.filter(function(v) { return v.freq === 'Mensuelle'; }).length) + ' mensuelle' + (ventes.filter(function(v) { return v.freq === 'Mensuelle'; }).length > 1 ? 's' : '') + ' · ' + (ventes.filter(function(v) { return v.freq === 'Annuelle'; }).length) + ' annuelle' + (ventes.filter(function(v) { return v.freq === 'Annuelle'; }).length > 1 ? 's' : ''), 'au') + '</div>'
+    + kpi('Commission', eur(c.comm), (ventes.filter(function(v) { return v.freq === 'Mensuelle'; }).length) + ' mensuelle' + (ventes.filter(function(v) { return v.freq === 'Mensuelle'; }).length > 1 ? 's' : '') + ' · ' + (ventes.filter(function(v) { return v.freq === 'Annuelle'; }).length) + ' annuelle' + (ventes.filter(function(v) { return v.freq === 'Annuelle'; }).length > 1 ? 's' : ''), 'au')
+    + kpi('One shot', pfL('oneshot', os1.pct === null ? '—' : os1.pct + ' %'), pfL('oneshot', os1.n + ' / ' + os1.total + ' signée' + (os1.n > 1 ? 's' : '') + ' le jour du R1') + (os3 !== null ? ' · moy. ' + os3 + ' %' : '')) + '</div>'
     + (ventes.length ? ventes.map(function(v) { return '<div class="ck-deal"><span><b>' + sdNomLien(v.client, v.email || '') + '</b> <small>' + escapeHtml((v.pack || '') + (v.freq ? ' · ' + v.freq : '')) + '</small></span><b>' + eur(getComm(v)) + '</b></div>'; }).join('') : '<div class="ck-note">Aucune vente signée ce mois.</div>') + '</div>';
   // rythme et suivi
   var suivi = (document.getElementById('kpi-suivi') || {}).textContent || '—', suiviSub = (document.getElementById('kpi-suivi-sub') || {}).textContent || '', suiviSans = (document.getElementById('kpi-suivi-sans') || {}).textContent || '';
@@ -13768,6 +13791,7 @@ function renderGlobal() {
   set('g-noshowrate',   noshowrate + '%');
   set('g-total-signes', totalSignes);
   set('g-avg-ventes-sub', (totalSignes/Math.max(activeMois,1)).toFixed(1) + ' ventes/mois');
+  try { const _os = ventesPeriode.filter(sdEstOneShot).length; if (ventesPeriode.length) set('g-avg-ventes-sub', (totalSignes/Math.max(activeMois,1)).toFixed(1) + ' ventes/mois · one shot ' + Math.round(_os / ventesPeriode.length * 100) + ' %'); } catch (e) {} // one shot : signée le jour du R1 (12 oct. 2026)
   set('g-transfo',      transfo + '%');
   set('g-closing',      closing + '%');
   set('g-comm-total',   commTotal.toLocaleString('fr-FR') + ' \u20ac');
