@@ -3760,8 +3760,24 @@ function sdMigrerOneShot(store) {
   // appelée : elle viderait la colonne « si promo » que Nicolas a pu réutiliser depuis.
   var _res = sdRestaurerPasBudget(store);
   try { sdRattraperAnnuleLe(_res); } catch (e) {}
+  try { sdCorrigerAdeline(_res); } catch (e) {}
   try { if (_avantMig && JSON.stringify(_res) !== _avantMig) window._sdMigrationAEnregistrer = true; } catch (e) {}
   return _res;
+}
+// 12/10/2026 (Nicolas) : Nicolas Adeline, RDV le 30/01/2026, signé le 07/02/2026. La vente avait été saisie sur une 2e ligne « Show » datée du 30/02/2026
+// (date impossible) : elle comptait une démo fantôme en février. La ligne du 30/01 prend la vente, la fausse ligne est retirée. Rejouable, sauvegarde avant.
+function sdCorrigerAdeline(store) {
+  var fev = store && store['2026-02'], jan = store && store['2026-01']; if (!Array.isArray(fev) || !Array.isArray(jan)) return;
+  var nn = function(r) { return String((r && r.client) || '').toLowerCase().replace(/\s+/g, ' ').trim(); };
+  var iF = fev.findIndex(function(r) { return nn(r) === 'nicolas adeline' && r.date === '30/02/2026' && r.result === 'Signé'; }); if (iF < 0) return;
+  var rJ = jan.find(function(r) { return nn(r) === 'nicolas adeline' && r.date === '30/01/2026'; }); if (!rJ) return;
+  try { if (typeof sdBackupStore === 'function') sdBackupStore(store); } catch (e) {}
+  var f = fev[iF];
+  rJ.result = 'Signé'; rJ.dateSignature = '07/02/2026'; delete rJ.nosignRaison;
+  ['pack', 'freq', 'tier', 'fms', 'oneshot', 'commission', 'remise'].forEach(function(c) { if (f[c] !== undefined && f[c] !== '') rJ[c] = f[c]; });
+  rJ.correction = 'Vente du 07/02/2026 rattachée à ce RDV (ligne du 30/02/2026 retirée, 12/10/2026)';
+  fev.splice(iF, 1);
+  console.log('[correction] Nicolas Adeline : vente rattachée au RDV du 30/01/2026, ligne du 30/02/2026 retirée');
 }
 // 10/10/2026 : « annuleLe » = quand le RDV a été annulé (Calendly ou toi). Sert à la stat « attendu pour rien » (no-show + annulé le jour même).
 // Les lignes Annulé d'avant n'ont pas cette heure : on la recopie depuis les annulations Calendly déjà vues (_annulations), rejouable.
