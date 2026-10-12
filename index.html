@@ -9133,6 +9133,22 @@ function sdVentesDuMois(monthKey, store) {
   try { const st = store || loadStore(); Object.keys(st).forEach(k => { if (!/^\d{4}-\d{2}$/.test(k) || !Array.isArray(st[k])) return; st[k].forEach(r => { if (!r || r.result !== 'Signé' || r.source === 'R2') return; const p = String(r.dateSignature || '').split('/'); const ms = p.length === 3 ? p[2] + '-' + p[1] : k; if (ms === monthKey) out.push(r); }); }); } catch (e) {}
   return out;
 }
+function sdOutboundDuMois(monthKey) {
+  var st = loadStore(), ovr = (typeof loadOutboundOverrides === 'function') ? loadOutboundOverrides() : {}, cand = [];
+  var dt = function(d, h) { var p = String(d || '').split('/'); if (p.length !== 3) return null; var hh = String(h || '12:00').split(':'); return new Date(+p[2], +p[1] - 1, +p[0], +hh[0] || 12, +hh[1] || 0); };
+  Object.keys(st).forEach(function(k) { if (!/^\d{4}-\d{2}$/.test(k) || !Array.isArray(st[k])) return; st[k].forEach(function(r) {
+    if (!r || r.source !== 'Outbound' || !r.client) return; var pr = String(r.datePrise || r.date || '').split('/'); if (pr.length !== 3 || (pr[2] + '-' + pr[1].padStart(2, '0')) !== monthKey) return;
+    cand.push({ r: r, name: r.client, email: r.email || '', createdAt: dt(r.datePrise || r.date, '12:00'), start: dt(r.date, r.heure) }); }); });
+  cand.sort(function(a, b) { return (a.createdAt - b.createdAt) || (a.start - b.start); });
+  var vus = {}, comptes = [], exclus = [];
+  cand.forEach(function(e) { var cle = String(e.email || '').toLowerCase().trim() || ('n:' + fcNormNom(e.name)), o = ovr[String(e.email || '').toLowerCase().trim()];
+    if (o && o !== 'Outbound') { exclus.push({ r: e.r, raison: 'reclassé en ' + o }); return; }
+    var rep = null; try { rep = typeof sdOutboundReprise === 'function' ? sdOutboundReprise(e) : null; } catch (x) {}
+    if (rep && !o) { exclus.push({ r: e.r, raison: 'déjà vu < 2 mois' }); return; }
+    if (vus[cle]) { exclus.push({ r: e.r, raison: 'doublon' }); return; }
+    vus[cle] = 1; comptes.push(e.r); });
+  return { comptes: comptes, exclus: exclus };
+}
 function computeKpis(month, year) {
   const rows = getRdvs(month, year);
   const MONTHS_IDX = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
@@ -9267,26 +9283,12 @@ function computeKpis(month, year) {
     const _r = _store[_key] || [];
     for (let _i = 0; _i < _r.length; _i++) _allRdvsAllMonths.push(_r[_i]);
   }
-  const outbound = _allRdvsAllMonths.filter(r => {
-    if (r.source !== 'Outbound') return false;
-    // Avec datePrise : filtrage par date de prise
-    if (r.datePrise) {
-      const p = r.datePrise.split('/');
-      if (p.length !== 3) return false;
-      return `${p[2]}-${p[1].padStart(2,'0')}` === monthKey;
-    }
-    // Sans datePrise (rétrocompat) : filtrage par date du RDV
-    if (r.date) {
-      const p = r.date.split('/');
-      if (p.length !== 3) return false;
-      return `${p[2]}-${p[1].padStart(2,'0')}` === monthKey;
-    }
-    return false;
-  });
+  // Outbound du mois (12 oct. 2026) : même règle que « Semaine » d'Aujourd'hui — prise ce mois, reclassements respectés, reprises de moins de 2 mois exclues, un par prospect
+  const _ob = sdOutboundDuMois(monthKey), outbound = _ob.comptes, outboundExclus = _ob.exclus;
   const pub = rowsR1Traites.filter(r => r.source === 'PUB');   // même population qu'inbound
 
   return { total, shows, noshow, signes, closing, oneshot, showrate, noshowrate,
-    commission, mrr, inbound, outbound, pub, rdvParJour, showsParJour, joursOuvres,
+    commission, mrr, inbound, outbound, outboundExclus, pub, rdvParJour, showsParJour, joursOuvres,
     delai, nbDelai, hasDelai, hasOneShot, hasBonus, mandataires, agences, sansType, signesRows,
     delaiR1R2, nbDelaiR1R2, delaiPriseRdv, nbDelaiPriseRdv,
     reprogrammes, annules, vraisNoShow, closingCohorte, cohorteShows, cohorteSignes, rdvPris, jourJ, baseJourJ, joursTravailles };
@@ -9693,11 +9695,11 @@ function ckHtml(c) {
   var moy = function(ch) { return mois3 && mois3.mois ? mois3[ch] / mois3.mois : null; };
   var appelsMoy = null; try { if (_closeAppels && _closeAppels.mois) { var cles = Object.keys(_closeAppels.mois).filter(function(x) { return x < mk; }).sort().slice(-3); if (cles.length) appelsMoy = cles.reduce(function(a, x) { return a + (_closeAppels.mois[x].sortants || 0); }, 0) / cles.length; } } catch (e) {}
   var dalle = function(orb, lab, v, pctBar, repere, s, cls) { var rep = repere === null || repere === undefined || isNaN(repere) ? null : Math.max(0, Math.min(100, repere)); return '<button class="ck-dalle' + (cls ? ' ' + cls : '') + '" data-orb="' + orb + '" onclick="ckChoisir(\'' + orb + '\')" title="Voir le détail"><div class="lab">' + lab + '</div><div class="v">' + v + '</div><div class="bar"><i style="width:' + Math.max(0, Math.min(100, pctBar || 0)) + '%"></i>' + (rep !== null ? '<u style="left:' + rep + '%" title="moyenne 3 mois"></u>' : '') + '</div><div class="s">' + s + '</div></button>'; };
-  var objOutb = Math.max(1, 3 * (c.jOuv || 22)), aC = _ck.appels[mk]; // objectif outbound : 3 RDV par jour ouvré (règle d'Aujourd'hui)
+  var obJour = (state.targets && +state.targets.outboundDay) || 3, objOutb = Math.max(1, obJour * (c.jOuv || 22)), aC = _ck.appels[mk]; // objectif outbound : ton réglage « Outbound / jour » × jours ouvrés (même règle qu'Aujourd'hui)
   var refA = appels ? Math.max(appelsMoy || 0, appels.sortants || 1) : 1, refS = Math.max(nb3 && s3.totalSignes ? s3.totalSignes / nb3 : 0, k.signes || 1);
   h += '<div class="ck-main"><div class="ck-stage"><div class="ck-stage-h"><span>Les six chiffres qui comptent</span><span>barre = ce mois · trait = moyenne de tes 3 derniers mois finis</span></div><div class="ck-dalles">'
     + dalle('acq', 'Appels', appels ? (appels.sortants || 0) : '—', appels ? (appels.sortants || 0) / refA * 100 : 0, appels && appelsMoy ? appelsMoy / refA * 100 : null, appels ? ((aC && aC.uniques !== undefined && !aC.enCours && !aC.erreur) ? aC.uniques + ' prospects · ' + aC.joints + ' conversations' : (appels.duree ? fmtDureeAppels(appels.duree) + ' en ligne' : '')) + (appelsMoy ? ' · moy. ' + Math.round(appelsMoy) : '') : 'Close non chargé')
-    + dalle('acq', 'RDV outbound pris', pfL('outbound', outb) + ' <small>/ ' + objOutb + '</small>', outb / objOutb * 100, null, (appels && outb ? '1 pour ' + Math.round((appels.sortants || 0) / outb) + ' appels · ' : '') + (c.courant ? 'objectif à ce jour (3 par jour ouvré)' + (objOutb > outb ? ' · ' + (objOutb - outb) + ' de retard' : ' · dans les clous') : 'objectif 3 par jour ouvré'))
+    + dalle('acq', 'RDV outbound pris', pfL('outbound', outb) + ' <small>/ ' + objOutb + '</small>', outb / objOutb * 100, null, (appels && outb ? '1 pour ' + Math.round((appels.sortants || 0) / outb) + ' appels · ' : '') + (c.courant ? 'objectif à ce jour (' + obJour + ' par jour ouvré)' + (objOutb > outb ? ' · ' + (objOutb - outb) + ' de retard' : ' · dans les clous') : 'objectif ' + obJour + ' par jour ouvré'))
     + dalle('rdv', 'RDV tenus ou attendus', pfL('base', k.total) + ' <small>· ' + pfL('pris', (k.rdvPris || 0) + ' pris') + '</small>', k.rdvPris ? k.total / k.rdvPris * 100 : 0, moy('pris') ? moy('base') / Math.max(moy('pris'), 1) * 100 : null, pfL('avance', (k.rdvPris - k.total) + ' annulé' + ((k.rdvPris - k.total) > 1 ? 's' : '') + ' ou déplacé' + ((k.rdvPris - k.total) > 1 ? 's' : '') + ' à l\'avance') + (moy('base') ? ' · moy. ' + Math.round(moy('base')) + ' attendus' : ''))
     + dalle('rdv', 'Présence', pfL('shows', (pres === null ? '—' : pres) + ' <small>%</small>'), pres || 0, nb3 ? s3.showRate : null, pfL('shows', k.shows + ' tenus') + ' · ' + pfL('nontenus', (ap.total || 0) + ' non tenus le jour J') + (nb3 ? ' · moy. ' + Math.round(s3.showRate) + ' %' : ''))
     + dalle('conv', 'Closing', pfL('closing', (k.shows ? k.closing : '—') + ' <small>%</small>'), k.shows ? k.closing : 0, nb3 ? s3.closingRate : null, u.signes + ' signé' + (u.signes > 1 ? 's' : '') + ' sur ' + k.shows + ' R1 tenus ce mois' + (nb3 ? ' · moy. ' + Math.round(s3.closingRate) + ' %' : '') + (c.courant ? ' · encore ouvert' : ''))
@@ -9756,7 +9758,7 @@ function sdPerfListe(cle) {
   else if (cle === 'closing') { L = shows.filter(sdAConclu); titre = 'Closing : R1 tenus ce mois qui ont signé'; note = shows.length + ' R1 tenus ce mois, dont ' + L.length + ' signé' + (L.length > 1 ? 's' : '') + '.'; }
   else if (cle === 'oneshot') { L = (k.signesRows || []).slice(); var n1 = L.filter(sdEstOneShot).length; titre = 'One shot : ventes signées le jour du R1'; note = n1 + ' sur ' + L.length + ' vente' + (L.length > 1 ? 's' : '') + ' du mois signée' + (n1 > 1 ? 's' : '') + ' le jour même du R1.'; mode = 'vente'; }
   else if (cle === 'signes') { L = (k.signesRows || []).slice(); titre = 'Signatures du mois'; note = 'Ventes signées ce mois (date de signature), quel que soit le mois du R1.'; mode = 'vente'; }
-  else if (cle === 'outbound') { L = (k.outbound || []).slice(); titre = 'RDV outbound pris'; note = 'RDV outbound dont la prise tombe ce mois, quelle que soit la date du RDV.'; mode = 'outbound'; }
+  else if (cle === 'outbound') { L = (k.outbound || []).slice(); titre = 'RDV outbound pris'; note = 'Pris ce mois, un par prospect ; les reprises de moins de 2 mois et les reclassés ne comptent pas (même règle que « Semaine »).'; mode = 'outbound'; }
   else if (cle === 'mand') { L = (k.mandataires || []).slice(); titre = 'Mandataires'; note = 'Même base que le total RDV.'; }
   else if (cle === 'agences') { L = (k.agences || []).slice(); titre = 'Agences'; note = 'Même base que le total RDV.'; }
   else if (src) { L = base.filter(function(r) { return r.source === src; }); titre = src + ' · RDV tenus ou attendus'; var av2 = r1.filter(function(r) { return r.source === src && !sdEnBase(r); }).length; if (av2) note = 'Plus ' + av2 + ' annulé' + (av2 > 1 ? 's' : '') + ' ou déplacé' + (av2 > 1 ? 's' : '') + ' à l\'avance, hors base.'; }
@@ -9776,7 +9778,8 @@ function sdPerfListe(cle) {
   if (!ov) { ov = document.createElement('div'); ov.id = 'fc-dup-overlay'; ov.className = 'modal-overlay'; ov.style.zIndex = '1300'; ov.innerHTML = '<div class="modal" id="fc-dup-modal"></div>'; document.body.appendChild(ov); }
   ov.onclick = function(ev) { if (ev.target === ov) fermerModalDoublon(); }; ov.classList.add('open');
   document.getElementById('fc-dup-modal').innerHTML = '<div class="fc-dup pf-pop"><div class="pf-pop-h"><div><div class="t">' + escapeHtml(titre) + ' <span>' + L.length + '</span></div><div class="fc-muted">' + escapeHtml(state.month + ' ' + state.year) + (note ? ' · ' + escapeHtml(note) : '') + '</div></div><button class="btn btn-sm" onclick="fermerModalDoublon()">Fermer</button></div>'
-    + '<div class="pf-pop-l">' + (L.length ? L.map(ligne).join('') : '<div class="fc-muted" style="padding:14px 0;">Personne ce mois.</div>') + '</div></div>';
+    + '<div class="pf-pop-l">' + (L.length ? L.map(ligne).join('') : '<div class="fc-muted" style="padding:14px 0;">Personne ce mois.</div>')
+    + (cle === 'outbound' && (k.outboundExclus || []).length ? '<div class="fc-muted" style="margin:14px 0 4px;font-weight:600;">Pris mais non comptés · ' + k.outboundExclus.length + '</div>' + k.outboundExclus.map(function(x) { var r = x.r; return '<div class="pf-l"><span class="n">' + sdNomLien(r.client, r.email || '', 'fermerModalDoublon();') + '<small>' + escapeHtml(['pris le ' + fr(r.datePrise || r.date), 'RDV le ' + fr(r.date), r.type || ''].filter(Boolean).join(' · ')) + '</small></span><span class="b"><span class="pf-b mu">' + escapeHtml(x.raison) + '</span></span></div>'; }).join('') : '') + '</div></div>';
 }
 // Détail du mois (direction « Dalles », 11 oct. 2026) : cartes générées depuis les mêmes calculs — rendez-vous (barre tenus / no-show / annulés / déplacés / à l'avance),
 // ventes et deals, rythme et suivi, mandataires vs agences, sources. Les anciens blocs équivalents sont masqués en mode cockpit ; appels, commission (avec les primes) et historique restent.
