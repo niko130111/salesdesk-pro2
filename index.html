@@ -450,6 +450,21 @@ main { max-width: 100%; margin: 0; padding: 6px 8px; }
 .fc-head .fc-dernier .synth .st { color: #0C447C; }
 .fc-tabs { margin-top: 12px; }
 .fc-synth { display: grid; grid-template-columns: 1.6fr 1fr; gap: 14px; align-items: start; }
+/* Prospection › file « Secteurs vides » (12 oct. 2026) */
+.ps-why { font-size: 13px; color: var(--text3); margin: 0 0 14px; line-height: 1.5; }
+.ps-grid { display: grid; grid-template-columns: 1.5fr 1fr; gap: 14px; align-items: start; } @media (max-width: 900px) { .ps-grid { grid-template-columns: 1fr; } }
+.ps-card { background: var(--surface, #fff); border: 1px solid var(--border); border-radius: 14px; padding: 18px 20px; }
+.ps-eyebrow { font-size: 11px; letter-spacing: 1px; font-weight: 700; color: var(--text3); text-transform: uppercase; }
+.ps-nom { font-size: 22px; font-weight: 800; margin: 6px 0 2px; } .ps-sous { font-size: 13.5px; color: var(--text3); } .ps-sous a { color: var(--accent); }
+.ps-tel { font-size: 24px; font-weight: 800; letter-spacing: .5px; margin: 14px 0 4px; font-variant-numeric: tabular-nums; }
+.ps-tile { background: var(--soft-blue); border-radius: 10px; padding: 12px 14px; margin: 12px 0; display: flex; gap: 18px; flex-wrap: wrap; } .ps-tile b { font-size: 20px; color: var(--accent); } .ps-tile span { font-size: 12.5px; color: var(--text3); display: block; }
+.ps-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; } .ps-apres { border-top: 1px dashed var(--border); margin-top: 16px; padding-top: 12px; } .ps-apres .t { font-size: 12.5px; font-weight: 700; color: var(--text3); margin-bottom: 4px; }
+.ps-note { font-size: 12px; color: var(--text3); margin-top: 8px; line-height: 1.5; }
+.ps-btn-ok { border-color: var(--green) !important; color: var(--green) !important; } .ps-btn-warn { border-color: var(--orange) !important; color: var(--orange) !important; }
+.ps-it { display: flex; justify-content: space-between; gap: 10px; padding: 9px 0; border-top: 1px solid var(--border); font-size: 13px; cursor: pointer; } .ps-it:first-of-type { border-top: 0; } .ps-it:hover .n { color: var(--accent); }
+.ps-it small { color: var(--text3); display: block; font-size: 12px; } .ps-it .z { font-size: 12px; color: var(--text3); white-space: nowrap; text-align: right; } .ps-gris { opacity: .55; }
+.ps-sep { font-size: 11.5px; font-weight: 700; color: var(--text3); margin: 10px 0 2px; text-transform: uppercase; letter-spacing: .8px; }
+.ps-mn { display: grid; grid-template-columns: 1fr 1.3fr auto; gap: 12px; padding: 12px 0; border-top: 1px solid var(--border); font-size: 13px; align-items: start; } @media (max-width: 900px) { .ps-mn { grid-template-columns: 1fr; } }
 /* Ton R1 en bref (prépa du R2, 12 oct. 2026) */
 .fc-r1b { margin-bottom: 14px; } .fc-r1b .bref { font-size: 15.5px; line-height: 1.5; font-weight: 600; margin: 2px 0 14px; }
 .fc-r1b .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
@@ -12058,6 +12073,7 @@ var _pr = { data: null, at: 0, liste: '', cat: '', bdrParti: false, q: '', enCou
 function prCharger(force) {
   if (typeof COPILOT_URL === 'undefined') { _pr.erreur = 'Copilot éteint : les listes se lisent par lui.'; renderProspection(); return; }
   if (_pr.enCours || (!force && _pr.data && Date.now() - _pr.at < 120000)) return; _pr.enCours = true;
+  psCharger();
   fetch(COPILOT_URL + '/listes-appel', { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).then(function(j) { _pr.enCours = false; _pr.erreur = ''; _pr.data = j; _pr.at = Date.now(); if (!_pr.liste && j.listes) { var l = Object.values(j.listes).sort(function(a, b) { return a.ordre - b.ordre; })[0]; if (l) _pr.liste = l.cle; } renderProspection(); if (j.enCours) setTimeout(function() { prCharger(true); }, 20000); }).catch(function() { _pr.enCours = false; _pr.erreur = 'Copilot injoignable.'; renderProspection(); });
 }
 function prConstruire() {
@@ -12094,14 +12110,91 @@ function prAppeler(ev, tel, url, lead, nom) { // ouvre la fiche Close (numéro c
   }
   fcAppeler(ev, tel, url); try { renderProspection(); } catch (e) {} return false;
 }
+// ── File « Secteurs vides » (12 oct. 2026) : 100 prospects hors Close, secteurs les moins couverts ; rien dans Close avant un RDV ou une tâche ; Close compose sans fiche ; l'appelé passe en fin de file ──
+var _ps = { data: null, at: 0, courant: null, enCours: false };
+function psCharger(force) { if (typeof COPILOT_URL === 'undefined') return; if (_ps.enCours || (!force && _ps.data && Date.now() - _ps.at < 60000)) return; _ps.enCours = true;
+  fetch(COPILOT_URL + '/prospection/secteurs', { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).then(function(j) { _ps.enCours = false; if (j && j.ok) { _ps.data = j; _ps.at = Date.now(); try { renderProspection(); } catch (e) {} } }).catch(function() { _ps.enCours = false; }); }
+function psItem(id) { return ((_ps.data && _ps.data.items) || []).find(function(x) { return x.id === id; }) || null; }
+function psNomAff(x) { var n = String(x.nom || '').trim(); if (!n || n === n.toUpperCase()) return 'Conseiller ' + (x.structure || '') + (n ? ' · ' + n.charAt(0) + n.slice(1).toLowerCase() : ''); return n; } // annuaires qui donnent la zone au lieu du nom (Casarèse…)
+function psEstPersonne(x) { var n = String(x.nom || '').trim(); return !!n && n !== n.toUpperCase() && /\s/.test(n); }
+function psAujourdhui(x) { return x.dernierAppel && rlIso(new Date(x.dernierAppel.at)) === rlIso(new Date()); }
+function psAction(id, action, lead) { return rlPost('/prospection/secteurs/action', { id: id, action: action, lead: lead || '' }).then(function(j) { if (j && j.items) { _ps.data = j; _ps.at = Date.now(); } try { renderProspection(); } catch (e) {} return j; }); }
+function psAppeler(id) {
+  var x = psItem(id); if (!x) return; _ps.courant = id; var num = String(x.tel || '').replace(/\s/g, '');
+  try { navigator.clipboard.writeText(num); } catch (e) {}
+  if (typeof showCopyToast === 'function') showCopyToast('📞 Close compose le ' + x.tel + '…');
+  rlPost('/close/composer', { tel: num }).then(function() { if (typeof showCopyToast === 'function') showCopyToast('📞 Close appelle ' + psNomAff(x) + ' (' + x.tel + ')'); })
+    .catch(function(e) { alert('📞 Close n\'a pas pu composer tout seul : ' + e.message + '\n\nLe numéro est copié : dans Close, clique sur l\'icône téléphone, colle (⌘V) puis Entrée.'); });
+  psAction(id, 'appele').catch(function() {});
+}
+function psResultat(id, action) { var x = psItem(id); psAction(id, action).then(function() { if (_ps.courant === id) _ps.courant = null; try { renderProspection(); } catch (e) {} if (typeof showCopyToast === 'function') showCopyToast(action === 'pas_reponse' ? '↻ ' + (x ? psNomAff(x) : '') + ' : en fin de file' : '✓ Sorti de la file · rien dans Close'); }).catch(function(e) { alert(e.message); }); }
+function psFormulaire(id, type) { // RDV ou tâche : la fiche Close naît ici, avec le nom et l'e-mail obtenus pendant l'appel
+  var x = psItem(id); if (!x) return; _ps.courant = id;
+  var ov = document.getElementById('fc-dup-overlay'); if (!ov) { ov = document.createElement('div'); ov.id = 'fc-dup-overlay'; ov.className = 'modal-overlay'; ov.style.zIndex = '1300'; ov.innerHTML = '<div class="modal" id="fc-dup-modal"></div>'; document.body.appendChild(ov); }
+  ov.onclick = function(ev) { if (ev.target === ov) fermerModalDoublon(); }; ov.classList.add('open');
+  var champ = 'font-family:var(--font);font-size:13.5px;padding:8px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg);color:var(--text);width:100%;box-sizing:border-box;';
+  var demain = rlJourOuvre(rlIso(new Date()), 1), idJs = JSON.stringify(id).replace(/"/g, '&quot;');
+  document.getElementById('fc-dup-modal').innerHTML = '<div class="fc-dup" style="width:min(480px,84vw);max-width:100%;box-sizing:border-box;"><div style="font-size:16px;font-weight:700;">' + (type === 'rdv' ? '📅 Prendre un RDV' : '⏰ Tâche de rappel') + ' · ' + escapeHtml(psNomAff(x)) + '</div><div class="fc-muted" style="margin:2px 0 12px;">' + escapeHtml((x.structure || '') + ' · ' + (x.commune || '') + ' · ' + x.tel) + '<br>La fiche Close est créée maintenant, à ton nom.' + (type === 'rdv' ? ' Ensuite tu choisis le créneau, je réserve dans Calendly.' : '') + '</div>'
+    + '<label style="font-size:12px;font-weight:600;">Prénom et nom</label><input id="ps-f-nom" style="' + champ + 'margin:4px 0 10px;" value="' + escapeHtml(psEstPersonne(x) ? x.nom : '') + '" placeholder="ex. Elodie Picoulier">'
+    + '<label style="font-size:12px;font-weight:600;">E-mail' + (type === 'rdv' ? ' (obligatoire pour Calendly)' : ' (facultatif)') + '</label><input id="ps-f-email" type="email" style="' + champ + 'margin:4px 0 10px;" value="' + escapeHtml(x.email || '') + '" placeholder="prenom.nom@…">'
+    + (type === 'tache' ? '<div style="display:flex;gap:8px;"><div style="flex:1;"><label style="font-size:12px;font-weight:600;">Jour</label><input id="ps-f-date" type="date" min="' + rlIso(new Date()) + '" value="' + demain + '" style="' + champ + 'margin:4px 0 10px;"></div><div style="flex:1;"><label style="font-size:12px;font-weight:600;">Heure (facultatif)</label><input id="ps-f-heure" type="time" style="' + champ + 'margin:4px 0 10px;"></div></div><label style="font-size:12px;font-weight:600;">Tâche</label><input id="ps-f-texte" style="' + champ + 'margin:4px 0 10px;" value="Rappeler">' : '')
+    + '<div id="ps-f-err" style="color:var(--red);font-size:12.5px;min-height:16px;"></div><div style="display:flex;justify-content:flex-end;gap:8px;margin-top:6px;"><button class="btn" onclick="fermerModalDoublon()">Annuler</button><button class="btn btn-primary" id="ps-f-ok" onclick="psValider(' + idJs + ',\'' + type + '\')">' + (type === 'rdv' ? 'Créer la fiche et choisir le créneau' : 'Créer la fiche et la tâche') + '</button></div></div>';
+  setTimeout(function() { var f = document.getElementById(psEstPersonne(x) ? 'ps-f-email' : 'ps-f-nom'); if (f) f.focus(); }, 50);
+}
+function psValider(id, type) {
+  var x = psItem(id); if (!x) return; var g = function(k) { var e = document.getElementById(k); return e ? String(e.value || '').trim() : ''; };
+  var nom = g('ps-f-nom'), email = g('ps-f-email').toLowerCase(), err = document.getElementById('ps-f-err'), ok = document.getElementById('ps-f-ok');
+  if (!nom) { err.textContent = 'Le prénom et le nom sont nécessaires pour la fiche.'; return; }
+  if ((type === 'rdv' || email) && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { err.textContent = type === 'rdv' ? 'Calendly a besoin de son e-mail pour envoyer l\'invitation.' : 'E-mail invalide.'; return; }
+  var date = g('ps-f-date'), heure = g('ps-f-heure'), texte = g('ps-f-texte') || 'Rappeler';
+  if (type === 'tache' && !/^\d{4}-\d{2}-\d{2}$/.test(date)) { err.textContent = 'Choisis le jour du rappel.'; return; }
+  ok.disabled = true; ok.textContent = 'Création de la fiche Close…'; err.textContent = '';
+  fetch(COPILOT_URL + '/close/lead/creer', { method: 'POST', mode: 'cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: id, nom: nom, email: email, origine: 'secteurs' }) }).then(function(r) { return r.json(); }).then(function(r) {
+    if (!r || !r.ok || !r.lead) throw new Error((r && r.error) || 'fiche non créée');
+    var lead = r.lead, url = r.url || ('https://app.close.com/lead/' + lead + '/');
+    if (type === 'tache') return rlPost('/close/taches', { lead: lead, date: date, heure: heure, texte: texte, motif: 'file secteurs vides' }).then(function() { return psAction(id, 'tache', lead); }).then(function() { fermerModalDoublon(); _ps.courant = null; renderProspection(); if (typeof showCopyToast === 'function') showCopyToast('✓ Fiche Close créée et tâche posée le ' + fcFrDepuisIso(date) + (heure ? ' à ' + heure : '')); });
+    psAction(id, 'rdv', lead).catch(function() {}); _ps.courant = null;
+    if (typeof showCopyToast === 'function') showCopyToast(r.rattache ? 'Numéro déjà dans Close · fiche rattachée' : '✓ Fiche Close créée · choisis le créneau');
+    sdReserverCalendly({ type: 'r1', nom: nom, email: email, tel: String(x.tel || '').replace(/\s/g, ''), cp: x.cp || '', lead: lead }, function(j) { if (typeof showCopyToast === 'function') showCopyToast('📅 RDV avec ' + nom + ' le ' + fcFrDepuisIso(j.date) + ' à ' + j.heure); try { renderProspection(); } catch (e) {} });
+  }).catch(function(e) { ok.disabled = false; ok.textContent = 'Réessayer'; err.textContent = e.message; });
+}
+function psRendreFile() {
+  var d = _ps.data; if (!d) { psCharger(); return '<div class="fc-muted">Lecture de la file…</div>'; }
+  var items = d.items || []; if (!items.length) return '<div class="auj-card"><b>File vide.</b><div class="fc-muted">Les 100 prospects ont été traités.</div></div>';
+  var cur = (_ps.courant && psItem(_ps.courant)) || items.filter(function(x) { return !psAujourdhui(x); })[0] || items[0], idJs = JSON.stringify(cur.id).replace(/"/g, '&quot;');
+  var nb = function(n) { return Number(n || 0).toLocaleString('fr-FR'); }, deja = psAujourdhui(cur);
+  var why = '<div class="ps-why">' + d.n + ' prospects absents de Close (vérifiés au téléphone le 12/10), dans les secteurs qui ont le moins de clients RealAdvisor pour 100 000 habitants à 15 km. <b>Rien n\'est créé dans Close tant que tu ne prends pas un RDV ou une tâche.</b> Chaque prospect appelé passe en fin de file.</div>';
+  var carte = '<div class="ps-card"><div class="ps-eyebrow">' + (deja ? 'Appelé à ' + new Date(cur.dernierAppel.at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) + ' · en fin de file' : 'À appeler · secteur n° ' + cur.rang + ' sur 100') + '</div>'
+    + '<div class="ps-nom">' + escapeHtml(psNomAff(cur)) + '</div><div class="ps-sous">' + escapeHtml([cur.type, cur.structure].filter(Boolean).join(' ') + ' · ' + cur.commune + (cur.cp ? ' (' + cur.cp + ')' : '')) + (cur.lien ? ' · <a href="' + escapeHtml(cur.lien) + '" target="_blank" rel="noopener">voir sa vitrine ↗</a>' : '') + (cur.activite ? ' · ' + escapeHtml(cur.activite) : '') + '</div>'
+    + '<div class="ps-tel">' + escapeHtml(cur.tel) + '</div>'
+    + '<div class="ps-tile"><div><b>' + cur.clients15 + '</b><span>client' + (cur.clients15 > 1 ? 's' : '') + ' RealAdvisor à 15 km' + (cur.clientsNoms && cur.clientsNoms.length ? ' (' + escapeHtml(cur.clientsNoms.slice(0, 3).join(', ')) + ')' : '') + '</span></div><div><b>' + nb(cur.pop15) + '</b><span>habitants à 15 km</span></div></div>'
+    + '<div class="ps-row"><button class="btn btn-primary" style="font-size:15px;padding:11px 18px;" onclick="psAppeler(' + idJs + ')">📞 ' + (deja ? 'Rappeler' : 'Appeler') + ' avec Close</button></div><div class="ps-note">Close compose le numéro sans créer de fiche. Le prospect passe en fin de file dès le clic.</div>'
+    + '<div class="ps-apres"><div class="t">Après l\'appel</div><div class="ps-row"><button class="btn ps-btn-ok" onclick="psFormulaire(' + idJs + ',\'rdv\')">📅 Prendre un RDV</button><button class="btn ps-btn-ok" onclick="psFormulaire(' + idJs + ',\'tache\')">⏰ Tâche de rappel</button><button class="btn" onclick="psResultat(' + idJs + ',\'pas_reponse\')">Pas de réponse</button><button class="btn ps-btn-warn" onclick="psResultat(' + idJs + ',\'pas_interesse\')">Pas intéressé</button><button class="btn" onclick="psResultat(' + idJs + ',\'mauvais_numero\')">Mauvais numéro</button></div>'
+    + '<div class="ps-note"><b>RDV ou tâche</b> : la fiche Close est créée à ce moment-là, à ton nom. <b>Pas de réponse</b> : il reste en fin de file. <b>Pas intéressé / mauvais numéro</b> : il sort de la file, rien dans Close.</div></div></div>';
+  var ligne = function(x, gris) { return '<div class="ps-it' + (gris ? ' ps-gris' : '') + '" onclick="_ps.courant=' + JSON.stringify(x.id).replace(/"/g, '&quot;') + ';renderProspection()" title="Passer à ce prospect"><span class="n">' + escapeHtml(psNomAff(x)) + '<small>' + escapeHtml((x.structure || '') + ' · ' + (x.commune || '')) + (gris && x.dernierAppel ? ' · ' + escapeHtml({ pas_reponse: 'pas de réponse', '': 'appelé' }[x.dernierAppel.res || ''] || 'appelé') + ' ' + new Date(x.dernierAppel.at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '') + '</small></span><span class="z">' + x.clients15 + ' client' + (x.clients15 > 1 ? 's' : '') + ' · ' + nb(x.pop15) + ' hab.</span></div>'; };
+  var suite = items.filter(function(x) { return x.id !== cur.id && !psAujourdhui(x); }), faits = items.filter(function(x) { return x.id !== cur.id && psAujourdhui(x); });
+  var cote = '<div class="ps-card"><div class="ps-eyebrow" style="margin-bottom:6px;">Ensuite · ' + suite.length + '</div>' + suite.slice(0, 7).map(function(x) { return ligne(x, false); }).join('') + (faits.length ? '<div class="ps-sep">Appelés aujourd\'hui, en fin de file · ' + faits.length + '</div>' + faits.slice(-6).reverse().map(function(x) { return ligne(x, true); }).join('') : '') + '</div>';
+  return why + '<div class="ps-grid">' + carte + cote + '</div>' + (d.sortis ? '<div class="fc-muted" style="margin-top:12px;font-size:12px;">' + d.sortis + ' sorti' + (d.sortis > 1 ? 's' : '') + ' de la file (RDV, tâche, pas intéressé ou mauvais numéro).</div>' : '');
+}
+function psRendreMemeNom() {
+  var d = _ps.data; if (!d) { psCharger(); return '<div class="fc-muted">Lecture…</div>'; }
+  var L = d.memeNom || []; var aTrancher = L.filter(function(m) { return !m.verifie; }), faits = L.filter(function(m) { return m.verifie; });
+  var ligne = function(m) { var idJs = JSON.stringify(m.id).replace(/"/g, '&quot;');
+    return '<div class="ps-mn' + (m.verifie ? ' ps-gris' : '') + '"><div><b>' + escapeHtml(m.nom) + '</b><div class="fc-muted" style="font-size:12px;">' + escapeHtml([m.structure, m.cp, m.ville].filter(Boolean).join(' · ')) + '<br>' + escapeHtml(m.tel || '') + '</div><span class="auj-state ' + (m.probable ? 'warn' : 'info') + '" style="margin-top:6px;display:inline-flex;">' + (m.probable ? 'Probablement la même personne' : 'Homonyme possible') + '</span></div>'
+      + '<div>' + (m.trouves || []).slice(0, 3).map(function(t) { return '<div style="margin-bottom:6px;"><a href="https://app.close.com/lead/' + escapeHtml(t.id) + '/" target="_blank" rel="noopener" style="color:var(--accent);font-weight:600;">' + escapeHtml(t.nom) + ' ↗</a><div class="fc-muted" style="font-size:12px;">' + escapeHtml([t.statut, t.reseau, t.cp || t.ville].filter(Boolean).join(' · ')) + '</div></div>'; }).join('') + '</div>'
+      + '<div style="display:flex;flex-direction:column;gap:6px;">' + (m.verifie ? '<span class="fc-muted" style="font-size:12px;">' + (m.verifie.res === 'meme_personne' ? 'C\'est lui : écarté' : 'Pas lui') + '</span>' : '<button class="btn btn-sm ps-btn-warn" onclick="psAction(' + idJs + ',\'meme_personne\')">C\'est lui</button><button class="btn btn-sm" onclick="psAction(' + idJs + ',\'homonyme\')">Pas lui</button>') + '</div></div>'; };
+  return '<div class="ps-why">Prospects de la liste Hors Close dont le prénom et le nom existent déjà dans Close. Un même nom ne prouve rien : ouvre la fiche trouvée et tranche. <b>C\'est lui</b> le retire de la liste Hors Close ; <b>Pas lui</b> le laisse. Aucun ne fait partie des 100 de la file Secteurs vides.</div><div class="ps-card">' + (aTrancher.length ? aTrancher.map(ligne).join('') : '<div class="fc-muted">Tout est tranché.</div>') + (faits.length ? '<div class="ps-sep" style="margin-top:14px;">Déjà tranchés · ' + faits.length + '</div>' + faits.map(ligne).join('') : '') + '</div>';
+}
 function renderProspection() {
   var page = document.getElementById('page-prospection'); if (!page || !page.classList.contains('active')) return;
   if (!_pr.data && !_pr.erreur) { prCharger(false); document.getElementById('pr-corps').innerHTML = '<div class="fc-muted">Lecture des listes…</div>'; return; }
   var j = _pr.data, O = document.getElementById('pr-onglets'), F = document.getElementById('pr-filtres'), C = document.getElementById('pr-corps');
   if (_pr.erreur) { O.innerHTML = ''; F.innerHTML = ''; C.innerHTML = '<div class="fc-muted">' + escapeHtml(_pr.erreur) + '</div>'; return; }
   if (!j.pret) { O.innerHTML = ''; F.innerHTML = ''; C.innerHTML = '<div class="auj-card"><b>Les listes ne sont pas encore construites.</b><div class="fc-muted" style="margin-top:4px;">' + (j.enCours ? 'Construction en cours (' + escapeHtml((j.etat || {}).liste || '') + ', page ' + ((j.etat || {}).page || 0) + ')… elles apparaîtront toutes seules.' : 'Elles se construisent chaque nuit à 05:15. Clique « Reconstruire maintenant » pour ne pas attendre.') + '</div></div>'; return; }
+  if (_ps.data && j.listes) { j.listes.secteurs = { cle: 'secteurs', titre: 'Secteurs vides', ordre: 7, n: _ps.data.n, items: [], pourquoi: '', special: true }; j.listes.memenom = { cle: 'memenom', titre: 'Même nom dans Close', ordre: 8, n: (_ps.data.memeNom || []).filter(function(m) { return !m.verifie; }).length, items: [], pourquoi: '', special: true }; } // file « Secteurs vides » (12 oct. 2026)
   var listes = Object.values(j.listes).sort(function(a, b) { return a.ordre - b.ordre; }); if (!j.listes[_pr.liste]) _pr.liste = listes[0].cle;
   O.innerHTML = listes.map(function(l) { return '<button class="ar-pill' + (l.cle === _pr.liste ? ' on' : '') + '" onclick="_pr.liste=\'' + l.cle + '\';renderProspection()">' + escapeHtml(l.ordre + '. ' + l.titre) + ' <span class="auj-count">' + l.n + '</span></button>'; }).join('');
+  if (j.listes[_pr.liste] && j.listes[_pr.liste].special) { F.innerHTML = ''; C.innerHTML = _pr.liste === 'secteurs' ? psRendreFile() : psRendreMemeNom(); return; }
   // ce que SalesDesk sait prime : un prospect que Nicolas a noté « pas intéressé » ou « ghost » après son RDV ne revient pas dans une liste
   var L = j.listes[_pr.liste], items = L.items.filter(function(i) { var sd = prInfosSalesDesk(i.nom.split('|')[0].trim(), i.email); if (sd && /pas intéressé|ghost/.test(sd.raison)) return false; return (!_pr.cat || i.cat === _pr.cat) && (!_pr.bdrParti || i.ownerInactif) && (!_pr.q || (i.nom + ' ' + i.ville + ' ' + i.reseau).toLowerCase().indexOf(_pr.q) >= 0); });
   var sel = function(v, lib) { return '<button class="btn btn-sm' + (_pr.cat === v ? ' btn-primary' : '') + '" onclick="_pr.cat=\'' + v + '\';renderProspection()">' + lib + '</button>'; };
