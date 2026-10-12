@@ -4028,6 +4028,34 @@ function fcLignesFiche() {
   return out;
 }
 // Point d'entrée : nom (+ email connu, + date du RDV cliqué). Deux personnes différentes du même nom (emails distincts) → popup pour choisir.
+// Historique des RDV du prospect lu dans Close par le copilot (12 oct. 2026) : déjà rencontré ? quand, avec qui, comment ça s'est fini — pour ne plus fouiller Close en prépa
+var _sdHisto = {};
+function sdHistoRdv(nom, email, avant, apres) { // renvoie la réponse si elle est là, sinon lance la lecture et rappelle « apres » quand elle arrive
+  if (typeof COPILOT_URL === 'undefined' || !nom) return null;
+  var cle = fcNormNom(nom) + '|' + String(email || '').toLowerCase() + '|' + (avant || ''), e = _sdHisto[cle];
+  if (e && Date.now() - e.at < 1800000) { if (e.enCours && apres) e.attente.push(apres); return e.data; }
+  e = _sdHisto[cle] = { at: Date.now(), enCours: true, data: null, attente: apres ? [apres] : [] };
+  fetch(COPILOT_URL + '/close/historique-rdv?' + new URLSearchParams({ nom: nom, email: email || '', avant: avant || '' }), { mode: 'cors', cache: 'no-store' })
+    .then(function(r) { return r.json(); }).then(function(j) { e.data = j && j.ok ? j : { ok: false }; }).catch(function() { e.data = { ok: false }; })
+    .then(function() { e.enCours = false; var a = e.attente; e.attente = []; a.forEach(function(f) { try { f(); } catch (x) {} }); });
+  return null;
+}
+function sdHistoFr(iso) { return String(iso || '').split('-').reverse().join('/'); }
+function sdHistoTexte(h) { // une ligne : dernier RDV tenu, dernier RDV pris s'il est différent, nombre de RDV
+  if (!h) return 'lecture de Close…';
+  if (!h.ok) return 'Close injoignable (copilot)';
+  if (!h.trouve || !(h.rdvs || []).length) return 'aucun RDV avant dans Close : premier rendez-vous';
+  var qui = function(r) { return r.moi ? 'toi' : (r.avec || '?'); }, t = h.dernierTenu, p = h.dernierPris, out = [];
+  out.push(t ? 'dernier tenu le ' + sdHistoFr(t.date) + ' avec ' + qui(t) + (t.suite ? ' (puis ' + t.suite.statut + ')' : '') : 'jamais tenu');
+  if (p && !(t && p.date === t.date && p.heure === t.heure)) out.push('dernier pris le ' + sdHistoFr(p.prisLe) + ' pour le ' + sdHistoFr(p.date) + ' avec ' + qui(p) + ', ' + p.etat);
+  if (h.rdvs.length > 1) out.push(h.rdvs.length + ' RDV en tout');
+  return out.join(' · ');
+}
+function sdHistoListe(h, max) { // la liste, pour la fiche
+  if (!h || !h.ok || !h.trouve || !(h.rdvs || []).length) return '';
+  var col = { 'tenu': 'var(--green)', 'no-show': 'var(--red)', 'annulé': 'var(--red)', 'reprogrammé': 'var(--orange)', 'à venir': 'var(--accent)' };
+  return h.rdvs.slice(0, max || 6).map(function(r) { return '<div class="fc-kv"><span class="k">' + sdHistoFr(r.date) + '</span><span class="v">' + escapeHtml(r.moi ? 'toi' : (r.avec || '?')) + ' · <b style="color:' + (col[r.etat] || 'var(--text3)') + ';">' + escapeHtml(r.etat) + '</b>' + (r.suite ? ' <span class="fc-muted">→ ' + escapeHtml(r.suite.statut) + '</span>' : '') + (r.prisLe && r.prisLe !== r.date ? ' <span class="fc-muted">· pris le ' + sdHistoFr(r.prisLe) + '</span>' : '') + '</span></div>'; }).join('');
+}
 // Nom cliquable vers la fiche client, partout où un nom s'écrit (11 oct. 2026) : avant = code à exécuter d'abord (fermer une fenêtre…)
 function sdNomLien(nom, email, avant) { nom = String(nom || '').trim(); if (!nom) return ''; var Q = function(v) { return JSON.stringify(String(v || '')).replace(/"/g, '&quot;'); }; return '<span class="fc-nomlien" title="Ouvrir la fiche" onclick="event.stopPropagation();' + (avant || '') + 'ouvrirFicheClient(' + Q(nom) + ',' + Q(email) + ')">' + escapeHtml(nom) + '</span>'; }
 function ouvrirFicheClient(nom, email, date, lead, tel, site, org) { // tel / site / org : ce que la liste de Prospection sait déjà du prospect (utile quand il n'a pas encore de fiche Close)
@@ -5117,6 +5145,8 @@ function fcHtmlSynthese() {
   var et = _fc.etape || { lib: '', det: '' };
   var next = '<div class="fc-card"><div class="fc-card-t"><span>Prochaine étape</span></div><div class="fc-big">' + escapeHtml(et.lib || '—') + '</div>' + (et.det ? '<div class="fc-muted" style="margin-bottom:6px;">' + escapeHtml(et.det) + '</div>' : '')
     + (j && j.prochaine ? '<div class="fc-kv"><span class="k">Objectif</span><span class="v">' + escapeHtml(j.prochaine) + '</span></div>' : '') + '<div class="fc-kv"><span class="k">Responsable</span><span class="v">Nicolas</span></div></div>';
+  var nomH = _fc.nom, hF = sdHistoRdv(_fc.nom, _fc.email || '', '', function() { if (_fc.nom === nomH && _fc.tab === 'synthese' && document.querySelector('#fc-overlay.open')) fcRendre(); });
+  next += '<div class="fc-card"><div class="fc-card-t"><span>Rendez-vous dans Close</span></div>' + (sdHistoListe(hF, 6) || '<div class="fc-muted">' + escapeHtml(sdHistoTexte(hF)) + '</div>') + '</div>';
   var offre = '';
   if (r1 && (r1.pack || r1.freq || r1.attenteSignature || r1.result === 'Signé' || cles.deal)) {
     var pill = r1.result === 'Signé' ? '<span class="fc-pill ok">Offre validée</span>' : (r1.attenteSignature ? '<span class="fc-pill warn">Contrat envoyé · attente de signature</span>' : '<span class="fc-pill warn">Proposition à confirmer</span>');
@@ -12586,6 +12616,7 @@ function renderAujourdhui() {
   if (prochainIdx >= 0 && (estAuj || jour > todayIso)) {
     var rp = rdvs[prochainIdx], mp = moments[prochainIdx], pp = prepDe(rp), rowP = rp.row || {}, nomJsP = Q(rp.nom), emailJsP = Q(rp.email || '');
     var bl = rp.r2 ? { lignes: ['<div class="bl"><b>R2 :</b><span>validation et lancement ; tout le dossier est dans la fiche.</span></div>'], vide: false } : briefLignes(pp, 3, rp);
+    if (!rp.r2) { var hP = sdHistoRdv(rp.nom, rp.email || '', jour, function() { if (document.getElementById('auj-prochain')) renderAujourdhui(); }); bl.lignes.unshift('<div class="bl"><b>Historique :</b><span>' + escapeHtml(sdHistoTexte(hP)) + '</span></div>'); }
     var compteP = mp.enCours ? '' : (estAuj && mp.mins !== null && mp.mins > 0 ? (mp.mins < 60 ? 'dans ' + mp.mins + ' min' : 'dans ' + Math.floor(mp.mins / 60) + ' h' + (mp.mins % 60 ? String(mp.mins % 60).padStart(2, '0') : '')) : '');
     var ficheB = '<button class="btn" onclick="ouvrirFicheClient(' + nomJsP + ',' + emailJsP + ')">' + aujIco('doc') + 'Ouvrir la fiche</button>';
     var prepB = rp.r2 ? '' : '<button class="btn" onclick="' + cible(rp.nom, rp.email, jour) + '">' + aujIco('cal') + (pp.etat === 'ok' ? 'Voir la préparation' : 'Préparer le RDV') + '</button>';
