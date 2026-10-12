@@ -413,6 +413,12 @@ main { max-width: 100%; margin: 0; padding: 6px 8px; }
 .rdv-table .col-all-only { display: none; }
 .rdv-table.show-all-columns .col-all-only { display: table-cell; }
 .rdv-table.show-all-columns .col-hide-all { display: none; }
+/* Tableau Rendez-vous (12 oct. 2026) : la colonne Client garde 190 px et reste visible à gauche ; le tableau défile horizontalement si l'écran est trop étroit */
+.rdv-table-wrap:has(#rdv-table) { overflow-x: auto; }
+#rdv-table { min-width: 1400px; }
+#rdv-table th:first-child, #rdv-table td:first-child { position: sticky; left: 0; z-index: 2; box-shadow: 1px 0 0 var(--border); }
+.rdv-table td:first-child { background: var(--surface); }
+#rdv-table th:first-child { z-index: 4; } /* l'en-tête Client passe au-dessus des autres en-têtes quand on défile */
 .rdv-table td { padding: 6px 7px; border-bottom: 1px solid var(--border); vertical-align: middle; font-size: 12px; }
 .rdv-table tr:last-child td { border-bottom: none; }
 .rdv-table tr:hover td { background: var(--surface2); }
@@ -2439,7 +2445,7 @@ select.form-input { cursor: pointer; }
     <table class="rdv-table" id="rdv-table" style="width:100%;table-layout:fixed;">
       <thead>
         <tr>
-          <th id="rdv-th-client"    style="width:11%;cursor:pointer;user-select:none;" onclick="sortRdvTable('client')">Client <span class="sort-arrow"></span></th>
+          <th id="rdv-th-client"    style="width:190px;cursor:pointer;user-select:none;" onclick="sortRdvTable('client')">Client <span class="sort-arrow"></span></th>
           <th id="rdv-th-source"    style="width:72px;cursor:pointer;user-select:none;" onclick="sortRdvTable('source')">Source <span class="sort-arrow"></span></th>
           <th id="rdv-th-type"      style="width:84px;cursor:pointer;user-select:none;" onclick="sortRdvTable('type')">Type <span class="sort-arrow"></span></th>
           <!-- BLOC R1 -->
