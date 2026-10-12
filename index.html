@@ -2125,7 +2125,7 @@ select.form-input { cursor: pointer; }
     <div class="gl-k"><span class="ico" data-ico="euro"></span><div class="bd"><div class="lab">Commission totale</div><div class="v" id="g-comm-total">—</div><div class="s"><span id="g-comm-avg">—</span> par vente · <span id="g-avg-info">—</span></div></div></div>
     <div class="gl-k"><span class="ico" data-ico="doc"></span><div class="bd"><div class="lab">Ventes</div><div class="v" id="g-total-signes">—</div><div class="s" id="g-avg-ventes-sub">— ventes/mois</div></div></div>
     <div class="gl-k"><span class="ico" data-ico="cal"></span><div class="bd"><div class="lab">RDV tenus</div><div class="v" id="g-total-shows">—</div><div class="s">présence <b id="g-showrate">—</b> des RDV tenus ou attendus</div></div></div>
-    <div class="gl-k"><span class="ico" data-ico="arrow"></span><div class="bd"><div class="lab">Closing</div><div class="v" id="g-closing">—</div><div class="s" title="Ventes signées sur la période divisées par les R1 vus sur la période : deux populations différentes. Le closing de Performance suit la cohorte (R1 vus ce mois qui ont signé depuis), d'où des chiffres qui ne coïncident pas en début de mois.">ventes / R1 vus, sur la période</div></div></div>
+    <div class="gl-k"><span class="ico" data-ico="arrow"></span><div class="bd"><div class="lab">Closing</div><div class="v" id="g-closing">—</div><div class="s" title="Démos R1 tenues sur la période qui ont conclu, divisées par les démos R1 tenues. Chaque vente compte une seule fois, sur la dernière démo avant la signature : même définition que Performance.">démos qui ont signé / démos tenues</div></div></div>
   </div>
 
   <!-- 2. Évolution mensuelle -->
@@ -2143,11 +2143,11 @@ select.form-input { cursor: pointer; }
       <div class="gl-head"><div class="t"><span class="ico" data-ico="doc"></span>Performance par segment</div>
         <div class="auj-seg gl-tabs"><button class="on" onclick="glOnglet('seg','sources',this)">Sources</button><button onclick="glOnglet('seg','types',this)" title="Mandataires et Agences">Types</button><button onclick="glOnglet('seg','tier',this)">Tiers</button><button onclick="glOnglet('seg','pack',this)">Packs</button><button onclick="glOnglet('seg','freq',this)" title="Ventes annuelles et mensuelles">Fréquence</button></div></div>
       <div class="gl-pane" data-grp="seg" data-k="sources">
-        <div class="gl-tablewrap"><table><thead><tr><th>Source</th><th>RDV</th><th>Shows</th><th>Ventes</th><th>Présence</th><th title="Ventes / RDV pris">Transfo</th><th title="Ventes / Shows (présences uniquement)">Closing</th></tr></thead><tbody id="g-src-tbody"></tbody></table></div>
-        <div class="gl-legende">Transfo = ventes / RDV pris · Closing = ventes / présences</div>
+        <div class="gl-tablewrap"><table><thead><tr><th>Source</th><th>RDV</th><th>Shows</th><th>Ventes</th><th>Présence</th><th title="Démos qui ont signé / RDV tenus ou attendus">Transfo</th><th title="Démos qui ont signé / démos tenues">Closing</th></tr></thead><tbody id="g-src-tbody"></tbody></table></div>
+        <div class="gl-legende">Transfo = démos qui ont signé / RDV · Closing = démos qui ont signé / démos tenues</div>
       </div>
       <div class="gl-pane" data-grp="seg" data-k="types" hidden>
-        <div class="gl-tablewrap"><table><thead><tr><th>Type</th><th>RDV</th><th>Shows</th><th>No Shows</th><th>Ventes</th><th>Présence</th><th title="Ventes / RDV pris">Transfo</th><th title="Ventes / Shows">Closing</th><th>Commission</th></tr></thead><tbody id="g-type-tbody"></tbody></table></div>
+        <div class="gl-tablewrap"><table><thead><tr><th>Type</th><th>RDV</th><th>Shows</th><th>No Shows</th><th>Ventes</th><th>Présence</th><th title="Démos qui ont signé / RDV tenus ou attendus">Transfo</th><th title="Démos qui ont signé / démos tenues">Closing</th><th>Commission</th></tr></thead><tbody id="g-type-tbody"></tbody></table></div>
         <div class="gl-grid n2" id="g-rentab-type" style="margin-top:12px;"></div>
         <div class="gl-canvas sm" style="margin-top:12px;"><canvas id="g-chart-commtype"></canvas></div><div class="gl-legende">Commission moyenne par vente, Mandataires et Agences</div>
       </div>
@@ -3846,9 +3846,9 @@ function sdTunnelMois(rows) {
   var r1 = (rows || []).filter(function(r) { return r && r.source !== 'R2' && /^(Show|No Show|Annulé|Reprogrammé)$/.test(String(r.presence || '').trim()); });
   var jj = sdAttenduPourRien(r1), shows = r1.filter(function(r) { return r.presence === 'Show'; });
   var base = jj.horsPeriode ? r1.length : shows.length + jj.total;
-  var signes = shows.filter(function(r) { return r.result === 'Signé'; }).length;
+  var signes = shows.filter(sdAConclu).length;
   var r2Pris = shows.filter(function(r) { return String(r.dateR2 || '').trim(); }).length, r2Tenus = shows.filter(function(r) { return String(r.presenceR2 || '').trim() === 'Show'; }).length;
-  var nonSignes = shows.filter(function(r) { return r.result !== 'Signé'; }), suites = nonSignes.filter(function(r) { return String(r.dateR2 || '').trim() || (r.relanceDate && !r.relanceFait) || r.relanceFait; }).length;
+  var nonSignes = shows.filter(function(r) { return !sdAConclu(r); }), suites = nonSignes.filter(function(r) { return String(r.dateR2 || '').trim() || (r.relanceDate && !r.relanceFait) || r.relanceFait; }).length;
   return { pris: r1.length, base: base, shows: shows.length, r2Pris: r2Pris, r2Tenus: r2Tenus, signes: signes, nonSignes: nonSignes.length, suites: suites, jourJ: jj.total, horsPeriode: jj.horsPeriode };
 }
 // Tunnel moyen des 3 derniers mois finis (même définition), pour la ligne de repère
@@ -7451,9 +7451,9 @@ function switchChartTab(type, btn) {
 }
 
 function computeKpisFromRows(rows) {
-  const shows = rows.filter(r => r.presence === 'Show').length;
+  const shows = rows.filter(r => r.source !== 'R2' && r.presence === 'Show').length;
   const signes = rows.filter(r => r.result === 'Signé').length;
-  const closing = shows > 0 ? Math.round(signes/shows*100) : 0;
+  const closing = shows > 0 ? Math.round(rows.filter(sdAConclu).length/shows*100) : 0;
   const commission = rows.reduce((s,r) => s+getComm(r), 0);
   const mrr = rows.filter(r=>r.result==='Signé'&&r.freq==='Annuelle').reduce((s,r)=>s+getComm(r),0);
   return { signes, closing, commission, mrr };
@@ -7815,7 +7815,7 @@ function getLast3FinishedMonthsStats() {
     totalSignes: signes.length,
     totalCommission: totalComm,
     showRate: _base3 > 0 ? (_shows3 / _base3 * 100) : 0,
-    closingRate: shows.length > 0 ? (signes.length / shows.length * 100) : 0,
+    closingRate: shows.length > 0 ? (shows.filter(sdAConclu).length / shows.length * 100) : 0, // démos des 3 mois qui ont conclu / démos des 3 mois (12 oct. 2026)
     commAvg: signes.length > 0 ? Math.round(totalComm / signes.length) : 0
   };
 }
@@ -9108,6 +9108,23 @@ function aFiniParSigner(r, set) {
   if (r.result === 'Signé') return true;
   return !!(r.client && set.has(String(r.client).toLowerCase().trim()));
 }
+// Closing, une seule définition (validée par Nicolas le 12 oct. 2026) : chaque vente est rattachée à UNE démo, la dernière R1 tenue (Show) au plus tard le jour
+// de la signature, pour la même personne. Closing d'un mois = démos R1 tenues ce mois qui ont conclu / démos R1 tenues ce mois. Une vente ne compte qu'une fois,
+// même quand la personne a eu plusieurs démos ; une signature au R2 revient à la démo R1 d'avant.
+var _sdDemosC = { cle: null, set: null };
+function sdCleDemo(r) { return fcNormNom((r && r.client) || '') + '|' + String((r && r.date) || ''); }
+function sdDemosConclues() {
+  var st = loadStore(), lignes = [], ventes = [], cle = '';
+  Object.keys(st).forEach(function(k) { if (!/^\d{4}-\d{2}$/.test(k) || !Array.isArray(st[k])) return; st[k].forEach(function(r) { if (!r || !r.client) return; lignes.push(r); if (r.result === 'Signé' && r.source !== 'R2') ventes.push(r); }); });
+  cle = lignes.length + '#' + ventes.map(function(v) { return v.client + v.date + (v.dateSignature || '') + v.presence; }).join('|') + '#' + lignes.filter(function(r) { return r.presence === 'Show'; }).length;
+  if (_sdDemosC.cle === cle && _sdDemosC.set) return _sdDemosC.set;
+  var iso = function(d) { return String(d || '').split('/').reverse().join('-'); }, parNom = {};
+  lignes.forEach(function(r) { if (r.source === 'R2' || String(r.presence || '').trim() !== 'Show') return; var n = fcNormNom(r.client); (parNom[n] = parNom[n] || []).push(r); });
+  var set = new Set();
+  ventes.forEach(function(v) { var ds = iso(v.dateSignature || v.date), c = (parNom[fcNormNom(v.client)] || []).filter(function(r) { return iso(r.date) <= ds; }).sort(function(a, b) { return iso(b.date).localeCompare(iso(a.date)); })[0]; if (c) set.add(sdCleDemo(c)); });
+  _sdDemosC = { cle: cle, set: set }; return set;
+}
+function sdAConclu(r) { return !!r && r.source !== 'R2' && String(r.presence || '').trim() === 'Show' && sdDemosConclues().has(sdCleDemo(r)); }
 
 // Ventes d'un mois (YYYY-MM) : lignes R1 (jamais R2) en Signé, rangées au mois de leur date de signature ;
 // sans date de signature, la vente reste au mois du R1. Une seule définition pour toutes les pages.
@@ -9155,7 +9172,7 @@ function computeKpis(month, year) {
   try { signesRows.push.apply(signesRows, sdVentesDuMois(monthKey)); } catch (e) {}
   const signes = signesRows.length;
   // closing = la cohorte : parmi les R1 vus ce mois, combien ont fini par signer (quel que soit le mois de signature) — un taux, pas un compte de ventes du mois
-  const signesCohorte = rowsR1Traites.filter(r => r.result === 'Signé').length;
+  const signesCohorte = rowsR1Traites.filter(sdAConclu).length; // démos tenues ce mois qui ont conclu (une vente = une démo)
   const closing = shows > 0 ? Math.round(signesCohorte / shows * 100) : 0;
   const oneshot = hasOneShot ? rows.filter(r => r.oneshot === 'O' || r.freq === 'One Shot').length : null;
   const showrate = total > 0 ? Math.round(shows / total * 100) : 0;
@@ -9222,7 +9239,7 @@ function computeKpis(month, year) {
   const _setSignes = setDesClientsSignes(_toutesLignes);
   const _cohorte = rowsR1Traites.filter(r => r.presence === 'Show');
   const cohorteShows  = _cohorte.length;
-  const cohorteSignes = _cohorte.filter(r => aFiniParSigner(r, _setSignes)).length;
+  const cohorteSignes = _cohorte.filter(sdAConclu).length; // même définition que le closing (12 oct. 2026)
   const closingCohorte = cohorteShows > 0 ? Math.round(cohorteSignes / cohorteShows * 100) : 0;
 
   // FIX SD-05 : Mandataires + Agences doit égaler Total RDV (invariant 3).
@@ -9736,7 +9753,7 @@ function sdPerfListe(cle) {
   else if (cle === 'annulesJour') { L = r1.filter(function(r) { return r.presence === 'Annulé' && jourJ(r); }); titre = 'Annulés le jour J'; }
   else if (cle === 'reprogJour') { L = r1.filter(function(r) { return r.presence === 'Reprogrammé' && jourJ(r); }); titre = 'Reprogrammés le jour J'; }
   else if (cle === 'avance') { L = r1.filter(function(r) { return !sdEnBase(r); }); titre = 'Annulés ou déplacés à l\'avance'; note = 'Hors base : le créneau a pu être réutilisé.'; }
-  else if (cle === 'closing') { L = shows.filter(function(r) { return r.result === 'Signé'; }); titre = 'Closing : R1 tenus ce mois qui ont signé'; note = shows.length + ' R1 tenus ce mois, dont ' + L.length + ' signé' + (L.length > 1 ? 's' : '') + '.'; }
+  else if (cle === 'closing') { L = shows.filter(sdAConclu); titre = 'Closing : R1 tenus ce mois qui ont signé'; note = shows.length + ' R1 tenus ce mois, dont ' + L.length + ' signé' + (L.length > 1 ? 's' : '') + '.'; }
   else if (cle === 'oneshot') { L = (k.signesRows || []).slice(); var n1 = L.filter(sdEstOneShot).length; titre = 'One shot : ventes signées le jour du R1'; note = n1 + ' sur ' + L.length + ' vente' + (L.length > 1 ? 's' : '') + ' du mois signée' + (n1 > 1 ? 's' : '') + ' le jour même du R1.'; mode = 'vente'; }
   else if (cle === 'signes') { L = (k.signesRows || []).slice(); titre = 'Signatures du mois'; note = 'Ventes signées ce mois (date de signature), quel que soit le mois du R1.'; mode = 'vente'; }
   else if (cle === 'outbound') { L = (k.outbound || []).slice(); titre = 'RDV outbound pris'; note = 'RDV outbound dont la prise tombe ce mois, quelle que soit la date du RDV.'; mode = 'outbound'; }
@@ -9799,10 +9816,10 @@ function ckDetailHtml(c) {
     + kpi('Prise → RDV', k.delaiPriseRdv === null || k.delaiPriseRdv === undefined ? '—' : k.delaiPriseRdv + ' j', (k.nbDelaiPriseRdv || 0) + ' RDV') + '</div>'
     + '<div class="ck-det" style="margin-top:10px"><div class="r"><span>RDV par jour avec RDV</span><b>' + (k.rdvParJour || '0') + ' <small>sur ' + (k.joursTravailles || 0) + ' j</small></b></div><div class="r"><span>Shows par jour</span><b>' + (k.showsParJour || '0') + '</b></div><div class="r"><span>Suites datées après R1 non signé</span><b class="ok">' + (u.nonSignes ? P(u.suites, u.nonSignes) : '—') + '</b></div><div class="r"><span>R2 pris après R1 non signé</span><b>' + (u.nonSignes ? P(u.r2Pris, u.nonSignes) : '—') + ' <small>' + u.r2Tenus + ' tenu' + (u.r2Tenus > 1 ? 's' : '') + '</small></b></div></div></div>';
   // mandataires vs agences (même base)
-  var typeRow = function(nom, rs, cle) { var sh = rs.filter(function(r) { return r.presence === 'Show'; }).length, sg = rs.filter(function(r) { return r.result === 'Signé'; }).length, nt = rs.length - sh; return '<div class="r"><span>' + pfL(cle, nom + ' · ' + rs.length + ' RDV') + '</span><b>' + (sh ? Math.round(sg / sh * 100) + ' %' : '—') + ' <small>' + sg + '/' + sh + ' shows</small></b></div>' + stack([[sh, 'a', sh + ' tenus'], [nt, 'b', nt + ' non tenus le jour J']]); };
+  var typeRow = function(nom, rs, cle) { var sh = rs.filter(function(r) { return r.presence === 'Show'; }).length, sg = rs.filter(sdAConclu).length, nt = rs.length - sh; return '<div class="r"><span>' + pfL(cle, nom + ' · ' + rs.length + ' RDV') + '</span><b>' + (sh ? Math.round(sg / sh * 100) + ' %' : '—') + ' <small>' + sg + '/' + sh + ' shows</small></b></div>' + stack([[sh, 'a', sh + ' tenus'], [nt, 'b', nt + ' non tenus le jour J']]); };
   h += '<div class="ck-card"><h3>🏷 Mandataires vs agences <small>même base que le Total RDV</small></h3><div class="ck-det">' + typeRow('Mandataires', k.mandataires || [], 'mand') + typeRow('Agences', k.agences || [], 'agences') + ((k.sansType || []).length ? '<div class="ck-note">⚠ ' + k.sansType.length + ' RDV sans type, à requalifier dans Données brutes</div>' : '') + '</div>' + lg([[0, 'a', 'tenus'], [0, 'b', 'non tenus le jour J']]).replace(/<span><i class="a"><\/i>0 /, '<span><i class="a"></i>').replace(/<span><i class="b"><\/i>0 /, '<span><i class="b"></i>') + '</div>';
   // sources
-  var srcRow = function(nom, rs) { var p = rs.length, sh = rs.filter(function(r) { return r.presence === 'Show'; }).length, sg = rs.filter(function(r) { return r.result === 'Signé'; }).length, jj = sdAttenduPourRien(rs), b = jj.horsPeriode ? p : sh + jj.total, nt = b - sh, a2 = p - b; return '<div class="r"><span>' + pfL('src:' + nom, nom + ' · ' + b + ' RDV') + (a2 ? ' <small>' + p + ' pris · ' + a2 + ' à l\'avance</small>' : '') + '</span><b>show ' + P(sh, b) + ' · closing ' + (sh ? Math.round(sg / sh * 100) + ' %' : '—') + ' · ' + sg + ' vente' + (sg > 1 ? 's' : '') + '</b></div>' + stack([[sh, 'a', sh + ' tenus'], [nt, 'b', nt + ' non tenus le jour J']]); };
+  var srcRow = function(nom, rs) { var p = rs.length, sh = rs.filter(function(r) { return r.presence === 'Show'; }).length, sg = rs.filter(sdAConclu).length, jj = sdAttenduPourRien(rs), b = jj.horsPeriode ? p : sh + jj.total, nt = b - sh, a2 = p - b; return '<div class="r"><span>' + pfL('src:' + nom, nom + ' · ' + b + ' RDV') + (a2 ? ' <small>' + p + ' pris · ' + a2 + ' à l\'avance</small>' : '') + '</span><b>show ' + P(sh, b) + ' · closing ' + (sh ? Math.round(sg / sh * 100) + ' %' : '—') + ' · ' + sg + ' vente' + (sg > 1 ? 's' : '') + '</b></div>' + stack([[sh, 'a', sh + ' tenus'], [nt, 'b', nt + ' non tenus le jour J']]); };
   h += '<div class="ck-card"><h3>🧭 Par source</h3><div class="ck-det">' + srcRow('Inbound', r1.filter(function(r) { return r.source === 'Inbound'; })) + srcRow('Outbound', r1.filter(function(r) { return r.source === 'Outbound'; })) + srcRow('PUB', r1.filter(function(r) { return r.source === 'PUB'; })) + '</div></div>';
   h += '<div class="ck-card" id="ck-det-comm"></div>'; // reçoit le bloc Commission existant (primes, réel)
   h += '</div>';
@@ -13704,8 +13721,8 @@ function getMonthlyBreakdown() {
         rdv: nbRdv, shows, noshow, signes, commission,
         showrate: nbRdv ? Math.round(shows/nbRdv*100) : 0,
         // closing et transfo = la cohorte (R1 du mois qui ont fini par signer), comme la tuile du mois ; signes et commission = ventes signées ce mois
-        closing:  shows ? Math.round(base.filter(r => r.result === 'Sign\u00e9').length/shows*100) : 0,
-        transfo:  nbRdv ? Math.round(base.filter(r => r.result === 'Sign\u00e9').length/nbRdv*100) : 0,
+        closing:  shows ? Math.round(base.filter(sdAConclu).length/shows*100) : 0,
+        transfo:  nbRdv ? Math.round(base.filter(sdAConclu).length/nbRdv*100) : 0,
       });
       return acc;
     }, []);
@@ -13771,8 +13788,9 @@ function renderGlobal() {
   const totalSignes = ventesPeriode.length;
   const showrate    = totalRdv   ? Math.round(totalShows  / totalRdv   * 100) : 0;
   const noshowrate  = totalRdv   ? Math.round(totalNoshow / totalRdv   * 100) : 0;
-  const closing     = totalShows ? Math.round(totalSignes / totalShows * 100) : 0;
-  const transfo     = totalRdv   ? Math.round(totalSignes / totalRdv   * 100) : 0;
+  const _conclues   = allR1T.filter(sdAConclu).length; // démos de la période qui ont conclu (une vente = une démo, 12 oct. 2026)
+  const closing     = totalShows ? Math.round(_conclues / totalShows * 100) : 0;
+  const transfo     = totalRdv   ? Math.round(_conclues / totalRdv   * 100) : 0;
   const commVentes  = ventesPeriode.reduce((s,r) => s+getComm(r), 0);
   const commTotal   = filteredMonths.reduce((s, m) => s + (m.commission || 0), 0); // total réel : commissions + primes de chaque mois
   const commAvg     = totalSignes ? Math.round(commTotal / totalSignes) : 0; // moyenne par vente = total réel (primes comprises) ÷ ventes
@@ -13914,7 +13932,7 @@ function renderGlobal() {
   function buildTypeRow(label, rows, color) {
     const sh  = rows.filter(r => normalizePresence(r.presence) === 'Show').length;
     const ns  = rows.filter(r => normalizePresence(r.presence) === 'No Show').length;
-    const si  = rows.filter(r => r.result === 'Sign\u00e9').length;
+    const si  = rows.filter(sdAConclu).length;
     const comm = rows.filter(r => r.result === 'Sign\u00e9').reduce((s,r) => s+getComm(r), 0);
     const sr  = rows.length ? Math.round(sh/rows.length*100) : 0;
     const tf  = rows.length ? Math.round(si/rows.length*100) : 0;
@@ -13941,7 +13959,7 @@ function renderGlobal() {
 
   // ── Tableau source ──
   const srcMap = {};
-  all.forEach(r => {
+  allR1T.forEach(r => { // même base que les KPI du haut (12 oct. 2026) : R1 tenus ou attendus, plus de R2 ni de RDV à venir
     const src = normalizeSource(r.source);
     if (!srcMap[src]) srcMap[src] = [];
     srcMap[src].push(r);
@@ -13954,7 +13972,7 @@ function renderGlobal() {
     srcBody.innerHTML = allSrcs.map(src => {
       const rows = srcMap[src] || [];
       const sh  = rows.filter(r => normalizePresence(r.presence) === 'Show').length;
-      const si  = rows.filter(r => r.result === 'Sign\u00e9').length;
+      const si  = rows.filter(sdAConclu).length;
       const sr  = rows.length ? Math.round(sh/rows.length*100) : 0;
       const tf  = rows.length ? Math.round(si/rows.length*100) : 0;
       const cl  = sh ? Math.round(si/sh*100) : 0;
