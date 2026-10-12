@@ -3627,6 +3627,7 @@ function getBareme() {
 // (Une première version de getComm vivait ici : déclarée deux fois, elle était morte
 // par hoisting. Supprimée — voir l'audit SD-14. La version active suit.)
 function getComm(r) {
+  if (r && r.commFigee !== undefined && r.commFigee !== null && r.commFigee !== '') return parseFloat(r.commFigee) || 0; // commission figée : les totaux mensuels vérifiés par Nicolas ne bougent pas quand on complète une ligne (12 oct. 2026)
   const b = getBareme();
   const pack   = (r.pack   || '').trim();
   const freq   = (r.freq   || '').trim();
@@ -3790,6 +3791,7 @@ var SD_CORRECTIONS_SIGNATURES = [
   { mk: '2026-01', client: 'sylvain riowal', date: '12/01/2026', avant: { result: 'Signé' }, apres: { date: '07/01/2026', dateSignature: '10/01/2026' } },
   { mk: '2026-03', client: 'guillaume sage', date: '30/03/2026', avant: { dateSignature: '30/03/2026' }, apres: { dateSignature: '31/03/2026' } },
   { mk: '2026-06', client: 'melanie airola samain', date: '17/06/2026', avant: { result: 'Signé', freq: null, pack: null }, apres: { freq: 'Mensuelle', pack: 'Pro+' } },
+  { mk: '2026-06', client: 'melanie airola samain', date: '17/06/2026', avant: { result: 'Signé', commFigeeAt: null }, apres: { commFigee: 0, commFigeeAt: '2026-10-12' } }, // total de juin 2026 vérifié par Nicolas : la commission reste à 0 €
   { mk: '2025-06', client: 'mathieu gil', date: '04/06/2025', avant: { result: 'Signé', pack: null }, apres: { pack: 'Pro+' } },
   { mk: '2026-06', client: 'thomas le franc', date: '01/07/2026', avant: { result: 'Signé' }, apres: { date: '30/06/2026', dateSignature: '30/06/2026' } },
   { mk: '2025-10', client: 'lakkdhar dris', date: '09/10/2025', avant: {}, apres: { client: 'Lakhdar Dris', clientAvant: 'Lakkdhar dris' } },
