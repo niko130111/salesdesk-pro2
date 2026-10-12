@@ -3789,6 +3789,8 @@ var SD_CORRECTIONS_SIGNATURES = [
   { mk: '2025-12', client: 'alexandre luyat', date: '31/12/2025', avant: { result: 'Signé' }, apres: { date: '29/12/2025', dateSignature: '30/12/2025' } },
   { mk: '2026-01', client: 'sylvain riowal', date: '12/01/2026', avant: { result: 'Signé' }, apres: { date: '07/01/2026', dateSignature: '10/01/2026' } },
   { mk: '2026-03', client: 'guillaume sage', date: '30/03/2026', avant: { dateSignature: '30/03/2026' }, apres: { dateSignature: '31/03/2026' } },
+  { mk: '2026-06', client: 'melanie airola samain', date: '17/06/2026', avant: { result: 'Signé', freq: null, pack: null }, apres: { freq: 'Mensuelle', pack: 'Pro+' } },
+  { mk: '2025-06', client: 'mathieu gil', date: '04/06/2025', avant: { result: 'Signé', pack: null }, apres: { pack: 'Pro+' } },
   { mk: '2026-06', client: 'thomas le franc', date: '01/07/2026', avant: { result: 'Signé' }, apres: { date: '30/06/2026', dateSignature: '30/06/2026' } },
   { mk: '2025-10', client: 'lakkdhar dris', date: '09/10/2025', avant: {}, apres: { client: 'Lakhdar Dris', clientAvant: 'Lakkdhar dris' } },
   { mk: '2025-11', client: 'jm guigou', date: '28/11/2025', avant: {}, apres: { client: 'Jean-Marc Guigou', clientAvant: 'JM GUIGOU' } },
@@ -3815,9 +3817,9 @@ function sdCorrigerLignes12Oct(store) {
 function sdCorrigerSignatures(store) {
   var nn = function(r) { return String((r && r.client) || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\s+/g, ' ').trim(); }, fait = 0, sauve = false;
   SD_CORRECTIONS_SIGNATURES.forEach(function(c) { var rows = store && store[c.mk]; if (!Array.isArray(rows)) return;
-    var r = rows.find(function(x) { return x && nn(x) === c.client && x.date === c.date && Object.keys(c.avant).every(function(k) { return x[k] === c.avant[k]; }); }); if (!r) return;
+    var r = rows.find(function(x) { return x && nn(x) === c.client && x.date === c.date && Object.keys(c.avant).every(function(k) { return c.avant[k] === null ? !x[k] : x[k] === c.avant[k]; }); }); if (!r) return; // null = champ vide
     if (!sauve) { try { if (typeof sdBackupStore === 'function') sdBackupStore(store); } catch (e) {} sauve = true; }
-    Object.keys(c.apres).forEach(function(k) { r[k] = c.apres[k]; }); if (c.apres.dateSignature) r.dateSignatureSource = 'nicolas+close'; r.correction = (r.correction ? r.correction + ' · ' : '') + (c.apres.client ? 'nom corrigé d\'après Close' : 'dates vérifiées dans Close') + ' le 12/10/2026'; fait++; });
+    Object.keys(c.apres).forEach(function(k) { r[k] = c.apres[k]; }); if (c.apres.dateSignature) r.dateSignatureSource = 'nicolas+close'; r.correction = (r.correction ? r.correction + ' · ' : '') + (c.apres.client ? 'nom corrigé d\'après Close' : c.apres.pack || c.apres.freq ? 'pack / fréquence complétés d\'après Close' : 'dates vérifiées dans Close') + ' le 12/10/2026'; fait++; });
   if (fait) console.log('[correction] ' + fait + ' date(s) de RDV ou de signature corrigée(s) d\'après Close');
 }
 // 10/10/2026 : « annuleLe » = quand le RDV a été annulé (Calendly ou toi). Sert à la stat « attendu pour rien » (no-show + annulé le jour même).
@@ -9130,7 +9132,7 @@ function sdAConclu(r) { return !!r && r.source !== 'R2' && String(r.presence || 
 // sans date de signature, la vente reste au mois du R1. Une seule définition pour toutes les pages.
 function sdVentesDuMois(monthKey, store) {
   const out = [];
-  try { const st = store || loadStore(); Object.keys(st).forEach(k => { if (!/^\d{4}-\d{2}$/.test(k) || !Array.isArray(st[k])) return; st[k].forEach(r => { if (!r || r.result !== 'Signé' || r.source === 'R2') return; const p = String(r.dateSignature || '').split('/'); const ms = p.length === 3 ? p[2] + '-' + p[1] : k; if (ms === monthKey) out.push(r); }); }); } catch (e) {}
+  try { const st = store || loadStore(); Object.keys(st).forEach(k => { if (!/^\d{4}-\d{2}$/.test(k) || !Array.isArray(st[k])) return; st[k].forEach(r => { if (!r || r.result !== 'Signé' || r.source === 'R2') return; const p = String(r.dateSignature || '').split('/'); const ms = p.length === 3 ? p[2] + '-' + String(p[1]).padStart(2, '0') : k; if (ms === monthKey) out.push(r); }); }); } catch (e) {}
   return out;
 }
 function sdOutboundDuMois(monthKey) {
@@ -10922,10 +10924,12 @@ function renderPipeline() {
     if (r.pipelineMasque) return; // ancienne carte d'un client revenu : hors Pipeline, toujours dans les stats
     var cat = classifyRow(r);
     if (cat === 'untreated' && sdRdvAVenir(frVersIsoSd(r.date) || '', r.heure)) { (cols.futurs = cols.futurs || []).push(r); return; } // un RDV qui n'a pas encore eu lieu n'est pas « à finaliser », mais il compte dans « R1 prévu »
+    if (cat === 'signed') return; // Signés : les ventes signées ce mois (ci-dessous), comme Performance — plus de ligne R2 en double (12 oct. 2026)
     if (cat !== 'interested' && !(cat === 'nosigned' && raisonNS(r) && raisonNS(r) !== 'pasinteresse')) { // non signés classés (sauf Pas intéressé) : gérés dans la boucle multi-mois
       cols[cat].push(r);
     }
   });
+  try { sdVentesDuMois(currentKey, store).forEach(function(v) { var mk = Object.keys(store).find(function(k) { return /^\d{4}-\d{2}$/.test(k) && Array.isArray(store[k]) && store[k].indexOf(v) >= 0; }); if (!mk || v.pipelineMasque) return; v._monthKey = mk; v._storeKey = store[mk].indexOf(v); cols.signed.push(v); }); } catch (e) { console.warn('[pipeline] ventes du mois :', e); }
 
   var _estDernierRdv = sdDerniersRdv();
   // ── Colonne Intéressés : mois courant + antérieurs depuis mars 2026 ──
@@ -13818,7 +13822,7 @@ function renderGlobal() {
   set('g-total-rdv',    totalRdv);
   // 1 vente pour X RDV, par source (R1 traités de la période)
   [['Inbound', 'g-v1-inbound'], ['Outbound', 'g-v1-outbound'], ['PUB', 'g-v1-pub']].forEach(function(c) {
-    const rs = allR1T.filter(r => r.source === c[0]), nb = rs.length, sh = rs.filter(r => r.presence === 'Show').length, sg = rs.filter(r => r.result === 'Signé').length;
+    const rs = allR1T.filter(r => r.source === c[0]), nb = rs.length, sh = rs.filter(r => r.presence === 'Show').length, sg = rs.filter(sdAConclu).length;
     set(c[1], sg ? (nb / sg).toFixed(1).replace('.', ',') + ' RDV' : '—');
     set(c[1] + '-sub', nb + ' RDV · show ' + (nb ? Math.round(sh / nb * 100) : 0) + '% · closing ' + (sh ? Math.round(sg / sh * 100) : 0) + '% · ' + sg + ' vente' + (sg > 1 ? 's' : ''));
   });
@@ -14031,7 +14035,7 @@ function renderGlobal() {
 
   // ── Rentabilité par Type ──
   function typeCard(label, rows, color, bg, borderCol) {
-    const si   = rows.filter(r => r.result === 'Signé').length;
+    const si   = rows.filter(sdAConclu).length;
     const sh   = rows.filter(r => normalizePresence(r.presence) === 'Show').length;
     const comm = rows.filter(r => r.result === 'Signé').reduce((s,r) => s+getComm(r), 0);
     const avg  = si ? Math.round(comm/si) : 0;
@@ -14059,7 +14063,7 @@ function renderGlobal() {
   }
 
   // ── Annuelles vs Mensuelles vs One Shot ──
-  const ventesAll  = all.filter(r => r.result === 'Signé');
+  const ventesAll  = ventesPeriode; // ventes de la période (R1, mois de signature) : même définition que la tuile Ventes, plus de R2 en double (12 oct. 2026)
   const vAnn  = ventesAll.filter(r => (r.freq||'').toLowerCase().includes('annuel'));
   const vMens = ventesAll.filter(r => (r.freq||'').toLowerCase().includes('mensuel'));
   const vOS   = ventesAll.filter(r => (r.freq||'').toLowerCase().includes('one') || r.oneshot === 'O');
@@ -14091,7 +14095,7 @@ function renderGlobal() {
   const C = (v, hi, mid) => v >= hi ? 'var(--green)' : v >= mid ? 'var(--orange)' : 'var(--red)';
   function buildVentesTable(tbodyId, groupFn, order) {
     // Ne prend en compte que les RDV signés
-    const signes = all.filter(r => r.result === 'Signé' && groupFn(r));
+    const signes = ventesPeriode.filter(r => groupFn(r)); // même définition que la tuile Ventes
     const map = {};
     signes.forEach(r => {
       const key = groupFn(r);
@@ -14126,10 +14130,10 @@ function renderGlobal() {
   buildVentesTable('g-pack-tbody', r => (r.pack||'').trim() || null, ['Start+','Pro+','Expert+']);
 
   // Variables pour les graphiques (compatibilité)
-  const ventesSignes = all.filter(r => r.result === 'Signé' && (r.pack||'').trim());
+  const ventesSignes = ventesPeriode.filter(r => (r.pack||'').trim());
   const packsSigned = new Set(ventesSignes.map(r => (r.pack||'').trim()));
   const tierMap = {};
-  all.filter(r => r.result === 'Signé' && (r.pack||'').trim()).forEach(r => {
+  ventesPeriode.filter(r => (r.pack||'').trim()).forEach(r => {
     const t = (r.pack||'').trim();
     if (!tierMap[t]) tierMap[t] = [];
     tierMap[t].push(r);
