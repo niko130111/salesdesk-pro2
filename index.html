@@ -450,6 +450,16 @@ main { max-width: 100%; margin: 0; padding: 6px 8px; }
 .fc-head .fc-dernier .synth .st { color: #0C447C; }
 .fc-tabs { margin-top: 12px; }
 .fc-synth { display: grid; grid-template-columns: 1.6fr 1fr; gap: 14px; align-items: start; }
+/* Ton R1 en bref (prépa du R2, 12 oct. 2026) */
+.fc-r1b { margin-bottom: 14px; } .fc-r1b .bref { font-size: 15.5px; line-height: 1.5; font-weight: 600; margin: 2px 0 14px; }
+.fc-r1b .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+.fc-r1b .tile { background: var(--soft-blue, #eef3fa); border-radius: 10px; padding: 12px 14px; } .fc-r1b .tile .n { font-size: 26px; font-weight: 800; color: var(--accent); line-height: 1.1; }
+.fc-r1b .tile .l { font-size: 13px; font-weight: 600; margin-top: 3px; } .fc-r1b .tile .s { font-size: 12px; color: var(--text3); margin-top: 4px; line-height: 1.5; }
+.fc-r1b .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 12px 0; }
+.fc-r1b .box { border-radius: 10px; padding: 11px 14px; font-size: 13.5px; line-height: 1.55; } .fc-r1b .box h4 { margin: 0 0 6px; font-size: 13px; } .fc-r1b .box ul, .fc-r1b .r2 ol { margin: 0; padding-left: 18px; } .fc-r1b li { margin: 3px 0; }
+.fc-r1b .box.ok { background: var(--soft-green, #e7f4ee); } .fc-r1b .box.ok h4 { color: var(--green, #1f7a5a); } .fc-r1b .box.warn { background: var(--soft-orange, #fbf1e3); } .fc-r1b .box.warn h4 { color: var(--orange, #a86412); }
+.fc-r1b .r2 { border: 2px solid var(--accent); border-radius: 10px; padding: 11px 16px; font-size: 13.5px; line-height: 1.6; } .fc-r1b .r2 h4 { margin: 0 0 6px; color: var(--accent); font-size: 14px; }
+@media (max-width: 900px) { .fc-r1b .tiles, .fc-r1b .cols { grid-template-columns: 1fr; } }
 @media (max-width: 900px) { .fc-synth { grid-template-columns: 1fr; } }
 .fc-col { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
 .fc-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; }
@@ -5282,6 +5292,39 @@ function fcBlocEchangeHtml(e, i) {
   if (src.claap) preuves.push('<a href="' + escapeHtml(src.claap) + '" target="_blank" rel="noopener">Compte rendu ↗</a>');
   return '<div class="ech" id="fc-ech-' + i + '"><div class="ech-t"><span>' + (ICO[e.type] || '📞') + ' ' + escapeHtml(e.date || '') + ' · ' + (LIB[e.type] || 'appel') + (e.par ? ' · <b>' + escapeHtml(e.par) + '</b>' : ' · toi') + '</span><span class="preuves">' + preuves.join('') + '</span></div><ul>' + (e.lignes || []).slice(0, 3).map(function(l) { var m = /^([^:]{2,40}) :\s*(.*)$/.exec(l); return '<li>' + (m ? '<b>' + escapeHtml(m[1]) + ' :</b> ' + escapeHtml(m[2]) : escapeHtml(l)) + '</li>'; }).join('') + '</ul><div class="ech-plus"></div></div>';
 }
+// Ton R1 en bref : résumé commercial du compte rendu Claap du R1 + demandes de son secteur depuis le 1er janvier (CRM) + clients RealAdvisor à 15 km (base Close). Copilot : GET /close/resume-r1
+var _fcR1b = null;
+function fcChargerResumeR1(force) {
+  if (typeof COPILOT_URL === 'undefined') return; var cle = _fc.cle, lead = _fc.leadChoisi || '', tel = fcTelConnu();
+  if (!lead && !_fc.email && !tel) return; // jamais sur le nom seul (homonymes d'agence)
+  var id = cle + '|' + lead; if (!force && _fcR1b && _fcR1b.id === id) return;
+  _fcR1b = { id: id, cle: cle, data: null, enCours: true };
+  fetch(COPILOT_URL + '/close/resume-r1?' + new URLSearchParams(Object.assign({ nom: _fc.nom, email: _fc.email || '' }, lead ? { lead: lead } : {}, tel ? { tel: tel } : {}, force ? { force: '1' } : {})), { mode: 'cors', cache: 'no-store' })
+    .then(function(r) { return r.json(); }).catch(function() { return { ok: false, error: 'copilot sans réponse' }; })
+    .then(function(j) { if (!_fcR1b || _fcR1b.id !== id) return; _fcR1b.data = j; _fcR1b.enCours = false; if (_fc.cle === cle && _fc.tab === 'synthese' && document.querySelector('#fc-overlay.open, .sv-fiche')) fcRendre(); });
+}
+function fcHtmlResumeR1() {
+  var aEuR1 = _fc.rows.some(function(r) { return r.source !== 'R2' && String(r.presence || '').trim() === 'Show'; }); if (!aEuR1) return '';
+  fcChargerResumeR1(false); var b = _fcR1b && _fcR1b.cle === _fc.cle ? _fcR1b : null, j = b && b.data;
+  if (!j) return '<div class="fc-card fc-r1b"><div class="fc-card-t"><span>📋 Ton R1 en bref</span></div><div class="fc-muted">Lecture du compte rendu Claap du R1…</div></div>';
+  if (!j.ok) return '<div class="fc-card fc-r1b"><div class="fc-card-t"><span>📋 Ton R1 en bref</span></div><div class="fc-muted">' + escapeHtml(j.error || 'Close injoignable') + ' · <a style="color:var(--accent);cursor:pointer" onclick="fcChargerResumeR1(true)">Réessayer</a></div></div>';
+  var R = j.resume || {}, S = j.secteur || {}, C = j.concurrents || {}, fr = function(iso) { return String(iso || '').split('-').reverse().join('/'); };
+  var r2 = _fc.rows.find(function(r) { return r.source !== 'R2' && r.dateR2; }), nb = function(n) { return Number(n).toLocaleString('fr-FR'); };
+  var court = function(n) { return String(n || '').split('|')[0].trim(); };
+  var t1 = S.ok ? '<div class="n">' + nb(S.demandes) + '</div><div class="l">demandes de vendeurs depuis le 1er janvier</div><div class="s">dans ' + (S.rayonKm || 25) + ' km autour de ' + escapeHtml(S.ville || '') + (S.trenteJours != null ? ' · dont ' + nb(S.trenteJours) + ' ces 30 derniers jours' : '') + ' · CRM RealAdvisor</div>'
+    : '<div class="n" style="color:var(--text3);">—</div><div class="l">demandes depuis le 1er janvier</div><div class="s">CRM indisponible : ' + escapeHtml(/droits CRM réduits/.test(S.raison || '') ? 'reconnecte-toi au CRM et recolle les deux jetons dans Config › Clés API' : (S.raison || '')) + '</div>';
+  var t2 = C.ok ? '<div class="n">' + C.n + '</div><div class="l">clients RealAdvisor à moins de 15 km</div><div class="s">' + (C.reseau && C.memeReseau ? 'dont ' + C.memeReseau + ' ' + escapeHtml(C.reseau.toUpperCase() === 'IAD' ? 'IAD' : C.reseau) + ' : ' + C.memeReseauNoms.map(function(x) { return escapeHtml(court(x.nom)) + ' (' + Math.round(x.km) + ' km)'; }).join(', ') + ' · ' : '') + C.agences + ' agence' + (C.agences > 1 ? 's' : '') + ', ' + C.mandataires + ' mandataire' + (C.mandataires > 1 ? 's' : '') + ' · base Close</div>'
+    : '<div class="n" style="color:var(--text3);">—</div><div class="l">clients RealAdvisor à moins de 15 km</div><div class="s">' + escapeHtml(C.raison || 'non calculé') + '</div>';
+  var tuiles = '<div class="tiles"><div class="tile">' + t1 + '</div><div class="tile">' + t2 + '</div></div>';
+  if (!j.trouve) return '<div class="fc-card fc-r1b"><div class="fc-card-t"><span>📋 Ton R1 en bref</span></div><div class="fc-muted" style="margin-bottom:10px;">Pas de compte rendu Claap du R1 sur la fiche Close : pas de résumé.</div>' + tuiles + '</div>';
+  var kv = function(k, v) { return v ? '<div class="fc-kv"><span class="k">' + k + '</span><span class="v">' + escapeHtml(v) + '</span></div>' : ''; }, ul = function(l) { return '<ul>' + l.map(function(x) { return '<li>' + escapeHtml(x) + '</li>'; }).join('') + '</ul>'; };
+  return '<div class="fc-card fc-r1b"><div class="fc-card-t"><span>📋 Ton R1 du ' + fr(j.date) + ' en bref' + (r2 ? ' · prépa du R2 du ' + escapeHtml(String(r2.dateR2).slice(0, 5)) : '') + '</span><a style="cursor:pointer" onclick="fcChargerResumeR1(true)" title="Relit le compte rendu et refait le résumé">Refaire</a></div>'
+    + (R.en_bref ? '<div class="bref">' + escapeHtml(R.en_bref) + '</div>' : '') + tuiles
+    + kv('Sa situation', R.situation) + kv('Son objectif', R.objectif) + kv('Offre présentée', R.offre) + kv('Décision', R.decision) + kv('Convenu', R.convenu)
+    + ((R.accroches || []).length || (R.freins || []).length ? '<div class="cols"><div class="box ok"><h4>✅ Ce qui l\'a accroché</h4>' + ((R.accroches || []).length ? ul(R.accroches) : '<div class="fc-muted">rien de net</div>') + '</div><div class="box warn"><h4>⚠️ Ses freins</h4>' + ((R.freins || []).length ? ul(R.freins) : '<div class="fc-muted">aucun exprimé</div>') + '</div></div>' : '')
+    + ((R.pour_le_r2 || []).length ? '<div class="r2"><h4>🎯 Pour conclure au R2</h4><ol>' + R.pour_le_r2.map(function(x) { return '<li>' + escapeHtml(x) + '</li>'; }).join('') + '</ol></div>' : '')
+    + '<div class="fc-muted" style="font-size:11.5px;margin-top:10px;">D\'après le compte rendu Claap du R1 dans Close · résumé gardé, « Refaire » le recalcule</div></div>';
+}
 function fcHtmlSynthese() {
   var j = _fc.dernier || null, last = _fc.rows[0] || null, r1 = _fc.rows.find(function(x) { return x.source !== 'R2'; }) || last;
   var cles = (j && j.cles) || {}, syn = (j && j.synthese) || [], ss = (j && j.syntheseSources) || [];
@@ -5326,7 +5369,8 @@ function fcHtmlSynthese() {
   if (cles.demo_faite) av.push('Démo déjà faite le ' + cles.demo_faite + ' : ne pas re-pitcher');
   if (j && j.trouve && !j.prochaine && !dossierClos) av.push('Prochaine étape à définir avec lui');
   var verif = av.length ? '<div class="fc-card"><div class="fc-card-t"><span>À vérifier</span></div>' + av.map(function(x) { return '<div class="fc-kv" style="grid-template-columns:18px 1fr;"><span class="k" style="color:var(--orange);">●</span><span class="v">' + escapeHtml(x) + '</span></div>'; }).join('') + '</div>' : '';
-  return '<div class="fc-synth"><div class="fc-col">' + contexte + dernier + note + '</div><div class="fc-col">' + next + offre + verif + '</div></div>';
+  var r1b = ''; try { r1b = fcHtmlResumeR1(); } catch (e) { r1b = ''; }
+  return r1b + '<div class="fc-synth"><div class="fc-col">' + contexte + dernier + note + '</div><div class="fc-col">' + next + offre + verif + '</div></div>';
 }
 function fcHtmlOffreTab() {
   var rows = _fc.rows.filter(function(x) { return x.source !== 'R2'; }), cles = (_fc.dernier && _fc.dernier.cles) || {};
