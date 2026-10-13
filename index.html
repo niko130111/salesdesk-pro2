@@ -5641,6 +5641,7 @@ document.addEventListener('keydown', function(ev) { // Échap : la fenêtre du d
 // Recherche client dans la barre du haut : tape un nom → liste (tous les mois, regroupés par personne) → clic = fiche client
 var _fcSearchSel = -1, _fcSearchRes = [];
 function fcRechercher(q) {
+  var brut = String(q || '').trim(), qTel = /^[\d\s+().-]+$/.test(brut) ? brut.replace(/\D/g, '').replace(/^33(?=\d{9}$)/, '0') : '';
   q = fcNormNom(q); var box = document.getElementById('fc-search-liste');
   if (!q) { box.style.display = 'none'; return; }
   var store = loadStore(), par = {};
@@ -5649,7 +5650,8 @@ function fcRechercher(q) {
     store[k].forEach(function(r) {
       if (!r || !r.client) return;
       var n = fcNormNom(r.client), e = String(r.email || '').toLowerCase().trim();
-      if (n.indexOf(q) < 0 && e.indexOf(q) < 0) return;
+      var telR = String(r.tel || r.telephone || '').replace(/\D/g, '').replace(/^33(?=\d{9}$)/, '0'); // 13 oct. 2026 : chercher aussi par numéro
+      if (n.indexOf(q) < 0 && e.indexOf(q) < 0 && !(qTel.length >= 4 && telR.indexOf(qTel) >= 0)) return;
       var cle = fcCle(r.client, e);
       var g = par[cle] || (par[cle] = { nom: r.client, email: e, dates: [], dernier: null, type: r.type || '' });
       g.dates.push(r.date); var d = parseDateFR(r.date); if (d && (!g.dernier || d > g.dernier)) { g.dernier = d; g.type = r.type || g.type; g.result = r.result || r.presence || ''; }
@@ -5662,6 +5664,28 @@ function fcRechercher(q) {
   }).join('') : '<div class="fc-search-vide">Aucun client « ' + escapeHtml(q) + ' » dans SalesDesk</div>';
   box.style.display = '';
   fcRechercherClose(q);
+  fcRechercherProspection(brut);
+}
+// …et dans Prospection (13 oct. 2026) : les prospects pas encore dans Close (Hors Close, Secteurs vides), retrouvés par numéro ou par nom
+var _fcRechProsT = null, _fcRechPros = [];
+function fcRechercherProspection(brut) {
+  if (typeof COPILOT_URL === 'undefined' || String(brut || '').replace(/\s/g, '').length < 3) return; clearTimeout(_fcRechProsT);
+  _fcRechProsT = setTimeout(function() {
+    fetch(COPILOT_URL + '/prospection/recherche?' + new URLSearchParams({ q: brut }), { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).then(function(j) {
+      var box = document.getElementById('fc-search-liste'); if (!box || box.style.display === 'none' || String(document.getElementById('fc-search-input').value || '').trim() !== brut) return;
+      var old = box.querySelector('.fc-search-pros'); if (old) old.remove();
+      _fcRechPros = (j && j.prospects) || []; if (!_fcRechPros.length) return;
+      var vide = box.querySelector('.fc-search-vide:not([style])'); if (vide && !box.querySelector('.fc-search-item')) vide.remove();
+      var d = document.createElement('div'); d.className = 'fc-search-pros';
+      d.innerHTML = '<div class="fc-search-vide" style="font-weight:700;">Dans Prospection</div>' + _fcRechPros.map(function(p, i) { return '<button class="fc-search-item" onmousedown="event.preventDefault()" onclick="fcRechercheOuvrirPros(' + i + ')"><b>' + escapeHtml(p.nom || ('Responsable · ' + p.structure)) + '</b><small>' + escapeHtml([p.structure, p.tel, p.ville || p.cp, p.lead ? 'fiche Close créée' : p.dansFile ? 'file Secteurs vides' : p.sorti ? 'sorti de la file' : 'Hors Close'].filter(Boolean).join(' · ')) + '</small></button>'; }).join('');
+      box.appendChild(d);
+    }).catch(function() {});
+  }, 300);
+}
+function fcRechercheOuvrirPros(i) {
+  var p = _fcRechPros[i]; if (!p) return; fcFermerRecherche(); document.getElementById('fc-search-input').value = '';
+  var nom = p.nom || p.structure; try { if (p.lead) sdMemoriserLead(nom, p.email || '', p.lead); } catch (e) {}
+  ouvrirFicheClient(nom, p.email || '', '', p.lead || '', p.tel || '', p.lien || '', p.structure || '');
 }
 // …et dans Close (fiches sans RDV dans SalesDesk) : une seconde section « Dans Close », après un court délai
 var _fcRechCloseT = null, _fcRechClose = [];
