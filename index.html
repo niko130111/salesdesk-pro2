@@ -3410,8 +3410,10 @@ function setSyncStatus(status) {
 // ou si notre chargement initial avait échoué, on n'écrase pas — on prévient et on demande de recharger.
 async function sdCloudConflit(data) {
   try {
-    const res = await fetch(SUPA_URL + '/rest/v1/' + SUPA_TABLE + '?id=eq.' + SUPA_ID + '&select=data->>_lastWrite', { headers: supaAuthHeaders() });
-    if (!res.ok) return false;
+    const lire = function() { return fetch(SUPA_URL + '/rest/v1/' + SUPA_TABLE + '?id=eq.' + SUPA_ID + '&select=data->>_lastWrite', { headers: supaAuthHeaders() }); };
+    let res = await lire();
+    if ((res.status === 401 || res.status === 403) && await supaAuthRequise(res.status)) res = await lire();
+    if (!res.ok) { setSyncStatus('error'); _syncErreur = true; return true; } // cloud illisible : on n'écrit pas à l'aveugle
     const rows = await res.json(); const distant = (rows && rows[0] && rows[0]._lastWrite) || '';
     if (!distant || distant === _sdCloudVu || distant === data._lastWrite) return false;
     if (_sdCloudVu !== null && distant < _sdCloudVu) return false;
@@ -3419,10 +3421,15 @@ async function sdCloudConflit(data) {
     setSyncStatus('error'); _syncErreur = true;
     if (!window._sdConflitSignale) { window._sdConflitSignale = true; try { alert('⚠️ Les données du cloud ont été modifiées depuis un autre appareil.\n\nPour ne rien écraser, la sauvegarde est bloquée : recharge la page (tes dernières modifs seront à refaire).'); } catch (e) {} }
     return true;
-  } catch (e) { return false; }
+  } catch (e) { setSyncStatus('error'); _syncErreur = true; return true; }
 }
+// Horodatage du cloud dont descend le store local (posé à chaque chargement ou sauvegarde réussis).
+// Au démarrage, le local ne l'emporte que s'il descend de la version actuelle du cloud.
+function sdBaseCloud(v) { try { if (v === undefined) return localStorage.getItem('salesdesk_cloud_base') || ''; localStorage.setItem('salesdesk_cloud_base', v || ''); } catch (e) {} return ''; }
 async function supabaseSave(data, _retry) {
   try {
+    // Garde du 13 oct. 2026 : rien ne part vers le cloud avant le chargement initial (un appareil resté sur de vieilles données les y poussait).
+    if (_sdChargementInitial) return false;
     if (!_retry && await sdCloudConflit(data)) return false;
     const res = await fetch(SUPA_URL + '/rest/v1/' + SUPA_TABLE + '?id=eq.' + SUPA_ID, {
       method: 'PATCH',
@@ -3432,6 +3439,7 @@ async function supabaseSave(data, _retry) {
     if ((res.status === 401 || res.status === 403) && !_retry && await supaAuthRequise(res.status)) return supabaseSave(data, true);
     if (!res.ok) throw new Error('PATCH failed ' + res.status);
     _sdCloudVu = data._lastWrite || _sdCloudVu;
+    sdBaseCloud(data._lastWrite || '');
     setSyncStatus('saved');
     return true;
   } catch(e) {
@@ -3912,13 +3920,18 @@ function loadStore() {
 // En cas d'égalité ou d'absence d'horodatage, le local est prioritaire — on ne perd pas
 // une saisie faite hors-ligne pour un cloud potentiellement périmé.
 var _sdCloudVu = null; // horodatage (_lastWrite) du cloud tel que cet appareil l'a vu en dernier : null = chargement initial raté (on ne sait pas ce qu'il contient)
+var _sdChargementInitial = true; // vrai tant que le premier chargement du cloud n'est pas arbitré : aucune écriture cloud pendant ce temps
 var _sdDonneesPretes = false; // vrai dès que les données sont fiables : store local présent, ou cloud chargé (ou cloud injoignable)
 try { _sdDonneesPretes = !!localStorage.getItem('salesdesk_rdvs'); } catch (e) {}
 async function initFromSupabase() {
+  try { await sdInitFromSupabase(); }
+  catch (e) { console.error('[sync] chargement du cloud en échec, écritures cloud suspendues :', e); setSyncStatus('error'); _syncErreur = true; }
+}
+async function sdInitFromSupabase() {
   var cloudData = null;
   try { cloudData = await supabaseLoad(); } finally { if (!_sdDonneesPretes) { _sdDonneesPretes = true; try { refreshAll(); } catch (e) {} } }
   _sdCloudVu = cloudData ? (cloudData._lastWrite || '') : null;
-  if (!cloudData || Object.keys(cloudData).length === 0) return;
+  if (!cloudData || Object.keys(cloudData).length === 0) { _sdChargementInitial = false; return; }
   let local = {};
   try { local = JSON.parse(localStorage.getItem('salesdesk_rdvs') || '{}'); } catch(e) { local = {}; }
 
@@ -3931,20 +3944,34 @@ async function initFromSupabase() {
   //   cloud seul horodaté          → cloud
   //   local seul horodaté          → local (le cloud n'a pas été réécrit depuis)
   //   les deux                     → le plus récent
-  const cloudGagne = !tLocal || (tCloud && tCloud > tLocal);
+  // 13 oct. 2026 : l'horodatage local ne suffit plus — toute sauvegarde au démarrage le remet à « maintenant », même sur des
+  // données périmées (un appareil resté sur le 8 oct. a ainsi écrasé le cloud). Le local ne gagne que s'il descend
+  // de la version actuelle du cloud (salesdesk_cloud_base) ; sinon le cloud fait foi et le local est mis de côté.
+  const base = sdBaseCloud();
+  const cloudGagne = tCloud ? !(tLocal && base && base === tCloud) : !tLocal;
+  if (cloudGagne && tLocal && tLocal !== tCloud) {
+    // seulement les mois qui diffèrent du cloud (une copie entière risquerait de remplir le stockage du navigateur)
+    try { const ecart = {}; Object.keys(local).forEach(function(k) { if (/^\d{4}-\d{2}$/.test(k) && JSON.stringify(local[k]) !== JSON.stringify(cloudData[k])) ecart[k] = local[k]; });
+      localStorage.removeItem('salesdesk_rdvs_avant_cloud'); localStorage.setItem('salesdesk_rdvs_avant_cloud', JSON.stringify({ le: new Date().toISOString(), base: base, localLe: tLocal, cloudLe: tCloud, mois: ecart })); } catch (e) {}
+    console.warn('[sync] local écarté au profit du cloud (local ' + tLocal + ', base ' + (base || '—') + ', cloud ' + tCloud + ') ; copie dans salesdesk_rdvs_avant_cloud');
+  }
 
   if (cloudGagne) {
     // Le cloud est plus récent : il gagne, MAIS on réinjecte les clés que lui seul ignore
     // (mois créés hors-ligne qui n'ont jamais été poussés).
+    if (_syncTimeout) { clearTimeout(_syncTimeout); _syncTimeout = null; } // une sauvegarde lancée sur l'ancien local ne doit plus partir
     _sessionStore = sdMigrerOneShot(Object.assign({}, BUILTIN_DATA, cloudData));
+    sdBaseCloud(tCloud);
     for (const k in local) {
       if (!local.hasOwnProperty(k) || k === '_lastWrite') continue;
       if (!(k in cloudData)) _sessionStore[k] = local[k];
     }
+    _sdChargementInitial = false;
   } else {
     // Local au moins aussi récent : il gagne, complété par les clés présentes seulement en cloud.
     _sessionStore = sdMigrerOneShot(Object.assign({}, BUILTIN_DATA, cloudData, local));
     // Le cloud est en retard → on le remet à niveau tout de suite.
+    _sdChargementInitial = false;
     if (tLocal && tLocal !== tCloud) { try { supabaseSave(_sessionStore); } catch(e) {} }
   }
 
@@ -3980,7 +4007,7 @@ function saveStore(store) {
   // 2. Sauvegarder dans Supabase (debounce 1s pour éviter trop d'appels)
   if (_syncTimeout) clearTimeout(_syncTimeout);
   setSyncStatus('saving');
-  _syncTimeout = setTimeout(() => { supabaseSave(store); }, 1000);
+  _syncTimeout = setTimeout(() => { supabaseSave(_sessionStore); }, 1000); // le store courant : si le cloud a remplacé le local entre-temps, on ne repousse pas l'ancien
 }
 
 function getRdvs(month, year) {
