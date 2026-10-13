@@ -12115,7 +12115,7 @@ function prAppeler(ev, tel, url, lead, nom) { // ouvre la fiche Close (numéro c
 // ── File « Secteurs vides » (12 oct. 2026) : 100 prospects hors Close, secteurs les moins couverts ; rien dans Close avant un RDV ou une tâche ; Close compose sans fiche ; l'appelé passe en fin de file ──
 var _ps = { data: null, at: 0, courant: null, enCours: false };
 function psCharger(force) { if (typeof COPILOT_URL === 'undefined') return; if (_ps.enCours || (!force && _ps.data && Date.now() - _ps.at < 60000)) return; _ps.enCours = true;
-  fetch(COPILOT_URL + '/prospection/secteurs', { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).then(function(j) { _ps.enCours = false; if (j && j.ok) { _ps.data = j; _ps.at = Date.now(); try { renderProspection(); } catch (e) {} } }).catch(function() { _ps.enCours = false; }); }
+  fetch(COPILOT_URL + '/prospection/secteurs', { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).then(function(j) { _ps.enCours = false; if (j && j.ok) { _ps.data = j; _ps.at = Date.now(); try { renderProspection(); } catch (e) {} try { svDessinerCompteur(); } catch (e) {} } }).catch(function() { _ps.enCours = false; }); }
 function psItem(id) { return ((_ps.data && _ps.data.items) || []).find(function(x) { return x.id === id; }) || null; }
 function psNomAff(x) { var n = String(x.nom || '').trim().replace(/\b(\S+)(\s+\1\b)+/g, '$1'); if (!n || n === n.toUpperCase()) return (x.type && x.type !== 'Mandataire' ? 'Responsable · ' : 'Conseiller ') + (x.structure || '') + (n && x.type === 'Mandataire' ? ' · ' + n.charAt(0) + n.slice(1).toLowerCase() : ''); return n; } // annuaires qui donnent la zone au lieu du nom (Casarèse…)
 function psEstPersonne(x) { var n = String(x.nom || '').trim(); return !!n && n !== n.toUpperCase() && /\s/.test(n); }
@@ -12193,12 +12193,12 @@ var _prc = { a: null, r: null };
 function prDessinerCompteur() {
   var el = document.getElementById('pr-compteur'); if (!el) return;
   try { chargerAppelsJour(false); } catch (e) {}
-  var n = _appelsJour ? _appelsJour.length : 0, mo = /^(\d+)\s*\/\s*(\d+)/.exec(((document.getElementById('daily-outbound-today-count') || {}).textContent) || '');
+  var n = sdNbAppelsJour(), mo = /^(\d+)\s*\/\s*(\d+)/.exec(((document.getElementById('daily-outbound-today-count') || {}).textContent) || '');
   var r = mo ? +mo[1] : 0, cible = mo ? +mo[2] : ((state.targets && state.targets.outboundDay) || 3), pct = Math.min(100, Math.round(100 * r / Math.max(1, cible)));
   var msg = r >= cible ? 'Objectif du jour atteint 🏆' + (r > cible ? ' +' + (r - cible) : '') : r ? 'Encore ' + (cible - r) + ' RDV pour l\'objectif 🔥' : n ? 'Le premier RDV arrive 💪' : 'Premier appel ? C\'est parti 🚀';
   var c = r >= cible ? ['#059669', '#10b981'] : r ? ['#4f46e5', '#db2777'] : n ? ['#ea580c', '#f59e0b'] : ['#64748b', '#94a3b8'];
   var bumpA = _prc.a !== null && n > _prc.a, bumpR = _prc.r !== null && r > _prc.r; _prc.a = n; _prc.r = r;
-  el.innerHTML = '<div class="svc prc" style="--svc-a:' + c[0] + ';--svc-b:' + c[1] + ';" title="Appels passés aujourd\'hui dans Close (même chiffre que dans Suivi) · RDV outbound pris aujourd\'hui sur ton lien (même chiffre qu\'Aujourd\'hui)"><span class="ic' + (bumpA ? ' bump' : '') + '">📞</span><span class="n">' + n + '<small>appel' + (n > 1 ? 's' : '') + '</small></span><span class="sep"></span><span class="ic' + (bumpR ? ' bump' : '') + '">📅</span><span class="n rdv">' + r + '<small>/ ' + cible + ' RDV</small></span><span class="d"><span class="m">' + escapeHtml(msg) + '</span><span class="b"><i style="width:' + pct + '%"></i></span></span>' + (r && n ? '<span class="j" title="Appels par RDV pris aujourd\'hui">1 RDV / ' + Math.round(n / r) + ' appels</span>' : '') + '</div>';
+  el.innerHTML = '<div class="svc prc" style="--svc-a:' + c[0] + ';--svc-b:' + c[1] + ';" title="Appels passés aujourd\'hui avec Close, file Secteurs vides comprise (même chiffre que dans Suivi) · RDV outbound pris aujourd\'hui sur ton lien (même chiffre qu\'Aujourd\'hui)"><span class="ic' + (bumpA ? ' bump' : '') + '">📞</span><span class="n">' + n + '<small>appel' + (n > 1 ? 's' : '') + '</small></span><span class="sep"></span><span class="ic' + (bumpR ? ' bump' : '') + '">📅</span><span class="n rdv">' + r + '<small>/ ' + cible + ' RDV</small></span><span class="d"><span class="m">' + escapeHtml(msg) + '</span><span class="b"><i style="width:' + pct + '%"></i></span></span>' + (r && n ? '<span class="j" title="Appels par RDV pris aujourd\'hui">1 RDV / ' + Math.round(n / r) + ' appels</span>' : '') + '</div>';
 }
 function renderProspection() {
   var page = document.getElementById('page-prospection'); if (!page || !page.classList.contains('active')) return;
@@ -13698,6 +13698,8 @@ function svRendreFile(items, today) {
 }
 // Compteur d'appels du Suivi (12 oct. 2026) : appels passés aujourd'hui (Close), joints, et ta moyenne par jour ouvré du mois en repère. Couleur et message changent avec la progression.
 var _svcMois = null, _svcMoisAt = 0, _svcDernier = null;
+// Appels du jour = appels Close (sur des fiches) + numéros composés par Close sans fiche depuis la file Secteurs vides (Close ne les liste pas) — même total dans Suivi et Prospection
+function sdNbAppelsJour() { try { psCharger(false); } catch (e) {} return (_appelsJour ? _appelsJour.length : 0) + ((_ps && _ps.data && _ps.data.appelsJour) || 0); }
 function svDessinerCompteur() {
   var el = document.getElementById('sv-compteur'); if (!el) return;
   try { chargerAppelsJour(false); } catch (e) {}
@@ -13705,7 +13707,7 @@ function svDessinerCompteur() {
   if (typeof COPILOT_URL !== 'undefined' && (!_svcMois || _svcMois.mk !== mk || Date.now() - _svcMoisAt > 30 * 60000)) { _svcMoisAt = Date.now(); var du = mk + '-01', au = rlIso(new Date(now.getFullYear(), now.getMonth() + 1, 0));
     fetch(COPILOT_URL + '/close/appels-periode?' + new URLSearchParams({ du: du, au: au }), { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).then(function(j) { if (j && j.configure) { _svcMois = { mk: mk, total: j.total || 0 }; svDessinerCompteur(); } }).catch(function() {}); }
   if (!_appelsJour) { el.innerHTML = ''; return; }
-  var n = _appelsJour.length, jn = _appelsJour.filter(function(a) { return a.joint; }).length;
+  var n = sdNbAppelsJour(), jn = _appelsJour.filter(function(a) { return a.joint; }).length;
   var jours = 0; for (var d = new Date(now.getFullYear(), now.getMonth(), 1); rlIso(d) < rlIso(now); d.setDate(d.getDate() + 1)) { var w = d.getDay(); if (w && w !== 6 && !rlFerie(rlIso(d))) jours++; }
   var moy = _svcMois && jours ? Math.round(Math.max(0, _svcMois.total - n) / jours) : 0, pct = moy ? Math.round(100 * n / moy) : 0;
   var msg = !n ? 'Premier appel ? C\'est parti 🚀' : !moy ? (n >= 20 ? 'Belle série 🔥' : 'Ça démarre 💪') : pct >= 100 ? 'Au-dessus de ta moyenne 🏆 +' + (n - moy) : pct >= 60 ? 'Ça chauffe 🔥 plus que ' + (moy - n) : 'Échauffement 💪 encore ' + (moy - n) + ' pour ta moyenne';
