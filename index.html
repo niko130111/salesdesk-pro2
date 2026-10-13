@@ -4411,7 +4411,10 @@ function fcAppeler(ev, tel, closeUrl) { // clic : la fiche s'ouvre DANS l'applic
         .catch(function(e) { var msg = String(e && e.message || e); if (/Accessibilit/i.test(msg)) { alert('📞 Appel automatique impossible\n\n' + msg + '\n\nEn attendant, la fiche est ouverte dans Close et le numéro est copié.'); } else if (typeof showCopyToast === 'function') showCopyToast('Fiche ouverte dans Close, numéro copié · appel automatique impossible : ' + msg); });
     } else { sdOuvrirClose(closeUrl); if (typeof showCopyToast === 'function') showCopyToast('Close ouvert sur sa fiche · numéro copié' + (num ? ' (' + num + ') : clique dessus dans Close pour appeler' : '')); }
   }
-  else if (num) { window.location.href = 'tel:' + num; if (typeof showCopyToast === 'function') showCopyToast('Pas de fiche Close : appel via le Mac ' + num); }
+  else if (num) { // 13 oct. 2026 : pas de fiche Close (prospect de Prospection…) → Close compose quand même le numéro (panneau « Dial a number »), plus FaceTime
+    if (typeof COPILOT_URL !== 'undefined' && typeof rlPost === 'function') { if (typeof showCopyToast === 'function') showCopyToast('📞 Close compose le ' + num + '…'); rlPost('/close/composer', { tel: num }).catch(function(e) { alert('📞 Close n\'a pas pu composer tout seul : ' + e.message + '\n\nLe numéro est copié : dans Close, icône téléphone, ⌘V puis Entrée.'); }); }
+    else { window.location.href = 'tel:' + num; if (typeof showCopyToast === 'function') showCopyToast('Pas de fiche Close : appel via le Mac ' + num); }
+  }
   return false;
 }
 // Corriger le nom d'une personne partout (lignes, fiche, traités, suivi, journal) — et dans le copilot ; proposition = le nom tel qu'il est dans Close
@@ -4727,6 +4730,7 @@ function fcAppelerFiche(ev, cle) {
     if (a) { if (ev && ev.altKey) { try { window.location.href = a.getAttribute('href'); } catch (e) {} return; } a.click(); return; }
     var lead = (_fc && _fc.leadChoisi) || ((_fc && _fc.close && _fc.close.leads && _fc.close.leads[0]) || {}).id || '';
     if (lead) { fcAppeler(ev, '', 'https://app.close.com/lead/' + lead + '/'); return; }
+    var telF = fcTelConnu(); if (telF) { fcAppeler(ev, telF, ''); return; } // 13 oct. 2026 : prospect sans fiche Close (Prospection) → Close compose son numéro
     svAppeler(ev, cle); return;
   }
   // panneau du Suivi (pas de surimpression) : l'item sélectionné, jamais le bandeau de la dernière fiche ouverte (bug du 9 oct. : appel vers la mauvaise personne)
@@ -5309,6 +5313,29 @@ function fcBlocEchangeHtml(e, i) {
   if (src.claap) preuves.push('<a href="' + escapeHtml(src.claap) + '" target="_blank" rel="noopener">Compte rendu ↗</a>');
   return '<div class="ech" id="fc-ech-' + i + '"><div class="ech-t"><span>' + (ICO[e.type] || '📞') + ' ' + escapeHtml(e.date || '') + ' · ' + (LIB[e.type] || 'appel') + (e.par ? ' · <b>' + escapeHtml(e.par) + '</b>' : ' · toi') + '</span><span class="preuves">' + preuves.join('') + '</span></div><ul>' + (e.lignes || []).slice(0, 3).map(function(l) { var m = /^([^:]{2,40}) :\s*(.*)$/.exec(l); return '<li>' + (m ? '<b>' + escapeHtml(m[1]) + ' :</b> ' + escapeHtml(m[2]) : escapeHtml(l)) + '</li>'; }).join('') + '</ul><div class="ech-plus"></div></div>';
 }
+// Fiche d'un prospect de Prospection (13 oct. 2026) : la même carte que dans la file Secteurs vides, retrouvée par son numéro — Nicolas rappelle des prospects sans fiche Close
+var _fcPros = null;
+function fcChargerProspect() {
+  if (typeof COPILOT_URL === 'undefined') return; var cle = _fc.cle, tel = fcTelConnu(); if (!tel) return;
+  if (_fcPros && _fcPros.cle === cle) return; _fcPros = { cle: cle, data: null };
+  fetch(COPILOT_URL + '/prospection/prospect?' + new URLSearchParams({ tel: tel }), { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).then(function(j) { if (!_fcPros || _fcPros.cle !== cle) return; _fcPros.data = j; if (j && j.trouve) _psExtra[j.prospect.id] = j.prospect; if (_fc.cle === cle && _fc.tab === 'synthese' && j && j.trouve) fcRendre(); }).catch(function() {});
+}
+function fcHtmlProspect() {
+  fcChargerProspect(); var b = _fcPros && _fcPros.cle === _fc.cle ? _fcPros.data : null; if (!b || !b.trouve) return '';
+  var x = b.prospect, idJs = JSON.stringify(x.id).replace(/"/g, '&quot;'), nb = function(n) { return Number(n || 0).toLocaleString('fr-FR'); };
+  var hm = function(iso) { var d = new Date(iso); return d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' }) + ' ' + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }); };
+  var LIB = { '': 'appelé', pas_reponse: 'pas de réponse', pas_interesse: 'pas intéressé', mauvais_numero: 'mauvais numéro', rdv: 'RDV pris', tache: 'tâche de rappel', retire: 'retiré de la file' };
+  var etat = x.lead ? 'fiche Close créée' : x.dansFile ? 'file Secteurs vides · n° ' + x.rang : x.sorti ? 'sorti de la file (' + (LIB[x.sorti.raison] || x.sorti.raison) + ')' : 'liste Hors Close';
+  var h = '<div class="fc-card ps-card" style="margin-bottom:14px;"><div class="ps-eyebrow">🎯 Prospect de Prospection · ' + escapeHtml(etat) + '</div>'
+    + '<div class="ps-sous" style="margin-top:6px;">' + escapeHtml([x.type, x.structure].filter(Boolean).join(' ') + (x.commune ? ' · ' + x.commune + (x.cp ? ' (' + x.cp + ')' : '') : '')) + (x.lien ? ' · <a href="' + escapeHtml(x.lien) + '" target="_blank" rel="noopener">voir sa vitrine ↗</a>' : '') + (x.activite ? ' · <b style="color:var(--text);">' + escapeHtml(x.activite) + '</b>' : '') + '</div>'
+    + '<div class="ps-sous" style="margin-top:4px;">✉ ' + (x.email ? '<b style="color:var(--text);">' + escapeHtml(x.email) + '</b>' + (x.emailSource === 'site de l\'agence' ? ' <span class="fc-muted">(adresse de l\'agence)</span>' : '') : x.emailSuggere ? escapeHtml(x.emailSuggere) + ' <span style="color:var(--orange);font-weight:600;">à confirmer au téléphone</span>' : '<span style="color:var(--orange);font-weight:600;">e-mail à demander pendant l\'appel</span>') + '</div>'
+    + (x.pop15 != null ? '<div class="ps-tile"><div><b>' + x.clients15 + '</b><span>client' + (x.clients15 > 1 ? 's' : '') + ' RealAdvisor à 15 km' + (x.clientsNoms && x.clientsNoms.length ? ' (' + escapeHtml(x.clientsNoms.slice(0, 3).join(', ')) + ')' : '') + '</span></div><div><b>' + nb(x.pop15) + '</b><span>habitants à 15 km</span></div></div>' : '')
+    + ((x.appels || []).length ? '<div class="ps-sous" style="margin:6px 0 2px;"><b style="color:var(--text);">Tes appels :</b> ' + x.appels.slice(-6).map(function(a) { return hm(a.at) + ' · ' + (LIB[a.res || ''] || a.res); }).join(' — ') + '</div>' : '')
+    + '<div class="ps-row"><button class="btn btn-primary" onclick="psAppeler(' + idJs + ');setTimeout(function(){_fcPros=null;fcRendre();},1500)">📞 Appeler avec Close</button>'
+    + (x.lead ? '' : '<button class="btn ps-btn-ok" onclick="psFormulaire(' + idJs + ',\'rdv\')">📅 Prendre un RDV</button><button class="btn ps-btn-ok" onclick="psFormulaire(' + idJs + ',\'tache\')">⏰ Tâche de rappel</button><button class="btn" onclick="psResultat(' + idJs + ',\'pas_reponse\');setTimeout(function(){_fcPros=null;fcRendre();},800)">Pas de réponse</button><button class="btn ps-btn-warn" onclick="psResultat(' + idJs + ',\'pas_interesse\');setTimeout(function(){_fcPros=null;fcRendre();},800)">Pas intéressé</button><button class="btn" onclick="psResultat(' + idJs + ',\'mauvais_numero\');setTimeout(function(){_fcPros=null;fcRendre();},800)">Mauvais numéro</button>') + '</div>'
+    + (x.lead ? '' : '<div class="ps-note">Pas encore dans Close : la fiche Close se crée au RDV ou à la tâche, à ton nom.</div>') + '</div>';
+  return h;
+}
 // Ton R1 en bref : résumé commercial du compte rendu Claap du R1 + demandes de son secteur depuis le 1er janvier (CRM) + clients RealAdvisor à 15 km (base Close). Copilot : GET /close/resume-r1
 var _fcR1b = null;
 function fcChargerResumeR1(force) {
@@ -5392,7 +5419,8 @@ function fcHtmlSynthese() {
   if (j && j.trouve && !j.prochaine && !dossierClos) av.push('Prochaine étape à définir avec lui');
   var verif = av.length ? '<div class="fc-card"><div class="fc-card-t"><span>À vérifier</span></div>' + av.map(function(x) { return '<div class="fc-kv" style="grid-template-columns:18px 1fr;"><span class="k" style="color:var(--orange);">●</span><span class="v">' + escapeHtml(x) + '</span></div>'; }).join('') + '</div>' : '';
   var r1b = ''; try { r1b = fcHtmlResumeR1(); } catch (e) { r1b = ''; }
-  return r1b + '<div class="fc-synth"><div class="fc-col">' + contexte + dernier + note + '</div><div class="fc-col">' + next + offre + verif + '</div></div>';
+  var prc = ''; try { prc = fcHtmlProspect(); } catch (e) { prc = ''; }
+  return prc + r1b + '<div class="fc-synth"><div class="fc-col">' + contexte + dernier + note + '</div><div class="fc-col">' + next + offre + verif + '</div></div>';
 }
 function fcHtmlOffreTab() {
   var rows = _fc.rows.filter(function(x) { return x.source !== 'R2'; }), cles = (_fc.dernier && _fc.dernier.cles) || {};
@@ -12143,7 +12171,8 @@ function prAppeler(ev, tel, url, lead, nom) { // ouvre la fiche Close (numéro c
 var _ps = { data: null, at: 0, courant: null, enCours: false };
 function psCharger(force) { if (typeof COPILOT_URL === 'undefined') return; if (_ps.enCours || (!force && _ps.data && Date.now() - _ps.at < 60000)) return; _ps.enCours = true;
   fetch(COPILOT_URL + '/prospection/secteurs', { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).then(function(j) { _ps.enCours = false; if (j && j.ok) { _ps.data = j; _ps.at = Date.now(); try { renderProspection(); } catch (e) {} try { svDessinerCompteur(); } catch (e) {} } }).catch(function() { _ps.enCours = false; }); }
-function psItem(id) { return ((_ps.data && _ps.data.items) || []).find(function(x) { return x.id === id; }) || null; }
+var _psExtra = {}; // prospects ouverts depuis leur fiche (recherche, Nouveautés), même hors de la file
+function psItem(id) { return ((_ps.data && _ps.data.items) || []).find(function(x) { return x.id === id; }) || _psExtra[id] || null; }
 function psNomAff(x) { var n = String(x.nom || '').trim().replace(/\b(\S+)(\s+\1\b)+/g, '$1'); if (!n || n === n.toUpperCase()) return (x.type && x.type !== 'Mandataire' ? 'Responsable · ' : 'Conseiller ') + (x.structure || '') + (n && x.type === 'Mandataire' ? ' · ' + n.charAt(0) + n.slice(1).toLowerCase() : ''); return n; } // annuaires qui donnent la zone au lieu du nom (Casarèse…)
 function psEstPersonne(x) { var n = String(x.nom || '').trim(); return !!n && n !== n.toUpperCase() && /\s/.test(n); }
 function psAujourdhui(x) { return x.dernierAppel && rlIso(new Date(x.dernierAppel.at)) === rlIso(new Date()); }
