@@ -808,6 +808,7 @@ details.gl-details > .body { padding: 0 20px 20px; }
 .svc .n { font-size: 30px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; } .svc .n small { font-size: 13px; font-weight: 600; opacity: .85; margin-left: 4px; }
 .svc .d { display: flex; flex-direction: column; gap: 5px; min-width: 170px; } .svc .m { font-size: 13px; font-weight: 700; opacity: .95; white-space: nowrap; }
 .svc .b { height: 6px; border-radius: 999px; background: rgba(255,255,255,.28); overflow: hidden; } .svc .b i { display: block; height: 100%; border-radius: 999px; background: #fff; }
+.prc .sep { width: 1px; align-self: stretch; background: rgba(255,255,255,.35); margin: 4px 2px; } .prc .n.rdv { font-size: 30px; } .prc .ic + .n { margin-left: -4px; }
 .svc .j { font-size: 13px; font-weight: 700; background: rgba(255,255,255,.22); border-radius: 999px; padding: 4px 11px; white-space: nowrap; }
 .au-ab { margin: 8px 0 4px; } .au-ab-t { border-collapse: collapse; font-size: 12.5px; } .au-ab-t th, .au-ab-t td { padding: 3px 10px 3px 0; text-align: left; font-variant-numeric: tabular-nums; } .au-ab-t th { font-size: 11px; color: var(--text3); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
 .cr-concl { margin: 0; padding-left: 22px; display: flex; flex-direction: column; gap: 8px; font-size: 15px; line-height: 1.5; color: var(--text); } .cr-concl li::marker { font-weight: 800; color: var(--sd-action, var(--accent)); }
@@ -2301,6 +2302,7 @@ select.form-input { cursor: pointer; }
   <div class="auj">
     <header class="auj-head"><div><h1 class="pf-h1" style="margin:0;">Prospection</h1><div class="auj-resume" id="pr-resume">Les prospects à appeler, construits chaque nuit depuis Close : jamais un RDV de moins de 2 mois (sauf BDR parti), jamais une tâche à venir, jamais un client.</div></div>
       <div class="auj-head-actions"><button class="btn" id="pr-btn-construire" onclick="prConstruire()">↻ Reconstruire maintenant</button></div></header>
+    <div id="pr-compteur" style="display:flex;margin:12px 0 2px;"></div>
     <div id="pr-onglets" style="display:flex;gap:6px;flex-wrap:wrap;margin:14px 0 10px;"></div>
     <div id="pr-filtres" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px;"></div>
     <div id="pr-corps"></div>
@@ -11921,7 +11923,7 @@ function chargerAppelsSemaine(force) {
 function chargerAppelsJour(force) {
   if (typeof COPILOT_URL === 'undefined') return; try { chargerAppelsSemaine(force); } catch (e) {}
   if (_appelsJour && Date.now() - _appelsJourAt < 60000 && !force) return;
-  fetch(COPILOT_URL + '/close/appels-jour' + (force ? '?force=1' : ''), { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).then(function(j) { _appelsJour = j.appels || []; _appelsJourAt = Date.now(); renderMaJournee(); try { svDessinerCompteur(); } catch (e) {} dessinerRelances(); }).catch(function() {});
+  fetch(COPILOT_URL + '/close/appels-jour' + (force ? '?force=1' : ''), { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).then(function(j) { _appelsJour = j.appels || []; _appelsJourAt = Date.now(); renderMaJournee(); try { svDessinerCompteur(); } catch (e) {} try { prDessinerCompteur(); } catch (e) {} dessinerRelances(); }).catch(function() {});
 }
 // Appels du jour non encore constatés, pour une carte : même fiche Close, ou même personne (nom / contacts de la fiche)
 function rlAppelsPour(it) {
@@ -12126,6 +12128,7 @@ function psAppeler(id) {
   rlPost('/close/composer', { tel: num }).then(function() { if (typeof showCopyToast === 'function') showCopyToast('📞 Close appelle ' + psNomAff(x) + ' (' + x.tel + ')'); })
     .catch(function(e) { alert('📞 Close n\'a pas pu composer tout seul : ' + e.message + '\n\nLe numéro est copié : dans Close, clique sur l\'icône téléphone, colle (⌘V) puis Entrée.'); });
   psAction(id, 'appele').catch(function() {});
+  setTimeout(function() { try { chargerAppelsJour(true); } catch (e) {} }, 20000);
 }
 function psResultat(id, action) { var x = psItem(id); psAction(id, action).then(function() { if (_ps.courant === id) _ps.courant = null; try { renderProspection(); } catch (e) {} if (typeof showCopyToast === 'function') showCopyToast(action === 'pas_reponse' ? '↻ ' + (x ? psNomAff(x) : '') + ' : en fin de file' : action === 'retire' ? '🗑 ' + (x ? psNomAff(x) : '') + ' retiré de la file · rien dans Close' : '✓ Sorti de la file · rien dans Close'); }).catch(function(e) { alert(e.message); }); }
 function psFormulaire(id, type) { // RDV ou tâche : la fiche Close naît ici, avec le nom et l'e-mail obtenus pendant l'appel
@@ -12185,8 +12188,21 @@ function psRendreMemeNom() {
       + '<div style="display:flex;flex-direction:column;gap:6px;">' + (m.verifie ? '<span class="fc-muted" style="font-size:12px;">' + (m.verifie.res === 'meme_personne' ? 'C\'est lui : écarté' : 'Pas lui') + '</span>' : '<button class="btn btn-sm ps-btn-warn" onclick="psAction(' + idJs + ',\'meme_personne\')">C\'est lui</button><button class="btn btn-sm" onclick="psAction(' + idJs + ',\'homonyme\')">Pas lui</button>') + '</div></div>'; };
   return '<div class="ps-why">Prospects de la liste Hors Close dont le prénom et le nom existent déjà dans Close. Un même nom ne prouve rien : ouvre la fiche trouvée et tranche. <b>C\'est lui</b> le retire de la liste Hors Close ; <b>Pas lui</b> le laisse. Aucun ne fait partie des 100 de la file Secteurs vides.' + (d.agencesDansClose ? ' Par ailleurs, ' + d.agencesDansClose + ' responsables ou agents d\'une agence déjà dans Close ont été écartés de la file.' : '') + '</div><div class="ps-card">' + (aTrancher.length ? aTrancher.map(ligne).join('') : '<div class="fc-muted">Tout est tranché.</div>') + (faits.length ? '<div class="ps-sep" style="margin-top:14px;">Déjà tranchés · ' + faits.length + '</div>' + faits.map(ligne).join('') : '') + '</div>';
 }
+// Compteur de Prospection (13 oct. 2026) : appels du jour (même chiffre que Suivi, appels Close) et RDV pris aujourd'hui (même chiffre qu'« Outbound x / y » d'Aujourd'hui), coloré selon l'objectif du jour
+var _prc = { a: null, r: null };
+function prDessinerCompteur() {
+  var el = document.getElementById('pr-compteur'); if (!el) return;
+  try { chargerAppelsJour(false); } catch (e) {}
+  var n = _appelsJour ? _appelsJour.length : 0, mo = /^(\d+)\s*\/\s*(\d+)/.exec(((document.getElementById('daily-outbound-today-count') || {}).textContent) || '');
+  var r = mo ? +mo[1] : 0, cible = mo ? +mo[2] : ((state.targets && state.targets.outboundDay) || 3), pct = Math.min(100, Math.round(100 * r / Math.max(1, cible)));
+  var msg = r >= cible ? 'Objectif du jour atteint 🏆' + (r > cible ? ' +' + (r - cible) : '') : r ? 'Encore ' + (cible - r) + ' RDV pour l\'objectif 🔥' : n ? 'Le premier RDV arrive 💪' : 'Premier appel ? C\'est parti 🚀';
+  var c = r >= cible ? ['#059669', '#10b981'] : r ? ['#4f46e5', '#db2777'] : n ? ['#ea580c', '#f59e0b'] : ['#64748b', '#94a3b8'];
+  var bumpA = _prc.a !== null && n > _prc.a, bumpR = _prc.r !== null && r > _prc.r; _prc.a = n; _prc.r = r;
+  el.innerHTML = '<div class="svc prc" style="--svc-a:' + c[0] + ';--svc-b:' + c[1] + ';" title="Appels passés aujourd\'hui dans Close (même chiffre que dans Suivi) · RDV outbound pris aujourd\'hui sur ton lien (même chiffre qu\'Aujourd\'hui)"><span class="ic' + (bumpA ? ' bump' : '') + '">📞</span><span class="n">' + n + '<small>appel' + (n > 1 ? 's' : '') + '</small></span><span class="sep"></span><span class="ic' + (bumpR ? ' bump' : '') + '">📅</span><span class="n rdv">' + r + '<small>/ ' + cible + ' RDV</small></span><span class="d"><span class="m">' + escapeHtml(msg) + '</span><span class="b"><i style="width:' + pct + '%"></i></span></span>' + (r && n ? '<span class="j" title="Appels par RDV pris aujourd\'hui">1 RDV / ' + Math.round(n / r) + ' appels</span>' : '') + '</div>';
+}
 function renderProspection() {
   var page = document.getElementById('page-prospection'); if (!page || !page.classList.contains('active')) return;
+  try { prDessinerCompteur(); } catch (e) {}
   if (!_pr.data && !_pr.erreur) { prCharger(false); document.getElementById('pr-corps').innerHTML = '<div class="fc-muted">Lecture des listes…</div>'; return; }
   var j = _pr.data, O = document.getElementById('pr-onglets'), F = document.getElementById('pr-filtres'), C = document.getElementById('pr-corps');
   if (_pr.erreur) { O.innerHTML = ''; F.innerHTML = ''; C.innerHTML = '<div class="fc-muted">' + escapeHtml(_pr.erreur) + '</div>'; return; }
