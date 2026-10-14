@@ -12491,7 +12491,7 @@ function aujRdvsDu(iso) {
   cal.forEach(function(e) {
     var n = fcNormNom(e.name), em = String(e.email || '').toLowerCase(), heure = e.start.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
     var x = out.find(function(o) { return (fcNormNom(o.nom) === n || (em && o.email === em)) && (!!o.r2 === !!e.isR2 || !o.heure || o.heure === heure); });
-    if (x) { x.join = e.join || ''; x.start = e.start; x.end = e.end; if (x.heure !== heure) { x.heure = heure; if (x.row) aujMajHeureLigne(x.row, heure); } x.uri = e.uri; if (x.row && String(x.row.presence || '').trim() === 'Annulé' && /d[ée]plac|reschedul|reprogramm/i.test(String(x.row.annuleRaison || '')) && e.start && +e.start > Date.now()) aujReparerDeplace(x.row); } // l'heure Calendly fait foi (RDV décalé dans la journée) : la ligne SalesDesk suit
+    if (x) { x.join = e.join || ''; x.start = e.start; x.end = e.end; if (x.heure !== heure) { x.heure = heure; if (x.row) aujMajHeureLigne(x.row, heure); } x.uri = e.uri; if (x.row && String(x.row.presence || '').trim() === 'Annulé' && !/autre BDR/i.test(String(x.row.retour || '')) && /d[ée]plac|reschedul|reprogramm/i.test(String(x.row.annuleRaison || '')) && e.start && +e.start > Date.now()) aujReparerDeplace(x.row); } // l'heure Calendly fait foi (RDV décalé dans la journée) : la ligne SalesDesk suit
     else out.push({ nom: e.name, email: em, heure: heure, source: e.source, r2: !!e.isR2, row: null, join: e.join || '', start: e.start, end: e.end, uri: e.uri });
   });
   out.forEach(function(o) { if (!o.heure && o.row) aujHeureClose(o, iso); });
@@ -12758,6 +12758,20 @@ function sdReporterAncien(btn, k1, i1, k2, i2) { // ancien RDV → Reprogrammé 
     .catch(function(e) { if (typeof showCopyToast === 'function') showCopyToast('⚠️ ' + an.client + ' : SalesDesk à jour, mais Calendly n\'a pas annulé l\'ancien RDV (' + e.message + ') : annule-le à la main'); });
   try { renderAujourdhui(); } catch (e) {} try { renderDaily(); } catch (e) {}
 }
+// 14 oct. 2026 (Véronique Marcadier, Sophie Gaultier) : RDV annulé / déplacé dans Calendly parce que le prospect l'a repris avec un autre BDR → Annulé chez toi, rien dans Close
+function sdAnnulAutreBdr(btn, u) {
+  var cleA = 'autrebdr|' + u; window._sdArme = window._sdArme || {};
+  if (!(window._sdArme[cleA] > Date.now())) { window._sdArme[cleA] = Date.now() + 8000; if (btn) { btn.textContent = 'Confirmer ?'; btn.style.color = 'var(--red, #c0392b)'; } setTimeout(function() { if (window._sdArme[cleA] <= Date.now()) { delete window._sdArme[cleA]; try { renderAujourdhui(); } catch (e) {} } }, 8100); return; }
+  delete window._sdArme[cleA];
+  var st = loadStore(), a = (st._annulations || {})[u]; if (!a) return; if (typeof sdBackupStore === 'function') sdBackupStore(st);
+  var fr = a.date ? a.date.split('-').reverse().join('/') : '', mk = (a.date || '').slice(0, 7), r = (st[mk] || []).find(function(x) { return x && x.source !== 'R2' && x.date === fr && fcNormNom(x.client || '') === fcNormNom(a.nom || ''); });
+  if (r) { r.presence = 'Annulé'; r.result = ''; r.annulePar = 'prospect'; r.annuleLe = r.annuleLe || a.at || new Date().toISOString(); r.annuleLeSource = r.annuleLeSource || 'calendly'; delete r.confirme; delete r.confirmeAt; delete r.relanceDate; delete r.relanceCond; r.relanceFait = true;
+    r.retour = (r.retour ? r.retour + ' · ' : '') + 'Annulé le ' + new Date(r.annuleLe).toLocaleDateString('fr-FR') + ' : RDV repris avec un autre BDR (rien à faire dans Close)'; }
+  a.vu = true; a.note = 'Annulé (repris avec un autre BDR)'; saveStore(st);
+  try { rlPost('/sms/annuler-pour', { nom: a.nom, raison: 'repris avec un autre BDR' }).catch(function() {}); } catch (e) {}
+  try { renderAujourdhui(); } catch (e) {} try { renderDaily(); } catch (e) {}
+  if (typeof showCopyToast === 'function') showCopyToast(r ? '✓ ' + a.nom + ' : RDV du ' + fr + ' passé en Annulé (autre BDR) · rien dans Close' : '⚠️ ' + a.nom + ' : pas de ligne SalesDesk le ' + fr);
+}
 function sdLaisserTomberRepro(btn, monthKey, idx) {
   // 14 oct. 2026 : l'état « Confirmer ? » est gardé 8 s hors du bouton — Aujourd'hui se redessine souvent et le remettait à zéro avant le 2e clic (« il se passe rien »)
   var cleArme = 'repro|' + monthKey + '|' + idx; window._sdArme = window._sdArme || {};
@@ -12807,6 +12821,7 @@ function sdAnnulationChoix(o) { // o = { nom, iso, heure, mk, idx, motif, apres 
     + '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;"><button class="btn btn-primary" id="an-rappel">📅 Tâche de rappel le</button><input type="date" id="an-date" style="' + champ + '" value="' + (rlJourOuvre(o.iso, 1) >= today ? rlJourOuvre(o.iso, 1) : rlJourOuvre(today, 1)) + '" min="' + today + '"><span class="fc-muted" style="font-size:12px;">lendemain du RDV par défaut · ligne en Annulé (no-show) + tâche Close</span></div>'
     + '<div style="display:flex;gap:8px;align-items:center;"><button class="btn" id="an-repro">🔄 Reprogrammer maintenant</button><span class="fc-muted" style="font-size:12px;">tu choisis le créneau, la ligne passe en Reprogrammé avec la nouvelle date</span></div>'
     + '<div style="display:flex;gap:8px;align-items:center;"><button class="btn" id="an-rien">✖ Ne rien faire</button><span class="fc-muted" style="font-size:12px;">ligne en Annulé (no-show), aucune tâche</span></div>'
+    + '<div style="display:flex;gap:8px;align-items:center;"><button class="btn" id="an-autrebdr">👥 Pris par un autre BDR</button><span class="fc-muted" style="font-size:12px;">ligne en Annulé, sort de ton agenda, rien dans Close (il a rendez-vous avec un collègue)</span></div>'
     + '<div style="display:flex;gap:8px;align-items:center;"><button class="btn" id="an-pasint" style="color:var(--red);border-color:var(--red);">✗ Pas intéressé(e)</button><span class="fc-muted" style="font-size:12px;">annule et ferme : Close passe en Not interested, ligne en Annulé · pas intéressé, aucun rappel</span></div>'
     + '</div><div style="display:flex;justify-content:space-between;margin-top:14px;">' + (o.retour ? '<button class="btn btn-sm" id="an-retour">← Retour</button>' : '<span></span>') + '<button class="btn btn-sm" onclick="fermerModalDoublon()">Fermer</button></div></div>';
   if (o.retour) document.getElementById('an-retour').onclick = function() { fermerModalDoublon(); setTimeout(o.retour, 120); };
@@ -12829,6 +12844,19 @@ function sdAnnulationChoix(o) { // o = { nom, iso, heure, mk, idx, motif, apres 
   document.getElementById('an-rien').onclick = function() { appliquer(null); };
   document.getElementById('an-pasint').onclick = function() { appliquer(null); try { var st2 = loadStore(), row2 = (st2[o.mk] || [])[o.idx]; if (row2) { sdMarquerPasInteresse(st2, row2); } } catch (e) {} };
   document.getElementById('an-repro').onclick = function() { fermerModalDoublon(); try { sdDeplacerAnnuler(o.nom, o.iso, o.heure || ''); } catch (e) { alert('Déplacement impossible : ' + e.message); } };
+  document.getElementById('an-autrebdr').onclick = function() { // 14 oct. 2026 : RDV repris avec un autre BDR → Annulé chez toi ; l'événement Calendly encore actif est annulé (motif : collègue), Close n'est pas touché
+    var st = loadStore(), row = (st[o.mk] || [])[o.idx]; if (!row) { fermerModalDoublon(); return; } if (typeof sdBackupStore === 'function') sdBackupStore(st);
+    row.presence = 'Annulé'; row.result = ''; row.annulePar = 'prospect'; row.annuleLe = row.annuleLe || new Date().toISOString(); row.annuleLeSource = row.annuleLeSource || 'salesdesk'; delete row.confirme; delete row.confirmeAt; delete row.relanceDate; delete row.relanceCond; row.relanceFait = true;
+    row.retour = (row.retour ? row.retour + ' · ' : '') + 'Annulé le ' + new Date(row.annuleLe).toLocaleDateString('fr-FR') + ' : RDV repris avec un autre BDR (rien à faire dans Close)';
+    Object.keys(st._annulations || {}).forEach(function(u) { var a = st._annulations[u]; if (a && a.date === o.iso && fcNormNom(a.nom || '') === fcNormNom(o.nom)) { a.vu = true; a.note = 'Annulé (repris avec un autre BDR)'; } });
+    saveStore(st); fermerModalDoublon();
+    try { rlPost('/sms/annuler-pour', { nom: o.nom, raison: 'repris avec un autre BDR' }).catch(function() {}); } catch (e) {}
+    var cle = (state.calendly && state.calendly.apiKey) || localStorage.getItem('calendly_key');
+    sdTrouverUriCalendly(o.nom, row.email || '', o.iso, o.heure || '').then(function(uri) { if (!uri || !cle) return false;
+      return fetch(uri + '/cancellation', { method: 'POST', headers: { Authorization: 'Bearer ' + cle, 'Content-Type': 'application/json' }, body: JSON.stringify({ reason: 'Vous avez rendez-vous avec un collègue de RealAdvisor.' }) }).then(function(r) { return r.ok; }); })
+      .then(function(annule) { if (typeof showCopyToast === 'function') showCopyToast('✓ ' + o.nom + ' : RDV du ' + fcFrDepuisIso(o.iso) + ' en Annulé (autre BDR)' + (annule ? ' · retiré de Calendly' : '') + ' · rien dans Close'); }).catch(function() {});
+    try { _auj.calEtat = {}; _auj.cal = {}; } catch (e) {} try { renderAujourdhui(); } catch (e) {} try { renderDaily(); } catch (e) {}
+  };
 }
 // ── Bouton « Show / No show » dans Mes rendez-vous : le résultat du RDV comme dans le copilot — Show (on finalise), No show (tâche de rappel ou rien), Annulé (rappel, reprogrammer, rien), Reprogrammé (nouveau créneau) ──
 function sdResultatR2Sans(nom, email, iso, heure) { // R2 venu de Calendly sans ligne SalesDesk : on crée la ligne R2 (comme pour un R2 déplacé), puis le résultat se note dessus
@@ -13227,7 +13255,7 @@ function renderAujourdhui() {
   try { (_mailsAV || []).filter(function(x) { return x.statut === 'a_valider'; }).forEach(function(x) { ajoute({ cle: 'mailav|' + x.id, titre: 'Valider le ' + ({ mail_j3: 'mail J-3', mail_r1_jour: 'mail du jour du R1', mail_r2_jour: 'mail du jour du R2' }[x.type] || 'mail de prise de RDV'), det: sdNomLien(x.nom || '', x.email || '') + ' · avec le chiffre du CRM · en attente de ton clic', btn: { lib: 'Relire', on: 'sdPopupValiderMails(true)', titre: 'Il reste en brouillon dans Close tant que tu ne l\'as pas validé' }, rang: 0 }); }); } catch (e) {}
   try { var _an = st._annulations || {}; Object.keys(_an).forEach(function(u) { var x = _an[u]; if (x.vu || x.deplace) return;
     var nn = (function() { var n = ((_nouv.data || {}).rdv || []).find(function(r0) { return r0.deplace && fcNormNom(r0.nom) === fcNormNom(x.nom); }); return n ? ' · nouveau créneau : ' + fcFrDepuisIso(n.date) + ' à ' + n.heure : ''; })();
-    ajoute({ cle: 'annul|' + u, titre: x.deplace ? 'A déplacé son RDV' : 'A annulé son RDV', det: '<a onclick="ouvrirFicheClient(' + Q(x.nom) + ',\'\')">' + escapeHtml(nomAff(x.nom)) + '</a> · ' + escapeHtml((x.date === todayIso ? 'aujourd\'hui' : fcFrDepuisIso(x.date)) + ' à ' + x.heure + (x.raison ? ' · « ' + x.raison + ' »' : '') + nn + (x.note ? ' · noté ' + x.note : '')), btn: x.deplace ? { lib: 'Vu', on: 'sdAnnulVu(' + Q(u) + ')' } : { lib: 'Que faire ?', on: 'sdAnnulQuoiFaire(' + Q(u) + ')' }, rang: 0 }); }); } catch (e) {}
+    ajoute({ cle: 'annul|' + u, titre: x.deplace ? 'A déplacé son RDV' : 'A annulé son RDV', det: '<a onclick="ouvrirFicheClient(' + Q(x.nom) + ',\'\')">' + escapeHtml(nomAff(x.nom)) + '</a> · ' + escapeHtml((x.date === todayIso ? 'aujourd\'hui' : fcFrDepuisIso(x.date)) + ' à ' + x.heure + (x.raison ? ' · « ' + x.raison + ' »' : '') + nn + (x.note ? ' · noté ' + x.note : '')), btn: x.deplace ? { lib: 'Vu', on: 'sdAnnulVu(' + Q(u) + ')' } : { lib: 'Que faire ?', on: 'sdAnnulQuoiFaire(' + Q(u) + ')' }, btn2: { lib: ((window._sdArme || {})['autrebdr|' + u] > Date.now() ? 'Confirmer ?' : 'Pris par un autre BDR'), on: 'sdAnnulAutreBdr(this,' + Q(u) + ')', titre: 'Il a repris RDV avec un autre BDR : ton RDV passe en Annulé (date de l\'annulation Calendly), il sort de ton agenda ; rien n\'est changé dans Close' }, rang: 0 }); }); } catch (e) {}
   // 14 oct. 2026 (Nicolas, Essia Hadj) : un prospect a repris un RDV à une autre date alors que l'ancien est toujours prévu → « Reporter l'ancien » en un clic
   try { var parEm = {}; Object.keys(st).forEach(function(k) { if (/^\d{4}-\d{2}$/.test(k) && Array.isArray(st[k])) st[k].forEach(function(r, i) { if (!r || r.source === 'R2' || !r.email || String(r.presence || '').trim()) return; var e = String(r.email).toLowerCase().trim(), iso = frVersIsoSd(r.date) || ''; if (iso) (parEm[e] = parEm[e] || []).push({ r: r, k: k, i: i, iso: iso }); }); });
     Object.keys(parEm).forEach(function(e) { var L = parEm[e].sort(function(a, b) { return (a.iso + (a.r.heure || '')).localeCompare(b.iso + (b.r.heure || '')); }); if (L.length < 2) return; var an = L[0], nv = L[L.length - 1]; if (an.iso < todayIso || an.iso === nv.iso) return;
