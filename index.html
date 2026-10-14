@@ -5846,7 +5846,7 @@ function fcSuiviEnregistrer() {
   if (rel) { r.relanceDate = rel; r.relanceCond = cond; r.relanceFait = false; } else if (!r2) { delete r.relanceDate; }
   if (!String(r.result || '').trim() && !r2) { r.result = 'Intéressé'; if (!r.presence) r.presence = 'Show'; }
   // Close porte la date : le rappel devient une tâche Close (créée ou déplacée, jamais en double)
-  if (rel && typeof rlPost === 'function') { var colR = SD_INTERESSE.indexOf(String(r.result || '').trim()) >= 0 ? 'r2' : (['No Show', 'Annulé', 'Reprogrammé'].indexOf(String(r.presence || '').trim()) >= 0 ? (r.source === 'Outbound' ? 'nsout' : 'nsin') : 'rdv'); rlPost('/close/taches', { nom: r.client, email: r.email || '', date: rel, texte: (RL_LIBELLES[colR] || 'Relance') + (cond ? ' · ' + cond : '') + '', motif: 'rappel_fiche' }).then(function() { if (typeof showCopyToast === 'function') showCopyToast('📌 Tâche Close posée au ' + fcFrDepuisIso(rel)); if (typeof chargerTachesClose === 'function') chargerTachesClose(rlPlus(_rlLundi || rlLundiDe(rlIso(new Date())), -7), rlPlus(_rlLundi || rlLundiDe(rlIso(new Date())), 13), true); }).catch(function(e) { if (typeof showCopyToast === 'function') showCopyToast('Close : tâche non créée (' + e.message + ')'); }); }
+  if (rel && typeof rlPost === 'function') { var colR = (SD_INTERESSE.indexOf(String(r.result || '').trim()) >= 0 || sdRappelChaud(r)) ? 'r2' : (['No Show', 'Annulé', 'Reprogrammé'].indexOf(String(r.presence || '').trim()) >= 0 ? (r.source === 'Outbound' ? 'nsout' : 'nsin') : 'rdv'); rlPost('/close/taches', { nom: r.client, email: r.email || '', date: rel, texte: (RL_LIBELLES[colR] || 'Relance') + (cond ? ' · ' + cond : '') + '', motif: 'rappel_fiche' }).then(function() { if (typeof showCopyToast === 'function') showCopyToast('📌 Tâche Close posée au ' + fcFrDepuisIso(rel)); if (typeof chargerTachesClose === 'function') chargerTachesClose(rlPlus(_rlLundi || rlLundiDe(rlIso(new Date())), -7), rlPlus(_rlLundi || rlLundiDe(rlIso(new Date())), 13), true); }).catch(function(e) { if (typeof showCopyToast === 'function') showCopyToast('Close : tâche non créée (' + e.message + ')'); }); }
   sdSmsRappelPromis(r, rel && !r2 && SD_INTERESSE.indexOf(String(r.result || '').trim()) >= 0 ? rel : ''); // un RDV déjà qualifié (pas de budget, si promo…) garde son résultat : la relance s'ajoute par-dessus
   saveStore(store); fermerModalDoublon(); window._fcSuivi = null;
   refreshAll();
@@ -5857,6 +5857,10 @@ function fcSuiviEnregistrer() {
 // AUCUN RDV SANS ACTION — non signé → une raison (pas intéressé / pas de budget / si promo / ghost / à relancer) ; intéressé → un R2 ou une relance datée
 // ============================================================
 var SD_INTERESSE = ['Intéressé', 'Intéressée', 'R2 planifié', 'En attente', 'À relancer'];
+// 14 oct. 2026 (Franck Sassone) : « Non signé · 🔁 À rappeler » = il a demandé un délai → rappel chaud (file R2, prioritaire en retard), pas de la prise de RDV froide
+function sdRappelChaud(row) { // il a demandé un délai ET tu lui as promis une date de rappel (pas encore faite), après un R2 ou un RDV de moins de 60 jours — pas les vieux « ancien RDV à relancer »
+  if (!row || String(row.result || '').trim() !== 'Non signé' || row.nosignRaison !== 'relancer' || !row.relanceDate || row.relanceFait === true) return false;
+  var d = parseDateFR(row.date); return row.source === 'R2' || String(row.presenceR2 || '').trim() === 'Show' || (!!d && Date.now() - d.getTime() < 60 * 86400000); }
 function sdRelanceCopilotPour(nom) { var n = fcNormNom(nom); return (_relances || []).some(function(r) { return !r.local && fcNormNom(r.nom) === n && r.relance && r.relance.quand; }); }
 // Ce qui manque à une ligne : 'raison' | 'suite' | 'presence' | 'resultat' | 'pack' | 'freq' | 'tier' | 'type' | ''
 // (un RDV passé doit être complet : présence, puis résultat si show, puis pack/fréquence/tier si signé)
@@ -6227,7 +6231,7 @@ function arValiderSuivi() {
   }
   // Close : tâche de rappel (+ SMS « rappel promis » préparé si automatisation allumée)
   if (a.presence === 'Show' && a.suite === 'rel' && a.relDate && typeof rlPost === 'function') {
-    var colR = arInt(a) ? 'r2' : 'rdv';
+    var colR = (arInt(a) || a.raison === 'relancer') ? 'r2' : 'rdv'; // « À rappeler » (délai demandé) = rappel chaud
     rlPost('/close/taches', { nom: r.client, email: r.email || '', date: a.relDate, texte: (a.result === 'Attente' ? 'Relancer : en attente de signature' + ((a.relCond && a.relCond !== 'En attente de signature') ? ' · ' + a.relCond : '') : ((a.raison === 'pasinteresse' || a.raison === 'ghost') ? 'Rappel' : (RL_LIBELLES[colR] || 'Relance')) + (a.relCond ? ' · ' + a.relCond : '')) + '', motif: 'rappel' }).then(function(j) { var st = loadStore(); if (!st._tachesCloseSuivi) st._tachesCloseSuivi = {}; var k = (j.tache && j.tache.lead) ? j.tache.lead : 'n:' + fcNormNom(r.client); st._tachesCloseSuivi[k] = Object.assign({}, st._tachesCloseSuivi[k] || {}, { nom: r.client, col: colR, tentatives: 0, dernier: 'rappel', prochaine: a.relDate, at: new Date().toISOString() }); saveStore(st); }).catch(function(e) { if (typeof showCopyToast === 'function') showCopyToast('Tâche Close non créée : ' + e.message); });
     try { sdSmsRappelPromis(copie, arInt(a) ? a.relDate : ''); } catch (e) {}
   }
@@ -13535,6 +13539,7 @@ function sdColonneRelance(r, row) {
   var pres = row ? String(row.presence || '').trim() : '', res = row ? String(row.result || '').trim() : '', src = row ? String(row.source || '') : String(r.source || '');
   var noShow = pres === 'No Show' || pres === 'Annulé' || pres === 'Reprogrammé' || /no ?show/i.test(r.raison || '') || /no ?show/i.test((r.relance && r.relance.note) || '');
   if (noShow) return src === 'Outbound' ? 'nsout' : 'nsin';
+  if (sdRappelChaud(row)) return 'r2';
   if (res === 'Non signé' || res === 'Promo' || r.outcome === 'perdu') return 'rdv';
   if (SD_INTERESSE.indexOf(res) >= 0 || r.outcome === 'rappel' || (row && row.r2Attendu)) return 'r2';
   return 'rdv';
@@ -13603,6 +13608,7 @@ function rlCategorieBrute(t, rel, row) {
   if (row) { // le dernier RDV connu dans SalesDesk dit pourquoi on relance
     var pres = String(row.presence || '').trim(), res = String(row.result || '').trim();
     if (pres === 'No Show' || pres === 'Annulé' || pres === 'Reprogrammé') return src === 'Outbound' ? 'nsout' : 'nsin';
+    if (sdRappelChaud(row)) return 'r2';
     if (res === 'Non signé' || res === 'Promo') return 'rdv';
     if (SD_INTERESSE.indexOf(res) >= 0 || row.r2Attendu) return 'r2';
     if (!pres && !res && parseDateFR(row.date) > new Date()) return 'r2'; // RDV à venir : on attend
@@ -13696,7 +13702,9 @@ try { _sv.vue = localStorage.getItem('sd_suivi_vue') === 'colonnes' ? 'colonnes'
 function svVue(v) { _sv.vue = v; try { localStorage.setItem('sd_suivi_vue', v); } catch (e) {} renderRelancesPage(); }
 function svSet(k, v) { _sv[k] = v; renderRelancesPage(); }
 function svChoisir(cle) { _sv.sel = cle; renderRelancesPage(); }
-function svRaison(it) { var t = it.t, r = it.rel && it.rel.r, row = (it.rel && it.rel.row) || it.row || {}; return (t && t.texte && !/^follow ?up(\s*\(\d+\))?$/i.test(t.texte.trim()) ? t.texte : '') || (r && r.relance && r.relance.condition) || row.relanceCond || (r && r.contexte) || row.retour || ''; }
+function svRaison(it) { var t = it.t, r = it.rel && it.rel.r, row = (it.rel && it.rel.row) || it.row || {}; var x = (t && t.texte && !/^follow ?up(\s*\(\d+\))?$/i.test(t.texte.trim()) ? t.texte : '') || (r && r.relance && r.relance.condition) || row.relanceCond || (r && r.contexte) || row.retour || '';
+  // 14 oct. 2026 : le titre de la tâche Close garde l'ancien motif (« Prise de RDV ») alors que la ligne est classée ailleurs → on affiche le vrai motif
+  var vrai = sdRappelChaud(row) ? 'À rappeler · délai demandé' : (RL_LIBELLES[it.col] || ''); Object.keys(RL_LIBELLES).forEach(function(c) { if (c !== it.col && vrai && x.indexOf(RL_LIBELLES[c]) === 0) x = vrai + x.slice(RL_LIBELLES[c].length); }); return x; }
 function svCharger(it) { // contexte Close du prospect choisi (une fois par prospect) + son téléphone
   var cle = it.cle; if (_sv.ctx[cle] !== undefined || typeof COPILOT_URL === 'undefined') return;
   _sv.ctx[cle] = null;
