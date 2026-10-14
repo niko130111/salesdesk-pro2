@@ -6629,19 +6629,18 @@ function getAllRdvsWithIndices() {
 }
 
 // === GESTION DES OVERRIDES OUTBOUND (utilisateur peut reclasser un RDV) ===
+// 14 oct. 2026 : les reclassements sont aussi gardés dans le store (_outboundOverrides, synchronisé par le cloud) — avant, seulement dans le
+// navigateur : un reclassement fait sur le Mac mini n'existait pas sur le MacBook Air. Le store prime ; « Outbound » s'y note pour annuler une correction.
 function loadOutboundOverrides() {
-  try {
-    return JSON.parse(localStorage.getItem('salesdesk_outbound_overrides') || '{}');
-  } catch(e) { return {}; }
+  let local = {}; try { local = JSON.parse(localStorage.getItem('salesdesk_outbound_overrides') || '{}'); } catch(e) {}
+  let cloud = {}; try { cloud = (typeof loadStore === 'function' && loadStore()._outboundOverrides) || {}; } catch (e) {}
+  const out = Object.assign({}, local, cloud); Object.keys(out).forEach(function(k) { if (out[k] === 'Outbound') delete out[k]; }); return out;
 }
 function saveOutboundOverride(key, newSource) {
-  const overrides = loadOutboundOverrides();
-  if (!newSource || newSource === 'Outbound') {
-    delete overrides[key];
-  } else {
-    overrides[key] = newSource;
-  }
-  localStorage.setItem('salesdesk_outbound_overrides', JSON.stringify(overrides));
+  let local = {}; try { local = JSON.parse(localStorage.getItem('salesdesk_outbound_overrides') || '{}'); } catch(e) {}
+  if (!newSource || newSource === 'Outbound') delete local[key]; else local[key] = newSource;
+  try { localStorage.setItem('salesdesk_outbound_overrides', JSON.stringify(local)); } catch (e) {}
+  try { const st = loadStore(); st._outboundOverrides = st._outboundOverrides || {}; st._outboundOverrides[key] = newSource || 'Outbound'; saveStore(st); } catch (e) {}
 }
 
 // Pondération : 1 point par Outbound quel que soit le type (règle « Agences = 2 » terminée le 4 oct. 2026)
@@ -12731,6 +12730,28 @@ function sdVerifDemainMaj() {
 // ── RDV annulé par le prospect (vérification de demain, fiche) : ligne en Annulé (compte comme no-show), événement Calendly annulé (mail d'annulation, rappels stoppés), statut Close, tâche « Relancer » dans 2 jours ouvrés. Renvoie la date de relance. ──
 // Prospect qui annule et dit qu'il n'est pas intéressé : la ligne garde Annulé et porte « pas intéressé », aucun rappel, Close passe en Not interested / Lost (demande du 9 oct. 2026)
 // « Laisser tomber » un RDV annulé / reprogrammé jamais repris (12 oct. 2026) : 1er clic arme le bouton, 2e clic confirme. Retiré des priorités, note Close, opportunité → Lost - Cancelled, SMS programmés annulés. Le résultat de la ligne n'est pas touché (stats inchangées).
+function sdReporterAncien(btn, k1, i1, k2, i2) { // ancien RDV → Reprogrammé (annulé dans Calendly), nouveau → même source que l'ancien
+  var cleA = 'report|' + k1 + '|' + i1; window._sdArme = window._sdArme || {};
+  if (!(window._sdArme[cleA] > Date.now())) { window._sdArme[cleA] = Date.now() + 8000; if (btn) { btn.textContent = 'Confirmer ?'; btn.style.color = 'var(--red, #c0392b)'; } setTimeout(function() { if (window._sdArme[cleA] <= Date.now()) { delete window._sdArme[cleA]; try { renderAujourdhui(); } catch (e) {} } }, 8100); return; }
+  delete window._sdArme[cleA];
+  var st = loadStore(), an = (st[k1] || [])[i1], nv = (st[k2] || [])[i2]; if (!an || !nv) return;
+  if (typeof sdBackupStore === 'function') sdBackupStore(st);
+  var quand = nv.date + (nv.heure ? ' à ' + nv.heure : ''), isoAn = frVersIsoSd(an.date);
+  an.presence = 'Reprogrammé'; an.result = ''; an.annuleLe = new Date().toISOString(); an.annulePar = 'prospect'; an.annuleLeSource = 'salesdesk'; delete an.confirme; delete an.confirmeAt; delete an.relanceDate; delete an.relanceCond; an.relanceFait = true;
+  an.retour = (an.retour ? an.retour + ' · ' : '') + 'Reporté au ' + quand;
+  var horsOutb = nv.source === 'Outbound' && an.source && an.source !== 'Outbound';
+  if (horsOutb) { nv.sourceOrigine = 'Outbound'; nv.source = an.source; }
+  saveStore(st);
+  if (horsOutb && nv.email) saveOutboundOverride(String(nv.email).toLowerCase().trim(), an.source === 'PUB' ? 'PUB' : 'Inbound');
+  var cle = (state.calendly && state.calendly.apiKey) || localStorage.getItem('calendly_key');
+  sdTrouverUriCalendly(an.client, an.email || '', isoAn, an.heure || '').then(function(uri) {
+    if (!uri || !cle) return 'introuvable';
+    return fetch(uri, { headers: { Authorization: 'Bearer ' + cle } }).then(function(r) { return r.json(); }).then(function(j) { if (!j.resource || j.resource.status !== 'active') return 'deja';
+      return fetch(uri + '/cancellation', { method: 'POST', headers: { Authorization: 'Bearer ' + cle, 'Content-Type': 'application/json' }, body: JSON.stringify({ reason: 'Rendez-vous reporté au ' + quand + ', comme convenu.' }) }).then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return 'annule'; }); });
+  }).then(function(etat) { if (typeof showCopyToast === 'function') showCopyToast('✓ ' + an.client + ' : RDV du ' + an.date + ' reporté au ' + quand + (etat === 'annule' ? ' · annulé dans Calendly' : etat === 'deja' ? ' · déjà annulé dans Calendly' : ' · plus actif dans Calendly (déjà annulé)') + (horsOutb ? ' · ne compte pas en outbound' : '')); })
+    .catch(function(e) { if (typeof showCopyToast === 'function') showCopyToast('⚠️ ' + an.client + ' : SalesDesk à jour, mais Calendly n\'a pas annulé l\'ancien RDV (' + e.message + ') : annule-le à la main'); });
+  try { renderAujourdhui(); } catch (e) {} try { renderDaily(); } catch (e) {}
+}
 function sdLaisserTomberRepro(btn, monthKey, idx) {
   // 14 oct. 2026 : l'état « Confirmer ? » est gardé 8 s hors du bouton — Aujourd'hui se redessine souvent et le remettait à zéro avant le 2e clic (« il se passe rien »)
   var cleArme = 'repro|' + monthKey + '|' + idx; window._sdArme = window._sdArme || {};
@@ -13201,6 +13222,11 @@ function renderAujourdhui() {
   try { var _an = st._annulations || {}; Object.keys(_an).forEach(function(u) { var x = _an[u]; if (x.vu || x.deplace) return;
     var nn = (function() { var n = ((_nouv.data || {}).rdv || []).find(function(r0) { return r0.deplace && fcNormNom(r0.nom) === fcNormNom(x.nom); }); return n ? ' · nouveau créneau : ' + fcFrDepuisIso(n.date) + ' à ' + n.heure : ''; })();
     ajoute({ cle: 'annul|' + u, titre: x.deplace ? 'A déplacé son RDV' : 'A annulé son RDV', det: '<a onclick="ouvrirFicheClient(' + Q(x.nom) + ',\'\')">' + escapeHtml(nomAff(x.nom)) + '</a> · ' + escapeHtml((x.date === todayIso ? 'aujourd\'hui' : fcFrDepuisIso(x.date)) + ' à ' + x.heure + (x.raison ? ' · « ' + x.raison + ' »' : '') + nn + (x.note ? ' · noté ' + x.note : '')), btn: x.deplace ? { lib: 'Vu', on: 'sdAnnulVu(' + Q(u) + ')' } : { lib: 'Que faire ?', on: 'sdAnnulQuoiFaire(' + Q(u) + ')' }, rang: 0 }); }); } catch (e) {}
+  // 14 oct. 2026 (Nicolas, Essia Hadj) : un prospect a repris un RDV à une autre date alors que l'ancien est toujours prévu → « Reporter l'ancien » en un clic
+  try { var parEm = {}; Object.keys(st).forEach(function(k) { if (/^\d{4}-\d{2}$/.test(k) && Array.isArray(st[k])) st[k].forEach(function(r, i) { if (!r || r.source === 'R2' || !r.email || String(r.presence || '').trim()) return; var e = String(r.email).toLowerCase().trim(), iso = frVersIsoSd(r.date) || ''; if (iso) (parEm[e] = parEm[e] || []).push({ r: r, k: k, i: i, iso: iso }); }); });
+    Object.keys(parEm).forEach(function(e) { var L = parEm[e].sort(function(a, b) { return (a.iso + (a.r.heure || '')).localeCompare(b.iso + (b.r.heure || '')); }); if (L.length < 2) return; var an = L[0], nv = L[L.length - 1]; if (an.iso < todayIso || an.iso === nv.iso) return;
+      var cleA = 'report|' + an.k + '|' + an.i, arme = (window._sdArme || {})[cleA] > Date.now(), horsOutb = nv.r.source === 'Outbound' && an.r.source && an.r.source !== 'Outbound';
+      ajoute({ cle: cleA, titre: 'A repris un RDV : reporter l\'ancien ?', det: sdNomLien(an.r.client, an.r.email || '') + ' · ' + escapeHtml('RDV du ' + an.r.date + (an.r.heure ? ' à ' + an.r.heure : '') + ' toujours prévu · nouveau le ' + nv.r.date + (nv.r.heure ? ' à ' + nv.r.heure : '') + (horsOutb ? ' · pris sur ton lien mais c\'est un report : restera ' + an.r.source : '')), btn: { lib: arme ? 'Confirmer ?' : 'Reporter l\'ancien', on: 'sdReporterAncien(this,' + Q(an.k) + ',' + an.i + ',' + Q(nv.k) + ',' + nv.i + ')', titre: 'L\'ancien RDV passe en Reprogrammé et est annulé dans Calendly (motif : reporté au nouveau créneau) ; le nouveau garde la source de l\'ancien. Rien n\'est changé dans Close.' }, rang: 1 }); }); } catch (e) {}
   // En retard et pourtant prioritaire (décision du 9 oct. 2026) : un rappel promis à une heure et pas fait (daté d'hier ou d'avant), et un R2 sans réponse. Les autres relances en retard (no-show, prise de RDV…) restent dans le Suivi.
   var estPrioRetard = function(i) { return !estSign(i) && (!!hDe(i) || i.col === 'r2'); };
   retard.concat(dus).filter(estSign).forEach(function(i) { ajoute(depuisTache(i, retard.indexOf(i) >= 0)); });
