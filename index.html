@@ -6057,7 +6057,7 @@ function arInt(a) { return a.result === 'Intéressé' || a.result === 'Attente';
 function arSet(groupe, val) {
   var a = _ar; if (!a) return; a[groupe] = (a[groupe] === val && groupe !== 'presence') ? '' : val;
   if (groupe === 'presence' && val !== 'Show') { a.result = ''; a.raison = ''; a.suite = ''; }
-  if (groupe === 'result') { if (val !== 'Non signé') a.raison = ''; if (val === 'Signé') a.suite = ''; if (val === 'Intéressé' && !a.suite) a.suite = a.r2Date ? 'r2' : (a.relDate ? 'rel' : ''); if (val === 'Attente' && a.result === 'Attente') { a.suite = 'rel'; if (!a.relDate) a.relDate = rlJourOuvre(rlIso(new Date()), 2); if (!a.relCond) a.relCond = 'En attente de signature'; } }
+  if (groupe === 'result') { if (val !== 'Non signé') a.raison = ''; if (val === 'Signé') a.suite = ''; if (val === 'Intéressé' && !a.suite) a.suite = a.r2Date ? 'r2' : (a.relDate ? 'rel' : ''); if (val === 'R3') a.suite = a.relDate && !a.r2Date ? 'rel' : 'r2'; /* 14 oct. 2026 : nouveau RDV de validation après un R2 */ if (val === 'Attente' && a.result === 'Attente') { a.suite = 'rel'; if (!a.relDate) a.relDate = rlJourOuvre(rlIso(new Date()), 2); if (!a.relCond) a.relCond = 'En attente de signature'; } }
   if (groupe === 'raison' && ['pasbudget', 'promo', 'carte', 'rent', 'relancer'].indexOf(val) >= 0 && !a.suite) a.suite = 'rel';
   if (groupe === 'raison' && (val === 'pasinteresse' || val === 'ghost')) a.suite = '';
   arRendreC2(); arRendreC3(); arRendreEcrit();
@@ -6068,7 +6068,7 @@ function arRendreC2() {
   var a = _ar; if (!a) return; var el = document.getElementById('ar-c2'), out = '<h4><span class="n">2</span>Résultat & suite</h4>';
   out += '<div class="ar-lab">Présence</div><div class="ar-pills">' + arPill('presence', 'Show', '✅ Show', 'ok') + arPill('presence', 'No Show', '👻 No Show', 'ko') + arPill('presence', 'Annulé', 'Annulé', 'warn') + arPill('presence', 'Reprogrammé', 'Reprogrammé', 'warn') + '</div>';
   if (a.presence === 'Show') {
-    out += '<div class="ar-lab">Résultat</div><div class="ar-pills">' + arPill('result', 'Signé', '💰 Signé', 'ok') + (a.estR2 ? '' : arPill('result', 'Intéressé', '🔥 Intéressé', '')) + arPill('result', 'Attente', '✍️ Attente de signature', '') + arPill('result', 'Non signé', '❌ Non signé', 'ko') + '</div>'
+    out += '<div class="ar-lab">Résultat</div><div class="ar-pills">' + arPill('result', 'Signé', '💰 Signé', 'ok') + (a.estR2 ? '' : arPill('result', 'Intéressé', '🔥 Intéressé', '')) + arPill('result', 'Attente', '✍️ Attente de signature', '') + (a.estR2 ? arPill('result', 'R3', '📅 R3 à caler', '') : '') + arPill('result', 'Non signé', '❌ Non signé', 'ko') + '</div>'
       + (a.result === 'Attente' ? '<div class="fc-muted" style="margin-top:6px;">Ni signé ni perdu : il a dit oui, tu attends sa signature ou son paiement. Compté comme une affaire en cours, pas comme une vente.</div>' : '');
     if (a.result === 'Signé') {
       var sel = function(champ, opts, val) { return '<select onchange="arChamp(\'' + champ + '\', this.value)">' + opts.map(function(o) { return '<option value="' + escapeHtml(o[0]) + '"' + (o[0] === val ? ' selected' : '') + '>' + escapeHtml(o[1]) + '</option>'; }).join('') + '</select>'; };
@@ -6079,9 +6079,9 @@ function arRendreC2() {
       out += '<div class="ar-lab">Pourquoi</div><div class="ar-pills">' + arPill('raison', 'pasinteresse', '✗ Pas intéressé', 'ko') + arPill('raison', 'relancer', '🔁 À rappeler', 'warn') + arPill('raison', 'pasbudget', '💸 Pas de budget', 'warn') + arPill('raison', 'promo', '💡 Si promo', '') + arPill('raison', 'carte', '🗺️ Carte de prospection', '') + arPill('raison', 'rent', '🏢 Au RENT', '') + arPill('raison', 'ghost', '🫥 Ghost', 'warn') + '</div>';
     }
     var clos = a.result === 'Non signé' && (a.raison === 'pasinteresse' || a.raison === 'ghost'); // dossier clos côté Close, mais un rappel reste possible (« pas maintenant » ne veut pas dire « jamais »)
-    var veutSuite = arInt(a) || (a.result === 'Non signé' && ['pasbudget', 'promo', 'carte', 'rent', 'relancer', 'pasinteresse', 'ghost'].indexOf(a.raison) >= 0);
+    var veutSuite = arInt(a) || a.result === 'R3' || (a.result === 'Non signé' && ['pasbudget', 'promo', 'carte', 'rent', 'relancer', 'pasinteresse', 'ghost'].indexOf(a.raison) >= 0);
     if (veutSuite) {
-      out += '<div class="ar-lab">Suite</div><div class="ar-pills">' + ((a.estR2 || a.result === 'Attente' || clos) ? '' : arPill('suite', 'r2', '📅 R2 calé', '')) + arPill('suite', 'rel', clos ? '📞 Me rappeler quand même' : '📞 Me rappeler', '') + (arInt(a) ? '' : arPill('suite', '', clos ? 'Rien, dossier clos' : 'Rien pour l\'instant', '')) + '</div>';
+      out += '<div class="ar-lab">Suite</div><div class="ar-pills">' + (a.result === 'R3' ? arPill('suite', 'r2', '📅 R3 calé (Validation & lancement)', '') : (a.estR2 || a.result === 'Attente' || clos) ? '' : arPill('suite', 'r2', '📅 R2 calé', '')) + arPill('suite', 'rel', clos ? '📞 Me rappeler quand même' : '📞 Me rappeler', '') + (arInt(a) ? '' : arPill('suite', '', clos ? 'Rien, dossier clos' : 'Rien pour l\'instant', '')) + '</div>';
       if (a.suite === 'r2') out += arBlocR2(a);
       if (a.suite === 'rel') out += '<div class="ar-row"><input type="date" value="' + escapeHtml(a.relDate) + '" onchange="arChamp(\'relDate\', this.value)"><input type="text" placeholder="Condition / ce qu\'il a dit (optionnel)" value="' + escapeHtml(a.relCond) + '" oninput="arChamp(\'relCond\', this.value)"></div><div class="fc-muted" style="margin-top:4px;">' + (clos ? 'Close passe quand même en « Not interested » ; une tâche de rappel à cette date, et il entre dans ta file.' : 'Une tâche Close à cette date, et il entre dans ta file.') + '</div>';
     }
@@ -6195,6 +6195,7 @@ function arRendreEcrit() {
 }
 function arValiderSuivi() {
   var a = _ar; if (!a) return; var p = arPlan(); if (p.manque.length) return;
+  var estR3 = a.result === 'R3'; if (estR3) a = Object.assign({}, a, { result: 'Intéressé' }); // R3 : l'affaire reste en cours (ni signée ni perdue), un nouveau RDV de validation est calé
   var store = loadStore(), r = (store[a.monthKey] || [])[a.idx]; if (!r) { alert('Ligne introuvable (le store a changé). Rouvre l\'écran.'); return; }
   sdBackupStore(store);
   r.presence = a.presence;
@@ -6212,6 +6213,7 @@ function arValiderSuivi() {
     if (r1) { r1.dateR2 = r.date; if (r.heure) r1.heureR2 = r.heure; r1.presenceR2 = a.presence;
       if (a.presence === 'Show' && a.result === 'Signé') { r1.result = 'Signé'; r1.pack = a.pack; r1.freq = a.freq; r1.oneshot = a.oneshot ? 'O' : 'N'; if (a.type) r1.type = a.type; if (!r1.dateSignature) r1.dateSignature = new Date().toLocaleDateString('fr-FR'); delete r1.attenteSignature; }
       else if (a.presence === 'Show' && a.result === 'Non signé') { r1.result = 'Non signé'; r1.nosignRaison = a.raison; delete r1.attenteSignature; }
+      else if (a.presence === 'Show' && a.result === 'Intéressé') { r1.result = 'Intéressé'; delete r1.nosignRaison; if (estR3) r1.r3 = a.r2Date ? fcFrDepuisIso(a.r2Date) + (a.r2Heure ? ' ' + a.r2Heure : '') : 'à caler'; }
       else if (a.presence === 'Show' && a.result === 'Attente') { r1.result = 'Intéressé'; r1.attenteSignature = true; r1.attenteDepuis = r1.attenteDepuis || new Date().toISOString().slice(0, 10); } }
   }
   if (a.note !== (r.retour || '')) r.retour = a.note;
