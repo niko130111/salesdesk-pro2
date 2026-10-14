@@ -9229,7 +9229,7 @@ window.addEventListener('load', async () => {
     dailyCalInit();
   }
 
-  Promise.resolve(initFromSupabase()).finally(function() { requestAnimationFrame(sdReveler); });
+  Promise.resolve(initFromSupabase()).finally(function() { requestAnimationFrame(sdReveler); setTimeout(sdAppliquerCorrectifs, 1500); });
   try { renderAujourdhui(); } catch (e) {}
   setTimeout(function() { requestAnimationFrame(sdReveler); }, 1200); // cloud lent : on montre quand même les données locales
 });
@@ -12772,6 +12772,24 @@ function sdAnnulAutreBdr(btn, u) {
   try { renderAujourdhui(); } catch (e) {} try { renderDaily(); } catch (e) {}
   if (typeof showCopyToast === 'function') showCopyToast(r ? '✓ ' + a.nom + ' : RDV du ' + fr + ' passé en Annulé (autre BDR) · rien dans Close' : '⚠️ ' + a.nom + ' : pas de ligne SalesDesk le ' + fr);
 }
+// Corrections déposées par le copilot (14 oct. 2026) : appliquées ici, une seule fois chacune, par une sauvegarde normale de SalesDesk.
+// Avant, une correction écrite directement dans le cloud bloquait ta sauvegarde suivante (« données modifiées depuis un autre appareil ») et ta saisie était perdue.
+var _sdCorrEnCours = false;
+function sdAppliquerCorrectifs() {
+  if (typeof COPILOT_URL === 'undefined' || _sdCorrEnCours || (typeof _sdChargementInitial !== 'undefined' && _sdChargementInitial)) return; _sdCorrEnCours = true;
+  fetch(COPILOT_URL + '/salesdesk/correctifs', { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).then(function(j) {
+    var st = loadStore(), faits = Object.assign({}, st._correctifsFaits || {}), avant = Object.keys(faits).length, appliques = [], sauve = false;
+    (j && j.liste || []).forEach(function(c) { if (!c || !c.id || faits[c.id]) return;
+      var r = (st[c.mois] || []).find(function(x) { return x && x.date === c.date && fcNormNom(x.client || '') === fcNormNom(c.client || '') && (c.source ? x.source === c.source : x.source !== 'R2'); });
+      if (!r) return; // ligne pas encore là : réessayé au prochain passage
+      if (!c.siVide || !String(r[c.siVide] || '').trim()) { if (!sauve) { if (typeof sdBackupStore === 'function') sdBackupStore(st); sauve = true; }
+        Object.assign(r, c.champs || {}); if (c.traite) { st._processedRdvs = st._processedRdvs || {}; st._processedRdvs[r.client + '|' + r.date] = { name: r.client, email: r.email || '', rdvDate: r.date, presence: r.presence, result: r.result || '', type: r.type || '', heure: r.heure || '', processedFrom: 'correctif', processedDate: new Date().toLocaleDateString('fr-FR'), processedAt: new Date().toISOString() }; }
+        appliques.push(c.client); }
+      faits[c.id] = new Date().toISOString(); });
+    if (Object.keys(faits).length !== avant) { st._correctifsFaits = faits; saveStore(st); if (appliques.length) { try { refreshAll(); } catch (e) {} try { renderAujourdhui(); } catch (e) {} if (typeof showCopyToast === 'function') showCopyToast('✓ Correction appliquée : ' + appliques.join(', ')); } }
+  }).catch(function() {}).finally(function() { _sdCorrEnCours = false; });
+}
+setInterval(sdAppliquerCorrectifs, 120000);
 function sdLaisserTomberRepro(btn, monthKey, idx) {
   // 14 oct. 2026 : l'état « Confirmer ? » est gardé 8 s hors du bouton — Aujourd'hui se redessine souvent et le remettait à zéro avant le 2e clic (« il se passe rien »)
   var cleArme = 'repro|' + monthKey + '|' + idx; window._sdArme = window._sdArme || {};
