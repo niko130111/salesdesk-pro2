@@ -9203,19 +9203,12 @@ function getJoursOuvres(month, year) {
   const isCurrentMonth = (yr === today.getFullYear() && mIdx === today.getMonth());
   const daysInMonth = new Date(yr, mIdx+1, 0).getDate();
   const lastDay = isCurrentMonth ? today.getDate() : daysInMonth;
-  // Jours fériés FR 2025-2027 (mêmes que _frenchHolidays plus bas)
-  const FERIES = {
-    '01/01/2025':1,'21/04/2025':1,'01/05/2025':1,'08/05/2025':1,'29/05/2025':1,'09/06/2025':1,'14/07/2025':1,'15/08/2025':1,'01/11/2025':1,'11/11/2025':1,'25/12/2025':1,
-    '01/01/2026':1,'06/04/2026':1,'01/05/2026':1,'08/05/2026':1,'14/05/2026':1,'25/05/2026':1,'14/07/2026':1,'15/08/2026':1,'01/11/2026':1,'11/11/2026':1,'25/12/2026':1,
-    '01/01/2027':1,'29/03/2027':1,'01/05/2027':1,'08/05/2027':1,'06/05/2027':1,'17/05/2027':1,'14/07/2027':1,'15/08/2027':1,'01/11/2027':1,'11/11/2027':1,'25/12/2027':1
-  };
   let count = 0;
   for (let d = 1; d <= lastDay; d++) {
     const date = new Date(yr, mIdx, d);
     const dow = date.getDay();
     if (dow === 0 || dow === 6) continue; // weekend
-    const key = String(d).padStart(2,'0') + '/' + String(mIdx+1).padStart(2,'0') + '/' + yr;
-    if (FERIES[key]) continue; // jour férié
+    if (rlFerie(yr + '-' + String(mIdx+1).padStart(2,'0') + '-' + String(d).padStart(2,'0'))) continue; // jour férié (liste unique : rlFerie)
     count++;
   }
   return count || 1;
