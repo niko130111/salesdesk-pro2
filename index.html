@@ -7255,6 +7255,7 @@ function deleteRowMK(idx, monthKey) {
   if (!confirm('Supprimer ce RDV ?')) return;
   const store = loadStore();
   const rows = store[monthKey] || [];
+  if (typeof sdBackupStore === 'function') sdBackupStore(store); // sauvegarde avant toute suppression (règle du projet)
   marquerSupprime(store, rows[idx]);
   rows.splice(idx, 1);
   store[monthKey] = rows;
