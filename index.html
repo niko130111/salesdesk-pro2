@@ -13216,12 +13216,12 @@ function renderAujourdhui() {
     if (['r2', 'nsin', 'nsout', 'rdv', 'rappel'].indexOf(i.col) >= 0 || /rappel|appel|téléphon|call/i.test(tx)) return { lib: 'Appeler', on: 'svAppeler(event,' + Q(i.cle) + ')', titre: 'Close ouvre la fiche et compose ; Alt + clic = appel via le Mac' };
     return { lib: 'Ouvrir la fiche', on: 'ouvrirFicheClient(' + nomJs + ',' + emailJs + ',\'\',' + leadJs + ')', titre: tx };
   };
-  var titreTache = function(i) { if (estConfig(i)) return 'Configurer le client signé'; if (estSign(i)) return 'Relancer pour signature'; var tx = texteDe(i); if (tx) return tx.length > 64 ? tx.slice(0, 61) + '…' : tx; return ({ r2: 'Rappeler après le R1', nsin: 'Relancer après no-show', nsout: 'Relancer après no-show', rdv: 'Reprendre un RDV', aclasser: 'Classer la tâche', rappel: 'Rappel demandé' })[i.col] || 'Relancer'; };
+  var titreTache = function(i) { if (estConfig(i)) return 'Configurer le client signé'; if (estSign(i)) return 'Relancer pour signature'; var tx = texteDe(i); if (tx) return tx.length > 64 ? tx.slice(0, 61) + '…' : tx; return ({ r2: 'Rappeler : R2 sans réponse', nsin: 'Relancer après no-show', nsout: 'Relancer après no-show', rdv: 'Reprendre un RDV', aclasser: 'Classer la tâche', rappel: 'Rappel demandé' })[i.col] || 'Relancer'; };
   var tent = function(i) { try { var s = rlSuivi(i); return s && s.tentatives ? s.tentatives + ' appel' + (s.tentatives > 1 ? 's' : '') + ' sans réponse' : ''; } catch (e) { return ''; } };
   var depuisTache = function(i, enRetard) { var h = hDe(i), id = identite(i), arrivee = estAuj && h && h <= hhmm;
     var ech = enRetard ? '<span class="late">en retard depuis le ' + escapeHtml(new Date(i.date + 'T12:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) + (h ? ' à ' + h : '')) + '</span>' : (h ? (arrivee ? '<span class="late">prévu à ' + escapeHtml(h) + '</span>' : 'à ' + escapeHtml(h)) : (estAuj ? 'aujourd\'hui' : 'ce jour'));
     var raison = [!estConfig(i) && !texteDe(i) ? LIBC[i.col] || '' : '', tent(i)].filter(Boolean).join(' · ');
-    return { cle: 'tache|' + i.cle, titre: titreTache(i), det: '<a onclick="ouvrirFicheClient(' + Q(id.nom) + ',' + Q(id.email) + ',\'\',' + Q((i.t && i.t.lead) || '') + ')">' + escapeHtml(nomAff(id.nom)) + '</a> · ' + ech + (raison ? ' · ' + escapeHtml(raison) : ''), btn: boutonTache(i), rang: enRetard ? 1 : (h ? (arrivee ? 0 : 5) : (estConfig(i) ? 3 : 4)) }; };
+    return { cle: 'tache|' + i.cle, titre: titreTache(i), det: '<a onclick="ouvrirFicheClient(' + Q(id.nom) + ',' + Q(id.email) + ',\'\',' + Q((i.t && i.t.lead) || '') + ')">' + escapeHtml(nomAff(id.nom)) + '</a> · ' + ech + (raison ? ' · ' + escapeHtml(raison) : ''), btn: boutonTache(i), rang: enRetard ? (i.col === 'r2' ? 0.5 : 1) : (h ? (arrivee ? 0 : 5) : (i.col === 'r2' ? 2 : (estConfig(i) ? 3 : 4))) }; }; // R2 sans réponse : avant les autres relances
   try { (_smsList || []).filter(function(x) { return x.statut === 'a_valider'; }).forEach(function(x) { ajoute({ cle: 'smsav|' + x.id, titre: x.type === 'no_show' ? 'Valider le SMS après no-show' : 'Valider le SMS', det: sdNomLien(x.nom || '', x.email || '') + ' · en attente de ton clic, rien ne part sans', btn: { lib: 'Relire', on: 'sdPopupValiderSms(true)', titre: 'Relire, corriger, envoyer ou annuler' }, rang: 0 }); }); } catch (e) {}
   try { (_mailsAV || []).filter(function(x) { return x.statut === 'a_valider'; }).forEach(function(x) { ajoute({ cle: 'mailav|' + x.id, titre: 'Valider le ' + ({ mail_j3: 'mail J-3', mail_r1_jour: 'mail du jour du R1', mail_r2_jour: 'mail du jour du R2' }[x.type] || 'mail de prise de RDV'), det: sdNomLien(x.nom || '', x.email || '') + ' · avec le chiffre du CRM · en attente de ton clic', btn: { lib: 'Relire', on: 'sdPopupValiderMails(true)', titre: 'Il reste en brouillon dans Close tant que tu ne l\'as pas validé' }, rang: 0 }); }); } catch (e) {}
   try { var _an = st._annulations || {}; Object.keys(_an).forEach(function(u) { var x = _an[u]; if (x.vu || x.deplace) return;
@@ -13236,6 +13236,7 @@ function renderAujourdhui() {
   var estPrioRetard = function(i) { return !estSign(i) && (!!hDe(i) || i.col === 'r2'); };
   retard.concat(dus).filter(estSign).forEach(function(i) { ajoute(depuisTache(i, retard.indexOf(i) >= 0)); });
   retard.filter(estPrioRetard).forEach(function(i) { ajoute(depuisTache(i, true)); });
+  dus.filter(function(i) { return i.col === 'r2' && !hDe(i) && !estSign(i); }).forEach(function(i) { ajoute(depuisTache(i, false)); }); // un R2 sans réponse dû aujourd'hui est une priorité même sans heure (Nicolas, 15 oct. 2026)
   dus.filter(function(i) { return hDe(i) && !estSign(i); }).sort(function(a, b) { return hDe(a).localeCompare(hDe(b)); }).forEach(function(i) { ajoute(depuisTache(i, false)); });
   apres.forEach(function(x) { if (x.attente) return; ajoute({ cle: 'apres|' + x.type + '|' + fcNormNom(x.nom) + '|' + x.k, titre: x.quoi, det: '<a onclick="ouvrirFicheClient(' + Q(x.nom) + ',\'\')">' + escapeHtml(nomAff(x.nom)) + '</a> · ' + escapeHtml(x.det), btn: x.act ? { lib: x.lib, on: x.act } : null, btn2: x.act2 ? { lib: x.lib2, on: x.act2, titre: 'Tu l\'as envoyé toi-même (Close, Gmail) : la ligne disparaît, le copilot ne le prépare plus' } : null, rang: (x.type === 'resultat' || x.type === 'suite') ? 2 : (x.type === 'mail' ? 4 : 3) }); });
   try { var toutes = []; Object.keys(st).forEach(function(k) { if (/^\d{4}-\d{2}$/.test(k) && Array.isArray(st[k])) st[k].forEach(function(r, i) { if (r && r.client) toutes.push({ r: r, k: k, i: i, iso: frVersIsoSd(r.date) || '' }); }); });
@@ -13541,6 +13542,8 @@ function sdRowPourRelance(r) {
 function sdColonneRelance(r, row) {
   var pres = row ? String(row.presence || '').trim() : '', res = row ? String(row.result || '').trim() : '', src = row ? String(row.source || '') : String(r.source || '');
   var noShow = pres === 'No Show' || pres === 'Annulé' || pres === 'Reprogrammé' || /no ?show/i.test(r.raison || '') || /no ?show/i.test((r.relance && r.relance.note) || '');
+  var nonTenuR2 = function(p) { p = String(p || '').trim(); return p === 'No Show' || p === 'Annulé' || p === 'Reprogrammé'; };
+  if (row && ((String(row.source || '') === 'R2' && nonTenuR2(row.presence)) || nonTenuR2(row.presenceR2))) return 'r2'; // R2 manqué (annulé, no-show, reporté) = « R2 sans réponse », prioritaire (Nicolas, 15 oct. 2026 : Valentin Ferret)
   if (noShow) return src === 'Outbound' ? 'nsout' : 'nsin';
   if (sdRappelChaud(row)) return 'r2';
   if (res === 'Non signé' || res === 'Promo' || r.outcome === 'perdu') return 'rdv';
@@ -13606,6 +13609,8 @@ function rlCategorieBrute(t, rel, row) {
   if (rel) return rel.col;
   var x = (t.texte || '').toLowerCase(), src = row ? String(row.source || '') : '';
   if (/configur|onboard|vitrine à/.test(x)) return 'config'; // client signé à mettre en place : toujours en tête
+  var nonTenuR2 = function(p) { p = String(p || '').trim(); return p === 'No Show' || p === 'Annulé' || p === 'Reprogrammé'; };
+  if (row && ((String(row.source || '') === 'R2' && nonTenuR2(row.presence)) || nonTenuR2(row.presenceR2))) return 'r2'; // R2 manqué = « R2 sans réponse » (15 oct. 2026)
   if (/no ?show|pas venu|absent/.test(x)) return src === 'Outbound' ? 'nsout' : 'nsin';
   if (/\br2\b|valid|contrat|signer|décision|decision/.test(x)) return 'r2';
   if (row) { // le dernier RDV connu dans SalesDesk dit pourquoi on relance
