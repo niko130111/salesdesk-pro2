@@ -14281,7 +14281,7 @@ function getMonthlyBreakdown() {
       if (isNaN(yr) || mIdx < 0 || mIdx > 11) return acc;
       // FIX SD-09 : on comptait rows.length brut (R2 + RDV futurs inclus), donc le même mois
       // n'affichait jamais le même "RDV" ici et dans Analytics.
-      const base   = r1Traites(rows);
+      const base   = r1Traites(rows).filter(sdEnBase); // même base que la tuile du mois et le haut du Global : depuis mai 2026, les annulations et reports faits à l'avance ne comptent pas
       const shows  = base.filter(r => normalizePresence(r.presence) === 'Show').length;
       const noshow = base.filter(r => normalizePresence(r.presence) === 'No Show').length;
       // Ventes du mois : même définition que les tuiles (mois de signature, R2 exclues).
