@@ -12833,7 +12833,7 @@ function sdMailFinManuel(cle) {
   rlPost('/mails-fin-r1/e/' + encodeURIComponent(cle) + '/manuel', {}).then(function() { if (typeof showCopyToast === 'function') showCopyToast('✓ Mail de fin de RDV noté comme envoyé à la main'); }).catch(function() { if (typeof showCopyToast === 'function') showCopyToast('⚠️ Copilot injoignable : la ligne reviendra au prochain rafraîchissement'); });
 }
 function sdAppelerRdv(ev, nom, email, lead, tel) {
-  if (ev && ev.preventDefault) ev.preventDefault(); var alt = !!(ev && ev.altKey);
+  if (ev && ev.preventDefault) ev.preventDefault(); var alt = false; // toujours par Close, jamais FaceTime (Nicolas, 15 oct. 2026)
   try { lead = lead || sdLeadPour(nom, email) || ''; } catch (e) {}
   if (/^lead_/.test(lead)) return fcAppeler({ altKey: alt }, tel, 'https://app.close.com/lead/' + lead + '/');
   if (typeof COPILOT_URL === 'undefined') { if (tel) return fcAppeler({ altKey: alt }, tel, ''); ouvrirFicheClient(nom, email); return; }
@@ -13224,7 +13224,7 @@ function renderAujourdhui() {
     return { principal: (estProchain || r.r2 || p.etat === 'ok') ? prepa : prim(prepa), plus: plusMenu([lienVisio(r, false), resultat, fiche, assistant]) };
   };
   // 15 oct. 2026 (Nicolas) : bouton 📞 sur chaque RDV de l'agenda, comme dans la fiche (Close ouvre sa fiche et compose)
-  var actionsDe0 = actionsDe; actionsDe = function(r, m, p, estProchain) { var o = actionsDe0(r, m, p, estProchain); o.principal = Bt('sdAppelerRdv(event,' + Q(r.nom) + ',' + Q(r.email || '') + ',' + Q((r.row && r.row.closeLead) || '') + ',' + Q(r.tel || (r.row && r.row.tel) || '') + ')', aujIco('phone'), '', 'Appeler ' + r.nom + ' (Close ouvre sa fiche et compose ; Alt + clic : via le Mac)') + o.principal; return o; };
+  var actionsDe0 = actionsDe; actionsDe = function(r, m, p, estProchain) { var o = actionsDe0(r, m, p, estProchain); o.principal = Bt('sdAppelerRdv(event,' + Q(r.nom) + ',' + Q(r.email || '') + ',' + Q((r.row && r.row.closeLead) || '') + ',' + Q(r.tel || (r.row && r.row.tel) || '') + ')', aujIco('phone'), '', 'Appeler ' + r.nom + ' avec Close (Close ouvre sa fiche et compose)') + o.principal; return o; };
   var briefLignes = function(p, max, r) { // deux ou trois lignes de préparation ; une donnée absente reste absente, un résumé IA n'est pas un fait
     var out = [], bj = p.d ? aujBrief(p.d) : null;
     var connus = function() { // sans analyse générée : ce que Close et SalesDesk savent déjà, pour ne pas afficher une case vide
