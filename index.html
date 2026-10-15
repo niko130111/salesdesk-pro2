@@ -16191,43 +16191,7 @@ window.setStatus = function(btn, status) {
   var card = btn.closest('.rdv-card');
   if (!card || !card.dataset.name) return;
 
-  // Pour Annulé : envoyer aussi le webhook Make pour supprimer l'event Google Calendar
-  if (status === 'cancelled') {
-    try {
-      var name = card.dataset.name || '';
-      var email = card.dataset.email || '';
-      var rdvDate = card.dataset.date || '';
-      var timeEl = card.querySelector('.rdv-time');
-      var heure = timeEl ? timeEl.textContent.trim() : '';
-
-      // Demander confirmation avant l'annulation (car ça envoie un email d'annulation au prospect)
-      var confirmMsg = 'Annuler le RDV de ' + name + ' ?\n\n'
-        + 'L event sera supprime de Google Calendar et le prospect recevra un email d annulation.';
-      if (!confirm(confirmMsg)) {
-        // L'utilisateur a annulé : on remet le statut à pending
-        var pendingBtn = card.querySelector('.status-pill.pending');
-        if (pendingBtn && typeof _origSetStatusFinal === 'function') {
-          _origSetStatusFinal(pendingBtn, 'pending');
-        }
-        return;
-      }
-
-      if (typeof sendMakeWebhook === 'function') {
-        sendMakeWebhook({
-          action: 'cancel',
-          eventId: card.id || '',
-          prospectName: name,
-          prospectEmail: email,
-          rdvDate: rdvDate,
-          heure: heure,
-          reason: 'Annulation depuis SalesDesk Pro'
-        });
-        if (typeof showCopyToast === 'function') {
-          showCopyToast('Annulation envoyee a Google Calendar via Make');
-        }
-      }
-    } catch(e) { console.warn('Erreur envoi webhook cancel:', e); }
-  }
+  // Annulé : rien n'est envoyé d'ici (Make n'existe plus ; l'annulation Calendly se fait dans Calendly ou par le copilot). Pas de faux message.
 
   // No Show, Annulé : on marque comme traité (RDV terminé)
   setTimeout(function() { markCardAsProcessed(card); }, 200);
