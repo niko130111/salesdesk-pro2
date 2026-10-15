@@ -7700,7 +7700,7 @@ function switchChartTab(type, btn) {
   for (let m = 1; m <= 12; m++) {
     const key = `${year}-${String(m).padStart(2,'0')}`;
     const rows = store[key] || [];
-    const kpis = computeKpisFromRows(rows);
+    const kpis = computeKpisFromRows(rows, key);
     if (type === 'rdv') { d1[m-1]=(function() { try { return sdTunnelMois(rows).base; } catch (e) { return rows.length; } })(); d2[m-1]=(function() { try { return sdVentesDuMois(key, store).length; } catch (e) { return kpis.signes; } })(); label1='RDV tenus ou attendus'; label2='Signés'; }
     else if (type === 'closing') { d1[m-1]=kpis.closing; label1='Closing %'; color1='var(--green)'; d2=null; }
     else if (type === 'commission') { d1[m-1]=kpis.commission; label1='Commission €'; color1='var(--orange)'; d2=null; }
@@ -7713,12 +7713,15 @@ function switchChartTab(type, btn) {
   histoChart.update();
 }
 
-function computeKpisFromRows(rows) {
+function computeKpisFromRows(rows, key) {
   const shows = rows.filter(r => r.source !== 'R2' && r.presence === 'Show').length;
-  const signes = rows.filter(r => r.result === 'Signé').length;
   const closing = shows > 0 ? Math.round(rows.filter(sdAConclu).length/shows*100) : 0;
-  const commission = rows.reduce((s,r) => s+getComm(r), 0);
-  const mrr = rows.filter(r=>r.result==='Signé'&&r.freq==='Annuelle').reduce((s,r)=>s+getComm(r),0);
+  // Signés / commission / MRR : ventes du mois de signature + primes, comme les tuiles et l'historique Global (R2 jamais comptées deux fois) — 15 oct. 2026
+  let ventes = []; try { ventes = key ? sdVentesDuMois(key, loadStore()) : rows.filter(r => r.source !== 'R2' && r.result === 'Signé'); } catch (e) { ventes = []; }
+  const signes = ventes.length;
+  let primes = 0; try { const MN = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'], p = String(key || '').split('-'); if (p.length === 2) primes = sdPrimesDuMois(MN[+p[1] - 1], +p[0], signes) || 0; } catch (e) {}
+  const commission = ventes.reduce((s,r) => s+getComm(r), 0) + primes;
+  const mrr = ventes.filter(r => r.freq === 'Annuelle').reduce((s,r) => s+getComm(r), 0);
   return { signes, closing, commission, mrr };
 }
 
