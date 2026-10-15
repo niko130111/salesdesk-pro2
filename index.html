@@ -13263,6 +13263,9 @@ function renderAujourdhui() {
     else if (mp.enCours && resB) actsP = [primP(resB), prepB, ficheB];
     else if (rp.r2) actsP = [primP(ficheB).replace('Ouvrir la fiche', 'Revoir le dossier'), visioB];
     else actsP = [primP(prepB), ficheB, visioB];
+    // 15 oct. 2026 (Nicolas) : « Appeler » dans la carte du prochain RDV, même appel que l'agenda (Close ouvre sa fiche et compose)
+    var appelB = '<button class="btn" onclick="sdAppelerRdv(event,' + nomJsP + ',' + emailJsP + ',' + Q(rowP.closeLead || '') + ',' + Q(rp.tel || rowP.tel || '') + ')" title="Appeler ' + escapeHtml(rp.nom) + ' avec Close (Close ouvre sa fiche et compose)">' + aujIco('phone') + 'Appeler</button>';
+    actsP.splice(1, 0, appelB);
     var note = (!rp.join && mp.start && !mp.passe) ? '<span class="note">' + aujIco('alert') + 'Aucun lien de visio dans l\'invitation' + (rp.uri ? ' Calendly' : '') + '</span>' : '';
     carte = '<div class="auj-card auj-next"><div class="lab">' + (estAuj ? (mp.enCours ? 'Rendez-vous en cours' : 'Prochain rendez-vous') : 'Premier rendez-vous') + (compteP ? ' · ' + compteP : '') + '</div>'
       + '<div class="top"><span class="hh">' + escapeHtml(rp.heure || '—') + '</span><span class="sep"></span><span class="auj-badge-r' + (rp.r2 ? ' r2' : '') + '">' + (rp.r2 ? 'R2' : 'R1') + '</span>' + (rowP.type ? '<span class="auj-meta">' + escapeHtml(rowP.type) + '</span>' : '')
