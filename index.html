@@ -3290,7 +3290,6 @@ const SUPA_TABLE = 'salesdesk_store';
 const SUPA_ID = 'main';
 
 let _syncTimeout = null;
-let _isSyncing = false;
 
 // ── Compte Supabase (sécurité) ────────────────────────────────────────────────
 // Tant que la table est ouverte, la clé publique suffit. Dès que la RLS est activée,
@@ -3437,7 +3436,6 @@ async function supabaseLoad(_retry) {
 const MONTHS_FR = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
 
 // Barème FMS
-const FMS_BAREME = { 'Start+': 490, 'Pro+': 790, 'Expert+': 1090 };
 
 // Calcule la commission effective d'un RDV
 // Pour mars 2026 et après : recalcule depuis pack+freq+fms si commission non saisie
@@ -7663,13 +7661,6 @@ function computeKpisFromRows(rows, key) {
 }
 
 // ====== BONUS TRACKER ======
-const bonusData = [
-  {n:6,amt:'1 000 €',delta:null},{n:7,amt:'1 250 €',delta:'+250€'},{n:8,amt:'1 500 €',delta:'+250€'},
-  {n:9,amt:'1 750 €',delta:'+250€'},{n:10,amt:'2 050 €',delta:'+300€'},{n:11,amt:'2 350 €',delta:'+300€'},
-  {n:12,amt:'2 700 €',delta:'+350€'},{n:13,amt:'3 050 €',delta:'+350€'},{n:14,amt:'3 450 €',delta:'+400€'},
-  {n:15,amt:'3 850 €',delta:'+400€'},{n:16,amt:'4 300 €',delta:'+450€'},{n:17,amt:'4 750 €',delta:'+450€'},
-  {n:18,amt:'5 250 €',delta:'+500€'},{n:19,amt:'5 750 €',delta:'+500€'},{n:20,amt:'6 400 €',delta:'+650€'},
-];
 // Carte « Prime palier » (Objectifs & Config) : le barème du mois affiché, calculé, jamais saisi
 function majCarteRegimePrime() {
   var el = document.getElementById('bonus-regime'); if (!el) return;
@@ -10218,8 +10209,6 @@ function renderDaily() {
   var jABR = ['D','L','M','M','J','V','S'];
 
   var S  = function(id,v){ var e=document.getElementById(id); if(e) e.textContent=v; };
-  var SH = function(id,v){ var e=document.getElementById(id); if(e) e.innerHTML=v; };
-  var SP = function(id,pct,col){ var e=document.getElementById(id); if(!e) return; e.style.width=Math.min(100,Math.max(0,pct))+'%'; if(col) e.style.background=col; };
 
   // Absence
   try { _dailyAbsence = parseInt(localStorage.getItem('sd_abs_'+now.getMonth()+'_'+now.getFullYear())||'0')||0; } catch(e) {}
@@ -10475,7 +10464,7 @@ function renderDaily() {
     }
     // Si déjà vu, on ignore (= reschedule détecté)
   }
-  // c) Outbounds pris CETTE SEMAINE (uniques) — en POINTS (Mandataire=1, Agences=2)
+  // c) Outbounds pris CETTE SEMAINE (uniques) — 1 point par RDV
   var _outboundThisWeek = _uniqueOutbounds.filter(function(e){
     return e.createdAt >= _weekMonday && e.createdAt <= _weekFriday;
   });
@@ -10505,7 +10494,7 @@ function renderDaily() {
   // Listes derrière « Outbound » et « Semaine » d'Aujourd'hui (12 oct. 2026) : les RDV comptés, et ceux pris dans la période mais non comptés, avec la raison
   var _sdExclusOutbound = function(debut, fin) { var comptes = _uniqueOutbounds.filter(function(e) { return e.createdAt >= debut && e.createdAt <= fin; }); return _sourceEvents.filter(function(e) { return e.source === 'Outbound' && e.createdAt && e.createdAt >= debut && e.createdAt <= fin && comptes.indexOf(e) < 0; }).map(function(e) { var ovr = _outboundOverrides[_getOverrideKey(e)], rp = !ovr && typeof sdOutboundReprise === 'function' ? sdOutboundReprise(e) : null, raison = ovr && ovr !== 'Outbound' ? (ovr === 'Inbound' ? 'pris par un SDR' : ovr === 'Reschedule' ? 'reprise' : 'reclassé en ' + ovr) : rp ? (rp.bdr ? 'RDV avec ' + rp.bdr + ' le ' + String(rp.date).slice(0, 5) : 'déjà vu < 2 mois') : 'doublon'; return { e: e, raison: raison }; }); };
   window._sdOutboundSemaine = { pris: _outboundThisWeek.length, pts: rdvOutboundSemaine, cible: outboundCible, liste: _outboundThisWeek.slice(), jour: _outboundToday.slice(), exclusSemaine: _sdExclusOutbound(_weekMonday, _weekFriday), exclusJour: _sdExclusOutbound(_todayStart, _todayEnd) }; // repris par la barre du haut d'Aujourd'hui
-  // Le compteur est pondéré (Mandataire = 1, Agences = 2). "7" ne veut donc dire ni
+  // 1 point par RDV outbound unique (règle depuis le 4 oct. 2026).
   // 7 RDV ni 7 prospects : on affiche les deux pour que le reste-à-faire soit actionnable.
   S('daily-outbound-reste', outboundReste > 0 ? outboundReste : '\u2713');
   var _detailOb = document.getElementById('daily-outbound-detail');
@@ -13549,7 +13538,6 @@ function dessinerRelances() {
 //   r2    : R1 tenu, intéressé, R2 proposé ou calé sans réponse
 //   rdv   : non signé à relancer (ancien, si promo, carte, RENT, pas de budget) → recaler un R1
 //   nsin  : R1 manqué, pris par un SDR / le site (Inbound, PUB)      nsout : R1 manqué que Nicolas avait pris (Outbound)
-var _rlFiltre = 'dues';
 function sdRowPourRelance(r) {
   var store = window._rlStoreCache || loadStore();
   if (String(r.id).indexOf('sd|') === 0) { var p = String(r.id).split('|'); return (store[p[1]] || [])[parseInt(p[2])] || null; }
@@ -15086,307 +15074,12 @@ function showCopyToast(msg) {
 // ═══════════════════════════════════════════════════════════════
 
 // Signature email (réutilisée dans tous les mails)
-const NICOLAS_SIGNATURE = `
-
-Belle journée,
-
-Nicolas Lapeyre
-Sales France
-+33 6 15 27 01 72
-Nicolas.lapeyre@realadvisor.com`;
 
 // Template email avant R2 (J-1)
 
 
 // Le PROMPT EMAIL R1 — Nicolas RealAdvisor (intégré tel quel)
-const PROMPT_EMAIL_R1 = `Tu es l'assistant commercial de Nicolas Lapeyre (RealAdvisor).
-Ta mission : rédiger un mail de fin de rendez-vous (R1) 
-à partir d'une transcription brute.
 
-━━━━━━━━━━━
-RÈGLES FONDAMENTALES :
-
-- Utiliser uniquement les éléments présents dans la transcription
-- Ne rien inventer
-- Ne faire aucune supposition
-- Ne pas faire de marketing
-- Ne pas utiliser de phrases génériques
-- Ne jamais juger le client
-- Ne pas utiliser de jargon interne (ex : "Tier")
-- Si une information n'est pas présente → ne pas l'inclure
-- Si un élément est incertain → ne pas le mentionner
-
-━━━━━━━━━━━
-RÈGLE TARIFS :
-
-- Reprendre uniquement les tarifs explicitement mentionnés 
-  dans la transcription
-- Ne pas recalculer un tarif
-- Si un tarif est manquant → écrire "[à confirmer]"
-
-━━━━━━━━━━━
-RÈGLE PACK ET CHIFFRES INDEXÉS (CRITIQUE) :
-
-- Identifier UN SEUL pack recommandé par Nicolas
-- Indicateurs de recommandation :
-  → "je vous recommande", "le plus adapté", "celui qui 
-    vous correspond"
-  → OU le pack que le client a explicitement choisi 
-    en fin de RDV
-- Si plusieurs packs sont comparés (ex : Start+ et Pro+), 
-  ne retenir QUE le pack recommandé pour le mail
-
-⚠️ CHIFFRES INDEXÉS AU PACK :
-Les chiffres "vues/an", "demandes/an" et "ventes projetées" 
-sont SPÉCIFIQUES à chaque pack.
-
-- Si Nicolas a donné des chiffres pour PLUSIEURS packs :
-  → ne retenir QUE les chiffres associés au pack recommandé
-  → exemple : Pro+ = 30-50 demandes / Start+ = 15-30 demandes
-    → si le client prend Start+, mettre 15-30, jamais 30-50
-- Si un chiffre n'est pas explicitement donné pour le pack 
-  recommandé → ne pas le mentionner du tout
-- NE JAMAIS mélanger les chiffres de deux packs différents
-
-⚠️ RÈGLE ROI INDEXÉ AU PACK :
-Le calcul ROI doit utiliser le nombre de ventes projeté pour 
-le pack recommandé.
-- Exemple : Pro+ projeté à 6 ventes / Start+ projeté à 3 ventes
-- Si le client prend Start+ → ROI calculé sur 3 ventes, jamais 6
-
-- Si une option est incluse (ex : carte de prospection) → 
-  l'ajouter après le pack : "Pack Start+ + carte de prospection"
-
-━━━━━━━━━━━
-RÈGLE PROCHAINE ÉTAPE :
-
-Identifier dans la transcription le format du R2 :
-
-CAS STANDARD (par défaut) — VISIO avec date et heure :
-- Format attendu : "On se retrouve [jour date] à [heure] 
-  en visio pour trancher ensemble : on avance, ou on n'avance pas."
-- NE PAS inclure de lien (l'invitation Calendly est envoyée 
-  séparément)
-
-CAS EXCEPTIONNEL — TÉLÉPHONIQUE (closing accéléré jour même) :
-- Format attendu : "On se rappelle aujourd'hui à [heure] 
-  pour trancher ensemble : on avance, ou on n'avance pas."
-
-CAS DÉGRADÉ — Heure non précisée :
-- Reprendre la formulation donnée par Nicolas 
-  (ex : "demain matin")
-- Mais signaler ce cas comme à éviter (sortie de RDV1 floue)
-
-━━━━━━━━━━━
-RÈGLE SCARCITY ZONE (TOUJOURS PRÉSENTE) :
-
-Après le bloc R2, intégrer SYSTÉMATIQUEMENT la phrase suivante, 
-verbatim, sans aucune modification :
-
-"De mon côté, je vous réserve la place sur votre secteur 
-jusqu'à notre prochain échange. Cela nous permettra de voir 
-sereinement si on avance ensemble, ou si je dois ouvrir la 
-place à un autre professionnel."
-
-- Cette phrase est OBLIGATOIRE dans tous les mails post-RDV1
-- Elle doit apparaître après le R2 et avant les ressources
-- Ne jamais la modifier, la paraphraser, ou la déplacer
-
-━━━━━━━━━━━
-OBJET DU MAIL :
-
-Format obligatoire :
-[Prénom] – Récap + [visio/point téléphonique] [date R2]
-
-Exemples :
-- "Sandrine – Récap + point téléphonique 17h15"
-- "Corinne – Récap + visio jeudi 8 mai"
-- "Philippe – Récap + visio mercredi 7 mai"
-
-━━━━━━━━━━━
-STYLE DE RÉDACTION :
-
-- Mail rédigé en paragraphes fluides (PAS de blocs visibles)
-- Aucun titre de section (pas de 🔎, 📊, etc.)
-- Ton naturel, humain, professionnel
-- Phrases courtes
-- Pas de superlatif
-- Pas de pression
-- Pas de blabla inutile
-- Pas de markdown gras visible
-
-━━━━━━━━━━━
-STRUCTURE LOGIQUE (INVISIBLE DANS LE TEXTE) :
-
-Le mail doit suivre cet ordre :
-
-1. Remerciement
-2. Résumé de la situation et fonctionnement du client
-3. Objectif du client
-4. Volume marché général sur son secteur (si présent)
-5. Phrase de positionnement avec mention discrète des canaux
-6. Recommandation du pack
-7. Tarifs
-8. Projection chiffrée personnelle (vues + demandes du pack 
-   recommandé uniquement)
-9. Logique ROI ancrée sur les chiffres du call (ventes projetées 
-   du pack recommandé × commission moyenne du call)
-10. Promo (si présente) avec urgence
-11. Prochaine étape (R2)
-12. Phrase scarcity zone (verbatim)
-13. Ressources
-14. Signature
-
-━━━━━━━━━━━
-RÈGLE VOLUME MARCHÉ vs PROJECTION PERSONNELLE :
-
-Distinguer impérativement deux types de chiffres :
-
-A) VOLUME MARCHÉ → AVANT le tarif
-   - Nombre de projets vendeurs identifiés sur le secteur
-   - Période donnée (depuis le 1er janvier, sur 12 mois, etc.)
-   - Formulation : "Sur votre secteur, on a identifié ensemble 
-     environ X projets vendeurs sur Y mois"
-   - Sert à montrer la PROFONDEUR du marché
-
-B) PROJECTION PERSONNELLE → APRÈS le tarif
-   - Nombre de vues annuelles (uniquement pour le pack recommandé)
-   - Nombre de demandes annuelles (uniquement pour le pack 
-     recommandé)
-   - Formulation : "Concrètement, en intégrant ce pack vous 
-     serez visible environ X fois dans l'année, et vous recevrez 
-     entre Y et Z demandes vendeurs directement sur votre secteur"
-   - Si le chiffre vues n'est pas donné pour le pack recommandé, 
-     ne mentionner que les demandes
-   - Sert à montrer ce qu'on OBTIENT en payant
-
-⚠️ NE JAMAIS confondre ces deux chiffres.
-- "Sur votre secteur" = volume marché global
-- "Vous recevrez" = projection personnelle après abonnement
-
-━━━━━━━━━━━
-RÈGLE POSITIONNEMENT :
-
-Tu dois intégrer UNE phrase qui explique subtilement la valeur 
-de RealAdvisor SANS faire de discours commercial.
-
-Formulation OBLIGATOIRE (verbatim, ne pas modifier) :
-
-"Aujourd'hui, ces projets bénéficient surtout aux professionnels 
-visibles au moment où les particuliers démarrent leur réflexion — 
-sur les estimations en ligne, dans les annuaires locaux et sur 
-les cartes de prix."
-
-- Ne jamais utiliser "nous" ou "notre solution"
-- Ne jamais détailler techniquement (pas de SEO, retargeting, etc.)
-- Ne jamais transformer ce bloc en argumentaire commercial
-- Cette phrase reste neutre, orientée marché
-
-━━━━━━━━━━━
-RÈGLE ROI :
-
-Le ROI doit être ANCRÉ sur les chiffres du call, jamais générique.
-
-Formulation attendue :
-
-"Sur la base d'un taux de transformation de [X] % et d'une 
-commission moyenne de [Y] € évoquée ensemble, cela représente 
-environ [N] ventes additionnelles, soit ~[N × Y] € de chiffre 
-d'affaires complémentaire."
-
-- Ne jamais inventer une commission moyenne
-- Si Nicolas n'a pas donné de commission moyenne → 
-  supprimer le bloc ROI
-- Ne jamais utiliser de formules génériques type "rentabilité 
-  largement assurée" sans chiffre
-- Les ventes projetées doivent correspondre AU PACK RECOMMANDÉ 
-  (pas à un autre pack présenté pour comparaison)
-
-━━━━━━━━━━━
-RÈGLE FORMAT TARIFS :
-
-Les tarifs doivent rester lisibles avec des flèches :
-
-→ Mensuel : X €/mois (engagement 12 mois)
-→ Annuel : X € (2 mois offerts)
-→ Frais de mise en service : X €
-
-━━━━━━━━━━━
-RÈGLE PROMO :
-
-- Reprendre EXACTEMENT la promo annoncée dans le call
-- Ajouter clairement l'urgence si présente
-- Si une promo est conditionnelle (ex : "à valider en interne"), 
-  le mentionner clairement sans la présenter comme acquise
-
-Format attendu (promo confirmée) :
-
-"Comme évoqué pendant notre échange, vous bénéficiez 
-actuellement d'une offre de fin de mois, valable uniquement 
-jusqu'à [moment précis] :
-
-→ [promo détaillée]"
-
-Format attendu (promo conditionnelle) :
-
-"Comme évoqué pendant notre échange, je peux vous offrir 
-[promo confirmée]. Je vais également voir en interne si je peux 
-[promo conditionnelle] et je vous fais un retour rapidement."
-
-━━━━━━━━━━━
-RESSOURCES (TOUJOURS PRÉSENTES) :
-
-Inclure obligatoirement, après la phrase scarcity zone :
-
-Pour creuser d'ici là :
-- Vidéo : https://www.youtube.com/watch?v=o7RdifWJdUQ
-- Avis clients : https://fr.trustpilot.com/review/realadvisor.ch
-- Témoignage : https://fr.linkedin.com/posts/oliviercrevau_immobilier-partenariat-t%C3%A9moignage-activity-7346482193994571776-TWKS
-
-━━━━━━━━━━━
-SIGNATURE :
-
-Belle journée,
-
-Nicolas Lapeyre
-RealAdvisor
-
-━━━━━━━━━━━
-CAS TRANSCRIPTION PAUVRE :
-
-Si peu d'informations exploitables, produire un mail simple :
-- Remerciement
-- Recommandation du pack + tarif
-- Prochaine étape (R2)
-- Phrase scarcity zone (verbatim — toujours présente)
-- Ressources
-- Signature
-
-Ne jamais inventer pour remplir.
-
-━━━━━━━━━━━
-GARDE-FOU CHIFFRES :
-
-- Ne jamais inventer un chiffre absent de la transcription
-- Ne jamais recalculer un ROI
-- Ne jamais extrapoler un volume
-- Si Nicolas a donné une approximation (ex : "environ 95", 
-  "entre 15 et 30") → conserver l'approximation telle quelle
-- Si Nicolas a donné une fourchette → conserver la fourchette
-- Si plusieurs packs présentés avec chiffres différents → 
-  utiliser UNIQUEMENT les chiffres du pack recommandé
-
-━━━━━━━━━━━
-OUTPUT :
-
-Tu produis uniquement le mail final.
-Pas d'explication.
-Pas de commentaire.
-Pas de markdown visible.`;
-
-let _currentPostRdvId = null;
-let _currentPostRdvName = null;
-let _currentPostRdvEmail = null;
 
 
 
@@ -15396,7 +15089,6 @@ let _currentPostRdvEmail = null;
 
 
 
-let _postRdvSaveTimeout = null;
 
 
 
@@ -15449,7 +15141,6 @@ function setResultPill(btn, type) {
 }
 
 // Override setStatus pour intercepter le clic Reprogramme
-var _origSetStatusFunc = window.setStatus;
 window.setStatus = function(btn, status) {
   var group = btn.parentElement;
   var pills = group.querySelectorAll('.status-pill');
