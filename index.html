@@ -13539,11 +13539,17 @@ function sdRowPourRelance(r) {
   Object.keys(store).forEach(function(k) { if (!/^\d{4}-\d{2}$/.test(k) || !Array.isArray(store[k])) return; store[k].forEach(function(x) { if (!x || fcNormNom(x.client || '') !== n || x.source === 'R2') return; var d = parseDateFR(x.date); if (d && d > bd) { bd = d; best = x; } }); });
   return best;
 }
+// R2 manqué (annulé, no-show, reporté) = « R2 sans réponse », seulement si le R2 date du mois en cours ou du précédent (Nicolas, 15 oct. 2026) ; plus vieux : simple no-show
+function sdR2SansReponse(row) {
+  if (!row) return false; var nt = function(p) { p = String(p || '').trim(); return p === 'No Show' || p === 'Annulé' || p === 'Reprogrammé'; };
+  var estR2 = String(row.source || '') === 'R2', manque = estR2 ? nt(row.presence) : nt(row.presenceR2); if (!manque) return false;
+  var iso = frVersIsoSd((estR2 ? row.date : row.dateR2) || ''); if (!iso) return false;
+  var d = new Date(); var seuil = new Date(d.getFullYear(), d.getMonth() - 1, 1); return iso >= rlIso(seuil);
+}
 function sdColonneRelance(r, row) {
   var pres = row ? String(row.presence || '').trim() : '', res = row ? String(row.result || '').trim() : '', src = row ? String(row.source || '') : String(r.source || '');
   var noShow = pres === 'No Show' || pres === 'Annulé' || pres === 'Reprogrammé' || /no ?show/i.test(r.raison || '') || /no ?show/i.test((r.relance && r.relance.note) || '');
-  var nonTenuR2 = function(p) { p = String(p || '').trim(); return p === 'No Show' || p === 'Annulé' || p === 'Reprogrammé'; };
-  if (row && ((String(row.source || '') === 'R2' && nonTenuR2(row.presence)) || nonTenuR2(row.presenceR2))) return 'r2'; // R2 manqué (annulé, no-show, reporté) = « R2 sans réponse », prioritaire (Nicolas, 15 oct. 2026 : Valentin Ferret)
+  if (sdR2SansReponse(row)) return 'r2'; // R2 manqué récent (mois en cours ou précédent) = « R2 sans réponse », prioritaire (Valentin Ferret)
   if (noShow) return src === 'Outbound' ? 'nsout' : 'nsin';
   if (sdRappelChaud(row)) return 'r2';
   if (res === 'Non signé' || res === 'Promo' || r.outcome === 'perdu') return 'rdv';
@@ -13609,8 +13615,7 @@ function rlCategorieBrute(t, rel, row) {
   if (rel) return rel.col;
   var x = (t.texte || '').toLowerCase(), src = row ? String(row.source || '') : '';
   if (/configur|onboard|vitrine à/.test(x)) return 'config'; // client signé à mettre en place : toujours en tête
-  var nonTenuR2 = function(p) { p = String(p || '').trim(); return p === 'No Show' || p === 'Annulé' || p === 'Reprogrammé'; };
-  if (row && ((String(row.source || '') === 'R2' && nonTenuR2(row.presence)) || nonTenuR2(row.presenceR2))) return 'r2'; // R2 manqué = « R2 sans réponse » (15 oct. 2026)
+  if (sdR2SansReponse(row)) return 'r2'; // R2 manqué récent = « R2 sans réponse »
   if (/no ?show|pas venu|absent/.test(x)) return src === 'Outbound' ? 'nsout' : 'nsin';
   if (/\br2\b|valid|contrat|signer|décision|decision/.test(x)) return 'r2';
   if (row) { // le dernier RDV connu dans SalesDesk dit pourquoi on relance
