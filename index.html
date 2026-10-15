@@ -10592,12 +10592,7 @@ function renderDaily() {
   _allOutboundEvents.sort(function(a,b){ return a.createdAt - b.createdAt; });
   for (var _i = 0; _i < _allOutboundEvents.length; _i++) {
     var _ev = _allOutboundEvents[_i];
-    var _emailKey = (_ev.email || '').toLowerCase().trim();
-    if (!_emailKey) {
-      // Pas d'email = on compte (cas rare mais on ne perd pas l'info)
-      _uniqueOutbounds.push(_ev);
-      continue;
-    }
+    var _emailKey = (_ev.email || '').toLowerCase().trim() || ('n:' + (typeof fcNormNom === 'function' ? fcNormNom(_ev.name || _ev.client || _ev.invitee || '') : String(_ev.name || _ev.client || '').toLowerCase().trim())); // sans e-mail : clé par nom, comme Analytics (15 oct. 2026)
     if (!_seenEmails[_emailKey]) {
       _seenEmails[_emailKey] = _ev.createdAt;
       _uniqueOutbounds.push(_ev);
@@ -11905,7 +11900,7 @@ function bhOutboundSemaine(lundi) { // même règle que l'onglet Outbound de Ren
   if (!_outbound2Mois || !_outbound2Mois.length) { if (_bh.obDemande !== lundi) { _bh.obDemande = lundi; try { Promise.resolve(fetchOutbound2Mois(false)).then(function() { renderBilan(); }).catch(function() {}); } catch (e) {} } return null; }
   var deb = new Date(lundi + 'T00:00:00'), fin = new Date(rlPlus(lundi, 4) + 'T23:59:59'), ob = loadOutboundOverrides(), vus = {};
   var plusAncien = _outbound2Mois.filter(function(e) { return e.createdAt; }).map(function(e) { return +e.createdAt; }).sort()[0] || 0; if (plusAncien && deb.getTime() < plusAncien - 86400000) return null; // semaine plus vieille que la fenêtre Calendly chargée
-  var uniques = _outbound2Mois.filter(function(e) { return e.source === 'Outbound' && e.createdAt; }).sort(function(a, b) { return a.createdAt - b.createdAt; }).filter(function(e) { var k = String(e.email || '').toLowerCase().trim(); if (!k) return true; if (vus[k]) return false; vus[k] = true; return true; });
+  var uniques = _outbound2Mois.filter(function(e) { return e.source === 'Outbound' && e.createdAt; }).sort(function(a, b) { return a.createdAt - b.createdAt; }).filter(function(e) { var k = String(e.email || '').toLowerCase().trim() || ('n:' + (typeof fcNormNom === 'function' ? fcNormNom(e.name || e.client || e.invitee || '') : String(e.name || e.client || '').toLowerCase().trim())); if (vus[k]) return false; vus[k] = true; return true; }); // sans e-mail : clé par nom, comme Analytics
   return uniques.filter(function(e) { return e.createdAt >= deb && e.createdAt <= fin && (ob[getOutboundOverrideKey(e)] || (sdOutboundReprise(e) ? 'Reschedule' : 'Outbound')) === 'Outbound'; }).length;
 }
 function bhChargerAppels(lundi) { var cle = lundi; if (_bh.appelsCle === cle && _bh.appels) return; _bh.appelsCle = cle; _bh.appels = null;
