@@ -7681,8 +7681,8 @@ function updateHistoChart() {
   for (let m = 1; m <= 12; m++) {
     const key = `${year}-${String(m).padStart(2,'0')}`;
     const rows = store[key] || [];
-    rdvData[m-1] = rows.length;
-    signesData[m-1] = rows.filter(r => r.result === 'Signé').length;
+    rdvData[m-1] = (function() { try { return sdTunnelMois(rows).base; } catch (e) { return rows.length; } })(); // même base que l'onglet RDV (R1 tenus ou attendus, R2 exclues)
+    signesData[m-1] = (function() { try { return sdVentesDuMois(key, store).length; } catch (e) { return 0; } })(); // ventes du mois de signature, comme les tuiles
   }
   histoChart.data.datasets[0].data = rdvData;
   histoChart.data.datasets[1].data = signesData;
@@ -7701,7 +7701,7 @@ function switchChartTab(type, btn) {
     const key = `${year}-${String(m).padStart(2,'0')}`;
     const rows = store[key] || [];
     const kpis = computeKpisFromRows(rows);
-    if (type === 'rdv') { d1[m-1]=(function() { try { return sdTunnelMois(rows).base; } catch (e) { return rows.length; } })(); d2[m-1]=kpis.signes; label1='RDV tenus ou attendus'; label2='Signés'; }
+    if (type === 'rdv') { d1[m-1]=(function() { try { return sdTunnelMois(rows).base; } catch (e) { return rows.length; } })(); d2[m-1]=(function() { try { return sdVentesDuMois(key, store).length; } catch (e) { return kpis.signes; } })(); label1='RDV tenus ou attendus'; label2='Signés'; }
     else if (type === 'closing') { d1[m-1]=kpis.closing; label1='Closing %'; color1='var(--green)'; d2=null; }
     else if (type === 'commission') { d1[m-1]=kpis.commission; label1='Commission €'; color1='var(--orange)'; d2=null; }
     else if (type === 'mrr') { d1[m-1]=kpis.mrr; label1='Commissions annuels €'; color1='var(--soft-violet-line)'; d2=null; }
