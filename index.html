@@ -149,11 +149,10 @@ body { font-variant-numeric: tabular-nums; }
 /* LAYOUT */
 main { max-width: 100%; margin: 0; padding: 6px 8px; }
 /* Padding latéral adaptatif selon la largeur d'écran (généreux sur grand écran, fin sur laptop) */
-#page-daily main, #page-analytics main, #page-global main, #page-pipeline main, #page-preprdv main { padding: 24px 80px; max-width: 1600px; margin: 0 auto; }
+#page-daily main, #page-analytics main, #page-global main, #page-pipeline main { padding: 24px 80px; max-width: 1600px; margin: 0 auto; }
 #page-rdvtable main, #page-settings main { padding: 14px 20px; }
 .page { display: none; }
 /* Post-RDV et fiche de préparation : remplacés par le copilot (11 sept 2026) */
-#page-postrdv, #page-preprdv { display: none !important; }
 /* Ancien tableau « Relances » du Pipeline : doublon de Suivi (qui porte la file fusionnée Close + SalesDesk) — retiré de l'affichage */
 #relances-wrap { display: none !important; }
 /* Performance › pilotage : la date du jour n'y sert pas (elle est dans Aujourd'hui) */
@@ -1332,7 +1331,7 @@ select.form-input { cursor: pointer; }
 
 /* Très grand écran (> 1600px) — padding généreux */
 @media (min-width: 1601px) {
-  #page-daily main, #page-analytics main, #page-global main, #page-pipeline main, #page-preprdv main {
+  #page-daily main, #page-analytics main, #page-global main, #page-pipeline main {
     padding: 24px 120px;
   }
 }
@@ -1341,7 +1340,7 @@ select.form-input { cursor: pointer; }
 
 /* Laptop compact / petit desktop (1024-1280px) */
 @media (max-width: 1280px) {
-  #page-daily main, #page-analytics main, #page-global main, #page-pipeline main, #page-preprdv main {
+  #page-daily main, #page-analytics main, #page-global main, #page-pipeline main {
     padding: 20px 32px;
   }
   .kpi-grid { grid-template-columns: repeat(4, 1fr); }
@@ -1358,7 +1357,7 @@ select.form-input { cursor: pointer; }
 
 /* Tablette / petit laptop (768-1024px) */
 @media (max-width: 1024px) {
-  #page-daily main, #page-analytics main, #page-global main, #page-pipeline main, #page-preprdv main {
+  #page-daily main, #page-analytics main, #page-global main, #page-pipeline main {
     padding: 16px 20px;
   }
   /* Header daily : empile date + métriques */
@@ -1381,10 +1380,6 @@ select.form-input { cursor: pointer; }
   #daily-obj-mensuel, #daily-obj-ajuste, #daily-comm-actuel, #daily-comm-pct-val { font-size: 30px !important; }
   #daily-coach-phrase { font-size: 24px !important; }
   #daily-motto { font-size: 20px !important; }
-  /* Page Prep RDV : empiler les zones */
-  #page-preprdv div[style*="grid-template-columns:1fr 1fr"] {
-    grid-template-columns: 1fr !important;
-  }
 }
 
 /* Mobile (< 768px) */
@@ -1393,7 +1388,7 @@ select.form-input { cursor: pointer; }
   .nav-tabs { order: 3; width: 100%; overflow-x: auto; padding-bottom: 4px; }
   .nav-right { margin-left: auto; gap: 6px; flex-wrap: wrap; }
   .period-select select { font-size: 11px; padding: 3px 6px; }
-  #page-daily main, #page-analytics main, #page-global main, #page-pipeline main, #page-preprdv main {
+  #page-daily main, #page-analytics main, #page-global main, #page-pipeline main {
     padding: 12px 12px;
   }
   #page-rdvtable main, #page-settings main { padding: 10px 12px; }
@@ -2560,11 +2555,9 @@ select.form-input { cursor: pointer; }
 
 <!-- ===================== CALENDLY PAGE ===================== -->
 <!-- ===================== PREP RDV PAGE — Fiche de préparation d'un RDV ===================== -->
-<!-- page-preprdv (page masquée, jamais ouverte) retirée le 12/10/2026 -->
 
 
 <!-- ===================== POST-RDV PAGE — Email R1, Email pré-R2 et Analyse ===================== -->
-<!-- page-postrdv (page masquée, jamais ouverte) retirée le 12/10/2026 -->
 
 
 <!-- ===================== SETTINGS PAGE ===================== -->
@@ -10601,23 +10594,9 @@ function renderDaily() {
   var enJeu = gCommAvg > 0 ? Math.max(todayRows.length, calTodayCount) * gCommAvg : 0;
   S('daily-potentiel', enJeu > 0 ? enJeu.toLocaleString('fr-FR')+'\u00a0\u20ac' : '\u2014');
 
-  // Outbound semaine via Calendly (encore utilisé par le bloc 'daily-outbound-status')
+  // RDV de la semaine (pour la phrase de pression)
   var wRows  = mRows.filter(function(r){ var d=toD(r.date); return d&&d>=monday&&d<=sunday; });
   var wRdv   = wRows.length;
-  var calWeekOutbound = 0;
-  if (typeof weekEvents !== 'undefined') {
-    var _allEv = Object.values(weekEvents).reduce(function(a,b){return a.concat(b);}, []);
-    calWeekOutbound = _allEv.filter(function(e){
-      return e.source === 'Outbound' && e.createdAt && e.createdAt >= monday && e.createdAt <= sunday;
-    }).length;
-  }
-
-  var stEl = document.getElementById('daily-outbound-status');
-  if (stEl) {
-    if (wRdv>=10)                              { stEl.textContent='\u26a1 OBJECTIF'; stEl.style.background='var(--green-bg)'; stEl.style.color='var(--green)'; }
-    else if (wRdv>=Math.floor(10*pMois/100))   { stEl.textContent='\u2713 DANS LE RYTHME'; stEl.style.background='var(--accent-bg)'; stEl.style.color='var(--accent)'; }
-    else                                       { stEl.textContent='\u26a0 EN RETARD'; stEl.style.background='var(--orange-bg)'; stEl.style.color='var(--orange)'; }
-  }
 
   // Phrase de pression positive — bloc semaine
   var wManque = Math.max(0, 10 - wRdv);
@@ -15075,97 +15054,7 @@ dailyCalRenderDay = function(d) {
 // ============================================================
 // 3. PAGE "PRÉPARER LE RDV"
 // ============================================================
-let _currentPrepRdvId = null;
 
-function openPrepRdv(btn) {
-  const card = btn.closest('.rdv-card');
-  if (!card) return;
-
-  const name = card.dataset.name;
-  const email = card.dataset.email || '';
-  const source = card.dataset.source;
-  const rdvDate = card.dataset.date;
-  const timeEl = card.querySelector('.rdv-time');
-  const heure = timeEl ? timeEl.textContent.trim() : '';
-
-  // ID stable : basé sur email+nom (résiste aux reprogrammations / passages R1->R2)
-  // Fallback sur cardId+date si pas d'email/nom
-  _currentPrepRdvId = getPrepRdvId(email, name, card.id, rdvDate);
-
-  // Ouvrir la page
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
-  document.getElementById('page-preprdv').classList.add('active');
-
-  // Remplir le header
-  document.getElementById('prep-rdv-title').textContent = name || '—';
-  document.getElementById('prep-rdv-meta').textContent =
-    [rdvDate, heure, source, email].filter(Boolean).join(' · ');
-
-  // Charger les données existantes ou vider
-  loadPrepRdvData(_currentPrepRdvId);
-
-  // Brancher les listeners pour sauvegarde auto sur tous les inputs
-  bindPrepInputs();
-
-  // Scroll en haut
-  window.scrollTo({ top: 0, behavior: 'smooth' });
-}
-
-
-function bindPrepInputs() {
-  document.querySelectorAll('#page-preprdv .prep-input').forEach(input => {
-    input.removeEventListener('input', _prepInputHandler);
-    input.addEventListener('input', _prepInputHandler);
-  });
-}
-
-let _prepSaveTimeout = null;
-function _prepInputHandler() {
-  // Debounce 500ms pour éviter de sauvegarder à chaque touche
-  if (_prepSaveTimeout) clearTimeout(_prepSaveTimeout);
-  const statusEl = document.getElementById('prep-rdv-save-status');
-  if (statusEl) { statusEl.textContent = '⏳ Sauvegarde...'; statusEl.style.color = 'var(--orange)'; }
-  _prepSaveTimeout = setTimeout(() => {
-    savePrepRdvData();
-    if (statusEl) {
-      statusEl.textContent = '✅ Sauvegardé';
-      statusEl.style.color = 'var(--green)';
-      setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 2000);
-    }
-  }, 500);
-}
-
-function loadPrepRdvData(rdvId) {
-  if (!rdvId) return;
-  const store = loadStore();
-  if (!store._prepRdvs) store._prepRdvs = {};
-  const data = store._prepRdvs[rdvId] || {};
-
-  // Remplir tous les champs
-  document.querySelectorAll('#page-preprdv .prep-input').forEach(input => {
-    const field = input.dataset.field;
-    if (field) input.value = data[field] || '';
-  });
-}
-
-function savePrepRdvData() {
-  if (!_currentPrepRdvId) return;
-  const store = loadStore();
-  if (!store._prepRdvs) store._prepRdvs = {};
-  if (!store._prepRdvs[_currentPrepRdvId]) store._prepRdvs[_currentPrepRdvId] = {};
-
-  // Récupérer tous les champs prep-input
-  document.querySelectorAll('#page-preprdv .prep-input').forEach(input => {
-    const field = input.dataset.field;
-    if (field) store._prepRdvs[_currentPrepRdvId][field] = input.value;
-  });
-
-  // Métadonnées
-  store._prepRdvs[_currentPrepRdvId]._lastUpdate = new Date().toISOString();
-
-  saveStore(store);
-}
 
 // ============================================================
 // HOOK INIT — appeler renderProcessedSection au chargement
@@ -15907,48 +15796,6 @@ function hasPrepData(prepId) {
   return false;
 }
 
-// Met à jour les boutons "Préparer" pour afficher ✅ si fiche déjà remplie
-function updatePrepButtons() {
-  var buttons = document.querySelectorAll('button[onclick="openPrepRdv(this)"]');
-  for (var i = 0; i < buttons.length; i++) {
-    var btn = buttons[i];
-    var card = btn.closest('.rdv-card');
-    if (!card) continue;
-    var email = card.dataset.email || '';
-    var name = card.dataset.name || '';
-    var rdvDate = card.dataset.date || '';
-    var prepId = getPrepRdvId(email, name, card.id, rdvDate);
-    var hasData = hasPrepData(prepId);
-    // On évite de réécrire si déjà à jour
-    var currentlyChecked = btn.textContent.indexOf('✅') >= 0;
-    if (hasData && !currentlyChecked) {
-      btn.innerHTML = '📋 Préparer ✅';
-      btn.style.background = 'var(--green-bg, #ecfdf5)';
-      btn.style.color = 'var(--green)';
-      btn.style.borderColor = 'var(--green)';
-    } else if (!hasData && currentlyChecked) {
-      btn.innerHTML = '📋 Préparer';
-      btn.style.background = 'var(--purple-bg)';
-      btn.style.color = 'var(--purple)';
-      btn.style.borderColor = 'var(--purple)';
-    }
-  }
-}
-
-// Override savePrepRdvData pour rafraîchir les encoches après chaque sauvegarde
-var _origSavePrepRdvData = window.savePrepRdvData;
-window.savePrepRdvData = function() {
-  if (typeof _origSavePrepRdvData === 'function') _origSavePrepRdvData();
-  // Rafraîchir les boutons après une petite latence (pour laisser le store se mettre à jour)
-  setTimeout(updatePrepButtons, 100);
-};
-
-// Rafraîchir les boutons après chaque rendu de carte
-window.addEventListener('load', function() {
-  setTimeout(updatePrepButtons, 2000);
-  // Refresh périodique léger toutes les 5s pour capter les changements (utile si plusieurs onglets)
-  setInterval(updatePrepButtons, 30000);      // idem
-});
 
 // =====================================================
 // PAQUET 8 : Marquer comme "déjà traité" automatiquement
