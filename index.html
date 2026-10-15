@@ -4387,6 +4387,7 @@ function fcHtmlMails() {
   if (M.redige) {
     var adr = (j.adresses || []).length ? j.adresses : (M.b.to ? [M.b.to] : []);
     h += '<div style="border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:12px;background:var(--surface2);">'
+      + fcMailModelesHtml(M)
       + '<div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;"><span class="fc-muted" style="min-width:44px;">À</span>' + (adr.length > 1 ? '<select onchange="_fcMails.b.to=this.value" style="' + champ + '">' + adr.map(function(a) { return '<option' + (a === M.b.to ? ' selected' : '') + '>' + escapeHtml(a) + '</option>'; }).join('') + '</select>' : '<b>' + escapeHtml(adr[0] || 'aucune adresse sur la fiche Close') + '</b>') + '</div>'
       + '<input type="text" placeholder="Objet" value="' + escapeHtml(M.b.objet) + '" oninput="_fcMails.b.objet=this.value" style="' + champ + 'margin-bottom:8px;">'
       + '<textarea placeholder="Ton message…" oninput="_fcMails.b.texte=this.value" style="' + champ + 'min-height:170px;resize:vertical;line-height:1.5;">' + escapeHtml(M.b.texte) + '</textarea>'
@@ -4405,6 +4406,26 @@ function fcMailEcrire(i) { // nouveau mail, ou réponse au mail reçu n° i (obj
   var M = _fcMails, j = M.data; if (!j) return; M.redige = true;
   if (i !== undefined && j.mails[i]) { var m = j.mails[i], em = (/<([^>]+)>/.exec(m.de) || [])[1] || m.de; em = String(em || '').trim().toLowerCase(); if ((j.adresses || []).indexOf(em) >= 0) M.b.to = em; if (!M.b.objet) M.b.objet = /^re\s*:/i.test(m.sujet) ? m.sujet : 'Re: ' + m.sujet; }
   if (!M.b.texte) { var p = (_fc.nom || '').split(/\s+/)[0] || ''; M.b.texte = 'Bonjour ' + (p ? p.charAt(0).toUpperCase() + p.slice(1).toLowerCase() : '') + ',\n\n\n\nBien cordialement,'; }
+  fcRendre();
+}
+// ── Modèles de mail (15 oct. 2026) : Offres (au choix du tier, grille officielle) et Présentation RealAdvisor ; tout reste modifiable avant l'envoi ──
+var SD_OFFRES = [ { nom: 'Start+', tr: 10, vol: '15 à 30', mise: 490, an: { 1: 2490, 2: 2990, 3: 3490, 4: 3990 } }, { nom: 'Pro+', tr: 30, vol: '30 à 50', mise: 790, an: { 1: 3490, 2: 3990, 3: 4490, 4: 4990 } }, { nom: 'Expert+', tr: 50, vol: '50 à 80', mise: 1090, an: { 1: 4490, 2: 4990, 3: 5490, 4: 5990 } } ]; // même grille que le copilot (OFFRES_RA) : mensuel = annuel / 10
+function fcMailEur(n) { return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + ' €'; }
+function fcMailTierDefaut() { try { var t = (_fc.rows || []).map(function(r) { return (/(\d)/.exec(String(r.tier || '')) || [])[1]; }).filter(Boolean)[0]; return +t || 1; } catch (e) { return 1; } }
+function fcMailModelesHtml(M) {
+  var chip = function(id, lib) { return '<button class="btn btn-sm' + (M.modele === id ? ' btn-primary' : '') + '" onclick="fcMailModele(\'' + id + '\')">' + lib + '</button>'; };
+  var h = '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:8px;"><span class="fc-muted" style="min-width:44px;">Modèle</span>' + chip('offres', '💶 Offres') + chip('presentation', '👋 Présentation RealAdvisor') + chip('libre', '✍️ Libre') + '</div>';
+  if (M.modele === 'offres') h += '<div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;"><span class="fc-muted" style="min-width:44px;">Tier</span>' + [1, 2, 3, 4].map(function(t) { return '<button class="btn btn-sm' + (M.tier === t ? ' btn-primary' : '') + '" onclick="fcMailModele(\'offres\',' + t + ')">' + t + '</button>'; }).join('') + '</div>';
+  return h;
+}
+function fcMailModele(id, tier) {
+  var M = _fcMails; if (!M) return; var p = (_fc.nom || '').split(/\s+/)[0] || ''; p = p ? p.charAt(0).toUpperCase() + p.slice(1).toLowerCase() : ''; M.modele = id;
+  if (id === 'offres') { var t = tier || M.tier || fcMailTierDefaut(); M.tier = t;
+    M.b.objet = (p ? p + ' – ' : '') + 'Nos offres RealAdvisor';
+    M.b.texte = 'Bonjour ' + p + ',\n\nComme convenu, voici nos offres :\n\n' + SD_OFFRES.map(function(o) { return '• ' + o.nom + ' (jusqu\'à ' + o.tr + ' transactions, ' + o.vol + ' demandes par an) : ' + fcMailEur(o.an[t] / 10) + ' / mois ou ' + fcMailEur(o.an[t]) + ' / an · mise en service ' + fcMailEur(o.mise); }).join('\n') + '\n\nEngagement de 12 mois, sans commission sur vos ventes. Tarifs nets : aucun montant de TVA ajouté par RealAdvisor.\n\nJe reste disponible pour en parler.\n\nBien cordialement,'; }
+  else if (id === 'presentation') { M.b.objet = (p ? p + ' – ' : '') + 'RealAdvisor';
+    M.b.texte = 'Bonjour ' + p + ',\n\nJe me permets de vous présenter RealAdvisor en quelques mots.\n\nChaque mois, des propriétaires de votre secteur estiment leur bien sur notre site. Leurs coordonnées sont vérifiées, et ce sont eux qui choisissent l\'agent immobilier qu\'ils souhaitent contacter : nous vous rendons visible au bon moment, quand ils pensent à vendre.\n\nSeriez-vous disponible pour un échange de 30 minutes ? Je vous montrerai concrètement ce qui se passe sur votre secteur.\n\nBien cordialement,'; }
+  else { M.b.objet = ''; M.b.texte = 'Bonjour ' + p + ',\n\n\n\nBien cordialement,'; }
   fcRendre();
 }
 function fcMailEnvoyer(reel) {
