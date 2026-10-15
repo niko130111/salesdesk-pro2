@@ -4277,6 +4277,46 @@ function sdHistoListe(h, max) { // la liste, pour la fiche
   var col = { 'tenu': 'var(--green)', 'no-show': 'var(--red)', 'annulé': 'var(--red)', 'reprogrammé': 'var(--orange)', 'à venir': 'var(--accent)' };
   return h.rdvs.slice(0, max || 6).map(function(r) { return '<div class="fc-kv"><span class="k">' + sdHistoFr(r.date) + '</span><span class="v">' + escapeHtml(r.moi ? 'toi' : (r.avec || '?')) + ' · <b style="color:' + (col[r.etat] || 'var(--text3)') + ';">' + escapeHtml(r.etat) + '</b>' + (r.suite ? ' <span class="fc-muted">→ ' + escapeHtml(r.suite.statut) + '</span>' : '') + (r.prisLe && r.prisLe !== r.date ? ' <span class="fc-muted">· pris le ' + sdHistoFr(r.prisLe) + '</span>' : '') + '</span></div>'; }).join('');
 }
+// 15 oct. 2026 (Nicolas) : « Transmettre » — tâche « Ghost Nicolas » créée dans Close pour Ludovic ou Eugénie, ta tâche supprimée (défaisable avec « Défaire »)
+var SD_BDR = [['ludovic', 'Ludovic Lafarge'], ['eugenie', 'Eugénie Nouet']];
+function sdTacheOuverteDe(c) { // la tâche Close ouverte de Nicolas sur ce prospect : celle de la carte du Suivi, sinon la plus proche en date
+  if (c.cle) { var it = (window._rlItems || []).find(function(i) { return i.cle === c.cle; }); if (it && it.t && !it.t.fait) return it.t; }
+  var nn = fcNormNom(c.nom || ''), L = ((typeof _tachesClose !== 'undefined' && _tachesClose && _tachesClose.taches) || []).filter(function(t) {
+    if (t.fait) return false; if (c.lead) return t.lead === c.lead;
+    return !!nn && (fcNormNom(t.fiche || '').indexOf(nn) >= 0 || (t.contacts || []).some(function(x) { return fcNormNom(x) === nn; })); });
+  L.sort(function(a, b) { return String(a.date).localeCompare(String(b.date)); }); return L[0] || null;
+}
+function sdTransmettre(ctx) {
+  var c = Object.assign({}, ctx || { nom: _fc.nom, email: _fc.email || '' }); try { c.lead = c.lead || sdLeadPour(c.nom, c.email || '') || ''; } catch (e) {}
+  var t = sdTacheOuverteDe(c); window._sdTr = { c: c, t: t, bdr: '' };
+  var champ = 'font-family:var(--font);font-size:13.5px;padding:8px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg);color:var(--text);';
+  var html = '<div class="fc-dup" style="width:min(460px,84vw);max-width:100%;box-sizing:border-box;"><div style="font-size:16px;font-weight:700;margin-bottom:2px;">↗ Transmettre — ' + escapeHtml(c.nom || '') + '</div>'
+    + '<div class="fc-muted" style="margin-bottom:12px;">Une tâche est créée dans Close pour le BDR choisi. ' + (t ? 'Ta tâche « ' + escapeHtml(String(t.texte || '').slice(0, 60)) + ' »' + (t.date ? ' du ' + fcFrDepuisIso(t.date) : '') + ' est supprimée.' : 'Tu n\'as pas de tâche ouverte sur ce prospect : rien à supprimer.') + ' « Défaire » remet tout comme avant.</div>'
+    + '<div style="display:flex;gap:8px;margin-bottom:10px;">' + SD_BDR.map(function(b) { return '<button class="btn" style="flex:1;" data-bdr="' + b[0] + '" onclick="sdTransmettreChoix(\'' + b[0] + '\')">' + aujIco('user') + escapeHtml(b[1]) + '</button>'; }).join('') + '</div>'
+    + '<div style="display:flex;gap:8px;margin-bottom:8px;align-items:center;"><label class="fc-muted" style="font-size:12px;">Pour le</label><input type="date" id="sd-tr-date" value="' + rlIso(new Date()) + '" min="' + rlIso(new Date()) + '" style="' + champ + 'flex:1;"></div>'
+    + '<input type="text" id="sd-tr-texte" value="Ghost Nicolas" style="' + champ + 'width:100%;box-sizing:border-box;margin-bottom:6px;" placeholder="Texte de la tâche">'
+    + '<div id="sd-tr-err" style="font-size:12.5px;color:var(--red);min-height:18px;margin-bottom:6px;"></div>'
+    + '<div style="display:flex;justify-content:flex-end;gap:6px;"><button class="btn btn-sm" onclick="fermerModalDoublon()">Annuler</button><button class="btn btn-sm btn-primary" id="sd-tr-ok" onclick="sdTransmettreValider(this)">Transmettre</button></div></div>';
+  var ov = document.getElementById('fc-dup-overlay');
+  if (!ov) { ov = document.createElement('div'); ov.id = 'fc-dup-overlay'; ov.className = 'modal-overlay'; ov.style.zIndex = '1300'; ov.innerHTML = '<div class="modal" id="fc-dup-modal"></div>'; document.body.appendChild(ov); }
+  ov.onclick = function(ev) { if (ev.target === ov) fermerModalDoublon(); };
+  document.getElementById('fc-dup-modal').innerHTML = html; ov.classList.add('open');
+}
+function sdTransmettreChoix(k) { if (!window._sdTr) return; window._sdTr.bdr = k; document.querySelectorAll('#fc-dup-modal [data-bdr]').forEach(function(b) { b.classList.toggle('btn-primary', b.getAttribute('data-bdr') === k); }); var e = document.getElementById('sd-tr-err'); if (e) e.textContent = ''; }
+function sdTransmettreValider(btn) {
+  var tr = window._sdTr; if (!tr) return; var err = document.getElementById('sd-tr-err');
+  if (!tr.bdr) { err.textContent = 'Choisis Ludovic ou Eugénie.'; return; }
+  var date = (document.getElementById('sd-tr-date') || {}).value || rlIso(new Date()), texte = ((document.getElementById('sd-tr-texte') || {}).value || '').trim() || 'Ghost Nicolas';
+  btn.disabled = true; btn.textContent = 'Transmission…';
+  rlPost('/close/transmettre', { lead: tr.c.lead || '', nom: tr.c.nom || '', email: tr.c.email || '', bdr: tr.bdr, date: date, texte: texte, tacheNicolas: tr.t ? tr.t.id : '' }).then(function(j) {
+    if (!j || j.ok === false) throw new Error((j && j.error) || 'copilot');
+    fermerModalDoublon(); window._sdTr = null; try { _tachesCloseAt = 0; } catch (e) {} try { majBadgeSuivi(); } catch (e) {}
+    try { if (typeof _rlLundi !== 'undefined' && _rlLundi) chargerTachesClose(rlPlus(_rlLundi, -7), rlPlus(_rlLundi, 13), true); } catch (e) {}
+    try { if (document.getElementById('page-relances') && typeof renderRelancesPage === 'function') renderRelancesPage(); } catch (e) {} try { if (document.querySelector('#fc-overlay.open')) fcRendre(); } catch (e) {}
+    if (typeof showCopyToast === 'function') showCopyToast('↗ Transmis à ' + j.bdr + (j.supprimee ? ' · ta tâche est supprimée' : ''));
+    if (j.erreurSuppression) alert('Tâche créée pour ' + j.bdr + ', mais ta tâche n\'a pas pu être supprimée : ' + j.erreurSuppression);
+  }).catch(function(e) { btn.disabled = false; btn.textContent = 'Transmettre'; err.textContent = 'Non transmis : ' + ((e && e.message) || e); });
+}
 // Nom cliquable vers la fiche client, partout où un nom s'écrit (11 oct. 2026) : avant = code à exécuter d'abord (fermer une fenêtre…)
 function sdNomLien(nom, email, avant) { nom = String(nom || '').trim(); if (!nom) return ''; var Q = function(v) { return JSON.stringify(String(v || '')).replace(/"/g, '&quot;'); }; return '<span class="fc-nomlien" title="Ouvrir la fiche" onclick="event.stopPropagation();' + (avant || '') + 'ouvrirFicheClient(' + Q(nom) + ',' + Q(email) + ')">' + escapeHtml(nom) + '</span>'; }
 function ouvrirFicheClient(nom, email, date, lead, tel, site, org) { // tel / site / org : ce que la liste de Prospection sait déjà du prospect (utile quand il n'a pas encore de fiche Close)
@@ -4617,6 +4657,7 @@ function fcBoutonsSuivi(it) {
   var tache = copilot ? B('svTache(' + cleJs + ')', aujIco('clock') + 'Tâche', '', 'Une tâche Close : date, heure et texte (rappel, mail, relance…) ; une tâche déjà ouverte est déplacée') : '';
   var mail = copilot ? (fiche ? B("fcRepondreMail('', '')", aujIco('mail') + 'Écrire un mail', '', 'Un mail depuis ta boîte Close, avec ta signature') : B('sdMailPour(' + nomJs + ',' + emailJs + ')', aujIco('mail') + 'Écrire un mail', '', 'Un mail depuis ta boîte Close, avec ta signature')) : '';
   var manager = A('manager', aujIco('user') + 'Passer au manager', '', 'Note épinglée + tâche pour ' + RL_MANAGER + ', ligne dans le Cockpit');
+  var transmettre = copilot ? B('sdTransmettre({ nom: ' + nomJs + ', email: ' + emailJs + ', cle: ' + cleJs + ' })', aujIco('arrow') + 'Transmettre', '', 'Tâche « Ghost Nicolas » pour Ludovic ou Eugénie dans Close, ta tâche est supprimée') : '';
   var ficheClose = fiche ? B('fcChangerFicheClose()', aujIco('link') + 'Relier à une autre fiche Close', '', 'Colle le lien de la bonne fiche Close') : '';
   var corriger = fiche ? B('fcCorrigerNom()', aujIco('pen') + 'Corriger le nom', '', 'Corriger l\'orthographe ou fusionner avec une autre fiche') : '';
   var rappel = fiche && _fc.rappelArg ? B('fcPopupSuivi(' + _fc.rappelArg + ')', aujIco('pen') + 'Modifier le rappel', '', 'Changer la date ou la condition du rappel SalesDesk') : '';
@@ -4631,14 +4672,14 @@ function fcBoutonsSuivi(it) {
   var terminer = fiche ? B('fcTerminerConfiguration(this)', aujIco('check') + 'Terminer la configuration', 'btn-primary', 'Clôture la tâche Close « Configurer » et marque le client configuré') : B('sdTerminerConfigurationPour(' + nomJs + ',' + emailJs + ')', aujIco('check') + 'Terminer la configuration', 'btn-primary', 'Clôture la tâche Close « Configurer » et marque le client configuré');
   var principal, plus;
   switch (etat) {
-    case 'rdv_avenir': principal = [preparer, appeler, resultat]; plus = [tache, mail, manager, ficheClose, corriger, cloturer]; break;
-    case 'rdv_passe': principal = [resultat, appeler, tache]; plus = [mail, manager, ficheClose, corriger, cloturer]; break;
-    case 'interesse': principal = [appeler, rdv(aujIco('cal') + 'Prendre un R2', 'Tu choisis le créneau R2, je réserve dans Calendly', 'btn-primary'), tache]; plus = [contrat, sansRep, pasInt, rappel, mail, manager, ficheClose, corriger, cloturer]; break;
-    case 'attente': principal = [appeler, signe, tache]; plus = [contrat, sansRep, pasInt, rappel, mail, manager, ficheClose, corriger, cloturer]; break;
-    case 'noshow': principal = [appeler, rdv(aujIco('refresh') + 'Reprogrammer', 'Nouveau créneau Calendly, la tâche est terminée', 'btn-primary'), tache]; plus = [sansRep, perdu, rappel, mail, manager, ficheClose, corriger, cloturer]; break;
-    case 'signe': if (row.configureAt) { principal = [appeler, tache]; plus = [onboarding, mail, manager, ficheClose, corriger, cloturer]; } else if (row.onboardingAt) { principal = [terminer, appeler, tache]; plus = [onboarding, mail, manager, ficheClose, corriger, cloturer]; } else { principal = [onboarding, appeler, tache]; plus = [terminer, mail, manager, ficheClose, corriger, cloturer]; } break; // configuré : plus d'action pleine ; champs écrits : il reste à terminer ; sinon : configurer (terminer reste accessible dans Plus)
-    case 'perdu': principal = [appeler, rdv(aujIco('cal') + 'Reprendre un RDV', 'Tu choisis le créneau, je réserve dans Calendly'), tache]; plus = [sansRep, rappel, mail, manager, ficheClose, corriger, cloturer]; break; // un ancien non signé qu'on rappelle : « Sans réponse » et « Rappel » aussi (demande du 9 oct.)
-    default: principal = [appeler, rdv(aujIco('cal') + 'Prendre un RDV', 'Tu choisis le créneau, je réserve dans Calendly', 'btn-primary'), tache]; plus = [sansRep, pasInt, mail, manager, ficheClose, corriger, cloturer];
+    case 'rdv_avenir': principal = [preparer, appeler, resultat]; plus = [tache, mail, manager, transmettre, ficheClose, corriger, cloturer]; break;
+    case 'rdv_passe': principal = [resultat, appeler, tache]; plus = [mail, manager, transmettre, ficheClose, corriger, cloturer]; break;
+    case 'interesse': principal = [appeler, rdv(aujIco('cal') + 'Prendre un R2', 'Tu choisis le créneau R2, je réserve dans Calendly', 'btn-primary'), tache]; plus = [contrat, sansRep, pasInt, rappel, mail, manager, transmettre, ficheClose, corriger, cloturer]; break;
+    case 'attente': principal = [appeler, signe, tache]; plus = [contrat, sansRep, pasInt, rappel, mail, manager, transmettre, ficheClose, corriger, cloturer]; break;
+    case 'noshow': principal = [appeler, rdv(aujIco('refresh') + 'Reprogrammer', 'Nouveau créneau Calendly, la tâche est terminée', 'btn-primary'), tache]; plus = [sansRep, perdu, rappel, mail, manager, transmettre, ficheClose, corriger, cloturer]; break;
+    case 'signe': if (row.configureAt) { principal = [appeler, tache]; plus = [onboarding, mail, manager, transmettre, ficheClose, corriger, cloturer]; } else if (row.onboardingAt) { principal = [terminer, appeler, tache]; plus = [onboarding, mail, manager, transmettre, ficheClose, corriger, cloturer]; } else { principal = [onboarding, appeler, tache]; plus = [terminer, mail, manager, transmettre, ficheClose, corriger, cloturer]; } break; // configuré : plus d'action pleine ; champs écrits : il reste à terminer ; sinon : configurer (terminer reste accessible dans Plus)
+    case 'perdu': principal = [appeler, rdv(aujIco('cal') + 'Reprendre un RDV', 'Tu choisis le créneau, je réserve dans Calendly'), tache]; plus = [sansRep, rappel, mail, manager, transmettre, ficheClose, corriger, cloturer]; break; // un ancien non signé qu'on rappelle : « Sans réponse » et « Rappel » aussi (demande du 9 oct.)
+    default: principal = [appeler, rdv(aujIco('cal') + 'Prendre un RDV', 'Tu choisis le créneau, je réserve dans Calendly', 'btn-primary'), tache]; plus = [sansRep, pasInt, mail, manager, transmettre, ficheClose, corriger, cloturer];
   }
   try { var mfB = sdMailsFinPour(it.nom || row.client || '').filter(function(m) { return m.statut === 'brouillon'; })[0]; if (mfB) principal.unshift(B('sdVoirMailFinR1(' + JSON.stringify(mfB.cle || (String(mfB.nom || '').toLowerCase() + '|' + mfB.date)).replace(/"/g, '&quot;') + ')', aujIco('mail') + 'Relire le mail', 'btn-primary', 'Mail de fin de RDV prêt dans Close : relis, modifie, envoie')); } catch (e) {} // un mail post-RDV pas envoyé passe devant tout le reste
   principal = principal.filter(Boolean).map(function(b, i) { return i ? b.replace(' btn-primary', '') : b; }); plus = plus.filter(Boolean); // une seule action pleine : la première
@@ -5072,7 +5113,7 @@ function rlDefaire(btn) {
   fetch(COPILOT_URL + '/close/defaisable', { mode: 'cors', cache: 'no-store' }).then(function(r) { if (r.status === 404) return fetch(COPILOT_URL + '/close/ecritures?n=20', { mode: 'cors', cache: 'no-store' }).then(function(r2) { return r2.json(); }).then(function(j2) { return { ecriture: (j2.ecritures || []).find(function(x) { return !x.defait && x.type !== 'defaire'; }) || null }; }); return r.json(); }).then(function(j) {
     var e = j && j.ecriture; // la dernière action de Nicolas qu'on sait défaire (les automatisations ne comptent pas)
     if (!e) { alert('Rien à défaire : aucune action récente de ta part ne peut être annulée.'); return; }
-    var lib = { tache: { decaler: 'tâche déplacée', deplacer_existante: 'tâche déplacée', terminer: 'tâche terminée', creer: 'tâche créée' }, appel: { sans_reponse: 'appel sans réponse loggé' }, escalade: { undefined: 'escalade au manager' }, mail_r1: { draft: 'brouillon de mail', outbox: 'mail envoyé' }, statut: { pas_interesse: 'statut Close « pas intéressé »', laisser_tomber: 'statut Close « laissé tomber »', show: 'statut Close « démo faite »', no_show: 'statut Close « no-show »', annule: 'statut Close « annulé »', reprogramme: 'statut Close « reprogrammé »', mail_envoye: 'statut Close « offre envoyée »' } };
+    var lib = { tache: { decaler: 'tâche déplacée', deplacer_existante: 'tâche déplacée', terminer: 'tâche terminée', creer: 'tâche créée' }, appel: { sans_reponse: 'appel sans réponse loggé' }, escalade: { undefined: 'escalade au manager' }, transmission: { undefined: 'transmission à un BDR' }, mail_r1: { draft: 'brouillon de mail', outbox: 'mail envoyé' }, statut: { pas_interesse: 'statut Close « pas intéressé »', laisser_tomber: 'statut Close « laissé tomber »', show: 'statut Close « démo faite »', no_show: 'statut Close « no-show »', annule: 'statut Close « annulé »', reprogramme: 'statut Close « reprogrammé »', mail_envoye: 'statut Close « offre envoyée »' } };
     var quoi = ((lib[e.type] || {})[e.action]) || (e.type === 'statut' ? 'changement de statut Close' : e.type === 'tache' ? 'action sur une tâche' : 'dernière action'), quand = new Date(e.at).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
     var qui = e.nom || e.to || ''; // le prospect concerné quand le journal le connaît
     if (!confirm('Défaire : ' + quoi + (qui ? ' · ' + qui : '') + ' (' + quand + ')' + (e.apres && e.apres.text ? '\n« ' + e.apres.text + ' »' : '') + ' ?')) return;
@@ -5843,7 +5884,7 @@ function fcTacheClose(ctx) { // ctx facultatif { nom, email, lead } : depuis le 
     + '<div style="display:flex;gap:8px;margin-bottom:8px;"><input type="date" id="fc-tc-date" value="' + rlJourOuvre(rlIso(new Date()), 1) + '" min="' + rlIso(new Date()) + '" style="' + champ + 'flex:1;"><input type="time" id="fc-tc-heure" style="' + champ + 'width:110px;" title="Heure (facultatif)"></div>'
     + '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;"><button class="btn btn-sm" onclick="fcTcDate(1)">' + sdLibelleDemain(true) + '</button><button class="btn btn-sm" onclick="fcTcDate(2)">+2 j ouvrés</button><button class="btn btn-sm" onclick="fcTcDate(5)">+1 semaine</button><span style="width:10px"></span><button class="btn btn-sm" onclick="fcTcTexte(\'Rappeler\')">Rappeler</button><button class="btn btn-sm" onclick="fcTcTexte(\'Envoyer un mail\')">Envoyer un mail</button><button class="btn btn-sm" onclick="fcTcTexte(\'Relancer pour signature\')">Relancer pour signature</button></div>'
     + '<input type="text" id="fc-tc-texte" value="Rappeler" style="' + champ + 'width:100%;box-sizing:border-box;margin-bottom:12px;" placeholder="Quoi faire">'
-    + '<div style="display:flex;justify-content:flex-end;gap:6px;"><button class="btn btn-sm" onclick="fermerModalDoublon()">Annuler</button><button class="btn btn-sm btn-primary" id="fc-tc-ok" onclick="fcTacheCloseCreer(this)">Créer la tâche</button></div></div>';
+    + '<div style="display:flex;justify-content:flex-end;gap:6px;"><button class="btn btn-sm" style="margin-right:auto;" title="Tâche « Ghost Nicolas » pour Ludovic ou Eugénie dans Close, ta tâche est supprimée" onclick="sdTransmettre(window._fcTacheCtx)">' + aujIco('arrow') + 'Transmettre</button><button class="btn btn-sm" onclick="fermerModalDoublon()">Annuler</button><button class="btn btn-sm btn-primary" id="fc-tc-ok" onclick="fcTacheCloseCreer(this)">Créer la tâche</button></div></div>';
   var ov = document.getElementById('fc-dup-overlay');
   if (!ov) { ov = document.createElement('div'); ov.id = 'fc-dup-overlay'; ov.className = 'modal-overlay'; ov.style.zIndex = '1300'; ov.innerHTML = '<div class="modal" id="fc-dup-modal"></div>'; document.body.appendChild(ov); }
   ov.onclick = function(ev) { if (ev.target === ov) fermerModalDoublon(); };
