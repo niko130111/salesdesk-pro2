@@ -2698,43 +2698,6 @@ select.form-input { cursor: pointer; }
         </div>
       </div>
       <div class="settings-section" id="settings-online-supabase"><div class="settings-card"><h3>💾 Sauvegarde en ligne</h3><p style="font-size:13px;color:var(--text2);margin:0;">Tes données sont sauvegardées automatiquement dans Supabase à chaque modification, et le copilot en garde une copie chaque nuit. Rien à configurer. Les copies locales et le bouton « Restaurer » sont dans <a style="color:var(--accent);cursor:pointer;" onclick="mjAller('Contrôle')">Contrôle</a>.</p></div></div>
-      <div class="settings-section" id="settings-online" hidden><!-- ancienne sauvegarde JSONBin (12 oct. 2026) : remplacée par Supabase, masquée -->
-        <div class="settings-card">
-          <h3>💾 Sauvegarde en ligne</h3>
-          <p style="font-size:13px;color:var(--text2);margin-bottom:16px;">
-            Connecte ton dashboard à <b>JSONBin</b> (gratuit) pour sauvegarder tes données en ligne et y accéder depuis n'importe quel appareil.
-          </p>
-          <div style="background:var(--accent-bg);border-radius:var(--radius);padding:12px;margin-bottom:16px;font-size:12px;color:var(--accent);">
-            <b>Comment obtenir une clé JSONBin gratuite :</b><br>
-            1. Va sur <a href="https://jsonbin.io" target="_blank" style="color:var(--accent)">jsonbin.io</a><br>
-            2. Crée un compte gratuit<br>
-            3. Va dans "API Keys" → copie ta clé Master<br>
-            4. Colle-la ci-dessous et clique "Connecter"
-          </div>
-          <div class="form-group">
-            <label class="form-label">Clé API JSONBin (Master Key)</label>
-            <input type="password" class="form-input" id="jsonbin-key" placeholder="$2a$10$...">
-          </div>
-          <div id="online-status" style="margin-bottom:12px;font-size:13px;display:none;"></div>
-          <button class="btn btn-primary" onclick="connectOnlineStorage()">🔗 Connecter la sauvegarde en ligne</button>
-          <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border);">
-            <div style="font-size:12px;color:var(--text3);margin-bottom:8px;">Ou si tu as déjà un Bin ID :</div>
-            <div style="display:flex;gap:8px;">
-              <input type="text" class="form-input" id="jsonbin-existing-id" placeholder="Bin ID existant (ex: 6612...)">
-              <button class="btn" onclick="connectExistingBin()">Utiliser</button>
-            </div>
-          </div>
-        </div>
-        <div class="settings-card" id="online-connected-card" style="display:none;">
-          <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
-            <div style="width:10px;height:10px;border-radius:50%;background:var(--green);"></div>
-            <span style="font-size:14px;font-weight:600;color:var(--green);">Sauvegarde en ligne active</span>
-          </div>
-          <p style="font-size:13px;color:var(--text2);">Tes données sont synchronisées automatiquement à chaque modification.</p>
-          <button class="btn btn-sm" onclick="syncFromOnline()" style="margin-top:8px;">🔄 Forcer la synchronisation</button>
-        </div>
-      </div>
-
       <div class="settings-section" id="settings-profil">
         <div class="settings-card">
           <h3>Profil vendeur</h3>
@@ -3587,17 +3550,12 @@ const BUILTIN_DATA = {
   ]
 };
 
-// ====== STOCKAGE ONLINE (JSONBin) + localStorage ======
+// ====== Store en mémoire + configuration locale (l'ancien JSONBin est parti le 15 oct. 2026 ; le cloud, c'est Supabase) ======
 let _sessionStore = null;
-let _jsonbinId = null;
-let _jsonbinKey = null;
-const JSONBIN_BASE = 'https://api.jsonbin.io/v3';
 
 async function initOnlineStorage() {
   // Charger config depuis localStorage
   const config = JSON.parse(localStorage.getItem('salesdesk_config') || '{}');
-  _jsonbinId = config.binId || null;
-  _jsonbinKey = config.binKey || null;
   _calendlyKey = config.calendlyKey || null;
   try { if (!_calendlyKey && !localStorage.getItem('calendly_key') && COPILOT_URL === location.origin) { // SalesDesk servi par le copilot (MacBook Air) : la clé Calendly vient du copilot, pas besoin de la recoller
     fetch(COPILOT_URL + '/salesdesk/cle-calendly', { cache: 'no-store' }).then(function(r) { return r.json(); }).then(function(j) { if (j && j.ok && j.cle && !localStorage.getItem('calendly_key')) { var inp = document.getElementById('calendly-api-key'); if (inp) { inp.value = j.cle; connectCalendly(); } } }).catch(function() {}); } } catch (e) {}
@@ -3614,17 +3572,6 @@ function saveConfig(updates) {
   localStorage.setItem('salesdesk_config', JSON.stringify(config));
 }
 
-async function loadFromOnline() {
-  if (!_jsonbinId || !_jsonbinKey) return null;
-  try {
-    const r = await fetch(`${JSONBIN_BASE}/b/${_jsonbinId}/latest`, {
-      headers: { 'X-Master-Key': _jsonbinKey }
-    });
-    if (!r.ok) return null;
-    const data = await r.json();
-    return data.record || null;
-  } catch { return null; }
-}
 
 
 
@@ -7391,9 +7338,6 @@ function sdAppliquerCopilot(m) {
     markRdvAsProcessed('copilot|' + nom.toLowerCase() + '|' + dateFr, {
       name: nom, email: m.email || '', rdvDate: dateFr, presence: pres, result: '', type: row.type, heure: m.heure || '', processedFrom: 'copilot'
     });
-    if (pres === 'Annulé' && m.annuler && typeof sendMakeWebhook === 'function') {
-      try { sendMakeWebhook({ action: 'cancel', eventId: '', prospectName: nom, prospectEmail: m.email || '', rdvDate: dateFr, heure: m.heure || '', reason: 'Annulation depuis le copilot' }); } catch (e) {}
-    }
     if (typeof showCopyToast === 'function') showCopyToast((pres === 'Annulé' ? '🚫 ' : '✗ ') + nom + ' · ' + pres + ' — traité');
   }
   if (m.sc === 'rdv_terminer') {
@@ -7975,57 +7919,6 @@ window.addEventListener('DOMContentLoaded', function() {
 // Re-vérifie toutes les heures (au cas où on change de jour pendant que l'app est ouverte)
 setInterval(refreshBackupNavDots, 60 * 60 * 1000);
 
-async function connectOnlineStorage() {
-  const key = document.getElementById('jsonbin-key').value.trim();
-  if (!key) { alert('Entre ta clé JSONBin'); return; }
-  _jsonbinKey = key;
-  const status = document.getElementById('online-status');
-  status.style.display = 'block';
-  status.style.color = 'var(--text2)';
-  status.textContent = '⏳ Création de ton espace de stockage...';
-  
-  // Créer un nouveau bin avec les données actuelles
-  const store = loadStore();
-  try {
-    const r = await fetch(`${JSONBIN_BASE}/b`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Master-Key': key, 'X-Bin-Name': 'SalesDesk-Nicolas' },
-      body: JSON.stringify(store)
-    });
-    const data = await r.json();
-    _jsonbinId = data.metadata?.id;
-    if (!_jsonbinId) throw new Error('Création échouée: ' + JSON.stringify(data));
-    saveConfig({ binId: _jsonbinId, binKey: key });
-    status.style.color = 'var(--green)';
-    status.textContent = `✅ Connecté ! Bin ID: ${_jsonbinId}`;
-    document.getElementById('online-connected-card').style.display = 'block';
-    alert(`✅ Sauvegarde en ligne activée !\nTon Bin ID: ${_jsonbinId}\n\nNote ce Bin ID quelque part pour pouvoir te reconnecter depuis un autre appareil.`);
-  } catch(e) {
-    status.style.color = 'var(--red)';
-    status.textContent = '❌ Erreur: ' + e.message;
-  }
-}
-
-async function connectExistingBin() {
-  const id = document.getElementById('jsonbin-existing-id').value.trim();
-  const key = document.getElementById('jsonbin-key').value.trim();
-  if (!id || !key) { alert('Entre ta clé et ton Bin ID'); return; }
-  _jsonbinId = id; _jsonbinKey = key;
-  saveConfig({ binId: id, binKey: key });
-  await syncFromOnline();
-  document.getElementById('online-connected-card').style.display = 'block';
-  alert('✅ Reconnecté à ton espace en ligne !');
-}
-
-async function syncFromOnline() {
-  const onlineData = await loadFromOnline();
-  if (!onlineData) { alert('Impossible de charger les données en ligne'); return; }
-  // Fusionner les données online avec BUILTIN_DATA
-  _sessionStore = sdMigrerOneShot(Object.assign({}, BUILTIN_DATA, onlineData));
-  try { localStorage.setItem('salesdesk_rdvs', JSON.stringify(_sessionStore)); } catch {}
-  refreshAll();
-  alert('✅ Données synchronisées depuis le cloud !');
-}
 
 // ═══════════════════════════════════════════════════════════
 // AUTO-CALCUL DES OBJECTIFS basé sur les 3 DERNIERS MOIS FINIS
@@ -9260,16 +9153,6 @@ window.addEventListener('load', async () => {
   // Initialiser stockage online et récupérer config (Calendly etc.)
   await initOnlineStorage();
   
-  // Si connecté online, charger les données depuis le cloud
-  if (false && _jsonbinId && _jsonbinKey) { // JSONBin abandonné pour Supabase (12 oct. 2026) : ne plus jamais recharger ces vieilles données par-dessus le store
-    document.getElementById('online-connected-card') && 
-      (document.getElementById('online-connected-card').style.display = 'block');
-    const onlineData = await loadFromOnline();
-    if (onlineData && Object.keys(onlineData).length > 0) {
-      _sessionStore = sdMigrerOneShot(Object.assign({}, BUILTIN_DATA, onlineData));
-      try { localStorage.setItem('salesdesk_rdvs', JSON.stringify(_sessionStore)); } catch {}
-    }
-  }
   
   // Les graphiques ne doivent jamais pouvoir empêcher le reste du dashboard de démarrer.
   if (typeof Chart === 'undefined') {
@@ -15770,16 +15653,6 @@ function confirmReschedule() {
   }
   banner.textContent = 'Reprogramme le ' + newDateFr + ' a ' + newTime + (reason ? ' - ' + reason : '');
 
-  sendMakeWebhook({
-    action: 'reschedule',
-    eventId: eventId,
-    prospectName: name,
-    prospectEmail: email,
-    oldDate: oldDate,
-    newDate: newDateFr,
-    newTime: newTime,
-    reason: reason
-  });
 
   if (typeof showCopyToast === 'function') showCopyToast('RDV reprogramme pour le ' + newDateFr + ' a ' + newTime);
   closeModal('rescheduleModal');
@@ -15823,43 +15696,9 @@ function confirmR2Date() {
   _currentR2Card = null;
 }
 
-function sendMakeWebhook(payload) { // Make n'est plus utilisé (annulations et reprogrammations passent par Calendly via le copilot) : plus aucun envoi, et l'ancienne adresse est effacée des réglages
-  try { var st0 = loadStore(); if (st0._settings && st0._settings.makeWebhookUrl) { delete st0._settings.makeWebhookUrl; saveStore(st0); } } catch (e) {}
-  return false;
-  var store = (typeof loadStore === 'function') ? loadStore() : {};
-  var url = (store._settings && store._settings.makeWebhookUrl) || '';
-  if (!url) {
-    console.log('[Make] Webhook URL non configure - payload non envoye.', payload);
-    return;
-  }
-  fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
-  }).then(function(r) {
-    if (r.ok) console.log('[Make] Webhook OK', payload);
-    else console.error('[Make] Erreur', r.status);
-  }).catch(function(e) { console.error('[Make] Erreur reseau', e); });
-}
 
-// =====================================================
-// PAQUET 4 : Settings Make
-// =====================================================
-
-function loadMakeWebhookSettings() {
-  var store = (typeof loadStore === 'function') ? loadStore() : {};
-  var url = (store._settings && store._settings.makeWebhookUrl) || '';
-  var input = document.getElementById('make-webhook-url'); if (!input) return;
-  if (input) input.value = url;
-}
-
-
-// Test sécurisé Reschedule — envoie un payload complet avec données fictives
-
-// Test sécurisé Cancel — envoie un payload complet avec données fictives
 
 window.addEventListener('load', function() {
-  setTimeout(loadMakeWebhookSettings, 1500);
 });
 
 // =====================================================
