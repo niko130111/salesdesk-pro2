@@ -6632,7 +6632,7 @@ function _dateToSortKey(d) {
 
 // Met à jour les flèches ↑↓ dans les headers
 function _updateSortArrows() {
-  document.querySelectorAll('#page-rdv-table th .sort-arrow').forEach(function(el) {
+  document.querySelectorAll('#page-rdvtable th .sort-arrow').forEach(function(el) {
     el.textContent = '';
     el.style.opacity = '0.3';
     if (!el.parentElement.id) return;
