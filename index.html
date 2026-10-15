@@ -6521,7 +6521,7 @@ function renderSources(kpis) {
   function srcStats(rows, name, color) {
     const pris = rows.length;
     const shows = rows.filter(r => r.presence === 'Show').length;
-    const signes = rows.filter(r => r.result === 'Signé').length;
+    const signes = rows.filter(sdAConclu).length; // R1 de ce mois qui ont fini par signer : même règle que la tuile Closing (15 oct. 2026)
     const jj = sdAttenduPourRien(rows), base = jj.horsPeriode ? pris : shows + jj.total;
     const nosho = jj.horsPeriode ? rows.filter(r => r.presence === 'No Show' || r.presence === 'Annulé' || r.presence === 'Reprogrammé').length : jj.total;
     const avance = pris - base;
@@ -9789,12 +9789,12 @@ function renderKpis(kpis) {
   }
 
   // Closing par type
-  const signesMand = mandRows.filter(r => r.result === 'Signé').length;
-  const signesAg = agRows.filter(r => r.result === 'Signé').length;
+  const signesMand = mandRows.filter(sdAConclu).length; // même règle que la tuile Closing : R1 du mois qui ont fini par signer
+  const signesAg = agRows.filter(sdAConclu).length;
   const showsMand = mandRows.filter(r => r.presence === 'Show').length;
   const showsAg = agRows.filter(r => r.presence === 'Show').length;
 
-  const cmEl = document.getElementById('closing-mand'); if (cmEl) cmEl.title = 'signés / shows, R1 du mois de ce type (même base que le Total RDV)';
+  const cmEl = document.getElementById('closing-mand'); if (cmEl) cmEl.title = 'R1 du mois de ce type qui ont fini par signer / shows (même règle que la tuile Closing)';
   if (cmEl) cmEl.textContent = showsMand > 0
     ? Math.round(signesMand/showsMand*100) + '% ' + signesMand + '/' + showsMand
     : '0% 0/' + showsMand;
