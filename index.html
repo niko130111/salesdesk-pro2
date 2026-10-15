@@ -10242,9 +10242,10 @@ function renderPerfTop() {
   // commission : le total de la carte « Commission du mois » (primes comprises) quand il est affiché, sinon le calcul
   var comm = k.commission || 0; try { var t = (document.getElementById('commission-total') || {}).textContent || ''; var v = parseInt(t.replace(/[^\d]/g, ''), 10); if (!isNaN(v) && t.indexOf('€') >= 0) comm = v; } catch (e) {}
   // jours ouvrés du mois (fériés exclus), absences du mois en cours
-  var jOuv = (typeof getJoursOuvres === 'function') ? getJoursOuvres(state.month, state.year) : 22;
-  var abs = courant ? (_dailyAbsence || 0) : 0, jTrav = Math.max(1, jOuv - abs);
-  var OBJ = (state.targets && state.targets.ca) || 8000, obj = courant ? Math.round(OBJ * jTrav / Math.max(1, jOuv)) : OBJ;
+  var jOuv = (typeof getJoursOuvres === 'function') ? getJoursOuvres(state.month, state.year) : 22; // jours ouvrés écoulés (rythme)
+  var jOuvMois = (function() { var n = 0, dIM0 = new Date(yr, mIdx + 1, 0).getDate(); for (var d0 = 1; d0 <= dIM0; d0++) { var dd0 = new Date(yr, mIdx, d0); if (dd0.getDay() !== 0 && dd0.getDay() !== 6 && !(typeof rlFerie === 'function' && rlFerie(rlIso(dd0)))) n++; } return n || 22; })(); // jours ouvrés du mois entier, fériés exclus
+  var abs = courant ? (_dailyAbsence || 0) : 0, jTrav = Math.max(1, jOuvMois - abs);
+  var OBJ = (state.targets && state.targets.ca) || 8000, obj = courant ? Math.round(OBJ * jTrav / Math.max(1, jOuvMois)) : OBJ; // objectif ajusté sur le mois entier, comme le Quotidien (15 oct. 2026)
   var jRest = 0; if (courant) { var dIM = new Date(yr, mIdx + 1, 0).getDate(); for (var d = now.getDate(); d <= dIM; d++) { var dd = new Date(yr, mIdx, d), iso = rlIso(dd); if (dd.getDay() !== 0 && dd.getDay() !== 6 && !(typeof rlFerie === 'function' && rlFerie(iso))) jRest++; } var absPass = Math.min(abs, Math.max(0, jOuv - jRest)); jRest = Math.max(1, jRest - Math.max(0, abs - absPass)); }
   // cibles : combien de ventes, de shows et de RDV il faut pour l'objectif, d'après tes 3 derniers mois finis
   var s3 = (typeof getLast3FinishedMonthsStats === 'function') ? getLast3FinishedMonthsStats() : { commAvg: 0, closingRate: 0, showRate: 0 };
@@ -10369,11 +10370,11 @@ function renderDaily() {
 
   // Jours ouvrés totaux du mois
   var jOuv = 0;
-  for (var d=1; d<=dIM; d++) { if ([1,2,3,4,5].indexOf(new Date(now.getFullYear(),mIdx,d).getDay()) > -1) jOuv++; }
+  for (var d=1; d<=dIM; d++) { var _dj = new Date(now.getFullYear(),mIdx,d); if ([1,2,3,4,5].indexOf(_dj.getDay()) > -1 && !(typeof rlFerie === 'function' && rlFerie(rlIso(_dj)))) jOuv++; } // fériés exclus (règle du projet)
 
   // Jours ouvrés restants (aujourd'hui inclus)
   var jOuvRest = 0;
-  for (var dr=now.getDate(); dr<=dIM; dr++) { if ([1,2,3,4,5].indexOf(new Date(now.getFullYear(),mIdx,dr).getDay()) > -1) jOuvRest++; }
+  for (var dr=now.getDate(); dr<=dIM; dr++) { var _dr = new Date(now.getFullYear(),mIdx,dr); if ([1,2,3,4,5].indexOf(_dr.getDay()) > -1 && !(typeof rlFerie === 'function' && rlFerie(rlIso(_dr)))) jOuvRest++; }
 
   // Absences restantes
   var absPast    = Math.min(_dailyAbsence, Math.max(0, jOuv-jOuvRest));
