@@ -12863,10 +12863,22 @@ function sdResultatJour(mk, idx, nom, iso, heure) {
     + (aVenir ? '' : B('rj-noshow', '👻 No show', 'il n\'est pas venu : ligne en No Show, statut Close, puis tâche de rappel au lendemain, rien, ou perdu', 'var(--red)'))
     + B('rj-annule', '✖ Annulé', 'il a annulé : rappel à une date, reprogrammer, ou rien ; Calendly et Close mis à jour')
     + B('rj-repro', '🔄 Reprogrammé', 'tu choisis le nouveau créneau, la ligne passe en Reprogrammé')
+    + B('rj-suppr', '🗑 Supprimer ce RDV', 'retiré de SalesDesk et de toutes tes stats (RDV pris par erreur, doublon, pas à toi) · Calendly et Close ne bougent pas · sauvegarde faite avant', 'var(--text3)')
     + '<div style="text-align:right;margin-top:12px;"><button class="btn btn-sm" onclick="fermerModalDoublon()">Fermer</button></div></div>';
   if (!aVenir) { document.getElementById('rj-show').onclick = function() { fermerModalDoublon(); sdApresRdvPour(nom, iso); }; document.getElementById('rj-noshow').onclick = function() { fermerModalDoublon(); setTimeout(function() { sdNoShowDepuisJour(mk, idx, { retour: function() { sdResultatRdv(mk, idx); } }); }, 150); }; }
   document.getElementById('rj-annule').onclick = function() { fermerModalDoublon(); setTimeout(function() { sdAnnulationChoix({ nom: nom, iso: iso, heure: heure || '', mk: mk, idx: idx, motif: 'rdv annulé (aujourd\'hui)', retour: function() { sdResultatRdv(mk, idx); }, apres: function() { try { renderAujourdhui(); } catch (e) {} } }); }, 150); };
   document.getElementById('rj-repro').onclick = function() { fermerModalDoublon(); try { sdDeplacerAnnuler(nom, iso, heure || ''); } catch (e) { alert('Déplacement impossible : ' + e.message); } };
+  document.getElementById('rj-suppr').onclick = function() { sdSupprimerRdvLigne(mk, idx, nom, iso); };
+}
+// 16 oct. 2026 : suppression d'un RDV depuis la fenêtre Résultat (fiche, Aujourd'hui, tableau) — même chemin que la corbeille du tableau : sauvegarde, mémoire « supprimé » (Calendly ne le recrée pas), ligne retirée, stats recalculées
+function sdSupprimerRdvLigne(mk, idx, nom, iso) {
+  var st = loadStore(), row = (st[mk] || [])[idx]; if (!row) { fermerModalDoublon(); return; }
+  var r2 = row.source === 'R2' ? '' : (row.dateR2 ? ' (et son R2 du ' + row.dateR2 + ')' : '');
+  if (!confirm('Supprimer le RDV de ' + nom + ' du ' + fcFrDepuisIso(iso) + r2 + ' ?\n\nIl disparaît de SalesDesk et de toutes tes stats. Calendly et Close ne sont pas touchés. Une sauvegarde est faite avant.')) return;
+  if (typeof sdBackupStore === 'function') sdBackupStore(st);
+  marquerSupprime(st, row); st[mk].splice(idx, 1); saveStore(st); fermerModalDoublon();
+  try { _auj.calEtat = {}; _auj.cal = {}; } catch (e) {} try { refreshAll(); } catch (e) {} try { renderAujourdhui(); } catch (e) {} try { if (typeof renderRdvTable === 'function') renderRdvTable(); } catch (e) {}
+  if (typeof showCopyToast === 'function') showCopyToast('🗑 ' + nom + ' : RDV du ' + fcFrDepuisIso(iso) + ' supprimé de SalesDesk (hors stats) · sauvegarde faite');
 }
 // ── Bouton « No show » dans Mes rendez-vous : fenêtre tâche de rappel (2 jours ouvrés par défaut, date libre) ou ne rien faire ; dans les deux cas la ligne passe en No Show et Close est mis à jour ──
 function sdNoShowDepuisJour(mk, idx, opts) {
