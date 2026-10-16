@@ -3152,7 +3152,7 @@ tell application "System Events" to keystroke "d" using {command down, shift dow
 <div class="modal-overlay" id="supaLoginModal">
   <div class="modal">
     <div class="modal-title">🔐 Connexion Supabase</div>
-    <div style="background:var(--accent-bg);border-radius:var(--radius);padding:12px 14px;margin-bottom:16px;font-size:12px;color:var(--accent);">Compte créé dans Supabase → Authentication → Users. Le mot de passe n'est jamais enregistré ici, seule la session l'est.</div>
+    <div style="background:var(--accent-bg);border-radius:var(--radius);padding:12px 14px;margin-bottom:16px;font-size:12px;color:var(--accent);">Ta sauvegarde en ligne est protégée : connecte-toi avec le compte SalesDesk (e-mail + mot de passe choisi le 16 oct. 2026). Le mot de passe n'est jamais enregistré ici, seule la session l'est.</div>
     <div class="form-group"><label class="form-label">Email</label><input type="email" class="form-input" id="supa-email" placeholder="nicolas.lapeyre@realadvisor.com" autocomplete="username"></div>
     <div class="form-group"><label class="form-label">Mot de passe</label><input type="password" class="form-input" id="supa-password" autocomplete="current-password" onkeydown="if(event.key==='Enter')supaLoginDepuisModal()"></div>
     <div id="supa-login-status" style="font-size:12px;color:var(--red);min-height:16px;"></div>
@@ -3338,7 +3338,7 @@ async function supaAuthRequise(status) {
 }
 function majEtatCompteSupa(msg) {
   const el = document.getElementById('supa-compte-etat'); if (!el) return;
-  el.textContent = msg || (_supaAccess ? '✅ Connecté : ' + (_supaEmail || 'compte Supabase') : 'Non connecté — la table est accessible avec la clé publique tant que la RLS n\'est pas activée.');
+  el.textContent = msg || (_supaAccess ? '✅ Connecté : ' + (_supaEmail || 'compte Supabase') : 'Non connecté — connexion requise pour lire et sauvegarder (table protégée depuis le 16 oct. 2026).');
   const bIn = document.getElementById('supa-btn-login'), bOut = document.getElementById('supa-btn-logout');
   if (bIn) bIn.style.display = _supaAccess ? 'none' : ''; if (bOut) bOut.style.display = _supaAccess ? '' : 'none';
 }
@@ -3350,8 +3350,18 @@ async function supaLoginDepuisModal() {
   try { await supaLogin(email, pwd); document.getElementById('supa-password').value = ''; st.textContent = ''; closeModal('supaLoginModal'); initFromSupabase(); }
   catch (e) { st.textContent = '⚠️ ' + e.message; }
 }
-// au démarrage : reprendre la session si un refresh existe
-supaRefresh().then(function(){ majEtatCompteSupa(); });
+// au démarrage : reprendre la session si un refresh existe (le chargement initial l'attend : sinon il lirait le cloud sans session)
+var _supaPret = supaRefresh().then(function(){ majEtatCompteSupa(); }).catch(function() {});
+var _sdConnexionRequise = false; // 16 oct. 2026 : la table est protégée (RLS) ; sans session, Supabase renvoie une liste vide, pas une erreur
+// Réponse vide sans session = connexion requise : on tente le refresh, sinon on ouvre la fenêtre de connexion. true = une session existe maintenant.
+async function supaSessionRequise() {
+  if (_supaAccess) return true;
+  if (await supaRefresh()) return true;
+  _sdConnexionRequise = true; setSyncStatus('error'); _syncErreur = true;
+  majEtatCompteSupa('⚠️ Connexion requise : la sauvegarde en ligne est protégée');
+  if (document.getElementById('supaLoginModal')) openModal('supaLoginModal');
+  return false;
+}
 
 // Indicateur de statut sync dans la nav
 // FIX SD-15 : l'indicateur existe en 3 exemplaires (un par en-tête). getElementById
@@ -3369,13 +3379,14 @@ function setSyncStatus(status) {
 // Garde anti-écrasement (11 oct. 2026, après un store cloud écrasé par un appareil resté sur des données du 9 oct.) :
 // avant chaque écriture on relit l'horodatage du cloud ; s'il a été réécrit par un autre appareil depuis notre dernier chargement,
 // ou si notre chargement initial avait échoué, on n'écrase pas — on prévient et on demande de recharger.
-async function sdCloudConflit(data) {
+async function sdCloudConflit(data, _retry) {
   try {
     const lire = function() { return fetch(SUPA_URL + '/rest/v1/' + SUPA_TABLE + '?id=eq.' + SUPA_ID + '&select=data->>_lastWrite', { headers: supaAuthHeaders() }); };
     let res = await lire();
     if ((res.status === 401 || res.status === 403) && await supaAuthRequise(res.status)) res = await lire();
     if (!res.ok) { setSyncStatus('error'); _syncErreur = true; return true; } // cloud illisible : on n'écrit pas à l'aveugle
     const rows = await res.json(); const distant = (rows && rows[0] && rows[0]._lastWrite) || '';
+    if (Array.isArray(rows) && !rows.length) { if (!_retry && await supaSessionRequise()) return sdCloudConflit(data, true); setSyncStatus('error'); _syncErreur = true; return true; } // ligne invisible sans session : on n'écrit pas
     if (!distant || distant === _sdCloudVu || distant === data._lastWrite) return false;
     if (_sdCloudVu !== null && distant < _sdCloudVu) return false;
     console.warn('[sync] écriture bloquée : le cloud a été réécrit ailleurs (' + distant + '), dernier vu ici : ' + _sdCloudVu);
@@ -3392,13 +3403,15 @@ async function supabaseSave(data, _retry) {
     // Garde du 13 oct. 2026 : rien ne part vers le cloud avant le chargement initial (un appareil resté sur de vieilles données les y poussait).
     if (_sdChargementInitial) return false;
     if (!_retry && await sdCloudConflit(data)) return false;
-    const res = await fetch(SUPA_URL + '/rest/v1/' + SUPA_TABLE + '?id=eq.' + SUPA_ID, {
+    const res = await fetch(SUPA_URL + '/rest/v1/' + SUPA_TABLE + '?id=eq.' + SUPA_ID + '&select=id', {
       method: 'PATCH',
-      headers: Object.assign({ 'Content-Type': 'application/json', 'Prefer': 'return=minimal' }, supaAuthHeaders()),
+      headers: Object.assign({ 'Content-Type': 'application/json', 'Prefer': 'return=representation' }, supaAuthHeaders()), // la réponse dit combien de lignes ont été écrites : 0 = pas connecté (RLS), pas « sauvegardé »
       body: JSON.stringify({ data: data, updated_at: new Date().toISOString() })
     });
     if ((res.status === 401 || res.status === 403) && !_retry && await supaAuthRequise(res.status)) return supabaseSave(data, true);
     if (!res.ok) throw new Error('PATCH failed ' + res.status);
+    let ecrites = null; try { ecrites = await res.json(); } catch (e) {}
+    if (Array.isArray(ecrites) && !ecrites.length) { if (!_retry && await supaSessionRequise()) return supabaseSave(data, true); setSyncStatus('error'); _syncErreur = true; return false; }
     _sdCloudVu = data._lastWrite || _sdCloudVu;
     sdBaseCloud(data._lastWrite || '');
     setSyncStatus('saved');
@@ -3418,9 +3431,10 @@ async function supabaseLoad(_retry) {
     if (!res.ok) throw new Error('GET failed ' + res.status);
     const rows = await res.json();
     if (rows && rows[0] && rows[0].data && Object.keys(rows[0].data).length > 0) {
-      setSyncStatus('saved');
+      _sdConnexionRequise = false; setSyncStatus('saved');
       return rows[0].data;
     }
+    if (Array.isArray(rows) && !rows.length && !_retry) { if (await supaSessionRequise()) return supabaseLoad(true); return null; } // ligne invisible = pas connecté (RLS), pas un cloud vide
     setSyncStatus('saved');
     return null;
   } catch(e) {
@@ -3873,8 +3887,10 @@ async function initFromSupabase() {
 }
 async function sdInitFromSupabase() {
   var cloudData = null;
+  try { await _supaPret; } catch (e) {} // la session reprise avant de lire le cloud
   try { cloudData = await supabaseLoad(); } finally { if (!_sdDonneesPretes) { _sdDonneesPretes = true; try { refreshAll(); } catch (e) {} } }
   _sdCloudVu = cloudData ? (cloudData._lastWrite || '') : null;
+  if (_sdConnexionRequise && !cloudData) return; // pas de session : rien ne part vers le cloud tant qu'on n'est pas connecté (la fenêtre de connexion est ouverte)
   if (!cloudData || Object.keys(cloudData).length === 0) { _sdChargementInitial = false; return; }
   let local = {};
   try { local = JSON.parse(localStorage.getItem('salesdesk_rdvs') || '{}'); } catch(e) { local = {}; }
