@@ -3698,7 +3698,7 @@ function sdTunnelMois(rows) {
 // Tunnel moyen des 3 derniers mois finis (même définition), pour la ligne de repère
 function sdTunnel3Mois() {
   var now = new Date(), st = loadStore(), acc = { pris: 0, base: 0, shows: 0, r2Pris: 0, r2Tenus: 0, signes: 0, nonSignes: 0, suites: 0, mois: 0 };
-  for (var i = 1; i <= 3; i++) { var d = new Date(now.getFullYear(), now.getMonth() - i, 1), k = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); var rows = st[k] || []; if (!rows.length) continue; var u = sdTunnelMois(rows); acc.mois++; ['pris', 'base', 'shows', 'r2Pris', 'r2Tenus', 'signes', 'nonSignes', 'suites'].forEach(function(c) { acc[c] += u[c]; }); }
+  for (var i = 1; i <= 3; i++) { var d = new Date(now.getFullYear(), now.getMonth() - i, 1), k = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); var rows = (st[k] || []).filter(function(r) { return !(r && sdEstDemo(r.client, r.email)); }); if (!rows.length) continue; var u = sdTunnelMois(rows); acc.mois++; ['pris', 'base', 'shows', 'r2Pris', 'r2Tenus', 'signes', 'nonSignes', 'suites'].forEach(function(c) { acc[c] += u[c]; }); }
   return acc;
 }
 // Non tenus le jour J : no-show, plus les annulations et les reprogrammations faites le jour même du RDV (heure connue, lue en heure de Paris). R1 seulement.
@@ -3958,6 +3958,9 @@ function getRdvs(month, year) {
   const store = loadStore();
   return store[monthKey(month, year)] || [];
 }
+
+// Lignes d'un mois pour les statistiques : sans les RDV de démonstration (« Demo … », @exemple.fr). Le tableau des RDV et les modifications gardent getRdvs (index des lignes).
+function getRdvsStats(month, year) { return getRdvs(month, year).filter(function(r) { return !(r && sdEstDemo(r.client, r.email)); }); }
 
 function setRdvs(month, year, rows) {
   const store = loadStore();
@@ -4586,6 +4589,7 @@ function fcTerminerConfiguration(btn) { // clôture la tâche Close « Configure
   var marquer = function() { try { var st = loadStore(), r = (st[signe._monthKey] || [])[signe._storeKey]; if (r) { r.configureAt = new Date().toISOString(); if (!r.onboardingAt) r.onboardingAt = r.configureAt; saveStore(st); signe.configureAt = r.configureAt; signe.onboardingAt = r.onboardingAt; } } catch (e) {} };
   var finir = function(txt) { marquer(); fermerModalDoublon(); if (typeof showCopyToast === 'function') showCopyToast(txt); try { fcRendre(); } catch (e) {} try { refreshAll(); } catch (e) {} try { if (typeof renderRelancesPage === 'function') renderRelancesPage(); } catch (e) {} };
   if (typeof COPILOT_URL === 'undefined') { finir('✓ Client configuré (copilot éteint : la tâche Close reste à clôturer à la main)'); return; }
+  if (sdEstDemo(_fc.nom, _fc.email)) { finir('✓ Client configuré (démo : rien n\'est écrit dans Close)'); return; }
   rlPost('/close/onboarding/terminer', { lead: lead, nom: _fc.nom, email: _fc.email || '' }).then(function(j) {
     var ids = (j.terminees || []).map(function(t) { return t.id; }); try { if (_tachesClose && _tachesClose.taches) _tachesClose.taches = _tachesClose.taches.filter(function(t) { return ids.indexOf(t.id) < 0; }); } catch (e) {}
     finir('✓ Client configuré' + (ids.length ? ' · tâche Close « ' + String((j.terminees[0] || {}).texte || 'Configurer').slice(0, 40) + ' » clôturée' : ' · aucune tâche Close « Configurer » ouverte'));
@@ -4686,16 +4690,17 @@ function fcRepondreMail(objet, texte) {
 function fcOnboarding() {
   var last = _fc.rows.filter(function(r) { return r.result === 'Signé' && r.source !== 'R2'; })[0] || _fc.rows[0] || {}; if (!last.client) return;
   var lead = ''; try { lead = _fc.leadChoisi || sdLeadPour(_fc.nom, _fc.email || '') || ((_fc.close && _fc.close.leads && _fc.close.leads[0]) || {}).id || ''; } catch (e) {}
+  var demoOb = sdEstDemo(_fc.nom, _fc.email); if (demoOb) lead = ''; // client de démonstration (16 oct. 2026) : rien n'est lu sur une fiche ni écrit dans Close
   var ov = document.getElementById('fc-dup-overlay');
   if (!ov) { ov = document.createElement('div'); ov.id = 'fc-dup-overlay'; ov.className = 'modal-overlay'; ov.style.zIndex = '1300'; ov.innerHTML = '<div class="modal" id="fc-dup-modal"></div>'; document.body.appendChild(ov); }
   ov.onclick = function(ev) { if (ev.target === ov) fermerModalDoublon(); }; ov.classList.add('open'); document.getElementById('fc-dup-modal').style.width = 'min(680px, 94vw)'; fcPlacerAGauche(ov, 680); // à gauche de la fiche, plus large que le cadre standard : elle reste lisible pendant la configuration
   var m = document.getElementById('fc-dup-modal'); m.innerHTML = '<div class="fc-dup"><div style="font-size:15px;font-weight:700;">🚀 Onboarding — ' + escapeHtml(_fc.nom) + '</div><div class="fc-muted" style="margin-top:8px;">Lecture de Close (champs, opportunité, vidéo du R1)…</div></div>';
   if (typeof COPILOT_URL === 'undefined') { m.innerHTML = '<div class="fc-dup">Copilot éteint : l\'onboarding écrit dans Close via le copilot.<div style="margin-top:10px;text-align:right;"><button class="btn btn-sm" onclick="fermerModalDoublon()">Fermer</button></div></div>'; return; }
   var pChamps = fetch(COPILOT_URL + '/close/onboarding/champs?' + new URLSearchParams(lead ? { lead: lead } : {}), { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); });
-  var pClaap = fetch(COPILOT_URL + '/close/dernier-contact?' + new URLSearchParams(Object.assign({ rapide: '1' }, lead ? { lead: lead } : Object.assign({ nom: _fc.nom, email: _fc.email || '' }, fcTelConnu() ? { tel: fcTelConnu() } : {}))), { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).catch(function() { return {}; });
+  var pClaap = demoOb ? Promise.resolve({ journal: [{ claap: 'https://app.claap.io/realadvisor/demo-onboarding', at: rlIso(new Date()) }] }) : fetch(COPILOT_URL + '/close/dernier-contact?' + new URLSearchParams(Object.assign({ rapide: '1' }, lead ? { lead: lead } : Object.assign({ nom: _fc.nom, email: _fc.email || '' }, fcTelConnu() ? { tel: fcTelConnu() } : {}))), { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).catch(function() { return {}; });
   Promise.all([pChamps, pClaap]).then(function(res) {
     var J = res[0] || {}, j = res[1] || {}; if (J.ok === false) throw new Error(J.error || 'champs illisibles');
-    var defs = (J.champs || []).filter(function(d) { return !/^7\.[234]/.test(d.nom); }), opp = J.opportunite || null, deja = (opp && opp.custom) || {};
+    var defs = (J.champs || []).filter(function(d) { return !/^7\.[234]/.test(d.nom); }), opp = J.opportunite || (demoOb ? { id: '', statut: 'Won (démo)', valeur: '€2 990', custom: {} } : null), deja = (opp && opp.custom) || {};
     var defsLead = J.champsLead || [], dejaLead = (J.lead && J.lead.custom) || {};
     var claap = ''; try { var jr = ((j && j.journal) || []).filter(function(a) { return a.claap; }), isoR1 = frVersIsoSd(last.date) || ''; var duR1 = jr.find(function(a) { return String(a.at || '').slice(0, 10) === isoR1; }); var plusAncien = jr.slice().sort(function(a, b) { return String(a.at).localeCompare(String(b.at)); })[0]; claap = (duR1 || plusAncien || {}).claap || ''; } catch (e2) {}
     var pack = String(last.pack || ''), plan = /expert/i.test(pack) ? 'Expert+' : /pro/i.test(pack) ? 'Pro+' : /start/i.test(pack) ? 'Start+' : '', tierN = (/(\d)/.exec(String(last.tier || '')) || [])[1] || '', fmsOffert = String(last.fms || '').toLowerCase() === 'offert';
@@ -4729,6 +4734,7 @@ function fcOnboarding() {
       + '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px;"><button class="btn btn-sm" onclick="fermerModalDoublon()">Fermer</button><button class="btn btn-sm btn-primary" id="ob-ok"' + (opp ? '' : ' disabled') + '>Écrire dans Close</button></div></div>';
     fcOnboardingDependances();
     document.getElementById('ob-ok').onclick = function() {
+      if (demoOb) { try { var stD = loadStore(), rD = (stD[last._monthKey] || [])[last._storeKey]; if (rD) { rD.onboardingAt = new Date().toISOString(); saveStore(stD); last.onboardingAt = rD.onboardingAt; } } catch (e) {} fermerModalDoublon(); if (typeof showCopyToast === 'function') showCopyToast('✓ Opportunité Close mise à jour (démo : rien n\'est écrit dans Close)'); try { fcRendre(); } catch (e) {} return; }
       var b = this; b.disabled = true; b.textContent = 'Écriture…'; var champs = {}, champsLead = {};
       var collecter = function(defsX, cible) { defsX.forEach(function(d) { var boite = m.querySelector('[data-dep="' + (/^6\.1/.test(d.nom) ? 'Prospection Map' : /^6\.2/.test(d.nom) ? 'CMA' : /^6\.3/.test(d.nom) ? 'Valuation Widget' : '') + '"]'); if (d.type === 'choices' && d.multi) cible[d.nom] = Array.prototype.map.call(m.querySelectorAll('input[type=checkbox][data-champ="' + d.nom + '"]:checked'), function(c) { return c.value; }); else { var e = document.getElementById(idDe(d.nom)); var cache = e && e.closest('[data-dep]') && e.closest('[data-dep]').getAttribute('data-dep') && e.closest('[data-dep]').style.display === 'none'; cible[d.nom] = (e && !cache) ? String(e.value || '').trim() : ''; } }); }; collecter(defs, champs); collecter(defsLead, champsLead);
       rlPost('/close/onboarding', { lead: lead, nom: _fc.nom, email: _fc.email || '', opportunite: opp ? opp.id : '', champs: champs, champsLead: champsLead }).then(function(jj) {
@@ -6460,7 +6466,7 @@ function renderDeals() {
 // Rendez-vous (vécus + non vécus le jour J ; avant mai 2026, tous les R1 traités). Les outbound « pris ce mois » (date de prise) servent
 // à l'objectif outbound, pas ici : ici tout doit s'additionner au Total RDV. (Nicolas, 11 oct. 2026)
 function renderSources(kpis) {
-  const rowsMois = getRdvs(state.month, state.year).filter(r => r.source !== 'R2' && /^(Show|No Show|Annulé|Reprogrammé)$/.test(String(r.presence || '').trim()));
+  const rowsMois = getRdvsStats(state.month, state.year).filter(r => r.source !== 'R2' && /^(Show|No Show|Annulé|Reprogrammé)$/.test(String(r.presence || '').trim()));
   function srcStats(rows, name, color) {
     const pris = rows.length;
     const shows = rows.filter(r => r.presence === 'Show').length;
@@ -9267,7 +9273,7 @@ function sdAConclu(r) { return !!r && r.source !== 'R2' && String(r.presence || 
 // sans date de signature, la vente reste au mois du R1. Une seule définition pour toutes les pages.
 function sdVentesDuMois(monthKey, store) {
   const out = [];
-  try { const st = store || loadStore(); Object.keys(st).forEach(k => { if (!/^\d{4}-\d{2}$/.test(k) || !Array.isArray(st[k])) return; st[k].forEach(r => { if (!r || r.result !== 'Signé' || r.source === 'R2') return; const p = String(r.dateSignature || '').split('/'); const ms = p.length === 3 ? p[2] + '-' + String(p[1]).padStart(2, '0') : k; if (ms === monthKey) out.push(r); }); }); } catch (e) {}
+  try { const st = store || loadStore(); Object.keys(st).forEach(k => { if (!/^\d{4}-\d{2}$/.test(k) || !Array.isArray(st[k])) return; st[k].forEach(r => { if (!r || r.result !== 'Signé' || r.source === 'R2' || sdEstDemo(r.client, r.email)) return; const p = String(r.dateSignature || '').split('/'); const ms = p.length === 3 ? p[2] + '-' + String(p[1]).padStart(2, '0') : k; if (ms === monthKey) out.push(r); }); }); } catch (e) {}
   return out;
 }
 function sdOutboundDuMois(monthKey) {
@@ -9287,7 +9293,7 @@ function sdOutboundDuMois(monthKey) {
   return { comptes: comptes, exclus: exclus };
 }
 function computeKpis(month, year) {
-  const rows = getRdvs(month, year);
+  const rows = getRdvsStats(month, year);
   const MONTHS_IDX = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
   const mNum = String(MONTHS_IDX.indexOf(month) + 1).padStart(2,'0');
   const monthKey = `${year}-${mNum}`;
@@ -9572,7 +9578,7 @@ function renderKpis(kpis) {
   // kpi-noshow et kpi-noshow-sub sont posés plus bas (carte « Non tenus le jour J »)
   // Détail No Show pour tooltip Analytics (mois courant, sans plancher)
   // ⚠️ Exclure les R2 pour ne refléter que les stats R1
-  const _rowsAna = getRdvs(state.month, state.year).filter(r => r.source !== 'R2');
+  const _rowsAna = getRdvsStats(state.month, state.year).filter(r => r.source !== 'R2');
   const _nsAna   = _rowsAna.filter(r => r.presence === 'No Show').length;
   const _anAna   = _rowsAna.filter(r => r.presence === 'Annulé').length;
   const _reAna   = _rowsAna.filter(r => r.presence === 'Reprogrammé').length;
@@ -9590,7 +9596,7 @@ function renderKpis(kpis) {
   set('kpi-signes', kpis.signes);
   set('kpi-closing', kpis.closing + '%');
   set('kpi-oneshot', kpis.hasOneShot ? (kpis.oneshot ?? '—') : '—');
-  const nbOsVide = compterOneShotSansCommission(getRdvs(state.month, state.year));
+  const nbOsVide = compterOneShotSansCommission(getRdvsStats(state.month, state.year));
   const osEl = document.getElementById('kpi-oneshot-warn');
   if (osEl) {
     osEl.style.display = nbOsVide > 0 ? '' : 'none';
@@ -9702,7 +9708,7 @@ function renderCommission(kpis) {
   const isBefore = yr < 2026 || (yr === 2026 && mIdx < 2);
   const isAfterFev = !isBefore;
 
-  const rows = getRdvs(state.month, state.year);
+  const rows = getRdvsStats(state.month, state.year);
   const mNum = String(mIdx + 1).padStart(2,'0');
   const monthKey = `${state.year}-${mNum}`;
 
@@ -9815,7 +9821,7 @@ function sdPerfVue() { try { return localStorage.getItem('sd_perf_vue') === 'cla
 function ckBasculerVue() { try { localStorage.setItem('sd_perf_vue', sdPerfVue() === 'cockpit' ? 'classique' : 'cockpit'); } catch (e) {} ckRangerDetails(sdPerfVue() === 'cockpit'); renderPerfTop(); }
 var _ck = { sel: '', appels: {}, ctx: null };
 function ckHtml(c) {
-  var k = c.k, eur = c.eur, u = sdTunnelMois(getRdvs(state.month, state.year)), ap = k.jourJ || sdAttenduPourRien([]);
+  var k = c.k, eur = c.eur, u = sdTunnelMois(getRdvsStats(state.month, state.year)), ap = k.jourJ || sdAttenduPourRien([]);
   var mk = c.yr + '-' + String(c.mIdx + 1).padStart(2, '0'), appels = (_closeAppels && _closeAppels.mois && _closeAppels.mois[mk]) ? _closeAppels.mois[mk] : null, outb = Array.isArray(k.outbound) ? k.outbound.length : 0;
   var pres = k.total ? Math.round(k.shows / k.total * 100) : null, suites = u.nonSignes ? Math.round(u.suites / u.nonSignes * 100) : null, OBJ = (state.targets && state.targets.ca) || 8000;
   var frais = ''; try { var lw = (loadStore()._lastWrite || ''); frais = 'SalesDesk ' + (lw ? new Date(lw).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—') + (_closeAppels && _closeAppels.maj ? ' · Close ' + new Date(_closeAppels.maj).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : ' · Close non chargé'); } catch (e) {}
@@ -9892,7 +9898,7 @@ function sdOutboundListe(quand) { // Aujourd'hui : liste derrière « Outbound x
     + (X.length ? '<div class="fc-muted" style="margin:14px 0 4px;font-weight:600;">Pris mais non comptés · ' + X.length + '</div>' + X.map(function(x) { return ligne(x.e, '<span class="pf-b mu" title="' + escapeHtml(({ 'déjà vu < 2 mois': 'Reprise : un RDV a déjà eu lieu ou était prévu avec cette personne il y a moins de 2 mois', 'doublon': 'Même e-mail déjà compté dans la période' }[x.raison] || (/^RDV avec /.test(x.raison) ? 'Un autre BDR a eu un RDV avec ce prospect il y a moins de 2 mois (lu dans Close) : pas un outbound' : 'Corrigé à la main (Aujourd\'hui ou onglet Outbound)'))) + '">' + escapeHtml(x.raison) + '</span>'); }).join('') : '') + '</div></div>';
 }
 function sdPerfListe(cle) {
-  var rows = getRdvs(state.month, state.year), k = computeKpis(state.month, state.year);
+  var rows = getRdvsStats(state.month, state.year), k = computeKpis(state.month, state.year);
   var r1 = rows.filter(function(r) { return r && r.source !== 'R2' && /^(Show|No Show|Annulé|Reprogrammé)$/.test(String(r.presence || '').trim()); });
   var iso = function(r) { return String(r.date || '').split('/').reverse().join('-'); };
   var jourJ = function(r) { return !!r.annuleLe && sdJourParis(r.annuleLe) === iso(r); };
@@ -9937,7 +9943,7 @@ function sdPerfListe(cle) {
 // Détail du mois (direction « Dalles », 11 oct. 2026) : cartes générées depuis les mêmes calculs — rendez-vous (barre tenus / no-show / annulés / déplacés / à l'avance),
 // ventes et deals, rythme et suivi, mandataires vs agences, sources. Les anciens blocs équivalents sont masqués en mode cockpit ; appels, commission (avec les primes) et historique restent.
 function ckDetailHtml(c) {
-  var k = c.k, s3 = c.s3 || {}, nb3 = s3.moisAvecDonnees || 0, rows = getRdvs(state.month, state.year), r1 = rows.filter(function(r) { return r.source !== 'R2' && /^(Show|No Show|Annulé|Reprogrammé)$/.test(String(r.presence || '').trim()); });
+  var k = c.k, s3 = c.s3 || {}, nb3 = s3.moisAvecDonnees || 0, rows = getRdvsStats(state.month, state.year), r1 = rows.filter(function(r) { return r.source !== 'R2' && /^(Show|No Show|Annulé|Reprogrammé)$/.test(String(r.presence || '').trim()); });
   var ap = k.jourJ || sdAttenduPourRien(r1), base = k.total || 0, pris = k.rdvPris || r1.length, u = sdTunnelMois(rows), defi = null; try { defi = sdAnnulesDefinitifs(r1); } catch (e) {}
   var pct = function(n, d) { return d ? Math.round(n / d * 100) : 0; }, P = function(n, d) { return d ? Math.round(n / d * 100) + ' %' : '—'; }, eur = function(n) { return Math.round(n || 0).toLocaleString('fr-FR') + ' €'; };
   var av = pris - base, moyTxt = function(v, u2) { return nb3 && v !== null && v !== undefined ? ' · moy. ' + v + (u2 || '') : ''; };
@@ -10004,7 +10010,7 @@ function ckChoisir(orb) {
 }
 function ckPct(a, b) { return b ? Math.round(a / b * 100) + ' %' : 'non disponible'; }
 function ckRendreSide() {
-  var side = document.getElementById('ck-side'), c = _ck.ctx; if (!side || !c) return; var k = c.k, u = sdTunnelMois(getRdvs(state.month, state.year)), ap = k.jourJ || sdAttenduPourRien([]), mk = c.yr + '-' + String(c.mIdx + 1).padStart(2, '0');
+  var side = document.getElementById('ck-side'), c = _ck.ctx; if (!side || !c) return; var k = c.k, u = sdTunnelMois(getRdvsStats(state.month, state.year)), ap = k.jourJ || sdAttenduPourRien([]), mk = c.yr + '-' + String(c.mIdx + 1).padStart(2, '0');
   var ind = function(ico, lab, v, s, p) { return '<div class="ck-ind"><div class="ico">' + ico + '</div><div class="bd"><div class="lab">' + lab + '</div><div class="v">' + v + '</div>' + (p !== null && p !== undefined ? '<div class="bar"><i style="width:' + Math.max(0, Math.min(100, p)) + '%"></i></div>' : '') + '<div class="s">' + s + '</div></div></div>'; };
   var r = function(lab, v, cls, def) { return '<div class="r' + (cls === 'tot' ? ' tot' : '') + '"><span>' + lab + (def ? '<div class="d">' + def + '</div>' : '') + '</span><b class="' + (cls && cls !== 'tot' ? cls : '') + '">' + v + '</b></div>'; };
   var ferme = '<button class="btn btn-sm" onclick="ckChoisir(\'\')" title="Fermer (Échap)">✕ Fermer</button>';
@@ -10031,7 +10037,7 @@ function ckRendreSide() {
     return;
   }
   if (_ck.sel === 'rdv') {
-    var pris = k.rdvPris || 0, av = (ap.annulesAvance || 0) + (ap.reprogAvance || 0), defi = null; try { defi = sdAnnulesDefinitifs(getRdvs(state.month, state.year).filter(function(x) { return x.source !== 'R2'; })); } catch (e) {}
+    var pris = k.rdvPris || 0, av = (ap.annulesAvance || 0) + (ap.reprogAvance || 0), defi = null; try { defi = sdAnnulesDefinitifs(getRdvsStats(state.month, state.year).filter(function(x) { return x.source !== 'R2'; })); } catch (e) {}
     side.innerHTML = '<div class="ck-card"><h3>📅 Rendez-vous ' + ferme + '</h3><div class="ck-det">'
       + r('RDV pris (R1 du mois)', pris, '', 'présence renseignée, annulations à l\'avance comprises')
       + r('Tenus ou attendus', k.total, 'tot', 'vécus + non vécus le jour J ; base de tous les taux')
@@ -10146,7 +10152,7 @@ function renderPerfTop() {
 }
 // Tunnel du mois : où ça coince (RDV pris, RDV tenus, closing), chaque étape avec son taux de passage et la moyenne des 3 derniers mois finis
 function pfTunnelHtml(k) {
-  var rows = getRdvs(state.month, state.year), u = sdTunnelMois(rows), m3 = null; try { m3 = sdTunnel3Mois(); } catch (e) {}
+  var rows = getRdvsStats(state.month, state.year), u = sdTunnelMois(rows), m3 = null; try { m3 = sdTunnel3Mois(); } catch (e) {}
   var MOIS = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'], mk = state.year + '-' + String(MOIS.indexOf(state.month) + 1).padStart(2, '0');
   var appels = (_closeAppels && _closeAppels.mois && _closeAppels.mois[mk]) ? (_closeAppels.mois[mk].sortants || 0) : null;
   var outbPris = Array.isArray(k.outbound) ? k.outbound.length : 0;
@@ -14119,7 +14125,7 @@ function getAllRdvs() {
   const all = [];
   Object.keys(store).forEach(key => {
     if (/^\d{4}-\d{2}$/.test(key)) {
-      (store[key] || []).forEach(r => all.push({ ...r, _storeKey: key }));
+      (store[key] || []).forEach(r => { if (!(r && sdEstDemo(r.client, r.email))) all.push({ ...r, _storeKey: key }); }); // sans les RDV de démonstration
     }
   });
   return all;
