@@ -1261,6 +1261,8 @@ nav #nav-more-dot, nav #nav-settings-dot { background: var(--sd-amber) !importan
 .fc-pre { white-space: pre-wrap; font-family: var(--font); font-size: 12.5px; background: var(--surface2); border-radius: 8px; padding: 8px 10px; max-height: 260px; overflow: auto; }
 .fc-notes { width: 100%; min-height: 220px; resize: vertical; font-family: var(--font); font-size: 13.5px; line-height: 1.5; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: #fffaf0; color: var(--text); box-sizing: border-box; }
 .fc-empty { color: var(--text3); font-style: italic; padding: 8px 0; }
+.btn.btn-prio, #fc-dup-overlay .btn.btn-prio, #fc-dup-overlay .btn.btn-prio:hover { color: var(--red); border-color: var(--red); background: var(--surface); font-weight: 700; } .btn.btn-prio.on, #fc-dup-overlay .btn.btn-prio.on, #fc-dup-overlay .btn.btn-prio.on:hover { background: var(--red); border-color: var(--red); color: #fff; } /* tâche prioritaire (16 oct. 2026) */
+.prio-tag { display: inline-block; font-size: 10.5px; font-weight: 800; letter-spacing: .03em; text-transform: uppercase; color: #fff; background: var(--red); border-radius: 999px; padding: 1px 7px; margin-right: 6px; vertical-align: 1px; }
 .fc-nomlien { cursor: pointer; } .fc-nomlien:hover { color: var(--accent); text-decoration: underline; }
 .fc-dup .fc-dup-item { display: block; width: 100%; text-align: left; border: 1px solid var(--border); background: var(--surface2); border-radius: var(--radius); padding: 10px 12px; margin-top: 8px; cursor: pointer; font-family: var(--font); font-size: 13px; }
 .fc-dup .fc-dup-item:hover { border-color: var(--accent); background: var(--accent-bg); }
@@ -5827,12 +5829,13 @@ function fcPopupSuivi(monthKey, idx, retourSiAnnule) {
 }
 // ⏰ Tâche Close depuis la fiche, quel que soit l'état du dossier : date, heure facultative, texte ; elle entre dans ton Suivi. S'il a déjà une tâche ouverte à ton nom, elle est déplacée (jamais en double).
 function fcTacheClose(ctx) { // ctx facultatif { nom, email, lead } : depuis le panneau du Suivi ; sinon la fiche ouverte
-  var c = ctx || { nom: _fc.nom, email: _fc.email || '', lead: _fc.leadChoisi || (_fc.rows || []).map(function(r) { return r.closeLead; }).find(Boolean) || '' }; window._fcTacheCtx = c;
+  var c = ctx || { nom: _fc.nom, email: _fc.email || '', lead: _fc.leadChoisi || (_fc.rows || []).map(function(r) { return r.closeLead; }).find(Boolean) || '' }; window._fcTacheCtx = c; window._fcTcPrioOn = false;
   var champ = 'font-family:var(--font);font-size:13.5px;padding:8px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg);color:var(--text);';
   var html = '<div class="fc-dup" style="width:min(460px,84vw);max-width:100%;box-sizing:border-box;"><div style="font-size:16px;font-weight:700;margin-bottom:2px;">⏰ Tâche Close — ' + escapeHtml(c.nom) + '</div><div class="fc-muted" style="margin-bottom:12px;">Elle apparaîtra dans ton Suivi à cette date. S\'il a déjà une tâche ouverte à ton nom, elle est déplacée.</div>'
     + '<div style="display:flex;gap:8px;margin-bottom:8px;"><input type="date" id="fc-tc-date" value="' + rlJourOuvre(rlIso(new Date()), 1) + '" min="' + rlIso(new Date()) + '" style="' + champ + 'flex:1;"><input type="time" id="fc-tc-heure" style="' + champ + 'width:110px;" title="Heure (facultatif)"></div>'
     + '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;"><button class="btn btn-sm" onclick="fcTcDate(1)">' + sdLibelleDemain(true) + '</button><button class="btn btn-sm" onclick="fcTcDate(2)">+2 j ouvrés</button><button class="btn btn-sm" onclick="fcTcDate(5)">+1 semaine</button><span style="width:10px"></span><button class="btn btn-sm" onclick="fcTcTexte(\'Rappeler\')">Rappeler</button><button class="btn btn-sm" onclick="fcTcTexte(\'Envoyer un mail\')">Envoyer un mail</button><button class="btn btn-sm" onclick="fcTcTexte(\'Relancer pour signature\')">Relancer pour signature</button></div>'
-    + '<input type="text" id="fc-tc-texte" value="Rappeler" style="' + champ + 'width:100%;box-sizing:border-box;margin-bottom:12px;" placeholder="Quoi faire">'
+    + '<input type="text" id="fc-tc-texte" value="Rappeler" style="' + champ + 'width:100%;box-sizing:border-box;margin-bottom:10px;" placeholder="Quoi faire">'
+    + '<div style="margin-bottom:12px;"><button type="button" class="btn btn-sm btn-prio" id="fc-tc-prio" onclick="fcTcPrio(this)" title="Elle passe en tête de Mes priorités et du Suivi dès son jour">Prioritaire</button></div>'
     + '<div style="display:flex;justify-content:flex-end;gap:6px;"><button class="btn btn-sm" style="margin-right:auto;" title="Tâche « Ghost Nicolas » pour Ludovic ou Eugénie dans Close, ta tâche est supprimée" onclick="sdTransmettre(window._fcTacheCtx)">' + aujIco('arrow') + 'Transmettre</button><button class="btn btn-sm" onclick="fermerModalDoublon()">Annuler</button><button class="btn btn-sm btn-primary" id="fc-tc-ok" onclick="fcTacheCloseCreer(this)">Créer la tâche</button></div></div>';
   var ov = document.getElementById('fc-dup-overlay');
   if (!ov) { ov = document.createElement('div'); ov.id = 'fc-dup-overlay'; ov.className = 'modal-overlay'; ov.style.zIndex = '1300'; ov.innerHTML = '<div class="modal" id="fc-dup-modal"></div>'; document.body.appendChild(ov); }
@@ -5840,6 +5843,7 @@ function fcTacheClose(ctx) { // ctx facultatif { nom, email, lead } : depuis le 
   document.getElementById('fc-dup-modal').innerHTML = html; ov.classList.add('open');
   setTimeout(function() { var e = document.getElementById('fc-tc-texte'); if (e) { e.focus(); e.select(); } }, 50);
 }
+function fcTcPrio(b) { var on = window._fcTcPrioOn = !window._fcTcPrioOn; b.classList.toggle('on', on); b.textContent = on ? '✓ Prioritaire' : 'Prioritaire'; b.style.setProperty('background', on ? 'var(--red)' : 'var(--surface)', 'important'); b.style.setProperty('color', on ? '#fff' : 'var(--red)', 'important'); b.style.setProperty('border-color', 'var(--red)', 'important'); }
 function fcTcDate(n) { var e = document.getElementById('fc-tc-date'); if (e) e.value = rlJourOuvre(rlIso(new Date()), n); }
 function fcTcTexte(t) { var e = document.getElementById('fc-tc-texte'); if (e) { e.value = t; e.focus(); } }
 function fcTacheCloseCreer(btn) {
@@ -5847,6 +5851,7 @@ function fcTacheCloseCreer(btn) {
   if (!date) { alert('Il manque la date.'); return; } btn.disabled = true; btn.textContent = 'Création…';
   var c = window._fcTacheCtx || Object.assign({ nom: _fc.nom, email: _fc.email || '' }, fcTelConnu() ? { tel: fcTelConnu() } : {}), lead = c.lead || sdLeadPour(c.nom, c.email || '') || '';
   rlPost('/close/taches', { nom: c.nom, email: c.email || '', lead: lead, date: date, heure: heure, texte: texte + '', motif: 'tâche posée depuis la fiche' }).then(function(j) {
+    try { if (window._fcTcPrioOn && j && j.tache && j.tache.id) { var stP = loadStore(); stP._tachesPrio = stP._tachesPrio || {}; stP._tachesPrio[j.tache.id] = { at: new Date().toISOString(), nom: c.nom, texte: texte, date: date }; saveStore(stP); } } catch (e) {} window._fcTcPrioOn = false; // tâche prioritaire : en tête de Mes priorités et du Suivi
     fermerModalDoublon(); try { _tachesCloseAt = 0; } catch (e) {} try { majBadgeSuivi(); } catch (e) {}
     // s'il a aussi une relance SalesDesk (ex. « R2 sans réponse depuis le 01/10 »), elle passe à la même date : sinon il restait dans « À traiter » malgré la tâche
     try { var itx = c.cle ? (window._rlItems || []).find(function(i) { return i.cle === c.cle; }) : (window._rlItems || []).find(function(i) { return i.rel && i.rel.r && fcNormNom(i.nom) === fcNormNom(c.nom); }); if (itx && itx.rel && itx.rel.r) rlMajRelance(itx, 'plus_tard', date); } catch (e) {}
@@ -13229,6 +13234,8 @@ function renderAujourdhui() {
     var ech = enRetard ? '<span class="late">en retard depuis le ' + escapeHtml(new Date(i.date + 'T12:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) + (h ? ' à ' + h : '')) + '</span>' : (h ? (arrivee ? '<span class="late">prévu à ' + escapeHtml(h) + '</span>' : 'à ' + escapeHtml(h)) : (estAuj ? 'aujourd\'hui' : 'ce jour'));
     var raison = [!estConfig(i) && !texteDe(i) ? LIBC[i.col] || '' : '', tent(i)].filter(Boolean).join(' · ');
     return { cle: 'tache|' + i.cle, titre: titreTache(i), det: '<a onclick="ouvrirFicheClient(' + Q(id.nom) + ',' + Q(id.email) + ',\'\',' + Q((i.t && i.t.lead) || '') + ')">' + escapeHtml(nomAff(id.nom)) + '</a> · ' + ech + (raison ? ' · ' + escapeHtml(raison) : ''), btn: boutonTache(i), rang: enRetard ? (i.col === 'r2' ? 0.5 : 1) : (h ? (arrivee ? 0 : 5) : (i.col === 'r2' ? 2 : (estConfig(i) ? 3 : 4))) }; }; // R2 sans réponse : avant les autres relances
+  // 16 oct. 2026 (Nicolas) : tâches marquées « Prioritaire » à leur création → en tête de Mes priorités dès leur jour
+  try { var prioT = st._tachesPrio || {}; items.filter(function(i) { return i.t && prioT[i.t.id] && i.date && i.date <= todayIso; }).sort(function(a, b) { return (a.date + hDe(a)).localeCompare(b.date + hDe(b)); }).forEach(function(i) { var pp = depuisTache(i, i.date < todayIso); pp.prio = true; pp.rang = -1000 + (pp.rang || 0) / 1000; ajoute(pp); }); } catch (e) {}
   try { (_smsList || []).filter(function(x) { return x.statut === 'a_valider'; }).forEach(function(x) { ajoute({ cle: 'smsav|' + x.id, titre: x.type === 'no_show' ? 'Valider le SMS après no-show' : 'Valider le SMS', det: sdNomLien(x.nom || '', x.email || '') + ' · en attente de ton clic, rien ne part sans', btn: { lib: 'Relire', on: 'sdPopupValiderSms(true)', titre: 'Relire, corriger, envoyer ou annuler' }, rang: 0 }); }); } catch (e) {}
   try { (_mailsAV || []).filter(function(x) { return x.statut === 'a_valider'; }).forEach(function(x) { ajoute({ cle: 'mailav|' + x.id, titre: 'Valider le ' + ({ mail_j3: 'mail J-3', mail_r1_jour: 'mail du jour du R1', mail_r2_jour: 'mail du jour du R2' }[x.type] || 'mail de prise de RDV'), det: sdNomLien(x.nom || '', x.email || '') + ' · avec le chiffre du CRM · en attente de ton clic', btn: { lib: 'Relire', on: 'sdPopupValiderMails(true)', titre: 'Il reste en brouillon dans Close tant que tu ne l\'as pas validé' }, rang: 0 }); }); } catch (e) {}
   try { var _an = st._annulations || {}; Object.keys(_an).forEach(function(u) { var x = _an[u]; if (x.vu || x.deplace) return;
@@ -13258,7 +13265,7 @@ function renderAujourdhui() {
   prios.sort(function(a, b) { return a.rang - b.rang; });
   var nbP = prios.length, visibles = _auj.prioTout ? prios : prios.slice(0, 3), attentes = apres.filter(function(x) { return x.attente; });
   document.getElementById('auj-prio-count').textContent = nbP;
-  var suivre = visibles.map(function(p) { return '<div class="auj-prio"><span class="ck" aria-hidden="true"></span><span class="bd"><div class="t">' + escapeHtml(p.titre) + '</div><div class="d">' + p.det + '</div></span><span class="act' + (p.btn && p.btn2 ? ' deux' : '') + '">' + [p.btn, p.btn2].filter(Boolean).map(function(b) { return '<button class="btn btn-sm" title="' + escapeHtml(b.titre || '') + '" onclick="' + b.on + '">' + escapeHtml(b.lib) + '</button>'; }).join('') + '</span></div>'; }).join('');
+  var suivre = visibles.map(function(p) { return '<div class="auj-prio"><span class="ck" aria-hidden="true"></span><span class="bd"><div class="t">' + (p.prio ? '<span class="prio-tag">Prioritaire</span>' : '') + escapeHtml(p.titre) + '</div><div class="d">' + p.det + '</div></span><span class="act' + (p.btn && p.btn2 ? ' deux' : '') + '">' + [p.btn, p.btn2].filter(Boolean).map(function(b) { return '<button class="btn btn-sm" title="' + escapeHtml(b.titre || '') + '" onclick="' + b.on + '">' + escapeHtml(b.lib) + '</button>'; }).join('') + '</span></div>'; }).join('');
   var autresRet = retard.filter(function(i) { return !estSign(i) && !estPrioRetard(i); }).length, autres = autresRet + dus.filter(function(i) { return !estSign(i) && !hDe(i); }).length;
   if (!nbP) suivre = '<div class="auj-empty" style="padding:8px 0;">' + (estAuj ? 'Rien d\'urgent pour l\'instant.' : 'Rien de prévu ce jour.') + (!_tachesClose || _tachesClose.error ? ' <span class="fc-muted">Tâches Close ' + (!_tachesClose ? 'en cours de lecture' : 'indisponibles') + ' : la liste peut être incomplète.</span>' : '') + '</div>';
   else if (_tachesClose && _tachesClose.error) suivre = '<div class="auj-etat" style="color:var(--sd-amber);margin:0 0 6px;">Tâches Close indisponibles : liste partielle (SalesDesk seul).</div>' + suivre;
@@ -13795,7 +13802,8 @@ function svRendreFile(items, today) {
   var vis = base.filter(function(it) { return !_sv.motif || it.col === _sv.motif || (_sv.motif === 'aclasser' && !M.some(function(m) { return m[0] === it.col; })); });
   // ordre d'appel : heure fixée d'abord (dans l'ordre des heures), puis par motif ; dans un motif, l'ordre de la vue Colonnes
   var rangM = function(it) { var i = M.findIndex(function(m) { return m[0] === motifDe(it); }); return i < 0 ? 9 : i; };
-  var ordre = vis.slice().sort(function(a, b) { var ha = (a.t && a.t.heure && a.date === today) ? a.t.heure : '', hb = (b.t && b.t.heure && b.date === today) ? b.t.heure : ''; if (ha || hb) return ha && hb ? ha.localeCompare(hb) : (ha ? -1 : 1); return rangM(a) - rangM(b) || vis.indexOf(a) - vis.indexOf(b); });
+  var prioS = (loadStore()._tachesPrio || {}), estPrio = function(x) { return !!(x.t && prioS[x.t.id]); }; // 16 oct. 2026 : tâches prioritaires en tête
+  var ordre = vis.slice().sort(function(a, b) { if (estPrio(a) !== estPrio(b)) return estPrio(a) ? -1 : 1; var ha = (a.t && a.t.heure && a.date === today) ? a.t.heure : '', hb = (b.t && b.t.heure && b.date === today) ? b.t.heure : ''; if (ha || hb) return ha && hb ? ha.localeCompare(hb) : (ha ? -1 : 1); return rangM(a) - rangM(b) || vis.indexOf(a) - vis.indexOf(b); });
   if (!ordre.some(function(it) { return it.cle === _sv.sel; })) _sv.sel = ordre.length ? ordre[Math.min(_sv.idx || 0, ordre.length - 1)].cle : '';
   _sv.idx = Math.max(0, ordre.findIndex(function(it) { return it.cle === _sv.sel; }));
   var sel = ordre.find(function(it) { return it.cle === _sv.sel; }) || null;
@@ -13808,8 +13816,9 @@ function svRendreFile(items, today) {
   // liste
   var liste = '', grp = null;
   ordre.forEach(function(it) {
-    var aHeure = it.t && it.t.heure && it.date === today, g = aHeure ? 'À heure fixée' : ((M.find(function(m) { return m[0] === motifDe(it); }) || [0, 'À classer'])[1]);
-    if (g !== grp) { grp = g; liste += '<div class="sv-grp"><span>' + g + '</span><span>' + ordre.filter(function(x) { var ax = x.t && x.t.heure && x.date === today; return (ax ? 'À heure fixée' : ((M.find(function(m) { return m[0] === motifDe(x); }) || [0, 'À classer'])[1])) === g; }).length + '</span></div>'; }
+    var grpDe = function(x) { if (estPrio(x)) return 'Prioritaire'; var ax = x.t && x.t.heure && x.date === today; return ax ? 'À heure fixée' : ((M.find(function(m) { return m[0] === motifDe(x); }) || [0, 'À classer'])[1]); };
+    var aHeure = it.t && it.t.heure && it.date === today, g = grpDe(it);
+    if (g !== grp) { grp = g; liste += '<div class="sv-grp"' + (g === 'Prioritaire' ? ' style="color:var(--red);"' : '') + '><span>' + g + '</span><span>' + ordre.filter(function(x) { return grpDe(x) === g; }).length + '</span></div>'; }
     var nb = (rlSuivi(it).tentatives || 0), ret = it.date < today;
     var quand = aHeure ? it.t.heure : (ret ? 'depuis le ' + it.date.split('-').reverse().slice(0, 2).join('/') : (it.date === today ? '' : it.date.split('-').reverse().slice(0, 2).join('/')));
     var raison = [svRaison(it), nb ? nb + ' appel' + (nb > 1 ? 's' : '') + ' sans réponse' : ''].filter(Boolean).join(' · ');
