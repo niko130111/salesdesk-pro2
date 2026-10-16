@@ -1492,7 +1492,7 @@ select.form-input { cursor: pointer; }
     </div>
     <div class="theme-pick" id="theme-pick" title="Thème"><button data-t="light" onclick="setTheme('light')" title="Clair">☀️</button><button data-t="dark" onclick="setTheme('dark')" title="Bleu nuit">🌙</button><button data-t="system" onclick="setTheme('system')" title="Suit le thème de l'appareil">Auto</button></div>
     <span class="sync-status" style="font-size:11px;font-weight:600;margin-left:8px;transition:color .3s;"></span>
-    <button class="btn btn-sm btn-primary" id="nav-nouveau-rdv" style="display:none" onclick="openModal('newRdvModal')" title="Enregistrer un RDV déjà passé ou pris hors Calendly">+ Saisir un RDV passé</button>
+    <button class="btn btn-sm btn-primary" id="nav-nouveau-rdv" style="display:none" onclick="openModal('newRdvModal')" title="Enregistrer un RDV déjà passé ou pris hors Calendly">+ Saisir un RDV</button>
     <div class="avatar" onclick="showPage('settings', document.querySelector('.nav-tab[data-page=settings]'))">N</div>
   </div>
 </nav>
@@ -1505,7 +1505,7 @@ select.form-input { cursor: pointer; }
       <div class="auj-head-actions">
         <div class="auj-nav"><button class="btn" title="Jour précédent" aria-label="Jour précédent" onclick="aujAller(-1)">‹</button><button class="btn" onclick="aujAller('auj')">Aujourd'hui</button><button class="btn" title="Jour suivant" aria-label="Jour suivant" onclick="aujAller(1)">›</button></div>
         <div class="auj-seg" id="auj-seg"><button class="on" onclick="aujVue('jour')">Jour</button><button onclick="aujVue('semaine')">Semaine</button></div>
-        <button class="btn" onclick="openModal('newRdvModal')" title="Enregistrer un RDV déjà passé ou pris hors Calendly. Un nouveau rendez-vous se prend dans Calendly.">+ Saisir un RDV passé</button>
+        <button class="btn" onclick="openModal('newRdvModal')" title="Enregistrer un RDV déjà passé ou pris hors Calendly. Un nouveau rendez-vous se prend dans Calendly.">+ Saisir un RDV</button>
       </div>
     </header>
     <div class="auj-ligne" id="auj-pilot"></div>
@@ -2356,7 +2356,7 @@ select.form-input { cursor: pointer; }
       <div style="font-size:11px;color:var(--text3);margin-top:2px;">Mois sélectionné · Intéressés, À relancer, Pas de budget, Si promo, Ghost : mois en cours + reliquat depuis mars 2026 · Pas intéressé et No Shows : mois en cours seulement</div>
     </div>
     <span class="sync-status" style="font-size:11px;font-weight:600;margin-left:8px;transition:color .3s;"></span>
-    <button class="btn btn-sm btn-primary" onclick="openModal('newRdvModal')" title="Enregistrer un RDV déjà passé ou pris hors Calendly">+ Saisir un RDV passé</button>
+    <button class="btn btn-sm btn-primary" onclick="openModal('newRdvModal')" title="Enregistrer un RDV déjà passé ou pris hors Calendly">+ Saisir un RDV</button>
   </div>
 
   <!-- Résumé rapide -->
@@ -2498,7 +2498,7 @@ select.form-input { cursor: pointer; }
     <div class="section-title">RDV — <span id="rdvtable-period">Avril 2026</span> <span style="font-size:10px;font-weight:400;color:var(--text3);text-transform:none;letter-spacing:0;">· Double-clic pour modifier une ligne</span></div>
     <div class="flex gap-8">
     <span class="sync-status" style="font-size:11px;font-weight:600;margin-left:8px;transition:color .3s;"></span>
-    <button class="btn btn-sm btn-primary" onclick="openModal('newRdvModal')" title="Enregistrer un RDV déjà passé ou pris hors Calendly">+ Saisir un RDV passé</button>
+    <button class="btn btn-sm btn-primary" onclick="openModal('newRdvModal')" title="Enregistrer un RDV déjà passé ou pris hors Calendly">+ Saisir un RDV</button>
     </div>
   </div>
 
@@ -2550,7 +2550,7 @@ select.form-input { cursor: pointer; }
       </thead>
       <tbody id="rdv-tbody"></tbody>
     </table>
-    <button class="add-row-btn" onclick="openModal('newRdvModal')">+ Saisir un RDV passé</button>
+    <button class="add-row-btn" onclick="openModal('newRdvModal')">+ Saisir un RDV</button>
   </div>
 </main>
 </div>
@@ -2966,7 +2966,7 @@ tell application "System Events" to keystroke "d" using {command down, shift dow
 <!-- NEW RDV MODAL -->
 <div class="modal-overlay" id="newRdvModal">
   <div class="modal">
-    <div class="modal-title">Saisir un RDV passé</div>
+    <div class="modal-title">Saisir un RDV</div>
     <div style="font-size:12.5px;color:var(--text2);margin:-6px 0 12px;line-height:1.45;">Pour <b>prendre</b> un rendez-vous, passe par Calendly (depuis la fiche : « Prendre un RDV ») : le prospect reçoit l'invitation et l'agenda suit. Cette fenêtre sert à <b>enregistrer</b> un rendez-vous déjà tenu ou pris hors Calendly, pour les statistiques et le suivi.</div>
     <div class="form-row">
       <div class="form-group">
@@ -6025,7 +6025,7 @@ function sdApresRdvPour(nom, date) { // date : jj/mm/aaaa ou aaaa-mm-jj ; sans d
       if (!st[mk]) st[mk] = []; st[mk].push(ligne);
       if (r1) { var o = (st[r1._monthKey] || [])[r1._storeKey]; if (o) { o.dateR2 = fr; if (ev.heure) o.heureR2 = ev.heure; if (!o.presenceR2 || o.presenceR2 === 'Programmé') o.presenceR2 = 'Programmé'; delete o.r2Attendu; } }
       saveStore(st); sdApresRdv(mk, st[mk].length - 1); return; }
-    if (ev) { if (typeof showCopyToast === 'function') showCopyToast('Ce RDV vient de Calendly sans ligne SalesDesk : enregistre-le avec « + Saisir un RDV passé »'); return; } }
+    if (ev) { if (typeof showCopyToast === 'function') showCopyToast('Ce RDV vient de Calendly sans ligne SalesDesk : enregistre-le avec « + Saisir un RDV »'); return; } }
   if (!r) { var today = new Date(); today.setHours(23, 59, 59, 0); r = rows.find(function(x) { var d = parseDateFR(x.date); return d && d <= today; }); }
   if (!r) { if (typeof showCopyToast === 'function') showCopyToast('Pas de ligne SalesDesk pour ' + nom + (fr ? ' le ' + fr : '') + ' — synchronise Calendly ou ajoute le RDV'); return; }
   sdApresRdv(r._monthKey, r._storeKey);
