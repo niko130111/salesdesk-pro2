@@ -4349,7 +4349,7 @@ function fcPlacerAGauche(ov, largeur) { // fenêtre à gauche de la fiche ouvert
 })();
 function sdRecentrerModal() { var m = document.getElementById('fc-dup-modal'); if (m) { m.style.transform = ''; delete m.dataset.dx; delete m.dataset.dy; } }
 function fermerModalDoublon() { try { sdRecentrerModal(); } catch (e) {} if (window._sdConfirmResolve) { var _r = window._sdConfirmResolve; window._sdConfirmResolve = null; try { _r(false); } catch (e) {} } try { var _o = document.getElementById('fc-dup-overlay'); if (_o) { _o.classList.remove('a-gauche'); delete _o.dataset.vd; if (_o.dataset.fiche) { delete _o.dataset.fiche; _o.style.paddingLeft = ''; var _p = document.querySelector('#fc-overlay .fc-panel'); if (_p) { _p.style.width = ''; _p.classList.remove('fc-etroite'); } } var _m = document.getElementById('fc-dup-modal'); if (_m) _m.style.width = ''; } } catch (e) {} var ov = document.getElementById('fc-dup-overlay'); if (ov) ov.classList.remove('open'); }
-function fermerModalPlusTard() { window._sdChaine = false; fermerModalDoublon(); }
+function fermerModalPlusTard() { window._sdChaine = false; window._sdRaisonSansMail = false; fermerModalDoublon(); }
 function fermerFicheClient() { document.getElementById('fc-overlay').classList.remove('open'); }
 function fcOnglet(t) { _fc.tab = t; fcRendre(); }
 function fcRendre() {
@@ -4655,6 +4655,8 @@ function fcBoutonsSuivi(it) {
     default: principal = [appeler, rdv(aujIco('cal') + 'Prendre un RDV', 'Tu choisis le créneau, je réserve dans Calendly', 'btn-primary'), tache]; plus = [sansRep, pasInt, mail, sms, mailSecteur, manager, transmettre, ficheClose, corriger, cloturer];
   }
   try { var mfB = sdMailsFinPour(it.nom || row.client || '').filter(function(m) { return m.statut === 'brouillon'; })[0]; if (mfB) principal.unshift(B('sdVoirMailFinR1(' + JSON.stringify(mfB.cle || (String(mfB.nom || '').toLowerCase() + '|' + mfB.date)).replace(/"/g, '&quot;') + ')', aujIco('mail') + 'Relire le mail', 'btn-primary', 'Mail de fin de RDV prêt dans Close : relis, modifie, envoie')); } catch (e) {} // un mail post-RDV pas envoyé passe devant tout le reste
+  // 16 oct. 2026 (Nicolas, Claire De la Forge) : après un appel, passer le dossier en « Non signé » avec sa raison (pas de budget, au RENT, si promo…) sans attendre un RDV
+  if (fcLignesDuNom(it.nom || row.client || '').some(function(r) { return r && r.source !== 'R2' && String(r.presence || '').trim() === 'Show' && r.result !== 'Signé'; })) plus.unshift(B('sdNonSigneFiche(' + nomJs + ')', aujIco('x') + 'Non signé (raison)', '', 'Pas de budget, à relancer au RENT, si promo… : son R1 passe en Non signé avec cette raison (colonne du Pipeline) ; ta tâche ne bouge pas'));
   // 16 oct. 2026 (Nicolas) : « Déplacer » à côté de « Tâche » quand une tâche Close est ouverte : change sa date, sans en recréer une
   if (it.t && copilot) { var deplacer = B('sdDeplacerTache(' + cleJs + ')', aujIco('refresh') + 'Déplacer', '', 'Change la date (et l\'heure) de la tâche Close, sans en recréer une'); var placee = false; [principal, plus].forEach(function(L) { var k = L.indexOf(tache); if (k >= 0 && !placee) { L.splice(k + 1, 0, deplacer); placee = true; } }); if (!placee) principal.push(deplacer); }
   principal = principal.filter(Boolean).map(function(b, i) { return i ? b.replace(' btn-primary', '') : b; }); plus = plus.filter(Boolean); // une seule action pleine : la première
@@ -6016,6 +6018,11 @@ function sdClasserEnChaine() {
   var m = document.getElementById('fc-dup-modal'); if (m) m.insertAdjacentHTML('afterbegin', '<div style="font-size:11px;color:var(--text3);margin-bottom:6px;">Reste ' + liste.length + ' · « Plus tard » arrête</div>');
 }
 function sdChaineSuite() { if (window._sdChaine) setTimeout(sdClasserEnChaine, 150); }
+function sdNonSigneFiche(nom) {
+  var r1 = fcLignesDuNom(nom).find(function(r) { return r.source !== 'R2' && String(r.presence || '').trim() === 'Show' && r.result !== 'Signé'; });
+  if (!r1) { alert('Pas de R1 tenu à passer en Non signé pour ' + nom + '.'); return; }
+  window._sdRaisonSansMail = true; fcPopupRaison(r1._monthKey, r1._storeKey); // décidé au téléphone, après le RDV : pas de nouveau mail de fin de RDV
+}
 function fcPopupRaison(monthKey, idx) {
   var store = loadStore(), r = (store[monthKey] || [])[idx]; if (!r) return;
   var choix = [['pasinteresse', '✗ Pas intéressé', 'var(--red)'], ['pasbudget', '💸 Pas de budget', 'var(--orange)'], ['promo', '💡 À relancer si promo', 'var(--purple)'], ['carte', '🗺️ À relancer carte de prospection', 'var(--orange)'], ['rent', '🏢 À relancer au RENT', 'var(--green)'], ['ghost', '🫥 Ghost après RDV', 'var(--text2)'], ['relancer', '🔁 Ancien RDV à relancer', 'var(--accent-blue)']];
@@ -6030,9 +6037,11 @@ function fcPopupRaison(monthKey, idx) {
 }
 function fcRaisonChoisir(monthKey, idx, raison) {
   var store = loadStore(), r = (store[monthKey] || [])[idx]; if (!r) return;
-  r.result = 'Non signé'; r.nosignRaison = raison; saveStore(store); fermerModalDoublon(); refreshAll();
+  var sansMail = !!window._sdRaisonSansMail; window._sdRaisonSansMail = false;
+  r.result = 'Non signé'; r.nosignRaison = raison; saveStore(store); fermerModalDoublon(); refreshAll(); try { if (document.querySelector('#fc-overlay.open')) fcRendre(); } catch (e) {}
+  if (sansMail && typeof showCopyToast === 'function') showCopyToast('✓ ' + r.client + ' : Non signé · ' + ({ pasinteresse: 'pas intéressé', pasbudget: 'pas de budget', promo: 'à relancer si promo', carte: 'carte de prospection', rent: 'à relancer au RENT' }[raison] || raison));
   if (raison === 'pasinteresse') sdStatutClose(r, 'pas_interesse');
-  else { try { var _isoR = frVersIsoSd(r.date), _tj = rlIso(new Date()); if (r.source !== 'R2' && String(r.presence || '').trim() === 'Show' && _isoR <= _tj && _isoR >= rlPlus(_tj, -3)) sdDemanderMailFinR1(Object.assign({}, r), 'nosign', r.email || ''); } catch (e) {} }
+  else if (!sansMail) { try { var _isoR = frVersIsoSd(r.date), _tj = rlIso(new Date()); if (r.source !== 'R2' && String(r.presence || '').trim() === 'Show' && _isoR <= _tj && _isoR >= rlPlus(_tj, -3)) sdDemanderMailFinR1(Object.assign({}, r), 'nosign', r.email || ''); } catch (e) {} }
   if (document.getElementById('fc-overlay').classList.contains('open')) { _fc.rows = fcLignesFiche(); fcRendre(); }
   sdChaineSuite();
 }
