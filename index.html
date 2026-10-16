@@ -4064,7 +4064,12 @@ function sdReporterSignatureR2(st, r2) {
   var n = fcNormNom(r2.client), d2 = parseDateFR(r2.date) || 0, cands = [];
   Object.keys(st).forEach(function(k) { if (!/^\d{4}-\d{2}$/.test(k) || !Array.isArray(st[k])) return; st[k].forEach(function(x) { if (!x || x.source === 'R2' || fcNormNom(x.client || '') !== n) return; var d1 = parseDateFR(x.date) || 0; if (d1 && d2 && d1 > d2) return; cands.push(x); }); });
   cands.sort(function(x, y) { return (parseDateFR(y.date) || 0) - (parseDateFR(x.date) || 0); }); var r1 = cands[0]; if (!r1) return null;
-  if (r1.result === 'Signé') return false;
+  if (r1.result === 'Signé') { // déjà signé : seulement s'il l'a été via CE R2, et sans commission figée (montant vérifié par Nicolas)
+    if (r1.signeViaR2 !== r2.date || (r1.commFigee !== undefined && r1.commFigee !== null)) return false;
+    // 16 oct. 2026 (Adrien Robichon) : une correction faite ensuite sur la ligne R2 (Données brutes) remonte sur le R1, qui seul compte dans la commission
+    var ch = false; ['pack', 'freq', 'tier', 'fms', 'remise', 'oneshot', 'dateSignature'].forEach(function(f) { var v = r2[f]; if (v === undefined || v === null || String(v).trim() === '') return; if (String(r1[f] == null ? '' : r1[f]) !== String(v)) { r1[f] = v; ch = true; } });
+    return ch ? r1 : false;
+  }
   r1.result = 'Signé'; r1.presence = r1.presence || 'Show'; r1.pack = r2.pack || r1.pack; r1.freq = r2.freq || r1.freq; r1.tier = r2.tier || r1.tier; r1.fms = r2.fms || r1.fms; if (r2.remise) r1.remise = r2.remise; r1.dateSignature = r2.dateSignature || r1.dateSignature || new Date().toLocaleDateString('fr-FR');
   r1.dateR2 = r1.dateR2 || r2.date; if (r2.heure && !r1.heureR2) r1.heureR2 = r2.heure; r1.presenceR2 = 'Show'; delete r1.attenteSignature; delete r1.nosignRaison; delete r1.relanceDate; r1.signeViaR2 = r2.date;
   return r1;
