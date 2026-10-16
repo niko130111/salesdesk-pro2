@@ -4628,6 +4628,7 @@ function fcBoutonsSuivi(it) {
   var tache = copilot ? B('svTache(' + cleJs + ')', aujIco('clock') + 'Tâche', '', 'Une tâche Close : date, heure et texte (rappel, mail, relance…) ; une tâche déjà ouverte est déplacée') : '';
   var mail = copilot ? (fiche ? B("fcRepondreMail('', '')", aujIco('mail') + 'Écrire un mail', '', 'Un mail depuis ta boîte Close, avec ta signature') : B('sdMailPour(' + nomJs + ',' + emailJs + ')', aujIco('mail') + 'Écrire un mail', '', 'Un mail depuis ta boîte Close, avec ta signature')) : '';
   var manager = A('manager', aujIco('user') + 'Passer au manager', '', 'Note épinglée + tâche pour ' + RL_MANAGER + ', ligne dans le Cockpit');
+  var sms = copilot ? B('sdSmsLibre(' + nomJs + ',' + emailJs + ')', '💬 SMS', '', 'Un SMS libre depuis ton téléphone (SMS Gate), tracé dans Close et dans SMS') : '';
   var transmettre = copilot ? B('sdTransmettre({ nom: ' + nomJs + ', email: ' + emailJs + ', cle: ' + cleJs + ' })', aujIco('arrow') + 'Transmettre', '', 'Tâche « Ghost Nicolas » pour Ludovic ou Eugénie dans Close, ta tâche est supprimée') : '';
   var ficheClose = fiche ? B('fcChangerFicheClose()', aujIco('link') + 'Relier à une autre fiche Close', '', 'Colle le lien de la bonne fiche Close') : '';
   var corriger = fiche ? B('fcCorrigerNom()', aujIco('pen') + 'Corriger le nom', '', 'Corriger l\'orthographe ou fusionner avec une autre fiche') : '';
@@ -4643,14 +4644,14 @@ function fcBoutonsSuivi(it) {
   var terminer = fiche ? B('fcTerminerConfiguration(this)', aujIco('check') + 'Terminer la configuration', 'btn-primary', 'Clôture la tâche Close « Configurer » et marque le client configuré') : B('sdTerminerConfigurationPour(' + nomJs + ',' + emailJs + ')', aujIco('check') + 'Terminer la configuration', 'btn-primary', 'Clôture la tâche Close « Configurer » et marque le client configuré');
   var principal, plus;
   switch (etat) {
-    case 'rdv_avenir': principal = [preparer, appeler, resultat]; plus = [tache, mail, manager, transmettre, ficheClose, corriger, cloturer]; break;
-    case 'rdv_passe': principal = [resultat, appeler, tache]; plus = [mail, manager, transmettre, ficheClose, corriger, cloturer]; break;
-    case 'interesse': principal = [appeler, rdv(aujIco('cal') + 'Prendre un R2', 'Tu choisis le créneau R2, je réserve dans Calendly', 'btn-primary'), tache]; plus = [contrat, sansRep, pasInt, rappel, mail, manager, transmettre, ficheClose, corriger, cloturer]; break;
-    case 'attente': principal = [appeler, signe, tache]; plus = [contrat, sansRep, pasInt, rappel, mail, manager, transmettre, ficheClose, corriger, cloturer]; break;
-    case 'noshow': principal = [appeler, rdv(aujIco('refresh') + 'Reprogrammer', 'Nouveau créneau Calendly, la tâche est terminée', 'btn-primary'), tache]; plus = [sansRep, perdu, rappel, mail, manager, transmettre, ficheClose, corriger, cloturer]; break;
-    case 'signe': if (row.configureAt) { principal = [appeler, tache]; plus = [onboarding, mail, manager, transmettre, ficheClose, corriger, cloturer]; } else if (row.onboardingAt) { principal = [terminer, appeler, tache]; plus = [onboarding, mail, manager, transmettre, ficheClose, corriger, cloturer]; } else { principal = [onboarding, appeler, tache]; plus = [terminer, mail, manager, transmettre, ficheClose, corriger, cloturer]; } break; // configuré : plus d'action pleine ; champs écrits : il reste à terminer ; sinon : configurer (terminer reste accessible dans Plus)
-    case 'perdu': principal = [appeler, rdv(aujIco('cal') + 'Reprendre un RDV', 'Tu choisis le créneau, je réserve dans Calendly'), tache]; plus = [sansRep, rappel, mail, manager, transmettre, ficheClose, corriger, cloturer]; break; // un ancien non signé qu'on rappelle : « Sans réponse » et « Rappel » aussi (demande du 9 oct.)
-    default: principal = [appeler, rdv(aujIco('cal') + 'Prendre un RDV', 'Tu choisis le créneau, je réserve dans Calendly', 'btn-primary'), tache]; plus = [sansRep, pasInt, mail, manager, transmettre, ficheClose, corriger, cloturer];
+    case 'rdv_avenir': principal = [preparer, appeler, resultat]; plus = [tache, mail, sms, manager, transmettre, ficheClose, corriger, cloturer]; break;
+    case 'rdv_passe': principal = [resultat, appeler, tache]; plus = [mail, sms, manager, transmettre, ficheClose, corriger, cloturer]; break;
+    case 'interesse': principal = [appeler, rdv(aujIco('cal') + 'Prendre un R2', 'Tu choisis le créneau R2, je réserve dans Calendly', 'btn-primary'), tache]; plus = [contrat, sansRep, pasInt, rappel, mail, sms, manager, transmettre, ficheClose, corriger, cloturer]; break;
+    case 'attente': principal = [appeler, signe, tache]; plus = [contrat, sansRep, pasInt, rappel, mail, sms, manager, transmettre, ficheClose, corriger, cloturer]; break;
+    case 'noshow': principal = [appeler, rdv(aujIco('refresh') + 'Reprogrammer', 'Nouveau créneau Calendly, la tâche est terminée', 'btn-primary'), tache]; plus = [sansRep, perdu, rappel, mail, sms, manager, transmettre, ficheClose, corriger, cloturer]; break;
+    case 'signe': if (row.configureAt) { principal = [appeler, tache]; plus = [onboarding, mail, sms, manager, transmettre, ficheClose, corriger, cloturer]; } else if (row.onboardingAt) { principal = [terminer, appeler, tache]; plus = [onboarding, mail, sms, manager, transmettre, ficheClose, corriger, cloturer]; } else { principal = [onboarding, appeler, tache]; plus = [terminer, mail, sms, manager, transmettre, ficheClose, corriger, cloturer]; } break; // configuré : plus d'action pleine ; champs écrits : il reste à terminer ; sinon : configurer (terminer reste accessible dans Plus)
+    case 'perdu': principal = [appeler, rdv(aujIco('cal') + 'Reprendre un RDV', 'Tu choisis le créneau, je réserve dans Calendly'), tache]; plus = [sansRep, rappel, mail, sms, manager, transmettre, ficheClose, corriger, cloturer]; break; // un ancien non signé qu'on rappelle : « Sans réponse » et « Rappel » aussi (demande du 9 oct.)
+    default: principal = [appeler, rdv(aujIco('cal') + 'Prendre un RDV', 'Tu choisis le créneau, je réserve dans Calendly', 'btn-primary'), tache]; plus = [sansRep, pasInt, mail, sms, manager, transmettre, ficheClose, corriger, cloturer];
   }
   try { var mfB = sdMailsFinPour(it.nom || row.client || '').filter(function(m) { return m.statut === 'brouillon'; })[0]; if (mfB) principal.unshift(B('sdVoirMailFinR1(' + JSON.stringify(mfB.cle || (String(mfB.nom || '').toLowerCase() + '|' + mfB.date)).replace(/"/g, '&quot;') + ')', aujIco('mail') + 'Relire le mail', 'btn-primary', 'Mail de fin de RDV prêt dans Close : relis, modifie, envoie')); } catch (e) {} // un mail post-RDV pas envoyé passe devant tout le reste
   principal = principal.filter(Boolean).map(function(b, i) { return i ? b.replace(' btn-primary', '') : b; }); plus = plus.filter(Boolean); // une seule action pleine : la première
@@ -12330,6 +12331,35 @@ function renderNouveautes() {
   el.innerHTML = h + '</div>';
 }
 // Réponse par SMS traitée depuis Nouveautés : OUI = ligne confirmée ; Annulé = même traitement que « RDV annulé » (Annulé, Calendly, Close, relance)
+// 💬 SMS libre depuis la fiche (16 oct. 2026) : numéro lu dans Close, messages tout prêts ou texte libre, envoyé par le copilot via ton téléphone, tracé dans Close
+function sdSmsLibre(nom, email) {
+  var ov = document.getElementById('fc-dup-overlay');
+  if (!ov) { ov = document.createElement('div'); ov.id = 'fc-dup-overlay'; ov.className = 'modal-overlay'; ov.style.zIndex = '1300'; ov.innerHTML = '<div class="modal" id="fc-dup-modal"></div>'; document.body.appendChild(ov); }
+  ov.onclick = function(ev) { if (ev.target === ov) fermerModalDoublon(); }; ov.classList.add('open');
+  var m = document.getElementById('fc-dup-modal'); m.innerHTML = '<div class="fc-dup"><div style="font-weight:700;">💬 SMS à ' + escapeHtml(nom) + '</div><div class="fc-muted" style="margin-top:8px;">Numéro et messages en cours de lecture…</div></div>';
+  var champ = 'font-family:var(--font);font-size:13px;padding:6px 9px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);';
+  Promise.all([
+    fetch(COPILOT_URL + '/sms/tel?' + new URLSearchParams({ nom: nom || '', email: email || '' }), { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).catch(function() { return {}; }),
+    fetch(COPILOT_URL + '/sms-recus/modeles?' + new URLSearchParams({ nom: nom || '' }), { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).catch(function() { return {}; })
+  ]).then(function(rs) {
+    var tel = (rs[0] && rs[0].tel) || (typeof fcTelConnu === 'function' ? fcTelConnu() : '') || '', mods = (rs[1] && rs[1].modeles) || [], gate = !rs[0] || rs[0].smsGate !== false;
+    m.innerHTML = '<div class="fc-dup" style="width:min(560px,88vw);max-width:100%;box-sizing:border-box;"><div style="font-size:15px;font-weight:700;">💬 SMS à ' + escapeHtml(nom) + '</div>'
+      + (gate ? '' : '<div style="color:var(--red);font-size:12.5px;margin-top:6px;">SMS Gate n\'est pas réglé sur le copilot : l\'envoi échouera.</div>')
+      + '<div style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap;"><label class="fc-muted" style="font-size:12.5px;">Numéro</label><input id="sms-lib-tel" style="' + champ + 'width:170px;" value="' + escapeHtml(tel) + '" placeholder="06 …">' + (tel ? '<span class="fc-muted" style="font-size:12px;">lu dans Close</span>' : '<span style="font-size:12px;color:var(--red);">aucun mobile dans Close : saisis-le</span>') + '</div>'
+      + (mods.length ? '<div style="display:flex;flex-direction:column;gap:6px;margin:10px 0;">' + mods.map(function(x, i) { return '<label style="display:flex;gap:8px;align-items:flex-start;font-size:13px;cursor:pointer;"><input type="radio" name="sms-lib" value="' + i + '" data-texte="' + escapeHtml(x.texte) + '" onchange="document.getElementById(\'sms-lib-texte\').value = this.getAttribute(\'data-texte\')"><span><b>' + escapeHtml(x.titre) + '</b></span></label>'; }).join('') + '<label style="display:flex;gap:8px;align-items:center;font-size:13px;cursor:pointer;"><input type="radio" name="sms-lib" value="libre" checked onchange="document.getElementById(\'sms-lib-texte\').value = \'\'"><span><b>Texte libre</b></span></label></div>' : '<div style="height:6px"></div>')
+      + '<textarea id="sms-lib-texte" maxlength="600" placeholder="Ton message… (signe-le si tu veux : Nicolas – RealAdvisor)" style="width:100%;min-height:100px;box-sizing:border-box;font-family:var(--font);font-size:13.5px;padding:8px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg);color:var(--text);"></textarea>'
+      + '<div class="fc-muted" style="font-size:12px;margin-top:4px;"><span id="sms-lib-nb">0</span> / 600 · part de ton téléphone, enregistré sur la fiche Close</div>'
+      + '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px;"><button class="btn btn-sm" onclick="fermerModalDoublon()">Annuler</button><button class="btn btn-sm btn-primary" id="sms-lib-ok">📨 Envoyer le SMS</button></div></div>';
+    var ta = document.getElementById('sms-lib-texte'); ta.oninput = function() { document.getElementById('sms-lib-nb').textContent = ta.value.length; }; ta.focus();
+    document.getElementById('sms-lib-ok').onclick = function() {
+      var texte = ta.value.trim(), num = (document.getElementById('sms-lib-tel').value || '').trim(); if (!texte) { ta.focus(); return; } if (!num) { document.getElementById('sms-lib-tel').focus(); return; }
+      var b = this; b.disabled = true; b.textContent = 'Envoi…';
+      rlPost('/sms/envoyer-direct', { tel: num, texte: texte, nom: nom || '', email: email || '', lead: (rs[0] && rs[0].lead) || '', motif: 'SMS depuis la fiche' })
+        .then(function() { fermerModalDoublon(); if (typeof showCopyToast === 'function') showCopyToast('✓ SMS envoyé à ' + (nom || num)); try { _smsAt = 0; chargerSms(true); } catch (e) {} })
+        .catch(function(e) { b.disabled = false; b.textContent = '📨 Envoyer le SMS'; alert('SMS non envoyé : ' + (e && e.message || e)); });
+    };
+  });
+}
 // ↩ Répondre à un SMS reçu : messages tout prêts (modifiables dans Automatisations) ou texte libre, envoyé par le copilot via ton téléphone
 function sdSmsRepondre(id, nom, tel) {
   var ov = document.getElementById('fc-dup-overlay');
