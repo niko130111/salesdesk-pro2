@@ -13907,7 +13907,11 @@ function svNotesInput(v, cle, nom, email) { // même note que dans la fiche (mê
   clearTimeout(_fcNotesTimer); var et = document.getElementById('sv-notes-etat'); if (et) et.textContent = '…';
   _fcNotesTimer = setTimeout(function() { var store = loadStore(), cls = fcClients(store), cl = cls[cle] || { nom: nom, email: email, notes: '', claap: {} }; cl.notes = v; cl.nom = nom; cl.email = email; cls[cle] = cl; saveStore(store); var et2 = document.getElementById('sv-notes-etat'); if (et2) et2.textContent = '✓ enregistré'; }, 700);
 }
-function svTache(cle) { var it = (window._rlItems || []).find(function(i) { return i.cle === cle; }); if (!it) return; var id = rlIdentite(it); fcTacheClose({ nom: id.nom || it.nom, email: id.email || '', lead: id.lead || '', cle: it.cle }); }
+function svTache(cle) { var it = (window._rlItems || []).find(function(i) { return i.cle === cle; });
+  if (!it) { try { window._rlItems = rlConstruireItems(rlIso(new Date())).items; it = window._rlItems.find(function(i) { return i.cle === cle; }); } catch (e) {} } // 16 oct. 2026 (Robichon) : la liste des items avait été reconstruite sans lui, le bouton Tâche de la fiche ne faisait rien
+  if (!it && typeof _fc !== 'undefined' && _fc && _fc.nom && document.querySelector('.fc-barre')) { fcTacheClose({ nom: _fc.nom, email: _fc.email || '', lead: (typeof sdLeadPour === 'function' ? sdLeadPour(_fc.nom, _fc.email || '') : '') || '', cle: cle }); return; } // fiche ouverte : on part de la fiche
+  if (!it) { if (typeof showCopyToast === 'function') showCopyToast('Tâche : dossier introuvable, recharge la page'); return; }
+  var id = rlIdentite(it); fcTacheClose({ nom: id.nom || it.nom, email: id.email || '', lead: id.lead || '', cle: it.cle }); }
 function svCocher(cle, on) { _sv.coches = _sv.coches || {}; if (on) _sv.coches[cle] = 1; else delete _sv.coches[cle]; svMajSelection(); }
 function svCochees() { return Object.keys(_sv.coches || {}); }
 function svToutCocher(on) { _sv.coches = {}; if (on) (_sv.visibles || []).forEach(function(c) { _sv.coches[c] = 1; }); renderRelancesPage(); }
