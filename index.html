@@ -4634,7 +4634,7 @@ function fcBoutonsSuivi(it) {
   var ficheClose = fiche ? B('fcChangerFicheClose()', aujIco('link') + 'Relier à une autre fiche Close', '', 'Colle le lien de la bonne fiche Close') : '';
   var corriger = fiche ? B('fcCorrigerNom()', aujIco('pen') + 'Corriger le nom', '', 'Corriger l\'orthographe ou fusionner avec une autre fiche') : '';
   var rappel = fiche && _fc.rappelArg ? B('fcPopupSuivi(' + _fc.rappelArg + ')', aujIco('pen') + 'Modifier le rappel', '', 'Changer la date ou la condition du rappel SalesDesk') : '';
-  var cloturer = it.t ? A('supprimer', aujIco('check') + 'Clôturer la tâche', '', 'La tâche Close est terminée, la relance s\'arrête') : '';
+  var cloturer = it.t ? A('supprimer', aujIco('check') + 'Clôturer la tâche', '', 'La tâche Close est terminée, la relance s\'arrête') : A('supprimer', '🗑 Retirer du suivi', '', 'Plus de tâche Close pour cette personne : la relance SalesDesk s\'arrête, rien n\'est envoyé'); // 16 oct. 2026 (Martinetti) : une relance encore dans SalesDesk alors que la tâche n'est plus dans Close
   var sansRep = A('pas_reponse', aujIco('nophone') + 'Sans réponse', '', 'Appel loggé dans Close, tâche décalée selon la cadence');
   var pasInt = A('pas_interesse', aujIco('x') + 'Pas intéressé', '', 'Close en Not interested' + (it.t ? ', tâche terminée' : ''));
   var perdu = A('pas_interesse', aujIco('x') + 'Perdu', '', 'Close en Not interested' + (it.t ? ', tâche terminée' : ''));
@@ -5157,9 +5157,10 @@ function rlAction(ix, action, btn) {
     return;
   }
   if (action === 'supprimer') {
-    sdDemanderConfirmation('Clôturer la tâche de ' + it.nom + ' ?', 'La tâche Close est terminée et la relance s\'arrête. Rien n\'est envoyé au prospect.', { ok: '✅ Clôturer' }).then(function(ok) { if (!ok) return;
+    sdDemanderConfirmation(it.t ? 'Clôturer la tâche de ' + it.nom + ' ?' : 'Retirer ' + it.nom + ' du suivi ?', it.t ? 'La tâche Close est terminée et la relance s\'arrête. Rien n\'est envoyé au prospect.' : 'Il n\'y a plus de tâche Close pour cette personne : la relance SalesDesk s\'arrête. Rien n\'est envoyé au prospect.', { ok: it.t ? '✅ Clôturer' : '🗑 Retirer' }).then(function(ok) { if (!ok) return;
       occupe(true);
-      terminerClose().then(function() { rlPoserSuivi(it, { col: it.col, dernier: 'abandon' }); return rlMajRelance(it, 'abandon', ''); }).then(function() { fini('🗑 Relance supprimée'); }).catch(echec); });
+      terminerClose().catch(function(e) { if (/404|introuvable|not found/i.test(String((e && e.message) || e))) return null; throw e; }) // tâche déjà supprimée dans Close : on retire quand même du suivi
+        .then(function() { rlPoserSuivi(it, { col: it.col, dernier: 'abandon' }); return rlMajRelance(it, 'abandon', ''); }).then(function() { fini(it.t ? '🗑 Relance supprimée' : '🗑 Retiré du suivi'); }).catch(echec); });
     return;
   }
   if (action === 'signe') { // signé : la ligne SalesDesk passe en Signé (pack, fréquence, tier, FMS, remise), une tâche « Configurer » demain en tête du Suivi
