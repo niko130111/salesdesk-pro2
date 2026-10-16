@@ -13319,9 +13319,10 @@ function renderAujourdhui() {
   var prios = [], clesP = {};
   var ajoute = function(p) { if (clesP[p.cle]) return; clesP[p.cle] = 1; prios.push(p); };
   var hDe = function(i) { return i.heure || (i.t && i.t.heure) || ''; };
-  var texteDe = function(i) { return (i.t && i.t.texte && !/^follow ?up/i.test(i.t.texte) ? i.t.texte : '') || (i.rel && i.rel.relance && i.rel.relance.condition) || (i.row && i.row.relanceCond) || ''; };
+  var rowDe = function(i) { return i.row || (i.rel && i.rel.row) || null; }; // relance SalesDesk : la ligne est sur i.rel.row
+  var texteDe = function(i) { var rw = rowDe(i); return (i.t && i.t.texte && !/^follow ?up/i.test(i.t.texte) ? i.t.texte : '') || (i.rel && i.rel.relance && i.rel.relance.condition) || (rw && rw.relanceCond) || ''; };
   var estConfig = function(i) { return i.col === 'config' || /configur|onboard|vitrine/i.test(((i.t && i.t.texte) || '') + ' ' + ((i.row && i.row.relanceCond) || '')); };
-  var estSign = function(i) { return estConfig(i) || !!(i.row && i.row.attenteSignature) || /signature|contrat/i.test(((i.t && i.t.texte) || '') + ' ' + ((i.row && i.row.relanceCond) || '') + ' ' + ((i.rel && i.rel.relance && i.rel.relance.condition) || '')); };
+  var estSign = function(i) { var rw = rowDe(i); return estConfig(i) || !!(rw && rw.attenteSignature && String(rw.result || '').trim() !== 'Signé') || /signature|contrat/i.test(((i.t && i.t.texte) || '') + ' ' + ((rw && rw.relanceCond) || '') + ' ' + ((i.rel && i.rel.relance && i.rel.relance.condition) || '')); };
   var identite = function(i) { try { var id = rlIdentite(i); return { nom: id.nom || i.nom, email: id.email || '' }; } catch (e) { return { nom: i.nom, email: (i.row && i.row.email) || '' }; } };
   var boutonTache = function(i) { // le bouton dit ce que la tâche est vraiment ; « Appeler » seulement quand l'appel est la tâche
     var id = identite(i), nomJs = Q(id.nom), emailJs = Q(id.email), leadJs = Q((i.t && i.t.lead) || ''), tx = texteDe(i);
@@ -13353,7 +13354,7 @@ function renderAujourdhui() {
   // En retard et pourtant prioritaire (décision du 9 oct. 2026) : un rappel promis à une heure et pas fait (daté d'hier ou d'avant), et un R2 sans réponse. Les autres relances en retard (no-show, prise de RDV…) restent dans le Suivi.
   var estPrioRetard = function(i) { return !estSign(i) && (!!hDe(i) || i.col === 'r2'); };
   // 16 oct. 2026 (Nicolas, Adrien Robichon) : une seule ligne « Relancer pour signature » par prospect, même s'il a plusieurs tâches Close ouvertes (celle qui parle de signature d'abord)
-  var vusSign = {}; retard.concat(dus).filter(estSign).sort(function(a, b) { var sa = /signature|contrat/i.test((a.t && a.t.texte) || '') ? 0 : 1, sb = /signature|contrat/i.test((b.t && b.t.texte) || '') ? 0 : 1; return sa - sb; }).forEach(function(i) { var k = (i.t && i.t.lead) || fcNormNom(i.nom || ''); if (vusSign[k]) return; vusSign[k] = 1; ajoute(depuisTache(i, retard.indexOf(i) >= 0)); });
+  var vusSign = {}; retard.concat(dus).filter(estSign).sort(function(a, b) { var sa = /signature|contrat/i.test((a.t && a.t.texte) || '') ? 0 : 1, sb = /signature|contrat/i.test((b.t && b.t.texte) || '') ? 0 : 1; return sa - sb; }).forEach(function(i) { var rw = rowDe(i) || {}, cles = [(i.t && i.t.lead) || rw.closeLead || '', fcNormNom(String(identite(i).nom || i.nom || '').split('|')[0])].filter(Boolean); if (cles.some(function(c) { return vusSign[c]; })) return; cles.forEach(function(c) { vusSign[c] = 1; }); ajoute(depuisTache(i, retard.indexOf(i) >= 0)); }); // même personne par sa fiche Close OU son nom (tâche Close + relance SalesDesk)
   retard.filter(estPrioRetard).forEach(function(i) { ajoute(depuisTache(i, true)); });
   dus.filter(function(i) { return i.col === 'r2' && !hDe(i) && !estSign(i); }).forEach(function(i) { ajoute(depuisTache(i, false)); }); // un R2 sans réponse dû aujourd'hui est une priorité même sans heure (Nicolas, 15 oct. 2026)
   dus.filter(function(i) { return hDe(i) && !estSign(i); }).sort(function(a, b) { return hDe(a).localeCompare(hDe(b)); }).forEach(function(i) { ajoute(depuisTache(i, false)); });
@@ -13668,6 +13669,7 @@ function sdR2SansReponse(row) {
 function sdColonneRelance(r, row) {
   var pres = row ? String(row.presence || '').trim() : '', res = row ? String(row.result || '').trim() : '', src = row ? String(row.source || '') : String(r.source || '');
   var noShow = pres === 'No Show' || pres === 'Annulé' || pres === 'Reprogrammé' || /no ?show/i.test(r.raison || '') || /no ?show/i.test((r.relance && r.relance.note) || '');
+  if (row && row.attenteSignature && String(row.result || '').trim() !== 'Signé') return 'rappel'; // 16 oct. 2026 (Adrien Robichon) : en attente de signature ≠ « R2 sans réponse »
   if (sdR2SansReponse(row)) return 'r2'; // R2 manqué récent (mois en cours ou précédent) = « R2 sans réponse », prioritaire (Valentin Ferret)
   if (noShow) return src === 'Outbound' ? 'nsout' : 'nsin';
   if (sdRappelChaud(row)) return 'r2';
@@ -13734,6 +13736,7 @@ function rlCategorieBrute(t, rel, row) {
   if (rel) return rel.col;
   var x = (t.texte || '').toLowerCase(), src = row ? String(row.source || '') : '';
   if (/configur|onboard|vitrine à/.test(x)) return 'config'; // client signé à mettre en place : toujours en tête
+  if (row && row.attenteSignature && String(row.result || '').trim() !== 'Signé') return 'rappel'; // 16 oct. 2026 (Adrien Robichon) : en attente de signature ≠ « R2 sans réponse »
   if (sdR2SansReponse(row)) return 'r2'; // R2 manqué récent = « R2 sans réponse »
   if (/no ?show|pas venu|absent/.test(x)) return src === 'Outbound' ? 'nsout' : 'nsin';
   if (/\br2\b|valid|contrat|signer|décision|decision/.test(x)) return 'r2';
