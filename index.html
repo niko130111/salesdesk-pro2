@@ -786,6 +786,7 @@ details.gl-details > .body { padding: 0 20px 20px; }
 .sv-grp { position: sticky; top: 0; z-index: 1; background: var(--surface2); font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--text2); padding: 7px 14px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; }
 .sv-l { padding: 10px 14px; border-bottom: 1px solid var(--border); cursor: pointer; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 10px; }
 .sv-l:hover { background: var(--surface2); } .sv-l.on { background: var(--accent-bg); box-shadow: inset 3px 0 0 var(--accent); }
+.sv-l.pause { opacity: .6; } .sv-l.pause .r { color: var(--text2); }
 .sv-l .n { font-weight: 700; font-size: 14px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sv-l .q { font-size: 11.5px; font-weight: 700; white-space: nowrap; color: var(--text3); } .sv-l .q.ret { color: var(--red); } .sv-l .q.h { color: var(--accent); }
 .sv-l .r { grid-column: 1 / -1; font-size: 12.5px; color: var(--text2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -13838,7 +13839,7 @@ function rlConstruireItems(today) {
       var d1 = frVersIsoSd(r.date || ''); if (d1 && d1 >= today && d1 >= (dateTache || '') && r.source !== 'R2' && !nonTenu(r.presence) && !String(r.presence || '').trim()) return 'RDV le ' + r.date + (r.heure ? ' à ' + r.heure : ''); } }
     return '';
   };
-  var enPause = []; window._rlEnPause = enPause;
+  var enPause = [], pauses = []; window._rlEnPause = enPause; // 17 oct. 2026 (tâches, étape 2) : les tâches en pause (RDV pris) restent visibles, grisées, hors comptes
   taches.forEach(function(t) {
     var nom = rlNomFiche(t.fiche, t.contact), n = fcNormNom(nom);
     // on relie la tâche à une relance SalesDesk par le nom de la fiche, du contact, ou d'un des contacts de la fiche Close (tâche posée sur l'agence)
@@ -13849,14 +13850,14 @@ function rlConstruireItems(today) {
     else if (!t.contact && (t.contacts || []).length === 1 && t.fiche && fcNormNom(t.fiche) === n) nom = t.contacts[0]; // fiche agence : on affiche la personne
     var rowT = rel ? rel.row : sdRowPourNoms([nom, t.contact, t.fiche].concat(t.contacts || []));
     if (!rel && rowT && fcNormNom(rowT.client) !== n) nom = rowT.client;
-    if (!/configur|onboard|vitrine|signature|contrat/i.test(t.texte || '')) { var pause = rdvPrevuPour(noms.concat([fcNormNom(nom)], rowT ? [fcNormNom(rowT.client)] : []), String(t.date || '').slice(0, 10)); if (pause) { enPause.push({ nom: nom, quoi: pause, t: t }); return; } }
+    if (!/configur|onboard|vitrine|signature|contrat/i.test(t.texte || '')) { var pause = rdvPrevuPour(noms.concat([fcNormNom(nom)], rowT ? [fcNormNom(rowT.client)] : []), String(t.date || '').slice(0, 10)); if (pause) { enPause.push({ nom: nom, quoi: pause, t: t }); pauses.push({ type: 'close', t: t, rel: rel, row: rowT, nom: nom, date: t.date || (rel ? rel.date : ''), col: rlCategorieTache(t, rel, rowT), pause: pause }); return; } }
     items.push({ type: 'close', t: t, rel: rel, row: rowT, nom: nom, date: t.date || (rel ? rel.date : ''), col: rlCategorieTache(t, rel, rowT) });
   });
   rels.forEach(function(x) { if (!relsUtilisees[x.r.id]) items.push({ type: 'sd', rel: x, nom: x.nom, date: x.date, col: x.col }); });
   // Pas d'entrée automatique des no-shows (règle de Nicolas, 4 oct. 2026) : après un no-show, c'est lui qui décide de poser une tâche ou de laisser tomber
-  items.forEach(function(it) { it.cle = it.t ? 't:' + it.t.id : (it.rel && it.rel.r ? 'r:' + it.rel.r.id : 'n:' + fcNormNom(it.nom) + '|' + (it.date || '')); });
-  rlTrierItems(items);
-  return { items: items, liste: liste, taches: taches, terminees: terminees };
+  items.concat(pauses).forEach(function(it) { it.cle = it.t ? 't:' + it.t.id : (it.rel && it.rel.r ? 'r:' + it.rel.r.id : 'n:' + fcNormNom(it.nom) + '|' + (it.date || '')); });
+  rlTrierItems(items); window._rlPauses = pauses;
+  return { items: items, liste: liste, taches: taches, terminees: terminees, pauses: pauses };
   } finally { window._rlStoreCache = null; }
 }
 // Ordre utile dans chaque colonne : joints récemment, puis relances explicites, puis tâches avec un vrai texte, puis les « Follow up » (plus récents d'abord)
@@ -13996,11 +13997,13 @@ function svRendreFile(items, today) {
   var rangM = function(it) { var i = M.findIndex(function(m) { return m[0] === motifDe(it); }); return i < 0 ? 9 : i; };
   var prioS = (loadStore()._tachesPrio || {}), estPrio = function(x) { return !!(x.t && prioS[x.t.id]); }; // 16 oct. 2026 : tâches prioritaires en tête
   var ordre = vis.slice().sort(function(a, b) { if (estPrio(a) !== estPrio(b)) return estPrio(a) ? -1 : 1; var ha = (a.t && a.t.heure && a.date === today) ? a.t.heure : '', hb = (b.t && b.t.heure && b.date === today) ? b.t.heure : ''; if (ha || hb) return ha && hb ? ha.localeCompare(hb) : (ha ? -1 : 1); return rangM(a) - rangM(b) || vis.indexOf(a) - vis.indexOf(b); });
+  var pausesV = (window._rlPauses || []).filter(function(it) { return dansQuand(it, _sv.quand) && (!_sv.motif || it.col === _sv.motif || (_sv.motif === 'aclasser' && !M.some(function(m) { return m[0] === it.col; }))); });
+  ordre = ordre.concat(pausesV); // en pause : après tout le reste, jamais dans les compteurs
   if (!ordre.some(function(it) { return it.cle === _sv.sel; })) _sv.sel = ordre.length ? ordre[Math.min(_sv.idx || 0, ordre.length - 1)].cle : '';
   _sv.idx = Math.max(0, ordre.findIndex(function(it) { return it.cle === _sv.sel; }));
   var sel = ordre.find(function(it) { return it.cle === _sv.sel; }) || null;
   // barre : quand · motif
-  var enPauseL = window._rlEnPause || [], pauseHtml = enPauseL.length ? '<div class="fc-muted" style="font-size:12px;margin:2px 0 8px;" title="' + escapeHtml(enPauseL.map(function(x) { return x.nom + ' · ' + x.quoi; }).join('\n')) + '">' + enPauseL.length + ' tâche' + (enPauseL.length > 1 ? 's' : '') + ' Close en pause : un RDV est pris (' + escapeHtml(enPauseL.slice(0, 3).map(function(x) { var nx = String(x.nom || ''); return nx.charAt(0).toUpperCase() + nx.slice(1) + ' · ' + x.quoi; }).join(' ; ')) + (enPauseL.length > 3 ? ' ; …' : '') + ')</div>' : '';
+  var pauseHtml = ''; // les tâches en pause sont désormais listées en bas de la file (groupe « En pause · RDV pris »)
   var bar = pauseHtml + '<div class="sv-bar">' + [['atraiter', 'À traiter'], ['demain', sdLibelleDemain(true)], ['semaine', '7 jours']].map(function(q) { return '<button class="sv-chip' + (_sv.quand === q[0] ? ' on' : '') + '" onclick="svSet(\'quand\',\'' + q[0] + '\')">' + q[1] + '<b>' + nQ(q[0]) + '</b></button>'; }).join('')
     + '<span class="sv-sep"></span><button class="sv-chip' + (!_sv.motif ? ' on' : '') + '" onclick="svSet(\'motif\',\'\')">Tous<b>' + base.length + '</b></button>'
     + M.map(function(m) { var n = base.filter(function(it) { return it.col === m[0] || (m[0] === 'aclasser' && !M.some(function(x) { return x[0] === it.col; })); }).length; return n ? '<button class="sv-chip' + (_sv.motif === m[0] ? ' on' : '') + '" onclick="svSet(\'motif\',\'' + m[0] + '\')">' + m[1] + '<b>' + n + '</b></button>' : ''; }).join('') + '</div>';
@@ -14008,13 +14011,14 @@ function svRendreFile(items, today) {
   // liste
   var liste = '', grp = null;
   ordre.forEach(function(it) {
-    var grpDe = function(x) { if (estPrio(x)) return 'Prioritaire'; var ax = x.t && x.t.heure && x.date === today; return ax ? 'À heure fixée' : ((M.find(function(m) { return m[0] === motifDe(x); }) || [0, 'À classer'])[1]); };
+    var grpDe = function(x) { if (x.pause) return 'En pause · RDV pris'; if (estPrio(x)) return 'Prioritaire'; var ax = x.t && x.t.heure && x.date === today; return ax ? 'À heure fixée' : ((M.find(function(m) { return m[0] === motifDe(x); }) || [0, 'À classer'])[1]); };
     var aHeure = it.t && it.t.heure && it.date === today, g = grpDe(it);
     if (g !== grp) { grp = g; liste += '<div class="sv-grp"' + (g === 'Prioritaire' ? ' style="color:var(--red);"' : '') + '><span>' + g + '</span><span>' + ordre.filter(function(x) { return grpDe(x) === g; }).length + '</span></div>'; }
     var nb = (rlSuivi(it).tentatives || 0), ret = it.date < today;
     var quand = aHeure ? it.t.heure : (ret ? 'depuis le ' + it.date.split('-').reverse().slice(0, 2).join('/') : (it.date === today ? '' : it.date.split('-').reverse().slice(0, 2).join('/')));
     var raison = [svRaison(it), nb ? nb + ' appel' + (nb > 1 ? 's' : '') + ' sans réponse' : ''].filter(Boolean).join(' · ');
-    liste += '<div class="sv-l' + (it.cle === _sv.sel ? ' on' : '') + '" onclick="svChoisir(' + JSON.stringify(it.cle).replace(/"/g, '&quot;') + ')"><span class="n">' + (it.t ? '<input type="checkbox" class="sv-ck" title="Cocher pour déplacer"' + ((_sv.coches || {})[it.cle] ? ' checked' : '') + ' onclick="event.stopPropagation();svCocher(' + JSON.stringify(it.cle).replace(/"/g, '&quot;') + ', this.checked)">' : '') + escapeHtml(it.nom) + '</span><span class="q' + (aHeure ? ' h' : (ret ? ' ret' : '')) + '">' + escapeHtml(quand) + '</span>' + (raison ? '<span class="r">' + escapeHtml(raison) + '</span>' : '') + '</div>';
+    if (it.pause) raison = '⏸ ' + it.pause + ' · relance en pause';
+    liste += '<div class="sv-l' + (it.cle === _sv.sel ? ' on' : '') + (it.pause ? ' pause' : '') + '" onclick="svChoisir(' + JSON.stringify(it.cle).replace(/"/g, '&quot;') + ')"><span class="n">' + (it.t ? '<input type="checkbox" class="sv-ck" title="Cocher pour déplacer"' + ((_sv.coches || {})[it.cle] ? ' checked' : '') + ' onclick="event.stopPropagation();svCocher(' + JSON.stringify(it.cle).replace(/"/g, '&quot;') + ', this.checked)">' : '') + escapeHtml(it.nom) + '</span><span class="q' + (aHeure ? ' h' : (ret ? ' ret' : '')) + '">' + escapeHtml(quand) + '</span>' + (raison ? '<span class="r">' + escapeHtml(raison) + '</span>' : '') + '</div>';
   });
   // panneau du prospect choisi
   var pan = '';
@@ -14035,7 +14039,7 @@ function svRendreFile(items, today) {
     pan += svFicheHtml(sel, email);
     pan += '<div style="margin-top:12px;font-size:12px;"><a style="color:var(--accent);cursor:pointer;font-weight:600;" onclick="ouvrirFicheClient(' + nomJs + ',' + emailJs + ',\'\',' + leadJs + ')">Ouvrir la fiche complète ›</a>' + (t && t.url ? ' · <a style="color:var(--text3);" href="' + escapeHtml(t.url) + '" target="_blank" rel="noopener">voir dans Close ↗</a>' : '') + '</div>';
   }
-  _sv.visibles = ordre.filter(function(it) { return it.t; }).map(function(it) { return it.cle; });
+  _sv.visibles = ordre.filter(function(it) { return it.t && !it.pause; }).map(function(it) { return it.cle; }); // « Tout cocher » laisse les tâches en pause
   _sv.coches = _sv.coches || {}; Object.keys(_sv.coches).forEach(function(c) { if (_sv.visibles.indexOf(c) < 0) delete _sv.coches[c]; });
   var nC = svCochees().length;
   var selbar = '<div class="sv-selbar" id="sv-selbar" style="display:' + (nC ? 'flex' : 'none') + ';"><b id="sv-selbar-n">' + nC + ' tâche' + (nC > 1 ? 's' : '') + ' cochée' + (nC > 1 ? 's' : '') + '</b><button class="btn btn-sm btn-primary" onclick="svDeplacerCochees(\'demain\')">Reporter à demain</button><button class="btn btn-sm" onclick="svDeplacerCochees(\'date\')">Reporter au…</button><button class="btn btn-sm" onclick="svToutCocher(false)">Décocher</button></div>';
@@ -14080,7 +14084,7 @@ function renderRelancesPage() {
   if (!_au.data && !_au.demande) { _au.demande = true; try { chargerAutomatisations(false); } catch (e) {} } // textes de relance modifiés dans l'onglet Automatisations
   if (_sv.vue === 'file') {
     document.getElementById('rl-filtres').innerHTML = _bascule + '<button class="btn btn-sm" title="Relire les tâches Close" onclick="chargerTachesClose(rlPlus(_rlLundi,-7), rlPlus(_rlLundi,13), true)">↻</button><button class="btn btn-sm" title="Défaire la dernière action faite dans Close depuis SalesDesk" onclick="rlDefaire(this)">↶ Défaire</button>';
-    window._rlItems = items;
+    window._rlItems = items.concat(_c.pauses || []);
     var _et = !_tachesClose ? 'lecture des tâches Close…' : (_tachesClose.error ? '⚠ tâches Close indisponibles (copilot éteint ou à relancer)' : taches.length + ' tâches Close ouvertes');
     document.getElementById('rl-resume').innerHTML = '<b>' + nbDues + '</b> à traiter · ' + _et;
     majBadgeSuivi(nbDues);
@@ -14107,9 +14111,9 @@ function renderRelancesPage() {
   document.getElementById('rl-resume').innerHTML = '<b>' + nbDues + '</b> à faire aujourd\'hui ou en retard · ' + liste.length + ' relance(s) SalesDesk · ' + etatClose;
   majBadgeSuivi(nbDues);
   var COLS = { r2: ['🔁', 'R2 sans réponse', 'var(--purple)'], rdv: ['📅', 'Prise de RDV', 'var(--accent-blue)'], nsin: ['👻', 'No-show Inbound', 'var(--orange)'], nsout: ['👻', 'No-show Outbound', 'var(--red)'] };
-  window._rlItems = items;
+  window._rlItems = items.concat(_c.pauses || []);
   var carte = function(it) {
-    var ix = items.indexOf(it), suivi = rlSuivi(it), nb = suivi.tentatives || 0;
+    var ix = window._rlItems.indexOf(it), suivi = rlSuivi(it), nb = suivi.tentatives || 0;
     var rel = it.rel, r = rel && rel.r, row = (rel && rel.row) || it.row || {}, t = it.t, q = it.date, retard = q && q < today, auj = q === today;
     var choix = t ? '<select title="Motif" onclick="event.stopPropagation()" onchange="rlClasser(' + JSON.stringify(t.id).replace(/"/g, '&quot;') + ', this.value)" style="font-size:10px;padding:1px 2px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text2);max-width:92px;"><option value="">' + (it.col === 'aclasser' ? 'À classer…' : 'motif…') + '</option><option value="r2">🔁 R2</option><option value="rdv">📅 Prise RDV</option><option value="nsin">👻 NS Inbound</option><option value="nsout">👻 NS Outbound</option></select>' : '';
     var email = (r && r.email) || row.email || '';
@@ -14118,7 +14122,8 @@ function renderRelancesPage() {
     var mail = r && r.message ? '<button class="btn btn-sm rl-b" onclick="event.stopPropagation();fcVoirBrouillon(' + JSON.stringify(r.message.objet || '').replace(/"/g, '&quot;') + ',' + JSON.stringify(r.message.corps || '').replace(/"/g, '&quot;') + ',' + emailJs + ',' + JSON.stringify(r.message.origine || '').replace(/"/g, '&quot;') + ',' + nomJs + ')">✉ Brouillon</button>' : (email ? '<a class="btn btn-sm rl-b" style="text-decoration:none;" href="mailto:' + escapeHtml(email) + '" onclick="event.stopPropagation()">✉ Mail</a>' : '');
     var txt = t && t.texte && !/^follow ?up(\s*\(\d+\))?$/i.test(t.texte.trim()) ? t.texte : '';
     var dernier = row.relanceDernier ? ({ joint: 'joint', pas_de_reponse: 'pas de réponse' }[row.relanceDernier] || row.relanceDernier) : '';
-    return '<div class="pipeline-card" style="cursor:pointer;padding:8px 10px;' + (retard ? 'border-left:3px solid var(--red);' : auj ? 'border-left:3px solid var(--orange);' : '') + '" onclick="ouvrirFicheClient(' + nomJs + ',' + emailJs + ')">'
+    return '<div class="pipeline-card" style="cursor:pointer;padding:8px 10px;' + (it.pause ? 'opacity:.6;' : retard ? 'border-left:3px solid var(--red);' : auj ? 'border-left:3px solid var(--orange);' : '') + '" onclick="ouvrirFicheClient(' + nomJs + ',' + emailJs + ')">'
+      + (it.pause ? '<div style="font-size:11px;color:var(--text2);margin-bottom:3px;">⏸ ' + escapeHtml(it.pause) + ' · relance en pause</div>' : '')
       + '<div class="pipeline-card-name" style="display:flex;justify-content:space-between;gap:6px;align-items:baseline;"><span>' + escapeHtml(it.nom) + '</span>' + (retard ? '<span style="font-size:10px;color:var(--red);font-weight:700;white-space:nowrap;">⏰ ' + q.split('-').reverse().slice(0, 2).join('/') + '</span>' : '') + '</div>'
       + '<div class="pipeline-card-sub">' + (it.type === 'sd-noshow' ? '👻 No-show du ' + escapeHtml(row.date || '') + ' · à relancer' : '') + (it.col === 'r2' && !(row.dateR2 && String(row.dateR2).trim()) ? '📞 rappel promis · ' : '') + (t ? '📌 Close' + (t.heure ? ' ' + t.heure : '') : '') + (t && r ? ' · ' : '') + (r ? '📞 SalesDesk' + ((rel.r.relance && rel.r.relance.condition) ? ' · ' + escapeHtml(rel.r.relance.condition) : '') : '') + (row.source || row.type ? ' · ' + escapeHtml([row.type, row.source].filter(Boolean).join(' ')) : '') + '</div>'
       + (txt ? '<div class="pipeline-card-sub" style="color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="' + escapeHtml(txt) + '">' + escapeHtml(txt) + '</div>' : (r && (r.contexte || row.retour) ? '<div class="pipeline-card-sub" style="color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(r.contexte || row.retour) + '</div>' : ''))
@@ -14147,9 +14152,10 @@ function renderRelancesPage() {
   var duJour = _rlJour === 'retard' ? retardItems : items.filter(function(it) { return it.date === _rlJour; });
   var cols = { r2: [], rdv: [], nsin: [], nsout: [], aclasser: [] };
   duJour.forEach(function(it) { (cols[it.col] || cols.aclasser).push(it); });
+  var pausesJ = (_c.pauses || []).filter(function(it) { return _rlJour === 'retard' ? (it.date && it.date < today) : it.date === _rlJour; }), colsP = {}; pausesJ.forEach(function(it) { var c = cols[it.col] ? it.col : 'aclasser'; (colsP[c] = colsP[c] || []).push(it); });
   document.getElementById('rl-colonnes').style.display = 'grid';
   window._rlOuvertes = window._rlOuvertes || {};
-  Object.keys(cols).forEach(function(c) { document.getElementById('rl-badge-' + c).textContent = cols[c].length; var max = window._rlOuvertes[c] ? 1e9 : 20; var vis = cols[c].slice(0, max); document.getElementById('rl-col-' + c).innerHTML = (vis.length ? vis.map(carte).join('') : '<div style="font-size:12px;color:var(--text3);padding:8px 0;">—</div>') + (cols[c].length > max ? '<button class="btn btn-sm" style="width:100%;margin-top:6px;" onclick="window._rlOuvertes[\'' + c + '\']=true;renderRelancesPage()">voir les ' + (cols[c].length - max) + ' suivantes</button>' : ''); });
+  Object.keys(cols).forEach(function(c) { document.getElementById('rl-badge-' + c).textContent = cols[c].length; var max = window._rlOuvertes[c] ? 1e9 : 20; var vis = cols[c].slice(0, max); document.getElementById('rl-col-' + c).innerHTML = (vis.length ? vis.map(carte).join('') : '<div style="font-size:12px;color:var(--text3);padding:8px 0;">—</div>') + ((colsP[c] || []).map(carte).join('')) + (cols[c].length > max ? '<button class="btn btn-sm" style="width:100%;margin-top:6px;" onclick="window._rlOuvertes[\'' + c + '\']=true;renderRelancesPage()">voir les ' + (cols[c].length - max) + ' suivantes</button>' : ''); });
   var sans = (typeof sdRdvsSansAction === 'function') ? sdRdvsSansAction() : [];
   document.getElementById('rl-sans-date').innerHTML = sans.length ? '⚠️ ' + sans.length + ' RDV sans prochaine action (ni R2, ni relance datée) — <a href="#" onclick="sdClasserEnChaine();return false;">les traiter</a>' : '';
 }
