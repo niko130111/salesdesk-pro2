@@ -5842,10 +5842,11 @@ function fcPopupSuivi(monthKey, idx, retourSiAnnule) {
 function fcTacheClose(ctx) { // ctx facultatif { nom, email, lead } : depuis le panneau du Suivi ; sinon la fiche ouverte
   var c = ctx || { nom: _fc.nom, email: _fc.email || '', lead: _fc.leadChoisi || (_fc.rows || []).map(function(r) { return r.closeLead; }).find(Boolean) || '' }; window._fcTacheCtx = c; window._fcTcPrioOn = false;
   var champ = 'font-family:var(--font);font-size:13.5px;padding:8px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg);color:var(--text);';
-  var html = '<div class="fc-dup" style="width:min(460px,84vw);max-width:100%;box-sizing:border-box;"><div style="font-size:16px;font-weight:700;margin-bottom:2px;">⏰ Tâche Close — ' + escapeHtml(c.nom) + '</div><div class="fc-muted" style="margin-bottom:12px;">Elle apparaîtra dans ton Suivi à cette date. S\'il a déjà une tâche ouverte à ton nom, elle est déplacée.</div>'
+  var html = '<div class="fc-dup" style="width:min(460px,84vw);max-width:100%;box-sizing:border-box;"><div style="font-size:16px;font-weight:700;margin-bottom:2px;">⏰ Tâche Close — ' + escapeHtml(c.nom) + '</div><div class="fc-muted" style="margin-bottom:12px;">Elle apparaîtra dans ton Suivi à cette date.</div>'
     + '<div style="display:flex;gap:8px;margin-bottom:8px;"><input type="date" id="fc-tc-date" value="' + rlJourOuvre(rlIso(new Date()), 1) + '" min="' + rlIso(new Date()) + '" style="' + champ + 'flex:1;"><input type="time" id="fc-tc-heure" style="' + champ + 'width:110px;" title="Heure (facultatif)"></div>'
     + '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;"><button class="btn btn-sm" onclick="fcTcDate(1)">' + sdLibelleDemain(true) + '</button><button class="btn btn-sm" onclick="fcTcDate(2)">+2 j ouvrés</button><button class="btn btn-sm" onclick="fcTcDate(5)">+1 semaine</button><span style="width:10px"></span><button class="btn btn-sm" onclick="fcTcTexte(\'Rappeler\')">Rappeler</button><button class="btn btn-sm" onclick="fcTcTexte(\'Envoyer un mail\')">Envoyer un mail</button><button class="btn btn-sm" onclick="fcTcTexte(\'Relancer pour signature\')">Relancer pour signature</button></div>'
     + '<input type="text" id="fc-tc-texte" value="Rappeler" style="' + champ + 'width:100%;box-sizing:border-box;margin-bottom:10px;" placeholder="Quoi faire">'
+    + '<div id="fc-tc-existante" style="display:none;margin:-2px 0 10px;padding:8px 10px;border:1px solid var(--border);border-radius:10px;background:var(--surface);font-size:12.5px;line-height:1.5;"></div>'
     + '<div style="margin-bottom:12px;"><button type="button" class="btn btn-sm btn-prio" id="fc-tc-prio" onclick="fcTcPrio(this)" title="Elle passe en tête de Mes priorités et du Suivi dès son jour">Prioritaire</button></div>'
     + '<div style="display:flex;justify-content:flex-end;gap:6px;"><button class="btn btn-sm" style="margin-right:auto;" title="Tâche « Ghost Nicolas » pour Ludovic ou Eugénie dans Close, ta tâche est supprimée" onclick="sdTransmettre(window._fcTacheCtx)">' + aujIco('arrow') + 'Transmettre</button><button class="btn btn-sm" onclick="fermerModalDoublon()">Annuler</button><button class="btn btn-sm btn-primary" id="fc-tc-ok" onclick="fcTacheCloseCreer(this)">Créer la tâche</button></div></div>';
   var ov = document.getElementById('fc-dup-overlay');
@@ -5853,7 +5854,17 @@ function fcTacheClose(ctx) { // ctx facultatif { nom, email, lead } : depuis le 
   ov.onclick = function(ev) { if (ev.target === ov) fermerModalDoublon(); };
   document.getElementById('fc-dup-modal').innerHTML = html; ov.classList.add('open');
   setTimeout(function() { var e = document.getElementById('fc-tc-texte'); if (e) { e.focus(); e.select(); } }, 50);
+  // 17 oct. 2026 (tâches, étape 2) : s'il a déjà une tâche ouverte à ton nom, tu choisis « Remplacer » (défaut) ou « Ajouter » au lieu d'un écrasement silencieux
+  window._fcTcMode = 'remplacer'; var leadX = c.lead || sdLeadPour(c.nom, c.email || '') || '';
+  if (leadX && typeof COPILOT_URL !== 'undefined') fetch(COPILOT_URL + '/close/taches-ouvertes?' + new URLSearchParams({ leads: leadX }), { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).then(function(j) {
+    var l = (j && j.ok && j.leads && j.leads[leadX]) || []; var bx = document.getElementById('fc-tc-existante'); if (!bx || !l.length || window._fcTacheCtx !== c) return;
+    window._fcTcExistante = l[0]; bx.style.display = '';
+    bx.innerHTML = '<div style="margin-bottom:6px;">Déjà une tâche ouverte : <b>' + escapeHtml(fcFrDepuisIso(String(l[0].date || '').slice(0, 10))) + '</b> · ' + escapeHtml(l[0].texte || 'Follow up') + (l.length > 1 ? ' <span class="fc-muted">(+' + (l.length - 1) + ' autre' + (l.length > 2 ? 's' : '') + ')</span>' : '') + '</div>'
+      + '<div style="display:flex;gap:6px;"><button class="btn btn-sm fc-tc-mode on" data-mode="remplacer" onclick="fcTcMode(this)" title="La tâche existante prend la nouvelle date et le nouveau texte">Remplacer</button><button class="btn btn-sm fc-tc-mode" data-mode="ajouter" onclick="fcTcMode(this)" title="Les deux tâches restent ouvertes">Ajouter</button></div>';
+    fcTcMode(bx.querySelector('[data-mode="remplacer"]'));
+  }).catch(function() {});
 }
+function fcTcMode(b) { if (!b) return; window._fcTcMode = b.getAttribute('data-mode'); b.parentNode.querySelectorAll('.fc-tc-mode').forEach(function(x) { var on = x === b; x.classList.toggle('on', on); x.style.setProperty('background', on ? 'var(--accent)' : 'var(--surface)', 'important'); x.style.setProperty('color', on ? '#fff' : 'var(--text)', 'important'); x.style.setProperty('border-color', on ? 'var(--accent)' : 'var(--border)', 'important'); }); }
 function fcTcPrio(b) { var on = window._fcTcPrioOn = !window._fcTcPrioOn; b.classList.toggle('on', on); b.textContent = on ? '✓ Prioritaire' : 'Prioritaire'; b.style.setProperty('background', on ? 'var(--red)' : 'var(--surface)', 'important'); b.style.setProperty('color', on ? '#fff' : 'var(--red)', 'important'); b.style.setProperty('border-color', 'var(--red)', 'important'); }
 function fcTcDate(n) { var e = document.getElementById('fc-tc-date'); if (e) e.value = rlJourOuvre(rlIso(new Date()), n); }
 function fcTcTexte(t) { var e = document.getElementById('fc-tc-texte'); if (e) { e.value = t; e.focus(); } }
@@ -5861,13 +5872,13 @@ function fcTacheCloseCreer(btn) {
   var date = (document.getElementById('fc-tc-date') || {}).value || '', heure = (document.getElementById('fc-tc-heure') || {}).value || '', texte = ((document.getElementById('fc-tc-texte') || {}).value || '').trim() || 'Rappeler';
   if (!date) { alert('Il manque la date.'); return; } btn.disabled = true; btn.textContent = 'Création…';
   var c = window._fcTacheCtx || Object.assign({ nom: _fc.nom, email: _fc.email || '' }, fcTelConnu() ? { tel: fcTelConnu() } : {}), lead = c.lead || sdLeadPour(c.nom, c.email || '') || '';
-  rlPost('/close/taches', { nom: c.nom, email: c.email || '', lead: lead, date: date, heure: heure, texte: texte + '', motif: 'tâche posée depuis la fiche' }).then(function(j) {
+  rlPost('/close/taches', { nom: c.nom, email: c.email || '', lead: lead, date: date, heure: heure, texte: texte + '', motif: 'tâche posée depuis la fiche', ajouter: window._fcTcMode === 'ajouter' }).then(function(j) {
     try { if (window._fcTcPrioOn && j && j.tache && j.tache.id) { var stP = loadStore(); stP._tachesPrio = stP._tachesPrio || {}; stP._tachesPrio[j.tache.id] = { at: new Date().toISOString(), nom: c.nom, texte: texte, date: date }; saveStore(stP); } } catch (e) {} window._fcTcPrioOn = false; // tâche prioritaire : en tête de Mes priorités et du Suivi
     fermerModalDoublon(); try { _tachesCloseAt = 0; } catch (e) {} try { majBadgeSuivi(); } catch (e) {}
     // s'il a aussi une relance SalesDesk (ex. « R2 sans réponse depuis le 01/10 »), elle passe à la même date : sinon il restait dans « À traiter » malgré la tâche
     try { var itx = c.cle ? (window._rlItems || []).find(function(i) { return i.cle === c.cle; }) : (window._rlItems || []).find(function(i) { return i.rel && i.rel.r && fcNormNom(i.nom) === fcNormNom(c.nom); }); if (itx && itx.rel && itx.rel.r) rlMajRelance(itx, 'plus_tard', date); } catch (e) {}
     try { if (typeof _rlLundi !== 'undefined' && _rlLundi) chargerTachesClose(rlPlus(_rlLundi, -7), rlPlus(_rlLundi, 13), true); } catch (e) {} try { if (document.getElementById('page-relances') && typeof renderRelancesPage === 'function') renderRelancesPage(); } catch (e) {} // le Suivi se rafraîchit
-    if (typeof showCopyToast === 'function') showCopyToast((j.action === 'deplacer_existante' ? '✓ Tâche Close déplacée au ' : '✓ Tâche Close créée le ') + fcFrDepuisIso(date) + (heure ? ' à ' + heure : ''));
+    if (typeof showCopyToast === 'function') showCopyToast((j.remplacee ? '✓ Tâche du ' + fcFrDepuisIso(j.remplacee.date) + ' remplacée → ' : (/^creer_a_cote/.test(j.action || '') ? '✓ Tâche ajoutée (l\'autre est gardée) le ' : '✓ Tâche Close créée le ')) + fcFrDepuisIso(date) + (heure ? ' à ' + heure : ''));
   }).catch(function(e) { btn.disabled = false; btn.textContent = 'Créer la tâche'; alert('Tâche non créée : ' + e.message); });
 }
 function fcSuiviAnnuler() {
