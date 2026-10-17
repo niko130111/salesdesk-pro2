@@ -13907,11 +13907,14 @@ function rlTrierItems(items) {
     if (sv.dernier === 'joint') return 0;
     if (it.type === 'sd' || it.type === 'sd-noshow') return 1;
     if (it.rel) return 2;
-    if (it.t && it.t.texte && !/^follow ?up(\s*\(\d+\))?$/i.test(it.t.texte.trim())) return 3;
-    return 4;
+    return informatif(it) ? 3 : 4; // une note, un retour, une condition ou un vrai texte de tâche : avant les « Follow up » muets
   };
-  items.forEach(function(it, i) { it._i = i; it._rang = rang(it); });
-  items.sort(function(a, b) { return a._rang - b._rang || ((b.t && b.t.cree) || '').localeCompare((a.t && a.t.cree) || '') || a._i - b._i; });
+  // 17 oct. 2026 (Nicolas, prise de RDV > 20 lignes) : d'abord ceux où quelque chose a été dit (note, retour, condition, texte de tâche qui n'est pas juste la cadence), puis les autres dans un ordre tiré au sort — stable sur la journée, nouveau tirage chaque jour
+  var CADENCE = /^(prise de rdv|r2 sans réponse|no-show (inbound|outbound)|relance|rappel demandé|follow ?up)(\s*\(\d+\))?(\s*·\s*(appel \d+(\/\d+)?|retour de veille|joint le .*|\d+ appels? sans réponse))*\s*$/i;
+  var informatif = function(it) { var row = (it.rel && it.rel.row) || it.row || {}, tx = (it.t && it.t.texte || '').trim(); return !!(String(row.retour || '').trim() || String(row.relanceCond || '').trim() || (it.rel && it.rel.r && (it.rel.r.contexte || (it.rel.r.relance && it.rel.r.relance.condition))) || (tx && !CADENCE.test(tx))); };
+  var graine = rlIso(new Date()), alea = function(it) { var h = 2166136261, k = graine + '|' + (it.t ? it.t.id : (it.rel && it.rel.r ? it.rel.r.id : it.nom || '')); for (var i = 0; i < k.length; i++) { h ^= k.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; } return h; };
+  items.forEach(function(it, i) { it._i = i; it._rang = rang(it); it._alea = alea(it); });
+  items.sort(function(a, b) { if (a._rang !== b._rang) return a._rang - b._rang; if (a._rang === 4 && a.col === 'rdv' && b.col === 'rdv') return a._alea - b._alea || a._i - b._i; return ((b.t && b.t.cree) || '').localeCompare((a.t && a.t.cree) || '') || a._i - b._i; });
 }
 // ── Suivi, vue « File » : une liste dans l'ordre d'appel (heure fixée → R2 sans réponse → no-shows → prise de RDV), le contexte et les actions à droite.
 // Mêmes éléments et mêmes actions que la vue Colonnes (rlConstruireItems, rlAction) : tout s'écrit dans Close.
