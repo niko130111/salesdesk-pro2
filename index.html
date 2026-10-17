@@ -4168,8 +4168,35 @@ function sdAppliquerAlignement() {
     if (!r || !r.relanceDate || r.relanceFait || !r.closeLead) return; var c = _sdTachesMoi[r.closeLead]; if (!c || !c.taches.length) return;
     var t = c.taches.filter(function(x) { return x.date >= today && !/configur|onboard|vitrine/i.test(x.texte || ''); })[0] || c.taches[c.taches.length - 1]; if (!t || !t.date || t.date === r.relanceDate) return;
     r.relanceDateAvant = r.relanceDate; r.relanceDate = t.date; r.relanceSuitTache = t.id; n++; noms.push(r.client + ' → ' + fcFrDepuisIso(t.date)); }); });
+  try { sdProposerMigrationRappels(st); } catch (e) {}
   if (n) { saveStore(st); try { _relances = fusionRelances((_relances || []).filter(function(x) { return !x.local; })); } catch (e) {} console.log('[relances] ' + n + ' date(s) alignée(s) sur la tâche Close : ' + noms.join(', ')); if (typeof showCopyToast === 'function') showCopyToast('↔ ' + n + ' relance' + (n > 1 ? 's' : '') + ' alignée' + (n > 1 ? 's' : '') + ' sur ta tâche Close : ' + noms.slice(0, 2).join(', ') + (n > 2 ? '…' : '')); try { if (document.getElementById('page-relances') && typeof renderRelancesPage === 'function') renderRelancesPage(); } catch (e) {} try { var pg = document.getElementById('page-aujourdhui'); if (pg && pg.classList.contains('active')) renderAujourdhui(); } catch (e) {} try { if (document.querySelector('#fc-overlay.open')) fcRendre(); } catch (e) {} }
 }
+// Rappels SalesDesk sans tâche Close (17 oct. 2026, « une tâche = une tâche Close ») : proposés une fois à Nicolas, créés dans Close seulement s'il confirme ; les rappels sans fiche Close restent dans SalesDesk
+function sdProposerMigrationRappels(st) {
+  if (window._sdMigrRappelsOuverte || typeof COPILOT_URL === 'undefined') return; st = st || loadStore(); var today = rlIso(new Date()), orph = [], sansFiche = 0;
+  Object.keys(st).forEach(function(k) { if (!/^\d{4}-\d{2}$/.test(k) || !Array.isArray(st[k])) return; st[k].forEach(function(r, i) {
+    if (!r || !r.relanceDate || r.relanceFait || r.relanceSuitTache) return;
+    if (!r.closeLead) { sansFiche++; return; } var c = _sdTachesMoi[r.closeLead]; if (!c) return; if (c.taches && c.taches.length) return;
+    if (r.relanceMigrationProposee && r.relanceMigrationProposee > rlPlus(today, -7)) return; orph.push({ k: k, i: i, r: r }); }); });
+  if (!orph.length) return; window._sdMigrRappelsOuverte = true;
+  var html = '<div class="fc-dup" style="width:min(560px,90vw);max-width:100%;box-sizing:border-box;"><div style="font-size:16px;font-weight:700;margin-bottom:2px;">' + orph.length + ' rappel' + (orph.length > 1 ? 's' : '') + ' sans tâche Close</div>'
+    + '<div class="fc-muted" style="margin-bottom:10px;">Pour n\'avoir qu\'une seule liste, chaque rappel SalesDesk devient une tâche Close, à la même date et avec le même motif. Rien n\'est créé sans ton clic.' + (sansFiche ? ' ' + sansFiche + ' rappel' + (sansFiche > 1 ? 's' : '') + ' sans fiche Close reste' + (sansFiche > 1 ? 'nt' : '') + ' dans SalesDesk.' : '') + '</div>'
+    + orph.map(function(o) { return '<div style="display:flex;gap:10px;align-items:center;padding:6px 0;border-top:1px solid var(--border);font-size:13px;"><span style="flex:1;min-width:0;">' + sdNomLien(o.r.client, o.r.email || '') + ' <span class="fc-muted">· ' + escapeHtml(fcFrDepuisIso(o.r.relanceDate)) + ' · ' + escapeHtml(o.r.relanceCond || 'Rappeler') + '</span></span></div>'; }).join('')
+    + '<div id="sd-mr-etat" class="fc-muted" style="min-height:18px;margin-top:8px;font-size:12.5px;"></div>'
+    + '<div style="display:flex;justify-content:flex-end;gap:6px;margin-top:8px;"><button class="btn btn-sm" onclick="sdMigrationRappelsPlusTard()">Plus tard</button><button class="btn btn-sm btn-primary" id="sd-mr-ok">Créer ' + orph.length + ' tâche' + (orph.length > 1 ? 's' : '') + ' Close</button></div></div>';
+  var ov = document.getElementById('fc-dup-overlay');
+  if (!ov) { ov = document.createElement('div'); ov.id = 'fc-dup-overlay'; ov.className = 'modal-overlay'; ov.style.zIndex = '1300'; ov.innerHTML = '<div class="modal" id="fc-dup-modal"></div>'; document.body.appendChild(ov); }
+  ov.onclick = function(ev) { if (ev.target === ov) sdMigrationRappelsPlusTard(); };
+  document.getElementById('fc-dup-modal').innerHTML = html; ov.classList.add('open'); window._sdMigrOrph = orph;
+  document.getElementById('sd-mr-ok').onclick = function() {
+    var b = this; b.disabled = true; var etat = document.getElementById('sd-mr-etat'), ok = 0, ko = []; var file = orph.slice();
+    var suite = function() { var o = file.shift(); if (!o) { try { var st2 = loadStore(); orph.forEach(function(x) { var rr = (st2[x.k] || [])[x.i]; if (rr && x.tacheId) rr.relanceSuitTache = x.tacheId; }); saveStore(st2); } catch (e) {} try { _relances = fusionRelances((_relances || []).filter(function(x) { return !x.local; })); } catch (e) {} fermerModalDoublon(); window._sdMigrRappelsOuverte = false; if (typeof showCopyToast === 'function') showCopyToast('✓ ' + ok + ' tâche' + (ok > 1 ? 's' : '') + ' Close créée' + (ok > 1 ? 's' : '') + (ko.length ? ' · ' + ko.length + ' en échec : ' + ko.join(', ') : '')); try { _tachesCloseAt = 0; if (typeof _rlLundi !== 'undefined' && _rlLundi) chargerTachesClose(rlPlus(_rlLundi, -7), rlPlus(_rlLundi, 13), true); } catch (e) {} try { renderRelancesPage(); } catch (e) {} return; }
+      etat.textContent = 'Création ' + (ok + ko.length + 1) + ' / ' + orph.length + ' : ' + o.r.client + '…';
+      rlPost('/close/taches', { lead: o.r.closeLead, nom: o.r.client, email: o.r.email || '', date: o.r.relanceDate, texte: o.r.relanceCond || 'Rappeler', motif: 'rappel SalesDesk converti en tâche Close' }).then(function(j) { if (j && j.tache && j.tache.id) { o.tacheId = j.tache.id; ok++; try { var cm = _sdTachesMoi[o.r.closeLead] || { taches: [] }; cm.at = Date.now(); cm.taches = (cm.taches || []).concat([{ id: j.tache.id, texte: o.r.relanceCond || 'Rappeler', date: o.r.relanceDate }]); _sdTachesMoi[o.r.closeLead] = cm; } catch (e) {} } else ko.push(o.r.client); suite(); }).catch(function() { ko.push(o.r.client); suite(); }); };
+    suite();
+  };
+}
+function sdMigrationRappelsPlusTard() { try { var st = loadStore(), today = rlIso(new Date()); (window._sdMigrOrph || []).forEach(function(o) { var rr = (st[o.k] || [])[o.i]; if (rr) rr.relanceMigrationProposee = today; }); saveStore(st); } catch (e) {} fermerModalDoublon(); window._sdMigrRappelsOuverte = false; }
 // Tâches ouvertes de collègues sur des prospects (lues dans Close par le copilot) : window._sdCollegues[lead] = [] (aucune), [{ qui, texte, date }] ou null (lecture ratée)
 function sdChargerCollegues(leads) {
   if (typeof COPILOT_URL === 'undefined') return; window._sdCollegues = window._sdCollegues || {}; window._sdColleguesEnCours = window._sdColleguesEnCours || {};
@@ -13783,7 +13810,12 @@ function rlConstruireItems(today) {
   // relances SalesDesk enrichies (ligne, colonne)
   var rels = liste.map(function(r) { var row = sdRowPourRelance(r); return { r: r, row: row, col: sdColonneRelance(r, row), nom: r.nom, date: quand(r) }; });
   // tâches Close : rapprochées d'une relance SalesDesk par la personne (même date ou non)
-  var taches = (_tachesClose && _tachesClose.taches) || [], terminees = (_tachesClose && _tachesClose.terminees) || [];
+  var taches = ((_tachesClose && _tachesClose.taches) || []).slice(), terminees = (_tachesClose && _tachesClose.terminees) || [];
+  // 17 oct. 2026 (une tâche = une tâche Close) : une relance SalesDesk dont la personne a une tâche Close ouverte hors de la fenêtre chargée est affichée comme cette tâche, pas comme un rappel à part
+  try { var dejaIds = {}; taches.forEach(function(t) { dejaIds[t.id] = 1; });
+    rels.forEach(function(x) { var row = x.row; if (!row || !row.closeLead) return; var c = (window._sdTachesMoi || {})[row.closeLead]; if (!c || !c.taches || !c.taches.length) return;
+      var t0 = c.taches.filter(function(t) { return !dejaIds[t.id]; })[0]; if (!t0) return; dejaIds[t0.id] = 1;
+      taches.push({ id: t0.id, lead: row.closeLead, fiche: row.client, contact: row.client, contacts: [row.client], texte: t0.texte || 'Rappeler', date: t0.date, heure: '', fait: false, url: 'https://app.close.com/lead/' + row.closeLead + '/', vue: 'future', horsFenetre: true }); }); } catch (e) {}
   var items = []; var relsUtilisees = {};
   // Dès qu'un RDV est pris (R2 daté à venir, ou RDV à venir postérieur à la tâche), la cadence est en pause : la tâche Close reste dans Close mais sort du Suivi et des priorités (décision du 9 oct. 2026). Sauf signature / configuration, qui suivent leur propre logique.
   var stC = window._rlStoreCache, parNomC = {};
