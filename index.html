@@ -4601,6 +4601,11 @@ function fcBoutonsSuivi(it) {
   var A = function(action, lib, cls, titre) { return '<button class="btn btn-sm' + (cls ? ' ' + cls : '') + '" title="' + escapeHtml(titre || '') + '" onclick="rlAction(' + cleJs + ', \'' + action + '\', this);setTimeout(function(){try{fcRendre()}catch(e){}},1500)">' + lib + '</button>'; };
   var B = function(onclick, lib, cls, titre) { return '<button class="btn btn-sm' + (cls ? ' ' + cls : '') + '" title="' + escapeHtml(titre || '') + '" onclick="' + onclick + '">' + lib + '</button>'; };
   var appeler = '<button class="btn btn-sm btn-primary" title="Close ouvre la fiche et compose ; Alt + clic = appel via le Mac" onclick="fcAppelerFiche(event,' + cleJs + ')">' + aujIco('phone') + 'Appeler</button>';
+  // 17 oct. 2026 (tâches, étape 3) : la fiche Close et « Prioritaire » partout où il y a la barre (Suivi, fiche, agenda), plus besoin de cliquer sur le nom
+  var leadB = (it.t && it.t.lead) || it.lead || row.closeLead || sdLeadPour(it.nom || row.client || '', it.email || row.email || '') || '';
+  var ficheCloseBtn = B(leadB ? 'event.stopPropagation();window.open(' + JSON.stringify('https://app.close.com/lead/' + leadB + '/').replace(/"/g, '&quot;') + ',\'_blank\',\'noopener\')' : 'fcOuvrirClose(' + nomJs + ',' + emailJs + ',event)', aujIco('link') + 'Close ↗', '', 'Ouvrir sa fiche dans Close');
+  var prioOn = !!(it.t && (loadStore()._tachesPrio || {})[it.t.id]);
+  var prio = it.t && copilot ? '<button class="btn btn-sm" title="' + (prioOn ? 'Retirer la priorité' : 'Remonter en tête de Mes priorités et du Suivi') + '" style="' + (prioOn ? 'background:var(--red) !important;color:#fff !important;border-color:var(--red) !important;' : 'color:var(--red) !important;border-color:var(--red) !important;') + '" onclick="event.stopPropagation();sdPrioToggle(' + cleJs + ')">' + (prioOn ? '✓ Prioritaire' : 'Prioritaire') + '</button>' : '';
   var isoR = frVersIsoSd((r2 ? r2.date : row.date) || '') || '';
   var resultat = r2 && !r2.ligne ? B('sdDeplacerAnnuler(' + nomJs + ',' + JSON.stringify(isoR).replace(/"/g, '&quot;') + ',' + JSON.stringify(r2.heure || '').replace(/"/g, '&quot;') + ')', aujIco('refresh') + 'Reprogrammer / annuler', '', 'Le R2 bouge ou saute : nouveau créneau Calendly, ou annulation')
     : (r2 && r2.ligne && r2.ligne._monthKey !== undefined) ? B('sdResultatRdv(' + JSON.stringify(r2.ligne._monthKey).replace(/"/g, '&quot;') + ',' + r2.ligne._storeKey + ')', aujIco('check') + 'Résultat du RDV', 'btn-primary', 'Show, No show, Annulé ou Reprogrammé')
@@ -4641,6 +4646,8 @@ function fcBoutonsSuivi(it) {
   if (fcLignesDuNom(it.nom || row.client || '').some(function(r) { return r && r.source !== 'R2' && String(r.presence || '').trim() === 'Show' && r.result !== 'Signé'; })) plus.unshift(B('sdNonSigneFiche(' + nomJs + ')', aujIco('x') + 'Non signé (raison)', '', 'Pas de budget, à relancer au RENT, si promo… : son R1 passe en Non signé avec cette raison (colonne du Pipeline) ; ta tâche ne bouge pas'));
   // 16 oct. 2026 (Nicolas) : « Déplacer » à côté de « Tâche » quand une tâche Close est ouverte : change sa date, sans en recréer une
   if ((it.t && copilot) || (it.rel && it.rel.r)) { var deplacer = B('sdDeplacerTache(' + cleJs + ')', aujIco('pen') + 'Modifier', '', it.t ? 'Date, heure, texte et motif de la tâche Close, sans en recréer une' : 'Date et motif du rappel SalesDesk'); var placee = false; [principal, plus].forEach(function(L) { var k = L.indexOf(tache); if (k >= 0 && !placee) { L.splice(k + 1, 0, deplacer); placee = true; } }); if (!placee) principal.push(deplacer); }
+  (function() { var k = principal.indexOf(appeler); if (k >= 0) principal.splice(k + 1, 0, ficheCloseBtn); else principal.push(ficheCloseBtn); })();
+  if (prio) { var placeeP = false; [principal, plus].forEach(function(L) { var k = L.indexOf(typeof deplacer !== 'undefined' ? deplacer : tache); if (k >= 0 && !placeeP) { L.splice(k + 1, 0, prio); placeeP = true; } }); if (!placeeP) plus.push(prio); }
   principal = principal.filter(Boolean).map(function(b, i) { return i ? b.replace(' btn-primary', '') : b; }); plus = plus.filter(Boolean); // une seule action pleine : la première
   var id = 'fc-plus-' + Math.random().toString(36).slice(2, 7);
   return '<div class="fc-barre" data-etat="' + etat + '" style="display:flex;flex-wrap:wrap;gap:6px;width:100%;align-items:center;">' + principal.join('')
@@ -13908,6 +13915,14 @@ function svCharger(it) { // contexte Close du prospect choisi (une fois par pros
 }
 function svAppeler(ev, cle) { var x = _sv.tel[cle] || {}, it = (window._rlItems || []).find(function(i) { return i.cle === cle; }); var leadT = it && it.t && it.t.lead ? it.t.lead : '', url = leadT ? 'https://app.close.com/lead/' + leadT + '/' : (x.url || ''); if (leadT && x.lead && x.lead !== leadT) x = {}; if (!url && !x.tel) { if (typeof showCopyToast === 'function') showCopyToast('Fiche Close introuvable pour cet appel'); return; } fcAppeler(ev, x.tel || '', url); }
 // Déplacer UNE tâche Close (16 oct. 2026) : depuis Mes priorités, le Suivi ou la fiche ; même tâche (même identifiant, priorité gardée), nouvelle date et heure
+// Prioritaire sur une tâche existante (17 oct. 2026) : même marque que celle posée à la création (_tachesPrio), en tête de Mes priorités et de la file
+function sdPrioToggle(cle) {
+  var it = (window._rlItems || []).find(function(i) { return i.cle === cle; }); if (!it && /^fiche\|/.test(cle) && typeof fcItemFiche === 'function') it = fcItemFiche();
+  if (!it || !it.t) return; var st = loadStore(); st._tachesPrio = st._tachesPrio || {}; var on = !st._tachesPrio[it.t.id];
+  if (on) st._tachesPrio[it.t.id] = { at: new Date().toISOString(), nom: it.nom, texte: it.t.texte || '', date: it.t.date || '' }; else delete st._tachesPrio[it.t.id];
+  saveStore(st); if (typeof showCopyToast === 'function') showCopyToast(on ? '🔴 ' + it.nom + ' : prioritaire' : it.nom + ' : plus prioritaire');
+  try { if (document.getElementById('page-relances') && typeof renderRelancesPage === 'function') renderRelancesPage(); } catch (e) {} try { dessinerRelances(); } catch (e) {} try { renderMaJournee(); } catch (e) {} try { if (typeof fcRendre === 'function' && _fc && _fc.nom) fcRendre(); } catch (e) {} try { if (typeof renderAujourdhui === 'function') renderAujourdhui(); } catch (e) {}
+}
 function sdDeplacerTache(cle) { // « Modifier » (17 oct. 2026) : tâche Close → date, heure, texte, motif ; relance SalesDesk seule → date et texte du rappel
   var it = (window._rlItems || []).find(function(x) { return x.cle === cle; }); if (!it && /^fiche\|/.test(cle) && typeof fcItemFiche === 'function' && _fc && _fc.nom) it = fcItemFiche();
   if (!it || (!it.t && !(it.rel && it.rel.r))) { alert('Rien à modifier sur ce prospect.'); return; }
