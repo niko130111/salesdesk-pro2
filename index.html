@@ -4255,6 +4255,23 @@ function sdTransmettreValider(btn) {
   }).catch(function(e) { btn.disabled = false; btn.textContent = 'Transmettre'; err.textContent = 'Non transmis : ' + ((e && e.message) || e); });
 }
 // R2 passés jamais qualifiés (audit du 17 oct. 2026) : R1 avec dateR2 dans [depuis, auJourd] sans presenceR2 (ou « Programmé ») et sans ligne R2 ; la stat « R2 tenus » les ignore tant qu'ils ne sont pas qualifiés
+// 17 oct. 2026 (règle de Nicolas) : un R2 passé dont la ligne a déjà un retour (Signé, Non signé, Intéressé) a eu lieu → présence R2 = Show, sans lui redemander. Sauvegarde avant, marque presenceR2Auto, idempotent (tourne après les correctifs à chaque chargement).
+function sdQualifierR2DepuisResultat() {
+  var st = loadStore(), today = rlIso(new Date()), faits = [], lignesR2 = {};
+  Object.keys(st).forEach(function(k) { if (!/^\d{4}-\d{2}$/.test(k) || !Array.isArray(st[k])) return; st[k].forEach(function(r) { if (r && r.source === 'R2' && r.client) lignesR2[fcNormNom(r.client) + '|' + r.date] = 1; }); });
+  Object.keys(st).forEach(function(k) { if (!/^\d{4}-\d{2}$/.test(k) || !Array.isArray(st[k])) return; st[k].forEach(function(r) {
+    if (!r || !r.client || r.source === 'R2' || !r.dateR2) return; var p2 = String(r.presenceR2 || '').trim(); if (p2 && p2 !== 'Programmé') return;
+    if (['Signé', 'Non signé', 'Intéressé'].indexOf(String(r.result || '').trim()) < 0) return;
+    var iso = frVersIsoSd(r.dateR2); if (!iso || iso >= today) return; if (lignesR2[fcNormNom(r.client) + '|' + r.dateR2]) return;
+    if (typeof estSupprime === 'function' && estSupprime(st, r.client, r.dateR2)) return;
+    r.presenceR2 = 'Show'; r.presenceR2Auto = today; faits.push(r.client + ' (R2 du ' + r.dateR2 + ')'); }); });
+  if (!faits.length) return 0;
+  if (typeof sdBackupStore === 'function') sdBackupStore(st); saveStore(st);
+  console.log('[R2] présence Show déduite du retour pour ' + faits.length + ' R2 : ' + faits.join(', '));
+  try { refreshAll(); } catch (e) {} try { renderAujourdhui(); } catch (e) {}
+  if (typeof showCopyToast === 'function') showCopyToast('✓ ' + faits.length + ' R2 passé' + (faits.length > 1 ? 's' : '') + ' avec retour → présence Show');
+  return faits.length;
+}
 function sdR2AQualifier(st, depuis, auJour) {
   st = st || loadStore(); var out = [], lignesR2 = {};
   Object.keys(st).forEach(function(k) { if (!/^\d{4}-\d{2}$/.test(k) || !Array.isArray(st[k])) return; st[k].forEach(function(r) { if (r && r.source === 'R2' && r.client) lignesR2[fcNormNom(r.client) + '|' + r.date] = 1; }); });
@@ -12873,7 +12890,7 @@ function sdAppliquerCorrectifs() {
         appliques.push(c.client); }
       faits[c.id] = new Date().toISOString(); });
     if (Object.keys(faits).length !== avant) { st._correctifsFaits = faits; saveStore(st); if (appliques.length) { try { refreshAll(); } catch (e) {} try { renderAujourdhui(); } catch (e) {} if (typeof showCopyToast === 'function') showCopyToast('✓ Correction appliquée : ' + appliques.join(', ')); } }
-  }).catch(function() {}).finally(function() { _sdCorrEnCours = false; window._sdCorrectifsVus = true; /* la proposition de migration des rappels attend ce passage */ });
+  }).catch(function() {}).finally(function() { _sdCorrEnCours = false; window._sdCorrectifsVus = true; /* la proposition de migration des rappels attend ce passage */ try { sdQualifierR2DepuisResultat(); } catch (e) { console.warn('[R2] qualification auto', e); } });
 }
 setInterval(sdAppliquerCorrectifs, 120000);
 // 14 oct. 2026 (un prospect) : mail de fin de RDV envoyé à la main → « Déjà envoyé » le retire des priorités (le copilot le note « manuel » et ne le prépare plus)
