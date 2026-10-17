@@ -5450,6 +5450,7 @@ function fcHtmlSynthese() {
   var et = _fc.etape || { lib: '', det: '' };
   var next = '<div class="fc-card"><div class="fc-card-t"><span>Prochaine étape</span></div><div class="fc-big">' + escapeHtml(et.lib || '—') + '</div>' + (et.det ? '<div class="fc-muted" style="margin-bottom:6px;">' + escapeHtml(et.det) + '</div>' : '')
     + (j && j.prochaine ? '<div class="fc-kv"><span class="k">Objectif</span><span class="v">' + escapeHtml(j.prochaine) + '</span></div>' : '') + '<div class="fc-kv"><span class="k">Responsable</span><span class="v">Nicolas</span></div></div>';
+  try { var moF = sdMailOffrePour(_fc.nom, _fc.email || ''); if (moF) next = next.replace(/<\/div>$/, '<div class="fc-kv"><span class="k">Mail d\'offre</span><span class="v" style="color:' + (moF.lu ? 'var(--sd-green)' : 'var(--orange)') + ';">' + escapeHtml(sdMailOffreTexte(moF)) + '</span></div></div>'); } catch (e) {} // 17 oct. 2026 : mail d'offre lu / pas lu
   var nomH = _fc.nom, hF = sdHistoRdv(_fc.nom, _fc.email || '', '', function() { if (_fc.nom === nomH && _fc.tab === 'synthese' && document.querySelector('#fc-overlay.open')) fcRendre(); }, { lead: _fc.leadChoisi || '', tel: fcTelConnu() });
   next += '<div class="fc-card"><div class="fc-card-t"><span>Rendez-vous dans Close</span></div>' + (sdHistoListe(hF, 6) || '<div class="fc-muted">' + escapeHtml(sdHistoTexte(hF)) + '</div>') + '</div>';
   var offre = '';
@@ -11875,6 +11876,22 @@ function sdPerfOnglet(q) { var tab = document.querySelector('.nav-tab[data-page=
 function mjAller(page) { if (page === 'Mes RDV') { showPage('mesrdv', null); togglePeriodSelector(false); ouvrirCopilot(); return; } if (page === 'Quotidien') page = 'Aujourd'; var map = { 'Aujourd': 'aujourdhui', 'Automatisations': 'automatisations', 'Relances': 'relances', 'Suivi': 'relances', 'Analytics': 'analytics', 'Performance': 'analytics', 'Mes RDV': 'mesrdv', 'Contrôle': 'controle', 'Pipeline': 'pipeline', 'RDV Table': 'rdvtable', 'Quotidien': 'daily' }; var b = (map[page] && document.querySelector('.nav-tab[data-page="' + map[page] + '"]')) || [...document.querySelectorAll('.nav-tab')].find(function(x) { return x.textContent.indexOf(page) >= 0; }); if (b) b.click(); }
 // ── Mail de fin de R1 : « Terminer » → le copilot attend le compte rendu Claap → brouillon dans Close → ici : Envoyer · Modifier · Annuler ──
 var _mailsFinR1 = null, _mailsFinR1At = 0;
+// Mail d'offre (fin de RDV) lu / pas lu (17 oct. 2026) : ouvertures lues dans Close par le copilot, mails envoyés depuis 30 jours
+var _mailsLectures = null, _mailsLecturesAt = 0, _mailsLecturesEnCours = false;
+function chargerLecturesMails(force) {
+  if (typeof COPILOT_URL === 'undefined' || _mailsLecturesEnCours || (_mailsLectures && Date.now() - _mailsLecturesAt < 300000 && !force)) return; _mailsLecturesEnCours = true;
+  fetch(COPILOT_URL + '/mails-fin-r1/lectures', { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).then(function(j) { _mailsLectures = (j && j.ok) ? (j.mails || []) : (_mailsLectures || []); _mailsLecturesAt = Date.now(); })
+    .catch(function() { _mailsLectures = _mailsLectures || []; _mailsLecturesAt = Date.now(); })
+    .then(function() { _mailsLecturesEnCours = false; try { var pg = document.getElementById('page-aujourdhui'); if (pg && pg.classList.contains('active')) renderAujourdhui(); } catch (e) {} try { if (document.querySelector('#fc-overlay.open') && _fc && _fc.nom && _fc.tab === 'synthese') fcRendre(); } catch (e) {} });
+}
+function sdMailOffrePour(nom, email) { // le dernier mail de fin de RDV envoyé à cette personne, avec ses ouvertures ; null si aucun (ou pas encore chargé)
+  if (_mailsLectures === null) { try { chargerLecturesMails(); } catch (e) {} return null; }
+  var n = fcNormNom(nom || ''), em = String(email || '').toLowerCase().trim();
+  var L = (_mailsLectures || []).filter(function(m) { return (n && fcNormNom(m.nom || '') === n) || (em && String(m.email || '').toLowerCase().trim() === em); });
+  return L.sort(function(a, b) { return String(b.envoyeLe).localeCompare(String(a.envoyeLe)); })[0] || null;
+}
+function sdMailOffreTexte(m) { var fr = function(iso) { return iso ? fcFrDepuisIso(String(iso).slice(0, 10)) : '?'; }; return 'envoyé le ' + fr(m.envoyeLe) + (m.lu ? ' · lu le ' + fr(m.luLe) + (m.lu > 1 ? ' (' + m.lu + ' ouvertures' + (m.dernierLe && String(m.dernierLe).slice(0, 10) !== String(m.luLe).slice(0, 10) ? ', la dernière le ' + fr(m.dernierLe) : '') + ')' : '') : ' · pas encore lu'); }
+function sdMailChip(nom, email) { var m = sdMailOffrePour(nom, email); if (!m) return ''; return '<span class="auj-state ' + (m.lu ? 'ok' : 'warn') + '" title="Mail de fin de RDV ' + escapeHtml(sdMailOffreTexte(m)) + '">' + aujIco('mail') + (m.lu ? 'Mail lu' : 'Mail pas lu') + '</span>'; }
 function sdDemanderMailFinR1(row, resultatCopilot, email) {
   if (typeof COPILOT_URL === 'undefined' || !row || !row.client || row.source === 'R2') return; // jamais après un R2
   var iso = frVersIsoSd(row.date); if (!iso) return;
@@ -11892,7 +11909,7 @@ function chargerMailsFinR1(force) {
   fetch(COPILOT_URL + '/mails-fin-r1', { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).then(function(j) {
     var avant = {}; (_mailsFinR1 || []).forEach(function(m) { avant[m.cle || (m.nom + '|' + m.date)] = m.statut; });
     var prets = _mailsFinR1 ? (j.mails || []).filter(function(m) { var k = m.cle || (m.nom + '|' + m.date); return m.statut === 'brouillon' && avant[k] && avant[k] !== 'brouillon'; }) : [];
-    _mailsFinR1 = j.mails || []; _mailsFinR1At = Date.now(); renderMaJournee(); try { var fo = document.getElementById('fc-overlay'); if (fo && fo.classList.contains('open') && _fc && _fc.nom) fcRendre(); } catch (e) {}
+    _mailsFinR1 = j.mails || []; _mailsFinR1At = Date.now(); renderMaJournee(); try { chargerLecturesMails(); } catch (e) {} try { var fo = document.getElementById('fc-overlay'); if (fo && fo.classList.contains('open') && _fc && _fc.nom) fcRendre(); } catch (e) {}
     if (prets.length) sdAlerteMailPret(prets); // il vient de passer de « en attente du compte rendu » à « prêt »
   }).catch(function() {});
 }
@@ -13247,6 +13264,7 @@ function renderAujourdhui() {
     var rp = rdvs[prochainIdx], mp = moments[prochainIdx], pp = prepDe(rp), rowP = rp.row || {}, nomJsP = Q(rp.nom), emailJsP = Q(rp.email || '');
     var bl = rp.r2 ? { lignes: ['<div class="bl"><b>R2 :</b><span>validation et lancement ; tout le dossier est dans la fiche.</span></div>'], vide: false } : briefLignes(pp, 3, rp);
     if (!rp.r2) { var hP = sdHistoRdv(rp.nom, rp.email || '', jour, function() { if (document.getElementById('auj-prochain')) renderAujourdhui(); }, { lead: rowP.closeLead || sdLeadPour(rp.nom, rp.email || '') || '', tel: rowP.tel || rowP.telephone || '' }); bl.lignes.unshift('<div class="bl"><b>Historique :</b><span>' + escapeHtml(sdHistoTexte(hP)) + '</span></div>'); }
+    try { var moP = sdMailOffrePour(rp.nom, rp.email || rowP.email || ''); if (moP) bl.lignes.unshift('<div class="bl"><b>Mail d\'offre :</b><span style="color:' + (moP.lu ? 'var(--sd-green)' : 'var(--orange)') + '">' + escapeHtml(sdMailOffreTexte(moP)) + '</span></div>'); } catch (e) {} // 17 oct. 2026 : mail d'offre lu / pas lu
     var compteP = mp.enCours ? '' : (estAuj && mp.mins !== null && mp.mins > 0 ? (mp.mins < 60 ? 'dans ' + mp.mins + ' min' : 'dans ' + Math.floor(mp.mins / 60) + ' h' + (mp.mins % 60 ? String(mp.mins % 60).padStart(2, '0') : '')) : '');
     var ficheB = '<button class="btn" onclick="ouvrirFicheClient(' + nomJsP + ',' + emailJsP + ')">' + aujIco('doc') + 'Ouvrir la fiche</button>';
     var prepB = rp.r2 ? '' : '<button class="btn" onclick="' + cible(rp.nom, rp.email, jour) + '">' + aujIco('cal') + (pp.etat === 'ok' ? 'Voir la préparation' : 'Préparer le RDV') + '</button>';
@@ -13291,7 +13309,7 @@ function renderAujourdhui() {
       return '<div class="auj-row-wrap' + (ouvert ? ' ouvert' : '') + '"><div class="auj-row' + (r.r2 ? ' r2' : '') + (m.passe ? ' passe' : '') + '">'
         + '<div class="h">' + escapeHtml(r.heure || '—') + (compte ? '<div class="cd">' + escapeHtml(compte) + '</div>' : '') + '</div>'
         + '<div class="who"><div class="n" onclick="ouvrirFicheClient(' + Q(r.nom) + ',' + Q(r.email || '') + ')">' + escapeHtml(nomAff(r.nom)) + '</div><div class="sub">' + escapeHtml(sousTitre(r) + (!pres && String(row.presence || '').trim() === 'Reprogrammé' ? ' · reprogrammé à ce jour' : '')) + '</div></div>'
-        + '<div class="st">' + statut(r, m, p, estProchain) + confChip(r, m) + '</div>'
+        + '<div class="st">' + statut(r, m, p, estProchain) + confChip(r, m) + sdMailChip(r.nom, r.email || (r.row && r.row.email) || '') + '</div>'
         + '<div class="act">' + a.principal + a.plus + '</div>'
         + (peutOuvrir ? '<button class="tog" title="' + (ouvert ? 'Replier' : 'Voir le brief') + '" aria-label="' + (ouvert ? 'Replier' : 'Voir le brief') + '" onclick="aujOuvrir(' + Q(cleR) + ')">' + aujIco('chev') + '</button>' : '<span></span>')
         + '</div>' + brief + '</div>';
