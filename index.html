@@ -14077,6 +14077,22 @@ function svDessinerCompteur() {
   var bump = _svcDernier !== null && n > _svcDernier; _svcDernier = n;
   el.innerHTML = '<div class="svc" style="--svc-a:' + c[0] + ';--svc-b:' + c[1] + ';" title="Appels passés aujourd\'hui dans Close' + (moy ? ' · ta moyenne : ' + moy + ' par jour ouvré ce mois' : '') + '"><span class="ic' + (bump ? ' bump' : '') + '">📞</span><span class="n">' + n + '<small>appel' + (n > 1 ? 's' : '') + '</small></span><span class="d"><span class="m">' + escapeHtml(msg) + '</span>' + (moy ? '<span class="b"><i style="width:' + Math.min(100, pct) + '%"></i></span>' : '') + '</span><span class="j">✅ ' + jn + ' joint' + (jn > 1 ? 's' : '') + '</span></div>';
 }
+// 17 oct. 2026 (tâches, étape 2) : le snooze de 23:00 (copilot) reporte les tâches non faites au jour ouvré suivant ; le matin, le Suivi dit lesquelles, au lieu de les faire réapparaître en silence
+function sdSnoozeResume(today) {
+  var bx = document.getElementById('rl-snooze'); if (!bx) { var ref = document.getElementById('rl-resume'); if (!ref) return; bx = document.createElement('div'); bx.id = 'rl-snooze'; ref.insertAdjacentElement('afterend', bx); }
+  var info = window._sdSnoozeInfo;
+  if (info && info.jour === today) { bx.innerHTML = info.html; return; }
+  if (window._sdSnoozeEnCours === today || typeof COPILOT_URL === 'undefined') return; window._sdSnoozeEnCours = today;
+  fetch(COPILOT_URL + '/close/ecritures?n=150', { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).then(function(j) {
+    var e = ((j && j.ecritures) || []).find(function(x) { return x.type === 'snooze_soir' && x.vers === today; }), html = '';
+    if (e && e.n) {
+      var L = (e.taches || []), noms = L.map(function(t) { return String(t.fiche || '').trim(); }).filter(Boolean), vus = {}; noms = noms.filter(function(x) { if (vus[x]) return false; vus[x] = 1; return true; });
+      html = '<div class="fc-muted" style="font-size:12.5px;margin:2px 0 8px;" title="' + escapeHtml(L.map(function(t) { return (t.fiche || t.lead || '') + (t.texte ? ' · ' + t.texte : ''); }).join('\n')) + '">🌙 Hier soir (' + escapeHtml(fcFrDepuisIso(e.jour)) + '), ' + e.n + ' tâche' + (e.n > 1 ? 's' : '') + ' non faite' + (e.n > 1 ? 's' : '') + ' ' + (e.n > 1 ? 'ont été reportées' : 'a été reportée') + ' à aujourd\'hui' + (e.n > 10 ? ' (du jour et tout le retard)' : '')
+        + (noms.length && e.n <= 10 ? ' : ' + noms.slice(0, 5).map(function(x) { return escapeHtml(x); }).join(', ') + (noms.length > 5 ? ' (+' + (noms.length - 5) + ')' : '') : '') + '.</div>';
+    }
+    window._sdSnoozeInfo = { jour: today, html: html }; bx.innerHTML = html;
+  }).catch(function() {}).then(function() { window._sdSnoozeEnCours = null; });
+}
 function renderRelancesPage() {
   var page = document.getElementById('page-relances'); if (!page) return;
   if (_relances === null) { try { chargerRelancesPourQuotidien(); } catch (e) {} setTimeout(function() { if (page.classList.contains('active')) renderRelancesPage(); }, 1500); }
@@ -14087,6 +14103,7 @@ function renderRelancesPage() {
   chargerTachesClose(rlPlus(_rlLundi, -7), rlPlus(_rlLundi, 13), false);
   var _c = rlConstruireItems(today), liste = _c.liste, taches = _c.taches, terminees = _c.terminees, items = _c.items;
   var nbDues = items.filter(function(i) { return i.date && i.date <= today; }).length;
+  try { sdSnoozeResume(today); } catch (e) {}
   // navigation par jour : on choisit le jour, et dessous les 4 colonnes par motif
   var jourRef = _rlJour === 'retard' ? today : _rlJour;
   var _bascule = '<div class="auj-seg" style="margin-right:6px;"><button class="' + (_sv.vue === 'file' ? 'on' : '') + '" onclick="svVue(\'file\')">File</button><button class="' + (_sv.vue === 'colonnes' ? 'on' : '') + '" onclick="svVue(\'colonnes\')">Colonnes</button></div>';
