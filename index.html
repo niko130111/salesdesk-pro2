@@ -2032,14 +2032,14 @@ select.form-input { cursor: pointer; }
       <div class="deals-list" id="deals-list">
         <div class="deal-card">
           <div>
-            <div class="deal-name">Marie Baniowski</div>
+            <div class="deal-name">Exemple</div>
             <div class="deal-plan">Start+ · Annuelle · T2</div>
           </div>
           <div class="deal-amount">747 €</div>
         </div>
         <div class="deal-card">
           <div>
-            <div class="deal-name">Estelle peyrot</div>
+            <div class="deal-name">Exemple</div>
             <div class="deal-plan">Pro · Annuelle · T2</div>
           </div>
           <div class="deal-amount">999 €</div>
@@ -3594,41 +3594,12 @@ function sdMigrerOneShot(store) {
   try { if (_avantMig && JSON.stringify(_res) !== _avantMig) window._sdMigrationAEnregistrer = true; } catch (e) {}
   return _res;
 }
-// 12/10/2026 (Nicolas) : un prospect, RDV le 30/01/2026, signé le 07/02/2026. La vente avait été saisie sur une 2e ligne « Show » datée du 30/02/2026
-// (date impossible) : elle comptait une démo fantôme en février. La ligne du 30/01 prend la vente, la fausse ligne est retirée. Rejouable, sauvegarde avant.
-function sdCorrigerAdeline(store) {
-  var fev = store && store['2026-02'], jan = store && store['2026-01']; if (!Array.isArray(fev) || !Array.isArray(jan)) return;
-  var nn = function(r) { return String((r && r.client) || '').toLowerCase().replace(/\s+/g, ' ').trim(); };
-  var iF = fev.findIndex(function(r) { return nn(r) === 'nicolas adeline' && r.date === '30/02/2026' && r.result === 'Signé'; }); if (iF < 0) return;
-  var rJ = jan.find(function(r) { return nn(r) === 'nicolas adeline' && r.date === '30/01/2026'; }); if (!rJ) return;
-  try { if (typeof sdBackupStore === 'function') sdBackupStore(store); } catch (e) {}
-  var f = fev[iF];
-  rJ.result = 'Signé'; rJ.dateSignature = '07/02/2026'; delete rJ.nosignRaison;
-  ['pack', 'freq', 'tier', 'fms', 'oneshot', 'commission', 'remise'].forEach(function(c) { if (f[c] !== undefined && f[c] !== '') rJ[c] = f[c]; });
-  rJ.correction = 'Vente du 07/02/2026 rattachée à ce RDV (ligne du 30/02/2026 retirée, 12/10/2026)';
-  fev.splice(iF, 1);
-  console.log('[correction] Nicolas Adeline : vente rattachée au RDV du 30/01/2026, ligne du 30/02/2026 retirée');
-}
+// 12/10/2026 : correction d'une vente saisie sur une 2e ligne à date impossible (appliquée, voir le cloud)
+function sdCorrigerAdeline(store) { /* corrections du 12 oct. 2026 appliquées dans le cloud (lignes fautives retirées) ; code retiré le 17 oct. 2026 pour ne plus exposer de noms dans la page publique */ }
 // 12/10/2026 : dates confirmées par Nicolas après vérification dans Close. Chaque correction ne s'applique que si la ligne a encore l'ancienne valeur (rejouable, sauvegarde avant).
 var SD_CORRECTIONS_SIGNATURES = []; // corrections déjà appliquées dans le cloud (audit 17 oct. 2026)
 // Lignes à déplacer d'un mois à l'autre, ou ventes saisies sur une démo fantôme (12/10/2026, confirmé par Nicolas et Close)
-function sdCorrigerLignes12Oct(store) {
-  var nn = function(r) { return String((r && r.client) || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim(); }, sauve = false, fait = 0;
-  var sauver = function() { if (!sauve) { try { if (typeof sdBackupStore === 'function') sdBackupStore(store); } catch (e) {} sauve = true; } };
-  var trouver = function(mk, client, date) { var rows = store[mk]; if (!Array.isArray(rows)) return -1; return rows.findIndex(function(x) { return x && nn(x) === client && x.date === date; }); };
-  // Benjamin Guinet : démo le 26/09/2025, Won le 01/10/2025 ; la ligne « Show Signé » du 26/10/2025 ne correspond à aucun RDV
-  var iF = trouver('2025-10', 'benjamin guinet', '26/10/2025'), iV = trouver('2025-09', 'benjamin guinet', '26/09/2025');
-  if (iF >= 0 && iV >= 0 && store['2025-10'][iF].result === 'Signé') { sauver(); var f = store['2025-10'][iF], v = store['2025-09'][iV];
-    v.result = 'Signé'; v.dateSignature = '01/10/2025'; v.dateSignatureSource = 'nicolas+close'; ['pack', 'freq', 'tier', 'fms', 'oneshot', 'commission', 'remise'].forEach(function(c) { if (f[c] !== undefined && f[c] !== '') v[c] = f[c]; });
-    v.correction = 'Vente du 01/10/2025 rattachée à cette démo (ligne du 26/10/2025 retirée, 12/10/2026)'; store['2025-10'].splice(iF, 1); fait++; }
-  // Séverine Roda : RDV le 31/10/2025, signée le 01/11/2025 (la ligne était datée du 30/11)
-  var iR = trouver('2025-11', 'severine roda', '30/11/2025');
-  if (iR >= 0 && store['2025-11'][iR].result === 'Signé') { sauver(); var r = store['2025-11'].splice(iR, 1)[0]; r.date = '31/10/2025'; r.dateSignature = '01/11/2025'; r.dateSignatureSource = 'nicolas+close'; r.correction = 'RDV du 31/10/2025, signé le 01/11/2025 (ligne datée du 30/11, 12/10/2026)'; (store['2025-10'] = store['2025-10'] || []).push(r); fait++; }
-  // Félix Bonno : RDV le 27/05/2026, signé le 08/06/2026 (ligne datée du 01/07/2026 et rangée en juin)
-  var iB = trouver('2026-06', 'felix bonno', '01/07/2026');
-  if (iB >= 0 && store['2026-06'][iB].result === 'Signé') { sauver(); var b = store['2026-06'].splice(iB, 1)[0]; b.client = 'Félix Bonno'; b.clientAvant = 'felix bonno'; b.date = '27/05/2026'; b.dateSignature = '08/06/2026'; b.dateSignatureSource = 'nicolas+close'; b.correction = 'RDV du 27/05/2026, signé le 08/06/2026 (ligne datée du 01/07, 12/10/2026)'; (store['2026-05'] = store['2026-05'] || []).push(b); fait++; }
-  if (fait) console.log('[correction] ' + fait + ' ligne(s) déplacée(s) ou fusionnée(s) d\'après Close');
-}
+function sdCorrigerLignes12Oct(store) { /* corrections du 12 oct. 2026 appliquées dans le cloud (lignes fautives retirées) ; code retiré le 17 oct. 2026 pour ne plus exposer de noms dans la page publique */ }
 function sdCorrigerSignatures(store) {
   var nn = function(r) { return String((r && r.client) || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\s+/g, ' ').trim(); }, fait = 0, sauve = false;
   SD_CORRECTIONS_SIGNATURES.forEach(function(c) { var rows = store && store[c.mk]; if (!Array.isArray(rows)) return;
@@ -4005,7 +3976,7 @@ function sdReporterSignatureR2(st, r2) {
   cands.sort(function(x, y) { return (parseDateFR(y.date) || 0) - (parseDateFR(x.date) || 0); }); var r1 = cands[0]; if (!r1) return null;
   if (r1.result === 'Signé') { // déjà signé : seulement s'il l'a été via CE R2, et sans commission figée (montant vérifié par Nicolas)
     if (r1.signeViaR2 !== r2.date || (r1.commFigee !== undefined && r1.commFigee !== null)) return false;
-    // 16 oct. 2026 (Adrien Robichon) : une correction faite ensuite sur la ligne R2 (Données brutes) remonte sur le R1, qui seul compte dans la commission
+    // 16 oct. 2026 (un prospect) : une correction faite ensuite sur la ligne R2 (Données brutes) remonte sur le R1, qui seul compte dans la commission
     var ch = false; ['pack', 'freq', 'tier', 'fms', 'remise', 'oneshot', 'dateSignature'].forEach(function(f) { var v = r2[f]; if (v === undefined || v === null || String(v).trim() === '') return; if (String(r1[f] == null ? '' : r1[f]) !== String(v)) { r1[f] = v; ch = true; } });
     return ch ? r1 : false;
   }
@@ -4013,7 +3984,7 @@ function sdReporterSignatureR2(st, r2) {
   r1.dateR2 = r1.dateR2 || r2.date; if (r2.heure && !r1.heureR2) r1.heureR2 = r2.heure; r1.presenceR2 = 'Show'; delete r1.attenteSignature; delete r1.nosignRaison; delete r1.relanceDate; r1.signeViaR2 = r2.date;
   return r1;
 }
-function sdReporterSignaturesR2(st) { // au démarrage : rattrape les signatures restées sur un R2 (ex. Sonia Lavastre, signée depuis le Suivi sur sa ligne R2 le 07/10/2026)
+function sdReporterSignaturesR2(st) { // au démarrage : rattrape les signatures restées sur un R2 (ex. un prospect, signée depuis le Suivi sur sa ligne R2 le 07/10/2026)
   var nb = 0, noms = []; try { Object.keys(st).forEach(function(k) { if (!/^\d{4}-\d{2}$/.test(k) || !Array.isArray(st[k])) return; st[k].forEach(function(r) { if (r && r.source === 'R2' && r.result === 'Signé') { var r1 = sdReporterSignatureR2(st, r); if (r1) { nb++; noms.push(r1.client); } } }); }); } catch (e) {}
   return { nb: nb, noms: noms };
 }
@@ -4026,7 +3997,7 @@ function fcLignesDuNom(nom) {
   out.sort(function(a, b) { var da = parseDateFR(a.date), db = parseDateFR(b.date); return (db || 0) - (da || 0); });
   return out;
 }
-// Lignes SalesDesk de la fiche : celles au nom de la fiche (+ e-mail) ; sinon celles des contacts portés par la fiche Close choisie (fiche agence « Laforet Immobilier » ouverte alors que la ligne RDV est au nom de Sandrine Pitaval). Demande du 9 oct. 2026.
+// Lignes SalesDesk de la fiche : celles au nom de la fiche (+ e-mail) ; sinon celles des contacts portés par la fiche Close choisie (fiche agence « Laforet Immobilier » ouverte alors que la ligne RDV est au nom de un prospect). Demande du 9 oct. 2026.
 function fcLignesFiche() {
   var em = _fc.email, rows = fcLignesDuNom(_fc.nom).filter(function(r) { var e = String(r.email || '').toLowerCase().trim(); return !em || !e || e === em; });
   if (rows.length) { _fc.lignesViaContact = ''; return rows; }
@@ -4620,7 +4591,7 @@ function fcBoutonsSuivi(it) {
     default: principal = [appeler, rdv(aujIco('cal') + 'Prendre un RDV', 'Tu choisis le créneau, je réserve dans Calendly', 'btn-primary'), tache]; plus = [sansRep, pasInt, mail, sms, mailSecteur, manager, transmettre, ficheClose, corriger, cloturer];
   }
   try { var mfB = sdMailsFinPour(it.nom || row.client || '').filter(function(m) { return m.statut === 'brouillon'; })[0]; if (mfB) principal.unshift(B('sdVoirMailFinR1(' + JSON.stringify(mfB.cle || (String(mfB.nom || '').toLowerCase() + '|' + mfB.date)).replace(/"/g, '&quot;') + ')', aujIco('mail') + 'Relire le mail', 'btn-primary', 'Mail de fin de RDV prêt dans Close : relis, modifie, envoie')); } catch (e) {} // un mail post-RDV pas envoyé passe devant tout le reste
-  // 16 oct. 2026 (Nicolas, Claire De la Forge) : après un appel, passer le dossier en « Non signé » avec sa raison (pas de budget, au RENT, si promo…) sans attendre un RDV
+  // 16 oct. 2026 (Nicolas, un prospect) : après un appel, passer le dossier en « Non signé » avec sa raison (pas de budget, au RENT, si promo…) sans attendre un RDV
   if (fcLignesDuNom(it.nom || row.client || '').some(function(r) { return r && r.source !== 'R2' && String(r.presence || '').trim() === 'Show' && r.result !== 'Signé'; })) plus.unshift(B('sdNonSigneFiche(' + nomJs + ')', aujIco('x') + 'Non signé (raison)', '', 'Pas de budget, à relancer au RENT, si promo… : son R1 passe en Non signé avec cette raison (colonne du Pipeline) ; ta tâche ne bouge pas'));
   // 16 oct. 2026 (Nicolas) : « Déplacer » à côté de « Tâche » quand une tâche Close est ouverte : change sa date, sans en recréer une
   if (it.t && copilot) { var deplacer = B('sdDeplacerTache(' + cleJs + ')', aujIco('refresh') + 'Déplacer', '', 'Change la date (et l\'heure) de la tâche Close, sans en recréer une'); var placee = false; [principal, plus].forEach(function(L) { var k = L.indexOf(tache); if (k >= 0 && !placee) { L.splice(k + 1, 0, deplacer); placee = true; } }); if (!placee) principal.push(deplacer); }
@@ -4831,7 +4802,7 @@ function sdMeilleurLead(leads, nom, email, sdLead, opts) { // parmi les fiches C
   var mots = function(t) { return String(t || '').split(' ').filter(Boolean).sort().join(' '); }, nnM = mots(nn);
   var score = function(l) { var sc = 0; var ln = fcNormNom(String(l.nom || l.display_name || '').split('|')[0]); if (ln && nnM && mots(ln) === nnM) sc += 10; (l.contacts || []).forEach(function(c) { var cn = fcNormNom(c.nom || c.name || ''); if (cn && (cn === nn || (nnM && mots(cn) === nnM))) sc += 10; else if (cn && nn && cn.length > 6 && nn.length > 6 && (cn.indexOf(nn) >= 0 || nn.indexOf(cn) >= 0)) sc += 4; if (em && (c.emails || []).some(function(e) { return String(e || '').toLowerCase().trim() === em; })) sc += 20; if (tk && (c.tels || c.phones || []).some(function(t) { return sdTelCle(typeof t === 'string' ? t : (t && t.phone)) === tk; })) sc += 30; }); return sc; };
   var meilleur = leads.slice().sort(function(a, b) { return score(b) - score(a); })[0];
-  var id = (meilleur && score(meilleur) > 0) ? meilleur.id : (sdLead && leads.some(function(l) { return l.id === sdLead; }) ? sdLead : (sdLead || '')); // aucune correspondance (ni numéro, ni e-mail, ni nom exact) : pas de fiche plutôt qu'une mauvaise (9 oct. 2026 : « Valérie Bruno » ouvrait « Valérie Bruneau »)
+  var id = (meilleur && score(meilleur) > 0) ? meilleur.id : (sdLead && leads.some(function(l) { return l.id === sdLead; }) ? sdLead : (sdLead || '')); // aucune correspondance (ni numéro, ni e-mail, ni nom exact) : pas de fiche plutôt qu'une mauvaise (9 oct. 2026 : « Valérie Bruno » ouvrait « un prospect »)
   return { id: id, lead: leads.find(function(l) { return l.id === id; }) || null, divergent: !!(sdLead && id && id !== sdLead), score: meilleur ? score(meilleur) : 0 };
 }
 function fcTelConnu() { try { return _fc.tel || (_fc.rows.find(function(r) { return r.tel || r.telephone; }) || {}).tel || (_fc.rows.find(function(r) { return r.telephone; }) || {}).telephone || ''; } catch (e) { return ''; } }
@@ -5879,7 +5850,7 @@ function fcSuiviEnregistrer() {
 // AUCUN RDV SANS ACTION — non signé → une raison (pas intéressé / pas de budget / si promo / ghost / à relancer) ; intéressé → un R2 ou une relance datée
 // ============================================================
 var SD_INTERESSE = ['Intéressé', 'Intéressée', 'R2 planifié', 'En attente', 'À relancer'];
-// 14 oct. 2026 (Franck Sassone) : « Non signé · 🔁 À rappeler » = il a demandé un délai → rappel chaud (file R2, prioritaire en retard), pas de la prise de RDV froide
+// 14 oct. 2026 (un prospect) : « Non signé · 🔁 À rappeler » = il a demandé un délai → rappel chaud (file R2, prioritaire en retard), pas de la prise de RDV froide
 function sdRappelChaud(row) { // il a demandé un délai ET tu lui as promis une date de rappel (pas encore faite), après un R2 ou un RDV de moins de 60 jours — pas les vieux « ancien RDV à relancer »
   if (!row || String(row.result || '').trim() !== 'Non signé' || row.nosignRaison !== 'relancer' || !row.relanceDate || row.relanceFait === true) return false;
   var d = parseDateFR(row.date); return row.source === 'R2' || String(row.presenceR2 || '').trim() === 'Show' || (!!d && Date.now() - d.getTime() < 60 * 86400000); }
@@ -11988,7 +11959,7 @@ function rlAppelsPour(it) {
   return _appelsJour.filter(function(a) {
     if (vus[a.id] || Date.parse(a.at) <= depuis) return false;
     if (lead && a.lead === lead) return true;
-    // nom complet seulement (un contact « Nicolas » ne doit pas accrocher « Christelle Nicolas »)
+    // nom complet seulement (un contact « Nicolas » ne doit pas accrocher « un prospect »)
     var plein = function(x) { return x.split(' ').filter(Boolean).length >= 2; };
     return [a.fiche, a.contact].concat(a.contacts || []).some(function(x) { var xn = fcNormNom(x); return xn && (xn === n || rlMemePersonne(xn, n) || (plein(xn) && plein(n) && (xn.indexOf(n) >= 0 || n.indexOf(xn) >= 0))); });
   });
@@ -12786,7 +12757,7 @@ function sdReporterAncien(btn, k1, i1, k2, i2) { // ancien RDV → Reprogrammé 
     .catch(function(e) { if (typeof showCopyToast === 'function') showCopyToast('⚠️ ' + an.client + ' : SalesDesk à jour, mais Calendly n\'a pas annulé l\'ancien RDV (' + e.message + ') : annule-le à la main'); });
   try { renderAujourdhui(); } catch (e) {} try { renderDaily(); } catch (e) {}
 }
-// 14 oct. 2026 (Véronique Marcadier, Sophie Gaultier) : RDV annulé / déplacé dans Calendly parce que le prospect l'a repris avec un autre BDR → Annulé chez toi, rien dans Close
+// 14 oct. 2026 (un prospect, un prospect) : RDV annulé / déplacé dans Calendly parce que le prospect l'a repris avec un autre BDR → Annulé chez toi, rien dans Close
 function sdAnnulAutreBdr(btn, u) {
   var cleA = 'autrebdr|' + u; window._sdArme = window._sdArme || {};
   if (!(window._sdArme[cleA] > Date.now())) { window._sdArme[cleA] = Date.now() + 8000; if (btn) { btn.textContent = 'Confirmer ?'; btn.style.color = 'var(--red, #c0392b)'; } setTimeout(function() { if (window._sdArme[cleA] <= Date.now()) { delete window._sdArme[cleA]; try { renderAujourdhui(); } catch (e) {} } }, 8100); return; }
@@ -12827,7 +12798,7 @@ function sdAppliquerCorrectifs() {
   }).catch(function() {}).finally(function() { _sdCorrEnCours = false; });
 }
 setInterval(sdAppliquerCorrectifs, 120000);
-// 14 oct. 2026 (Manuel Carvalho) : mail de fin de RDV envoyé à la main → « Déjà envoyé » le retire des priorités (le copilot le note « manuel » et ne le prépare plus)
+// 14 oct. 2026 (un prospect) : mail de fin de RDV envoyé à la main → « Déjà envoyé » le retire des priorités (le copilot le note « manuel » et ne le prépare plus)
 function sdMailFinManuel(cle) {
   _mailsFinR1 = (_mailsFinR1 || []).filter(function(m) { return (m.cle || (String(m.nom || '').toLowerCase() + '|' + m.date)) !== cle; });
   try { renderAujourdhui(); } catch (e) {}
@@ -12947,7 +12918,7 @@ function sdResultatR2Sans(nom, email, iso, heure) { // R2 venu de Calendly sans 
 }
 function sdResultatRdv(mk, idx) { var st = loadStore(), row = (st[mk] || [])[idx]; if (!row) return; sdResultatJour(mk, idx, row.client, frVersIsoSd(row.date) || rlIso(new Date()), row.heure || ''); } // entrée unique : fiche, Aujourd'hui, tableau
 function sdHeureMaintenant() { var d = new Date(); return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); }
-function sdEstDemo(nom, email) { return /^d[ée]mo\b/i.test(String(nom || '').trim()) || /@exemple\.fr$/i.test(String(email || '').trim()); } // RDV de démonstration (15 oct. 2026, « Demo Dupont ») : résultat notable avant l'heure
+function sdEstDemo(nom, email) { return /^d[ée]mo\b/i.test(String(nom || '').trim()) || /@exemple\.fr$/i.test(String(email || '').trim()); } // RDV de démonstration (15 oct. 2026, « un prospect ») : résultat notable avant l'heure
 function sdRdvAVenir(iso, heure) { var today = rlIso(new Date()); return iso > today || (iso === today && !!heure && String(heure).slice(0, 5) > sdHeureMaintenant()); } // RDV pas encore eu lieu : date future, ou aujourd'hui à une heure non passée
 function sdResultatJour(mk, idx, nom, iso, heure) {
   var aVenir = sdRdvAVenir(iso, heure); try { var rowD = ((loadStore()[mk] || [])[idx]) || {}; if (sdEstDemo(nom || rowD.client, rowD.email)) aVenir = false; } catch (e) {}
@@ -13136,7 +13107,7 @@ function renderAujourdhui() {
   var _plusTard = function(r) { var n = fcNormNom(r.nom); return Object.keys(st).some(function(k) { return /^\d{4}-\d{2}$/.test(k) && Array.isArray(st[k]) && st[k].some(function(x) { if (!x || fcNormNom(x.client || '') !== n) return false; var a = frVersIsoSd(x.date), b = frVersIsoSd(x.dateR2 || ''); return (a && a > jour) || (b && b > jour); }); }); };
   var horsJour = rdvsTous.filter(function(r) { var pz = String((r.row || {}).presence || '').trim(); if (pz === 'Annulé') return true; if (pz !== 'Reprogrammé') return false; if (r.start) return false; return jour < todayIso || _plusTard(r); });
   var rdvs = rdvsTous.filter(function(r) { return horsJour.indexOf(r) < 0; });
-  var nomAff = function(n) { var x = String(n || ''); return x.charAt(0).toUpperCase() + x.slice(1); }; // « sonia Lavastre » → « Sonia Lavastre » (affichage seulement)
+  var nomAff = function(n) { var x = String(n || ''); return x.charAt(0).toUpperCase() + x.slice(1); }; // « un prospect » → « un prospect » (affichage seulement)
   var prepDe = function(r) { return r.r2 ? aujPrep(r.nom, jour) : aujPrep(r.nom, jour); };
   var items = []; try { items = rlConstruireItems(todayIso).items; } catch (e) {}
   // les retards se comptent par rapport à aujourd'hui et ne s'affichent que sur aujourd'hui ; un autre jour ne montre que ce qui est dû ce jour-là
@@ -13357,14 +13328,14 @@ function renderAujourdhui() {
   try { var _an = st._annulations || {}; Object.keys(_an).forEach(function(u) { var x = _an[u]; if (x.vu || x.deplace) return;
     var nn = (function() { var n = ((_nouv.data || {}).rdv || []).find(function(r0) { return r0.deplace && fcNormNom(r0.nom) === fcNormNom(x.nom); }); return n ? ' · nouveau créneau : ' + fcFrDepuisIso(n.date) + ' à ' + n.heure : ''; })();
     ajoute({ cle: 'annul|' + u, titre: x.deplace ? 'A déplacé son RDV' : 'A annulé son RDV', det: '<a onclick="ouvrirFicheClient(' + Q(x.nom) + ',\'\')">' + escapeHtml(nomAff(x.nom)) + '</a> · ' + escapeHtml((x.date === todayIso ? 'aujourd\'hui' : fcFrDepuisIso(x.date)) + ' à ' + x.heure + (x.raison ? ' · « ' + x.raison + ' »' : '') + nn + (x.note ? ' · noté ' + x.note : '')), btn: x.deplace ? { lib: 'Vu', on: 'sdAnnulVu(' + Q(u) + ')' } : { lib: 'Que faire ?', on: 'sdAnnulQuoiFaire(' + Q(u) + ')' }, btn2: { lib: ((window._sdArme || {})['autrebdr|' + u] > Date.now() ? 'Confirmer ?' : 'Pris par un autre BDR'), on: 'sdAnnulAutreBdr(this,' + Q(u) + ')', titre: 'Il a repris RDV avec un autre BDR : ton RDV passe en Annulé (date de l\'annulation Calendly), il sort de ton agenda ; rien n\'est changé dans Close' }, rang: 0 }); }); } catch (e) {}
-  // 14 oct. 2026 (Nicolas, Essia Hadj) : un prospect a repris un RDV à une autre date alors que l'ancien est toujours prévu → « Reporter l'ancien » en un clic
+  // 14 oct. 2026 (Nicolas, un prospect) : un prospect a repris un RDV à une autre date alors que l'ancien est toujours prévu → « Reporter l'ancien » en un clic
   try { var parEm = {}; Object.keys(st).forEach(function(k) { if (/^\d{4}-\d{2}$/.test(k) && Array.isArray(st[k])) st[k].forEach(function(r, i) { if (!r || r.source === 'R2' || !r.email || String(r.presence || '').trim()) return; var e = String(r.email).toLowerCase().trim(), iso = frVersIsoSd(r.date) || ''; if (iso) (parEm[e] = parEm[e] || []).push({ r: r, k: k, i: i, iso: iso }); }); });
     Object.keys(parEm).forEach(function(e) { var L = parEm[e].sort(function(a, b) { return (a.iso + (a.r.heure || '')).localeCompare(b.iso + (b.r.heure || '')); }); if (L.length < 2) return; var an = L[0], nv = L[L.length - 1]; if (an.iso < todayIso || an.iso === nv.iso) return;
       var cleA = 'report|' + an.k + '|' + an.i, arme = (window._sdArme || {})[cleA] > Date.now(), horsOutb = nv.r.source === 'Outbound' && an.r.source && an.r.source !== 'Outbound';
       ajoute({ cle: cleA, titre: 'A repris un RDV : reporter l\'ancien ?', det: sdNomLien(an.r.client, an.r.email || '') + ' · ' + escapeHtml('RDV du ' + an.r.date + (an.r.heure ? ' à ' + an.r.heure : '') + ' toujours prévu · nouveau le ' + nv.r.date + (nv.r.heure ? ' à ' + nv.r.heure : '') + (horsOutb ? ' · pris sur ton lien mais c\'est un report : restera ' + an.r.source : '')), btn: { lib: arme ? 'Confirmer ?' : 'Reporter l\'ancien', on: 'sdReporterAncien(this,' + Q(an.k) + ',' + an.i + ',' + Q(nv.k) + ',' + nv.i + ')', titre: 'L\'ancien RDV passe en Reprogrammé et est annulé dans Calendly (motif : reporté au nouveau créneau) ; le nouveau garde la source de l\'ancien. Rien n\'est changé dans Close.' }, rang: 1 }); }); } catch (e) {}
   // En retard et pourtant prioritaire (décision du 9 oct. 2026) : un rappel promis à une heure et pas fait (daté d'hier ou d'avant), et un R2 sans réponse. Les autres relances en retard (no-show, prise de RDV…) restent dans le Suivi.
   var estPrioRetard = function(i) { return !estSign(i) && (!!hDe(i) || i.col === 'r2'); };
-  // 16 oct. 2026 (Nicolas, Adrien Robichon) : une seule ligne « Relancer pour signature » par prospect, même s'il a plusieurs tâches Close ouvertes (celle qui parle de signature d'abord)
+  // 16 oct. 2026 (Nicolas, un prospect) : une seule ligne « Relancer pour signature » par prospect, même s'il a plusieurs tâches Close ouvertes (celle qui parle de signature d'abord)
   var vusSign = {}; retard.concat(dus).filter(estSign).sort(function(a, b) { var sa = /signature|contrat/i.test((a.t && a.t.texte) || '') ? 0 : 1, sb = /signature|contrat/i.test((b.t && b.t.texte) || '') ? 0 : 1; return sa - sb; }).forEach(function(i) { var rw = rowDe(i) || {}, cles = [(i.t && i.t.lead) || rw.closeLead || '', fcNormNom(String(identite(i).nom || i.nom || '').split('|')[0])].filter(Boolean); if (cles.some(function(c) { return vusSign[c]; })) return; cles.forEach(function(c) { vusSign[c] = 1; }); ajoute(depuisTache(i, retard.indexOf(i) >= 0)); }); // même personne par sa fiche Close OU son nom (tâche Close + relance SalesDesk)
   retard.filter(estPrioRetard).forEach(function(i) { ajoute(depuisTache(i, true)); });
   dus.filter(function(i) { return i.col === 'r2' && !hDe(i) && !estSign(i); }).forEach(function(i) { ajoute(depuisTache(i, false)); }); // un R2 sans réponse dû aujourd'hui est une priorité même sans heure (Nicolas, 15 oct. 2026)
@@ -13372,9 +13343,9 @@ function renderAujourdhui() {
   apres.forEach(function(x) { if (x.attente) return; ajoute({ cle: 'apres|' + x.type + '|' + fcNormNom(x.nom) + '|' + x.k, titre: x.quoi, det: '<a onclick="ouvrirFicheClient(' + Q(x.nom) + ',\'\')">' + escapeHtml(nomAff(x.nom)) + '</a> · ' + escapeHtml(x.det), btn: x.act ? { lib: x.lib, on: x.act } : null, btn2: x.act2 ? { lib: x.lib2, on: x.act2, titre: 'Tu l\'as envoyé toi-même (Close, Gmail) : la ligne disparaît, le copilot ne le prépare plus' } : null, rang: (x.type === 'resultat' || x.type === 'suite') ? 2 : (x.type === 'mail' ? 4 : 3) }); });
   try { var toutes = []; Object.keys(st).forEach(function(k) { if (/^\d{4}-\d{2}$/.test(k) && Array.isArray(st[k])) st[k].forEach(function(r, i) { if (r && r.client) toutes.push({ r: r, k: k, i: i, iso: frVersIsoSd(r.date) || '' }); }); });
     var depuisR = rlPlus(todayIso, -45), aRepro = [];
-    toutes.forEach(function(x) { var r = x.r; if (r.source === 'R2' || ['Reprogrammé', 'Annulé'].indexOf(String(r.presence || '').trim()) < 0 || !x.iso || x.iso < depuisR || x.iso >= todayIso) return; /* reprogrammé à aujourd'hui = nouveau créneau, rien à reprendre */ if (r.relanceDate && !r.relanceFait) return; if (r.result === 'Non signé' || r.result === 'Signé' || r.reproIgnore || r.laisseTombe || r.transmisA) return; var nn = fcNormNom(r.client); var svN = Object.keys(st._tachesCloseSuivi || {}).map(function(k0) { return st._tachesCloseSuivi[k0]; }).find(function(v0) { return v0 && fcNormNom(v0.nom || '') === nn; }); if (svN && ['pas_interesse', 'abandon', 'laisser_tomber', 'laisse_tombe'].indexOf(svN.dernier) >= 0) return; /* 14 oct. 2026 : déjà réglé dans Suivi (Carine Gennesseaux) */ if (toutes.some(function(y) { return y !== x && fcNormNom(y.r.client) === nn && y.iso > x.iso; })) return; if ((items || []).some(function(i) { return fcNormNom(i.nom || '') === nn; })) return; if (typeof estSupprime === 'function' && estSupprime(st, r.client, r.date)) return; aRepro.push(x); });
-    // 15 oct. 2026 (Nicolas, Rachid Ezzahir) : un collègue a une tâche ouverte sur ce prospect (passé à un BDR, par « Transmettre » ou à la main dans Close) → plus proposé ici
-    var aVerif = []; aRepro = aRepro.filter(function(x) { var lead = ''; try { lead = x.r.closeLead || sdLeadPour(x.r.client, x.r.email || '') || ''; } catch (e) {} if (!lead) return true; var c = (window._sdCollegues || {})[lead]; if (c === undefined) { aVerif.push(lead); return true; } var vieille = rlPlus(todayIso, -30); return !(c && c.some(function(t) { return !t.date || t.date >= vieille; })); }); // une tâche de collègue oubliée depuis plus de 30 jours ne compte pas (Cynthia Cizaire : « go? » du 02/03)
+    toutes.forEach(function(x) { var r = x.r; if (r.source === 'R2' || ['Reprogrammé', 'Annulé'].indexOf(String(r.presence || '').trim()) < 0 || !x.iso || x.iso < depuisR || x.iso >= todayIso) return; /* reprogrammé à aujourd'hui = nouveau créneau, rien à reprendre */ if (r.relanceDate && !r.relanceFait) return; if (r.result === 'Non signé' || r.result === 'Signé' || r.reproIgnore || r.laisseTombe || r.transmisA) return; var nn = fcNormNom(r.client); var svN = Object.keys(st._tachesCloseSuivi || {}).map(function(k0) { return st._tachesCloseSuivi[k0]; }).find(function(v0) { return v0 && fcNormNom(v0.nom || '') === nn; }); if (svN && ['pas_interesse', 'abandon', 'laisser_tomber', 'laisse_tombe'].indexOf(svN.dernier) >= 0) return; /* 14 oct. 2026 : déjà réglé dans Suivi (un prospect) */ if (toutes.some(function(y) { return y !== x && fcNormNom(y.r.client) === nn && y.iso > x.iso; })) return; if ((items || []).some(function(i) { return fcNormNom(i.nom || '') === nn; })) return; if (typeof estSupprime === 'function' && estSupprime(st, r.client, r.date)) return; aRepro.push(x); });
+    // 15 oct. 2026 (Nicolas, un prospect) : un collègue a une tâche ouverte sur ce prospect (passé à un BDR, par « Transmettre » ou à la main dans Close) → plus proposé ici
+    var aVerif = []; aRepro = aRepro.filter(function(x) { var lead = ''; try { lead = x.r.closeLead || sdLeadPour(x.r.client, x.r.email || '') || ''; } catch (e) {} if (!lead) return true; var c = (window._sdCollegues || {})[lead]; if (c === undefined) { aVerif.push(lead); return true; } var vieille = rlPlus(todayIso, -30); return !(c && c.some(function(t) { return !t.date || t.date >= vieille; })); }); // une tâche de collègue oubliée depuis plus de 30 jours ne compte pas (un prospect : « go? » du 02/03)
     if (aVerif.length) sdChargerCollegues(aVerif);
     aRepro.sort(function(a, b) { return b.iso.localeCompare(a.iso); }).slice(0, 3).forEach(function(x) { var r = x.r; ajoute({ cle: 'repro|' + fcNormNom(r.client) + '|' + x.iso, titre: 'Reprogrammer le RDV', det: '<a onclick="ouvrirFicheClient(' + Q(r.client) + ',' + Q(r.email || '') + ')">' + escapeHtml(nomAff(r.client)) + '</a> · ' + escapeHtml(String(r.presence).trim() + ' le ' + r.date + ' · aucun nouveau RDV ni rappel posé') + '', btn: { lib: 'Ouvrir la fiche', on: 'ouvrirFicheClient(' + Q(r.client) + ',' + Q(r.email || '') + ')', titre: 'Reprogrammer ou poser un rappel depuis la fiche' }, btn2: { lib: ((window._sdArme || {})['repro|' + x.k + '|' + x.i] > Date.now() ? 'Confirmer ?' : 'Laisser tomber'), on: 'sdLaisserTomberRepro(this,' + Q(x.k) + ',' + x.i + ')', titre: 'Plus de relance : retiré des priorités, note dans Close, opportunité en Lost - Cancelled, SMS programmés annulés' }, rang: 4 }); });
   } catch (e) {}
@@ -13680,8 +13651,8 @@ function sdR2SansReponse(row) {
 function sdColonneRelance(r, row) {
   var pres = row ? String(row.presence || '').trim() : '', res = row ? String(row.result || '').trim() : '', src = row ? String(row.source || '') : String(r.source || '');
   var noShow = pres === 'No Show' || pres === 'Annulé' || pres === 'Reprogrammé' || /no ?show/i.test(r.raison || '') || /no ?show/i.test((r.relance && r.relance.note) || '');
-  if (row && row.attenteSignature && String(row.result || '').trim() !== 'Signé') return 'rappel'; // 16 oct. 2026 (Adrien Robichon) : en attente de signature ≠ « R2 sans réponse »
-  if (sdR2SansReponse(row)) return 'r2'; // R2 manqué récent (mois en cours ou précédent) = « R2 sans réponse », prioritaire (Valentin Ferret)
+  if (row && row.attenteSignature && String(row.result || '').trim() !== 'Signé') return 'rappel'; // 16 oct. 2026 (un prospect) : en attente de signature ≠ « R2 sans réponse »
+  if (sdR2SansReponse(row)) return 'r2'; // R2 manqué récent (mois en cours ou précédent) = « R2 sans réponse », prioritaire (un prospect)
   if (noShow) return src === 'Outbound' ? 'nsout' : 'nsin';
   if (sdRappelChaud(row)) return 'r2';
   if (res === 'Non signé' || res === 'Promo' || r.outcome === 'perdu') return 'rdv';
@@ -13747,7 +13718,7 @@ function rlCategorieBrute(t, rel, row) {
   if (rel) return rel.col;
   var x = (t.texte || '').toLowerCase(), src = row ? String(row.source || '') : '';
   if (/configur|onboard|vitrine à/.test(x)) return 'config'; // client signé à mettre en place : toujours en tête
-  if (row && row.attenteSignature && String(row.result || '').trim() !== 'Signé') return 'rappel'; // 16 oct. 2026 (Adrien Robichon) : en attente de signature ≠ « R2 sans réponse »
+  if (row && row.attenteSignature && String(row.result || '').trim() !== 'Signé') return 'rappel'; // 16 oct. 2026 (un prospect) : en attente de signature ≠ « R2 sans réponse »
   if (sdR2SansReponse(row)) return 'r2'; // R2 manqué récent = « R2 sans réponse »
   if (/no ?show|pas venu|absent/.test(x)) return src === 'Outbound' ? 'nsout' : 'nsin';
   if (/\br2\b|valid|contrat|signer|décision|decision/.test(x)) return 'r2';
@@ -13762,7 +13733,7 @@ function rlCategorieBrute(t, rel, row) {
   }
   return 'rdv'; // jamais eu de RDV avec lui → c'est de la prise de RDV
 }
-// Même personne malgré une coquille (« Anthonu Birembaut » / « Anthony Birembaut ») : même nom de famille, prénom qui commence pareil
+// Même personne malgré une coquille (« Anthonu Birembaut » / « un prospect ») : même nom de famille, prénom qui commence pareil
 function rlMemePersonne(a, b) {
   if (a === b) return true; if (!a || !b) return false;
   var ta = a.split(' ').filter(Boolean), tb = b.split(' ').filter(Boolean); if (ta.length < 2 || tb.length < 2) return false;
