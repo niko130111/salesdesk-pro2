@@ -3783,18 +3783,6 @@ setInterval(function() {
 }, 6000);
 // 28/09/2026 : colonnes « Pas de budget » et « Relancer si promo » remplacées par si promo / carte de prospection / RENT.
 // Les cartes qui y étaient repassent en non traité (raison à redonner), après sauvegarde du store.
-function sdMigrerRelances3(store) {
-  if (!store || store._migRelances3) return store;
-  var n = 0, cibles = [];
-  Object.keys(store).forEach(function(k) {
-    if (!/^\d{4}-\d{2}$/.test(k) || !Array.isArray(store[k])) return;
-    store[k].forEach(function(r) { if (r && (r.result === 'Promo' || (r.nosignRaison || '') === 'promo')) cibles.push(r); });
-  });
-  if (cibles.length) { try { sdBackupStore(store); } catch (e) {} cibles.forEach(function(r) { if (r.result === 'Promo') r.result = 'Non signé'; r.nosignRaisonAvant = r.nosignRaison || 'promo'; delete r.nosignRaison; n++; }); }
-  store._migRelances3 = new Date().toISOString();
-  if (n) console.log('[migration] ' + n + ' carte(s) si promo → non traitées, raison à redonner');
-  return store;
-}
 // « En attente » / « À relancer » (venus du copilot) = Intéressé : un seul libellé pour compter pareil partout
 function sdNormaliserInteresse(store) {
   var n = 0;
@@ -4130,7 +4118,8 @@ function crCalculer() {
   var depuis = _cr.periode === 'mai' ? '2026-05-01' : _cr.periode === '12m' ? rlIso(new Date(now.getFullYear() - 1, now.getMonth(), now.getDate())) : '';
   var cell = function() { return { base: 0, nt: 0, ns: 0, aj: 0, rj: 0, show: 0, sig: 0 }; };
   var C = {}, H = {}, T = cell(), info = { sd: 0, close: 0, sansHeure: 0, avance: 0, annulInconnu: 0, debut: '' };
-  Object.keys(st).forEach(function(k) { if (!/^\d{4}-\d{2}$/.test(k) || !Array.isArray(st[k])) return; st[k].forEach(function(r) {
+  Object.keys(st).forEach(function(k) { if (!/^\d{4}-\d{2}$/.test(k) || !Array.isArray(st[k])) return; st[k].forEach(function(r) { if (r && sdEstDemo(r.client, r.email)) return; // audit 17 oct. : sans les RDV de démo
+
     if (!r || r.source === 'R2') return; var p = String(r.presence || '').trim(); if (!/^(Show|No Show|Annulé|Reprogrammé)$/.test(p)) return;
     if (_cr.source && r.source !== _cr.source) return;
     var iso = String(r.date || '').split('/').reverse().join('-'); if (!/^\d{4}-\d{2}-\d{2}$/.test(iso) || iso > auj || (depuis && iso < depuis)) return;
@@ -6406,7 +6395,7 @@ function fcDetecterDoublonsPipeline(cols) {
 function sdBackupStore(store) {
   try {
     var cles = []; for (var i = 0; i < localStorage.length; i++) { var k = localStorage.key(i); if (k && k.indexOf('salesdesk_rdvs_backup_') === 0) cles.push(k); }
-    cles.sort(); while (cles.length > 1) localStorage.removeItem(cles.shift());
+    cles.sort(); while (cles.length > 2) localStorage.removeItem(cles.shift()); // audit 17 oct. : deux opérations d'affilée gardent chacune leur filet
     localStorage.setItem('salesdesk_rdvs_backup_' + Date.now(), JSON.stringify(store));
   } catch (e) { console.warn('[backup] impossible (stockage plein ?) :', e && e.message); }
 }
@@ -6511,7 +6500,7 @@ function renderDeals() {
   }
   list.innerHTML = rows.map(r => `
     <div class="deal-card">
-      <div><div class="deal-name">${r.client}</div><div class="deal-plan">${r.pack} · ${r.freq}</div></div>
+      <div><div class="deal-name">${escapeHtml(r.client || '')}</div><div class="deal-plan">${escapeHtml(r.pack || '')} · ${escapeHtml(r.freq || '')}</div></div>
       <div class="deal-amount">${getComm(r) ? getComm(r).toLocaleString('fr-FR')+'€' : '—'}</div>
     </div>`).join('');
 }
@@ -7991,7 +7980,7 @@ function getLast3FinishedMonthsStats() {
   var store = loadStore();
   var allRdvs = [];
   months.forEach(function(mk) {
-    var rows = store[mk] || [];
+    var rows = (store[mk] || []).filter(function(r) { return !(r && sdEstDemo(r.client, r.email)); }); // audit 17 oct. : sans les RDV de démo, comme computeKpis
     rows.forEach(function(r) { allRdvs.push(r); });
   });
   // Filtrer R1 traités uniquement (présence renseignée)
@@ -9328,13 +9317,14 @@ function sdAConclu(r) { return !!r && r.source !== 'R2' && String(r.presence || 
 // sans date de signature, la vente reste au mois du R1. Une seule définition pour toutes les pages.
 function sdVentesDuMois(monthKey, store) {
   const out = [];
-  try { const st = store || loadStore(); Object.keys(st).forEach(k => { if (!/^\d{4}-\d{2}$/.test(k) || !Array.isArray(st[k])) return; st[k].forEach(r => { if (!r || r.result !== 'Signé' || r.source === 'R2' || sdEstDemo(r.client, r.email)) return; const p = String(r.dateSignature || '').split('/'); const ms = p.length === 3 ? p[2] + '-' + String(p[1]).padStart(2, '0') : k; if (ms === monthKey) out.push(r); }); }); } catch (e) {}
+  try { /* audit 17 oct. : une exception est signalée (sinon 0 vente / 0 € partout, sans bruit) */ const st = store || loadStore(); Object.keys(st).forEach(k => { if (!/^\d{4}-\d{2}$/.test(k) || !Array.isArray(st[k])) return; st[k].forEach(r => { if (!r || r.result !== 'Signé' || r.source === 'R2' || sdEstDemo(r.client, r.email)) return; const p = String(r.dateSignature || '').split('/'); const ms = p.length === 3 ? p[2] + '-' + String(p[1]).padStart(2, '0') : k; if (ms === monthKey) out.push(r); }); }); } catch (e) { console.error('[ventes] calcul interrompu pour ' + monthKey + ' :', e); if (!window._sdVentesErr) { window._sdVentesErr = true; try { if (typeof showCopyToast === 'function') showCopyToast('⚠️ Calcul des ventes interrompu (voir la console) : les chiffres de commission peuvent être faux'); } catch (x) {} } }
   return out;
 }
 function sdOutboundDuMois(monthKey) {
   var st = loadStore(), ovr = (typeof loadOutboundOverrides === 'function') ? loadOutboundOverrides() : {}, cand = [];
   var dt = function(d, h) { var p = String(d || '').split('/'); if (p.length !== 3) return null; var hh = String(h || '12:00').split(':'); return new Date(+p[2], +p[1] - 1, +p[0], +hh[0] || 12, +hh[1] || 0); };
-  Object.keys(st).forEach(function(k) { if (!/^\d{4}-\d{2}$/.test(k) || !Array.isArray(st[k])) return; st[k].forEach(function(r) {
+  Object.keys(st).forEach(function(k) { if (!/^\d{4}-\d{2}$/.test(k) || !Array.isArray(st[k])) return; st[k].forEach(function(r) { if (r && sdEstDemo(r.client, r.email)) return; // audit 17 oct. : sans les RDV de démo
+
     if (!r || r.source !== 'Outbound' || !r.client) return; var pr = String(r.datePrise || r.date || '').split('/'); if (pr.length !== 3 || (pr[2] + '-' + pr[1].padStart(2, '0')) !== monthKey) return;
     cand.push({ r: r, name: r.client, email: r.email || '', createdAt: dt(r.datePrise || r.date, '12:00'), start: dt(r.date, r.heure) }); }); });
   cand.sort(function(a, b) { return (a.createdAt - b.createdAt) || (a.start - b.start); });
@@ -9562,15 +9552,20 @@ function renderBonusSteps(current, hasBonus) {
 // ============================================================
 // PRIME EXCEPTIONNELLE PAR MOIS — sauvegarde localStorage
 // ============================================================
-function getPrimesExc() {
-  try { return JSON.parse(localStorage.getItem('salesdesk_primes_exc') || '{}'); } catch { return {}; }
+function getPrimesExc() { // audit 17 oct. : lu d'abord dans le store synchronisé (_primesExc), sinon l'ancien localStorage de cet appareil
+  var loc = {}; try { loc = JSON.parse(localStorage.getItem('salesdesk_primes_exc') || '{}'); } catch (e) {}
+  try { var st = loadStore(); if (st && st._primesExc && Object.keys(st._primesExc).length) return Object.assign({}, loc, st._primesExc); } catch (e) {}
+  return loc;
 }
 function savePrimeExc(month, year, val) {
   const key = year + '-' + month;
   const primes = getPrimesExc();
   primes[key] = val;
-  localStorage.setItem('salesdesk_primes_exc', JSON.stringify(primes));
+  try { localStorage.setItem('salesdesk_primes_exc', JSON.stringify(primes)); } catch (e) {}
+  try { var st = loadStore(); st._primesExc = Object.assign({}, st._primesExc || {}, primes); saveStore(st); } catch (e) {} // synchronisé entre appareils
 }
+// Au chargement : les primes exceptionnelles saisies sur cet appareil avant le 17 oct. 2026 passent dans le store synchronisé (une fois)
+setTimeout(function() { try { var loc = JSON.parse(localStorage.getItem('salesdesk_primes_exc') || '{}'), cles = Object.keys(loc).filter(function(k) { return loc[k] !== '' && loc[k] != null; }); if (!cles.length) return; var st = loadStore(), cur = st._primesExc || {}, manque = cles.filter(function(k) { return cur[k] === undefined; }); if (!manque.length) return; st._primesExc = Object.assign({}, cur); manque.forEach(function(k) { st._primesExc[k] = loc[k]; }); saveStore(st); console.log('[primes exc] ' + manque.length + ' mois repris dans le store synchronisé'); } catch (e) {} }, 6000);
 function loadPrimeExc(month, year) {
   const key = year + '-' + month;
   return getPrimesExc()[key] || 0;
@@ -11797,7 +11792,7 @@ function bhFr(iso, opts) { return new Date(iso + 'T12:00:00').toLocaleDateString
 function bhSemaine(n) { if (!_bh.lundi) _bh.lundi = bhLundiDe(rlIso(new Date())); if (n) _bh.lundi = rlPlus(_bh.lundi, 7 * n); _bh.data = null; _bh.toutRdv = false; _bh.grille = false; renderBilan(); }
 function bhChiffres(lundi) { // tout vient des lignes RDV : RDV pris ≠ RDV tenus, appels ≠ conversations (les appels viennent de Close, à part)
   var fin = rlPlus(lundi, 6), st = loadStore(), rows = [];
-  Object.keys(st).forEach(function(k) { if (/^\d{4}-\d{2}$/.test(k) && Array.isArray(st[k])) st[k].forEach(function(r) { if (r && r.client) rows.push(r); }); });
+  Object.keys(st).forEach(function(k) { if (/^\d{4}-\d{2}$/.test(k) && Array.isArray(st[k])) st[k].forEach(function(r) { if (r && r.client && !sdEstDemo(r.client, r.email)) rows.push(r); }); }); // audit 17 oct. : sans les RDV de démo
   var dans = function(iso) { return !!iso && iso >= lundi && iso <= fin; }, pres = function(r) { return String(r.presence || '').trim(); }, nn = function(x) { return fcNormNom(x || ''); };
   var r1 = rows.filter(function(r) { return r.source !== 'R2' && dans(frVersIsoSd(r.date)); });
   var r2Cles = {}; rows.forEach(function(r) { if (r.source === 'R2' && dans(frVersIsoSd(r.date)) && pres(r) === 'Show') r2Cles[nn(r.client) + '|' + frVersIsoSd(r.date)] = 1; if (r.source !== 'R2' && dans(frVersIsoSd(r.dateR2 || '')) && String(r.presenceR2 || '').trim() === 'Show') r2Cles[nn(r.client) + '|' + frVersIsoSd(r.dateR2)] = 1; });
@@ -12668,6 +12663,7 @@ function sdDpDeplacer() { // le copilot réserve le nouveau créneau puis annule
       sdBackupStore(st);
       var avant = row.date, mk = j.date.slice(0, 7); row.date = fr; row.heure = j.heure; delete row.confirme; delete row.confirmeAt; delete row.relanceVeilleAt;
       Object.keys(st).forEach(function(k) { if (/^\d{4}-\d{2}$/.test(k)) (st[k] || []).forEach(function(x) { if (x && x.source !== 'R2' && x.dateR2 === avant && fcNormNom(x.client || '') === fcNormNom(row.client || '')) x.dateR2 = fr; }); });
+      if (row && fcNormNom(row.client || '') !== fcNormNom(r.nom || '')) { alert('La ligne a bougé entre-temps : recharge la page et recommence.'); return; } // audit 17 oct. : index périmé → jamais la mauvaise ligne
       if (mk !== r.row._monthKey) { st[r.row._monthKey].splice(r.row._storeKey, 1); (st[mk] = st[mk] || []).push(row); }
       saveStore(st);
     } else if (row) { sdBackupStore(st); row.presence = 'Reprogrammé'; row.result = '';
@@ -15647,27 +15643,8 @@ window.confirmR2Date = function() {
 // Les R2 se gerent uniquement via le clic "R2 planifie" sur la card R1 (Quotidien).
 // =====================================================
 
-function getPrepRdvId(email, name, fallbackCardId, fallbackDate) {
-  if (email && email.trim()) return 'prep-' + email.toLowerCase().trim();
-  if (name && name.trim()) return 'prep-name-' + name.toLowerCase().trim();
-  return (fallbackCardId || 'prep') + '-' + (fallbackDate || '');
-}
 
 // Vérifie si la fiche de prep contient au moins un champ rempli
-function hasPrepData(prepId) {
-  if (!prepId) return false;
-  var store = (typeof loadStore === 'function') ? loadStore() : {};
-  var data = (store._prepRdvs && store._prepRdvs[prepId]) || null;
-  if (!data) return false;
-  // On regarde tous les champs, en ignorant la métadonnée _lastUpdate
-  for (var k in data) {
-    if (!data.hasOwnProperty(k)) continue;
-    if (k.indexOf('_') === 0) continue;
-    var v = data[k];
-    if (v && typeof v === 'string' && v.trim().length > 0) return true;
-  }
-  return false;
-}
 
 
 // =====================================================
