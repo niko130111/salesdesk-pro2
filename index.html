@@ -4152,6 +4152,24 @@ function sdHistoListe(h, max) { // la liste, pour la fiche
   var col = { 'tenu': 'var(--green)', 'no-show': 'var(--red)', 'annulé': 'var(--red)', 'reprogrammé': 'var(--orange)', 'à venir': 'var(--accent)' };
   return h.rdvs.slice(0, max || 6).map(function(r) { return '<div class="fc-kv"><span class="k">' + sdHistoFr(r.date) + '</span><span class="v">' + escapeHtml(r.moi ? 'toi' : (r.avec || '?')) + ' · <b style="color:' + (col[r.etat] || 'var(--text3)') + ';">' + escapeHtml(r.etat) + '</b>' + (r.suite ? ' <span class="fc-muted">→ ' + escapeHtml(r.suite.statut) + '</span>' : '') + (r.prisLe && r.prisLe !== r.date ? ' <span class="fc-muted">· pris le ' + sdHistoFr(r.prisLe) + '</span>' : '') + '</span></div>'; }).join('');
 }
+// Une relance SalesDesk suit la tâche Close de la même personne (17 oct. 2026, Olivia Warembourg) : si Nicolas a posé dans Close une tâche à une autre date,
+// même hors de la fenêtre du Suivi, la date de relance s'aligne dessus (Close est la source des tâches). Une fois par chargement, 10 min de cache.
+var _sdTachesMoi = {}, _sdAlignEnCours = false;
+function sdAlignerRelancesSurClose() {
+  if (typeof COPILOT_URL === 'undefined' || _sdAlignEnCours) return; var st = loadStore(), today = rlIso(new Date()), cand = {};
+  Object.keys(st).forEach(function(k) { if (!/^\d{4}-\d{2}$/.test(k) || !Array.isArray(st[k])) return; st[k].forEach(function(r) { if (r && r.relanceDate && !r.relanceFait && r.closeLead && /^lead_/.test(r.closeLead)) { var c = _sdTachesMoi[r.closeLead]; if (!c || Date.now() - c.at > 600000) cand[r.closeLead] = 1; } }); });
+  var leads = Object.keys(cand).slice(0, 40); if (!leads.length) { sdAppliquerAlignement(); return; } _sdAlignEnCours = true;
+  fetch(COPILOT_URL + '/close/taches-ouvertes?' + new URLSearchParams({ leads: leads.join(',') }), { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).then(function(j) { leads.forEach(function(l) { var v = j && j.ok && j.leads ? j.leads[l] : null; _sdTachesMoi[l] = { at: Date.now(), taches: Array.isArray(v) ? v : [] }; }); })
+    .catch(function() { leads.forEach(function(l) { _sdTachesMoi[l] = { at: Date.now(), taches: [] }; }); }).then(function() { _sdAlignEnCours = false; sdAppliquerAlignement(); });
+}
+function sdAppliquerAlignement() {
+  var st = loadStore(), today = rlIso(new Date()), n = 0, noms = [];
+  Object.keys(st).forEach(function(k) { if (!/^\d{4}-\d{2}$/.test(k) || !Array.isArray(st[k])) return; st[k].forEach(function(r) {
+    if (!r || !r.relanceDate || r.relanceFait || !r.closeLead) return; var c = _sdTachesMoi[r.closeLead]; if (!c || !c.taches.length) return;
+    var t = c.taches.filter(function(x) { return x.date >= today && !/configur|onboard|vitrine/i.test(x.texte || ''); })[0] || c.taches[c.taches.length - 1]; if (!t || !t.date || t.date === r.relanceDate) return;
+    r.relanceDateAvant = r.relanceDate; r.relanceDate = t.date; r.relanceSuitTache = t.id; n++; noms.push(r.client + ' → ' + fcFrDepuisIso(t.date)); }); });
+  if (n) { saveStore(st); try { _relances = fusionRelances((_relances || []).filter(function(x) { return !x.local; })); } catch (e) {} console.log('[relances] ' + n + ' date(s) alignée(s) sur la tâche Close : ' + noms.join(', ')); if (typeof showCopyToast === 'function') showCopyToast('↔ ' + n + ' relance' + (n > 1 ? 's' : '') + ' alignée' + (n > 1 ? 's' : '') + ' sur ta tâche Close : ' + noms.slice(0, 2).join(', ') + (n > 2 ? '…' : '')); try { if (document.getElementById('page-relances') && typeof renderRelancesPage === 'function') renderRelancesPage(); } catch (e) {} try { var pg = document.getElementById('page-aujourdhui'); if (pg && pg.classList.contains('active')) renderAujourdhui(); } catch (e) {} try { if (document.querySelector('#fc-overlay.open')) fcRendre(); } catch (e) {} }
+}
 // Tâches ouvertes de collègues sur des prospects (lues dans Close par le copilot) : window._sdCollegues[lead] = [] (aucune), [{ qui, texte, date }] ou null (lecture ratée)
 function sdChargerCollegues(leads) {
   if (typeof COPILOT_URL === 'undefined') return; window._sdCollegues = window._sdCollegues || {}; window._sdColleguesEnCours = window._sdColleguesEnCours || {};
@@ -4594,7 +4612,7 @@ function fcBoutonsSuivi(it) {
   // 16 oct. 2026 (Nicolas, un prospect) : après un appel, passer le dossier en « Non signé » avec sa raison (pas de budget, au RENT, si promo…) sans attendre un RDV
   if (fcLignesDuNom(it.nom || row.client || '').some(function(r) { return r && r.source !== 'R2' && String(r.presence || '').trim() === 'Show' && r.result !== 'Signé'; })) plus.unshift(B('sdNonSigneFiche(' + nomJs + ')', aujIco('x') + 'Non signé (raison)', '', 'Pas de budget, à relancer au RENT, si promo… : son R1 passe en Non signé avec cette raison (colonne du Pipeline) ; ta tâche ne bouge pas'));
   // 16 oct. 2026 (Nicolas) : « Déplacer » à côté de « Tâche » quand une tâche Close est ouverte : change sa date, sans en recréer une
-  if (it.t && copilot) { var deplacer = B('sdDeplacerTache(' + cleJs + ')', aujIco('refresh') + 'Déplacer', '', 'Change la date (et l\'heure) de la tâche Close, sans en recréer une'); var placee = false; [principal, plus].forEach(function(L) { var k = L.indexOf(tache); if (k >= 0 && !placee) { L.splice(k + 1, 0, deplacer); placee = true; } }); if (!placee) principal.push(deplacer); }
+  if ((it.t && copilot) || (it.rel && it.rel.r)) { var deplacer = B('sdDeplacerTache(' + cleJs + ')', aujIco('pen') + 'Modifier', '', it.t ? 'Date, heure, texte et motif de la tâche Close, sans en recréer une' : 'Date et motif du rappel SalesDesk'); var placee = false; [principal, plus].forEach(function(L) { var k = L.indexOf(tache); if (k >= 0 && !placee) { L.splice(k + 1, 0, deplacer); placee = true; } }); if (!placee) principal.push(deplacer); }
   principal = principal.filter(Boolean).map(function(b, i) { return i ? b.replace(' btn-primary', '') : b; }); plus = plus.filter(Boolean); // une seule action pleine : la première
   var id = 'fc-plus-' + Math.random().toString(36).slice(2, 7);
   return '<div class="fc-barre" data-etat="' + etat + '" style="display:flex;flex-wrap:wrap;gap:6px;width:100%;align-items:center;">' + principal.join('')
@@ -13319,7 +13337,7 @@ function renderAujourdhui() {
   var depuisTache = function(i, enRetard) { var h = hDe(i), id = identite(i), arrivee = estAuj && h && h <= hhmm;
     var ech = enRetard ? '<span class="late">en retard depuis le ' + escapeHtml(new Date(i.date + 'T12:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) + (h ? ' à ' + h : '')) + '</span>' : (h ? (arrivee ? '<span class="late">prévu à ' + escapeHtml(h) + '</span>' : 'à ' + escapeHtml(h)) : (estAuj ? 'aujourd\'hui' : 'ce jour'));
     var raison = [!estConfig(i) && !texteDe(i) ? LIBC[i.col] || '' : '', tent(i)].filter(Boolean).join(' · ');
-    return { cle: 'tache|' + i.cle, titre: titreTache(i), det: '<a onclick="ouvrirFicheClient(' + Q(id.nom) + ',' + Q(id.email) + ',\'\',' + Q((i.t && i.t.lead) || '') + ')">' + escapeHtml(nomAff(id.nom)) + '</a> · ' + ech + (raison ? ' · ' + escapeHtml(raison) : ''), btn: boutonTache(i), btn2: i.t ? { lib: 'Déplacer', on: 'sdDeplacerTache(' + Q(i.cle) + ')', titre: 'Changer la date de la tâche Close, sans en recréer une' } : null, rang: enRetard ? (i.col === 'r2' ? 0.5 : 1) : (h ? (arrivee ? 0 : 5) : (i.col === 'r2' ? 2 : (estConfig(i) ? 3 : 4))) }; }; // R2 sans réponse : avant les autres relances
+    return { cle: 'tache|' + i.cle, titre: titreTache(i), det: '<a onclick="ouvrirFicheClient(' + Q(id.nom) + ',' + Q(id.email) + ',\'\',' + Q((i.t && i.t.lead) || '') + ')">' + escapeHtml(nomAff(id.nom)) + '</a> · ' + ech + (raison ? ' · ' + escapeHtml(raison) : ''), btn: boutonTache(i), btn2: (i.t || (i.rel && i.rel.r)) ? { lib: 'Modifier', on: 'sdDeplacerTache(' + Q(i.cle) + ')', titre: i.t ? 'Date, heure, texte et motif de la tâche Close' : 'Date et motif du rappel' } : null, rang: enRetard ? (i.col === 'r2' ? 0.5 : 1) : (h ? (arrivee ? 0 : 5) : (i.col === 'r2' ? 2 : (estConfig(i) ? 3 : 4))) }; }; // R2 sans réponse : avant les autres relances
   // 16 oct. 2026 (Nicolas) : tâches marquées « Prioritaire » à leur création → en tête de Mes priorités dès leur jour
   try { var prioT = st._tachesPrio || {}; items.filter(function(i) { return i.t && prioT[i.t.id] && i.date && i.date <= todayIso; }).sort(function(a, b) { return (a.date + hDe(a)).localeCompare(b.date + hDe(b)); }).forEach(function(i) { var pp = depuisTache(i, i.date < todayIso); pp.prio = true; pp.rang = -1000 + (pp.rang || 0) / 1000; ajoute(pp); }); } catch (e) {}
   try { var nR2Q = sdR2AQualifier(st, '2026-05-01', rlPlus(todayIso, -11)).length; if (nR2Q) ajoute({ cle: 'r2aq', titre: 'R2 passés à qualifier', det: nR2Q + ' R2 notés sur un R1 sans présence depuis mai · ils manquent au suivi R2', btn: { lib: 'Voir', on: 'sdPopupR2AQualifier()', titre: 'La liste, un clic par R2 pour noter Show / No show' }, rang: 50 }); } catch (e) {}
@@ -13669,7 +13687,7 @@ function chargerTachesClose(depuis, jusqua, force) {
   window._tachesCloseEnCours = cle;
   var ctrl = new AbortController(); setTimeout(function() { ctrl.abort(); }, 60000);
   fetch(COPILOT_URL + '/close/taches?' + new URLSearchParams({ depuis: depuis, jusqua: jusqua, terminees: '1' }) + (force ? '&force=1' : ''), { mode: 'cors', cache: 'no-store', signal: ctrl.signal })
-    .then(function(r) { return r.json(); }).then(function(d) { _tachesClose = d; _tachesCloseAt = Date.now(); _tachesCloseCle = cle; window._tachesCloseEnCours = ''; renderRelancesPage(); if (typeof renderMaJournee === 'function') renderMaJournee(); })
+    .then(function(r) { return r.json(); }).then(function(d) { _tachesClose = d; _tachesCloseAt = Date.now(); _tachesCloseCle = cle; try { setTimeout(sdAlignerRelancesSurClose, 800); } catch (e) {} window._tachesCloseEnCours = ''; renderRelancesPage(); if (typeof renderMaJournee === 'function') renderMaJournee(); })
     .catch(function() { _tachesClose = { error: 'copilot', taches: [], terminees: [] }; window._tachesCloseEnCours = ''; renderRelancesPage(); if (typeof renderMaJournee === 'function') renderMaJournee(); });
 }
 // Badge « Suivi » : un seul calcul, le même que la page Suivi et qu'Aujourd'hui (file fusionnée Close + SalesDesk, due aujourd'hui ou en retard)
@@ -13837,16 +13855,41 @@ function svCharger(it) { // contexte Close du prospect choisi (une fois par pros
 }
 function svAppeler(ev, cle) { var x = _sv.tel[cle] || {}, it = (window._rlItems || []).find(function(i) { return i.cle === cle; }); var leadT = it && it.t && it.t.lead ? it.t.lead : '', url = leadT ? 'https://app.close.com/lead/' + leadT + '/' : (x.url || ''); if (leadT && x.lead && x.lead !== leadT) x = {}; if (!url && !x.tel) { if (typeof showCopyToast === 'function') showCopyToast('Fiche Close introuvable pour cet appel'); return; } fcAppeler(ev, x.tel || '', url); }
 // Déplacer UNE tâche Close (16 oct. 2026) : depuis Mes priorités, le Suivi ou la fiche ; même tâche (même identifiant, priorité gardée), nouvelle date et heure
-function sdDeplacerTache(cle) {
+function sdDeplacerTache(cle) { // « Modifier » (17 oct. 2026) : tâche Close → date, heure, texte, motif ; relance SalesDesk seule → date et texte du rappel
   var it = (window._rlItems || []).find(function(x) { return x.cle === cle; }); if (!it && /^fiche\|/.test(cle) && typeof fcItemFiche === 'function' && _fc && _fc.nom) it = fcItemFiche();
-  if (!it || !it.t) { alert('Pas de tâche Close ouverte à déplacer sur ce prospect.'); return; }
-  var t = it.t;
-  rlDateModal('Déplacer la tâche — ' + (it.nom || ''), '« ' + (t.texte || 'Tâche') + ' »' + (t.date ? ' du ' + fcFrDepuisIso(t.date) + (t.heure ? ' à ' + t.heure : '') : '') + ' : elle passe à la date choisie dans Close, sans en recréer une.', rlJourOuvre(rlIso(new Date()), 1), function(d, h) {
-    rlPost('/close/taches/' + encodeURIComponent(t.id), { action: 'decaler', date: d, heure: h || t.heure || '', motif: 'déplacée' }).then(function() {
-      try { _tachesCloseAt = 0; } catch (e) {} if (typeof showCopyToast === 'function') showCopyToast('⏭ Tâche déplacée au ' + fcFrDepuisIso(d) + (h ? ' à ' + h : ''));
-      try { if (typeof _rlLundi !== 'undefined' && _rlLundi) chargerTachesClose(rlPlus(_rlLundi, -7), rlPlus(_rlLundi, 13), true); } catch (e) {} try { if (document.querySelector('#fc-overlay.open')) fcRendre(); } catch (e) {} try { renderAujourdhui(); } catch (e) {}
-    }).catch(function(e) { alert('Tâche non déplacée : ' + ((e && e.message) || e)); });
-  }, true);
+  if (!it || (!it.t && !(it.rel && it.rel.r))) { alert('Rien à modifier sur ce prospect.'); return; }
+  var t = it.t, r = it.rel && it.rel.r, row = it.row || (it.rel && it.rel.row) || null, today = rlIso(new Date());
+  var MOTIFS = [['', '— automatique —'], ['r2', 'R2 sans réponse'], ['nsin', 'No-show inbound'], ['nsout', 'No-show outbound'], ['rappel', 'Rappel demandé'], ['rdv', 'Prise de RDV'], ['config', 'À configurer (signé)'], ['aclasser', 'À classer']];
+  var motifCur = t ? (((loadStore())._tachesCloseCol || {})[t.id] || '') : '';
+  var champ = 'font-family:var(--font);font-size:13.5px;padding:8px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg);color:var(--text);';
+  var html = '<div class="fc-dup" style="width:min(480px,86vw);max-width:100%;box-sizing:border-box;"><div style="font-size:16px;font-weight:700;margin-bottom:2px;">✎ ' + (t ? 'Modifier la tâche' : 'Modifier le rappel') + ' — ' + escapeHtml(it.nom || '') + '</div>'
+    + '<div class="fc-muted" style="margin-bottom:12px;">' + (t ? 'La même tâche Close est mise à jour, rien n\'est recréé. « Défaire » remet tout comme avant.' : 'Rappel noté dans SalesDesk seulement (pas de tâche Close). Pour en faire une tâche Close, utilise « Tâche ».') + '</div>'
+    + '<div style="display:flex;gap:8px;margin-bottom:8px;"><input type="date" id="sd-md-date" value="' + escapeHtml(t ? String(t.date || '').slice(0, 10) : String((row && row.relanceDate) || it.date || today).slice(0, 10)) + '" style="' + champ + 'flex:1;">' + (t ? '<input type="time" id="sd-md-heure" value="' + escapeHtml(t.heure || '') + '" style="' + champ + 'width:120px;">' : '') + '</div>'
+    + '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;"><button class="btn btn-sm" onclick="document.getElementById(\'sd-md-date\').value=rlJourOuvre(rlIso(new Date()),1)">' + sdLibelleDemain(true) + '</button><button class="btn btn-sm" onclick="document.getElementById(\'sd-md-date\').value=rlJourOuvre(rlIso(new Date()),2)">+2 j ouvrés</button><button class="btn btn-sm" onclick="document.getElementById(\'sd-md-date\').value=rlJourOuvre(rlIso(new Date()),5)">+1 semaine</button><button class="btn btn-sm" onclick="document.getElementById(\'sd-md-date\').value=rlPlus(rlIso(new Date()),30)">+1 mois</button></div>'
+    + '<label class="fc-muted" style="font-size:12px;">' + (t ? 'Texte de la tâche' : 'Motif du rappel') + '</label><input type="text" id="sd-md-texte" value="' + escapeHtml(t ? (t.texte || '') : ((r && (r.relance && r.relance.condition)) || (row && row.relanceCond) || '')) + '" style="' + champ + 'width:100%;box-sizing:border-box;margin:4px 0 10px;" placeholder="' + (t ? 'Rappeler, relancer pour signature…' : 'RDV annulé, à relancer…') + '">'
+    + (t ? '<label class="fc-muted" style="font-size:12px;">Motif dans le Suivi</label><select id="sd-md-motif" style="' + champ + 'width:100%;margin:4px 0 12px;">' + MOTIFS.map(function(m) { return '<option value="' + m[0] + '"' + (m[0] === motifCur ? ' selected' : '') + '>' + m[1] + '</option>'; }).join('') + '</select>' : '')
+    + '<div id="sd-md-err" style="font-size:12.5px;color:var(--red);min-height:18px;"></div>'
+    + '<div style="display:flex;justify-content:flex-end;gap:6px;"><button class="btn btn-sm" onclick="fermerModalDoublon()">Annuler</button><button class="btn btn-sm btn-primary" id="sd-md-ok">Enregistrer</button></div></div>';
+  var ov = document.getElementById('fc-dup-overlay');
+  if (!ov) { ov = document.createElement('div'); ov.id = 'fc-dup-overlay'; ov.className = 'modal-overlay'; ov.style.zIndex = '1300'; ov.innerHTML = '<div class="modal" id="fc-dup-modal"></div>'; document.body.appendChild(ov); }
+  ov.onclick = function(ev) { if (ev.target === ov) fermerModalDoublon(); };
+  document.getElementById('fc-dup-modal').innerHTML = html; ov.classList.add('open');
+  document.getElementById('sd-md-ok').onclick = function() {
+    var b = this, d = (document.getElementById('sd-md-date') || {}).value || '', h = (document.getElementById('sd-md-heure') || {}).value || '', tx = ((document.getElementById('sd-md-texte') || {}).value || '').trim(), mo = (document.getElementById('sd-md-motif') || {}).value, err = document.getElementById('sd-md-err');
+    if (!d) { err.textContent = 'Choisis une date.'; return; } b.disabled = true; b.textContent = 'Enregistrement…';
+    var fini = function(msg) { fermerModalDoublon(); try { _tachesCloseAt = 0; } catch (e) {} if (typeof showCopyToast === 'function') showCopyToast(msg); try { if (typeof _rlLundi !== 'undefined' && _rlLundi) chargerTachesClose(rlPlus(_rlLundi, -7), rlPlus(_rlLundi, 13), true); } catch (e) {} try { if (document.getElementById('page-relances') && typeof renderRelancesPage === 'function') renderRelancesPage(); } catch (e) {} try { if (document.querySelector('#fc-overlay.open')) fcRendre(); } catch (e) {} try { var pg = document.getElementById('page-aujourdhui'); if (pg && pg.classList.contains('active')) renderAujourdhui(); } catch (e) {} };
+    if (t) {
+      var corps = { action: 'decaler', date: d, heure: h || '', motif: 'modifiée' }; if (tx && tx !== (t.texte || '')) corps.texte = tx;
+      rlPost('/close/taches/' + encodeURIComponent(t.id), corps).then(function() { if (mo !== undefined && mo !== motifCur) { try { var stM = loadStore(); stM._tachesCloseCol = stM._tachesCloseCol || {}; if (mo) stM._tachesCloseCol[t.id] = mo; else delete stM._tachesCloseCol[t.id]; saveStore(stM); } catch (e) {} } fini('✎ Tâche mise à jour : ' + fcFrDepuisIso(d) + (h ? ' à ' + h : '')); })
+        .catch(function(e) { b.disabled = false; b.textContent = 'Enregistrer'; err.textContent = 'Non enregistré : ' + ((e && e.message) || e); });
+    } else {
+      try { var st = loadStore(), rr = row && row._monthKey !== undefined ? (st[row._monthKey] || [])[row._storeKey] : null;
+        if (!rr) { Object.keys(st).forEach(function(k) { if (rr || !/^\d{4}-\d{2}$/.test(k) || !Array.isArray(st[k])) return; rr = st[k].find(function(x) { return x && x.relanceDate && !x.relanceFait && fcNormNom(x.client || '') === fcNormNom(it.nom || ''); }) || null; }); }
+        if (!rr) throw new Error('ligne introuvable, recharge la page');
+        rr.relanceDate = d; if (tx) rr.relanceCond = tx; delete rr.relanceSuitTache; saveStore(st); try { _relances = fusionRelances((_relances || []).filter(function(x) { return !x.local; })); } catch (e) {} fini('✎ Rappel modifié : ' + fcFrDepuisIso(d));
+      } catch (e) { b.disabled = false; b.textContent = 'Enregistrer'; err.textContent = 'Non enregistré : ' + ((e && e.message) || e); }
+    }
+  };
 }
 function svDeplacerVers(cles, date, heure) {
   var its = cles.map(function(c) { return (window._rlItems || []).find(function(i) { return i.cle === c; }); }).filter(function(i) { return i && i.t; });
