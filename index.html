@@ -4617,7 +4617,7 @@ function fcBoutonsSuivi(it) {
   var corriger = fiche ? B('fcCorrigerNom()', aujIco('pen') + 'Corriger le nom', '', 'Corriger l\'orthographe ou fusionner avec une autre fiche') : '';
   var rappel = fiche && _fc.rappelArg ? B('fcPopupSuivi(' + _fc.rappelArg + ')', aujIco('pen') + 'Modifier le rappel', '', 'Changer la date ou la condition du rappel SalesDesk') : '';
   var cloturer = it.t ? A('supprimer', aujIco('check') + 'Clôturer la tâche', '', 'La tâche Close est terminée, la relance s\'arrête') : A('supprimer', '🗑 Retirer du suivi', '', 'Plus de tâche Close pour cette personne : la relance SalesDesk s\'arrête, rien n\'est envoyé'); // 16 oct. 2026 (Martinetti) : une relance encore dans SalesDesk alors que la tâche n'est plus dans Close
-  var sansRep = A('pas_reponse', aujIco('nophone') + 'Sans réponse', '', 'Appel loggé dans Close, tâche décalée selon la cadence');
+  var sansRep = A('pas_reponse', aujIco('nophone') + 'Sans réponse', '', 'Appel loggé dans Close ; la cadence propose la date du prochain appel, tu la confirmes ou la changes');
   var pasInt = A('pas_interesse', aujIco('x') + 'Pas intéressé', '', 'Close en Not interested' + (it.t ? ', tâche terminée' : ''));
   var perdu = A('pas_interesse', aujIco('x') + 'Perdu', '', 'Close en Not interested' + (it.t ? ', tâche terminée' : ''));
   var rdv = function(lib, titre, cls) { return A('rdv_pris', lib, cls || '', titre); };
@@ -5059,11 +5059,12 @@ function sdRvReserver() {
     try { _auj.calEtat = {}; _auj.cal = {}; } catch (e) {} if (v.cb) v.cb(j);
   }).catch(function(e) { if (_rv !== v) { if (typeof showCopyToast === 'function') showCopyToast('✗ Réservation Calendly refusée : ' + e.message); return; } v.enCours = false; v.err = e.message; sdRvRendre(); });
 }
-function rlDateModal(titre, texte, dateDefaut, cb, avecHeure) {
+function rlDateModal(titre, texte, dateDefaut, cb, avecHeure, raccourcis) { // raccourcis facultatifs : [[libellé, date ISO], …] → puces qui posent la date
   var ov = document.getElementById('fc-dup-overlay');
   if (!ov) { ov = document.createElement('div'); ov.id = 'fc-dup-overlay'; ov.className = 'modal-overlay'; ov.style.zIndex = '1300'; ov.innerHTML = '<div class="modal" id="fc-dup-modal"></div>'; document.body.appendChild(ov); }
   ov.onclick = function(ev) { if (ev.target === ov) fermerModalDoublon(); };
   document.getElementById('fc-dup-modal').innerHTML = '<div class="fc-dup"><div style="font-size:15px;font-weight:700;margin-bottom:6px;">' + escapeHtml(titre) + '</div>' + (texte ? '<div class="fc-muted" style="margin-bottom:10px;">' + escapeHtml(texte) + '</div>' : '')
+    + ((raccourcis || []).length ? '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;">' + raccourcis.map(function(rc) { return '<button class="btn btn-sm" onclick="var e=document.getElementById(\'rl-dm-date\');if(e)e.value=' + JSON.stringify(rc[1]).replace(/"/g, '&quot;') + '">' + escapeHtml(rc[0]) + '</button>'; }).join('') + '</div>' : '')
     + '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;"><input type="date" id="rl-dm-date" class="input" value="' + escapeHtml(dateDefaut || '') + '" style="font-size:14px;">' + (avecHeure ? '<input type="time" id="rl-dm-heure" class="input" style="font-size:14px;" placeholder="heure (facultatif)">' : '') + '<button class="btn btn-sm btn-primary" id="rl-dm-ok">Valider</button><button class="btn btn-sm" onclick="fermerModalDoublon()">Annuler</button></div></div>';
   ov.classList.add('open');
   document.getElementById('rl-dm-ok').onclick = function() { var d = document.getElementById('rl-dm-date').value, h = avecHeure ? (document.getElementById('rl-dm-heure') || {}).value : ''; if (!d) { alert('Choisis une date.'); return; } fermerModalDoublon(); cb(d, h || ''); };
@@ -5082,7 +5083,7 @@ function rlDefaire(btn) {
     return rlPost('/close/defaire', {}).then(function(r) { if (typeof showCopyToast === 'function') showCopyToast('↶ ' + (r.detail || 'défait')); if (e.type === 'escalade' && r.detail) alert(r.detail); chargerTachesClose(rlPlus(_rlLundi, -7), rlPlus(_rlLundi, 13), true); setTimeout(dessinerRelances, 400); }).catch(function(x) { alert('Impossible de défaire : ' + x.message); }).then(function() { if (btn) btn.disabled = false; });
   }).catch(function() { alert('Copilot injoignable.'); });
 }
-function rlAction(ix, action, btn) {
+function rlAction(ix, action, btn, opts) { opts = opts || {};
   var it = typeof ix === 'string' ? (window._rlItems || []).find(function(x) { return x.cle === ix; }) : (window._rlItems || [])[ix];
   if (!it && typeof ix === 'string') { try { window._rlItems = rlConstruireItems(rlIso(new Date())).items; it = window._rlItems.find(function(x) { return x.cle === ix; }); } catch (e) {} }
   if (!it && typeof ix === 'string' && /^fiche\|/.test(ix) && typeof fcItemFiche === 'function' && _fc && _fc.nom) it = fcItemFiche();
@@ -5097,16 +5098,24 @@ function rlAction(ix, action, btn) {
   var terminerClose = function() { return it.t ? rlPost('/close/taches/' + encodeURIComponent(it.t.id), { action: 'terminer', motif: action }).then(function(r) { try { if (_tachesClose && _tachesClose.taches) _tachesClose.taches = _tachesClose.taches.filter(function(t) { return t.id !== it.t.id; }); } catch (e) {} return r; }) : Promise.resolve(); }; // la tâche disparaît tout de suite de la liste : la relecture Close peut encore la renvoyer ouverte pendant quelques secondes
   if (action === 'pas_reponse') {
     var n = nb + 1, lib = RL_LIBELLES[it.col] || it.col, cad = RL_CADENCE[it.col] || [1];
-    // au-delà de la cadence : mise en veille 30 jours (la tâche Close part à J+30, le compteur repart)
-    if (it.col !== 'r2' && n > cad.length) {
-      if (!confirm(it.nom + ' : ' + nb + ' appels sans réponse. Mettre en veille 30 jours ? (la tâche Close est déplacée à J+30, elle reviendra dans ta file)')) return;
-      var dv = rlJourOuvre(rlPlus(today, 29), 1);
+    var pasCad = it.col === 'r2' ? 1 : cad[Math.min(n - 1, cad.length - 1)], dateCad = rlJourOuvre(today, pasCad), dVeille = rlJourOuvre(rlPlus(today, 29), 1), finCad = it.col !== 'r2' && n > cad.length;
+    // 17 oct. 2026 (tâches, étape 2) : la cadence propose, Nicolas dispose — la date est pré-remplie, modifiable avant toute écriture dans Close ; J+30 = veille (compteur remis à zéro)
+    if (!opts.date) {
+      rlDateModal(it.nom + ' — sans réponse (appel ' + n + (it.col !== 'r2' ? '/' + cad.length : '') + '). Prochain appel ?',
+        finCad ? 'Cadence terminée (' + nb + ' appels sans réponse) : la mise en veille 30 jours est proposée. Tu peux choisir une autre date.' : 'Proposé par la cadence : ' + fcFrDepuisIso(dateCad) + '. Tu peux choisir une autre date ; à J+30 ou plus, c\'est une mise en veille (le compteur repart).',
+        finCad ? dVeille : dateCad, function(d) { rlAction(it.cle, 'pas_reponse', btn, { date: d }); }, false,
+        [[sdLibelleDemain(true), rlJourOuvre(today, 1)], ['+2 j ouvrés', rlJourOuvre(today, 2)], ['+1 semaine', rlJourOuvre(today, 5)], ['Veille 30 j', dVeille]]);
+      return;
+    }
+    // veille : au-delà de la cadence, ou date choisie à J+28 ou plus (la tâche Close part à cette date, le compteur repart)
+    if (it.col !== 'r2' && (finCad || opts.date >= rlPlus(today, 28))) {
+      var dv = opts.date;
       occupe(true);
       tacheClose(dv, lib + ' · retour de veille').then(function() { rlPoserSuivi(it, { tentatives: 0, col: it.col, dernier: 'veille', prochaine: dv, veille: today }); return rlMajRelance(it, 'plus_tard', dv); })
         .then(function() { fini('💤 En veille jusqu\'au ' + fcFrDepuisIso(dv)); rlProposerSms(it, id, 'dernier'); }).catch(echec);
       return;
     }
-    var pas = it.col === 'r2' ? 1 : cad[Math.min(n - 1, cad.length - 1)], date = rlJourOuvre(today, pas);
+    var date = opts.date;
     occupe(true);
     rlPost('/close/appel-sans-reponse', { lead: id.lead, nom: id.nom, email: id.email, note: 'Pas de réponse · ' + lib + ' · appel ' + n + ' (SalesDesk)' }).catch(function() {})
       .then(function() { return tacheClose(date, lib + ' · appel ' + (n + 1) + (it.col !== 'r2' ? '/' + cad.length : '') + ''); })
