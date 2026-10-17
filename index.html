@@ -4681,6 +4681,16 @@ document.addEventListener('click', function() { document.querySelectorAll('.fc-p
 function fcItemFiche() {
   var last = _fc.rows[0] || {}, p = String(last.presence || '').trim(), col = SD_INTERESSE.indexOf(String(last.result || '').trim()) >= 0 ? 'r2' : (['No Show', 'Annulé', 'Reprogrammé'].indexOf(p) >= 0 ? (last.source === 'Outbound' ? 'nsout' : 'nsin') : 'rdv');
   var it = { type: 'fiche', t: null, rel: null, row: last, nom: _fc.nom, email: _fc.email || last.email || '', date: rlIso(new Date()), col: col, cle: 'fiche|' + fcNormNom(_fc.nom) };
+  // 17 oct. 2026 (Guigou : « clôturée » 3 fois depuis la fiche, jamais dans Close) : la fiche connaît la tâche Close ouverte de la personne — Suivi chargé, sinon cache des tâches par fiche, sinon lecture copilot puis nouveau rendu
+  try {
+    var lead = _fc.leadChoisi || (_fc.rows || []).map(function(r) { return r.closeLead; }).find(Boolean) || sdLeadPour(_fc.nom, it.email) || '', n = fcNormNom(_fc.nom), t = null;
+    t = ((_tachesClose && _tachesClose.taches) || []).find(function(x) { return x && !x.fait && ((lead && x.lead === lead) || [x.fiche, x.contact].concat(x.contacts || []).some(function(y) { return y && fcNormNom(y) === n; })); }) || null;
+    if (!t && lead) { var c = _sdTachesMoi[lead];
+      if (c && c.taches && c.taches.length) { var t0 = c.taches[0]; t = { id: t0.id, lead: lead, fiche: _fc.nom, contact: _fc.nom, contacts: [_fc.nom], texte: t0.texte || 'Rappeler', date: String(t0.date || '').slice(0, 10), heure: '', fait: false, url: 'https://app.close.com/lead/' + lead + '/', horsFenetre: true }; }
+      else if ((!c || Date.now() - c.at > 600000) && typeof COPILOT_URL !== 'undefined' && window._fcTachesEnCours !== lead) { window._fcTachesEnCours = lead; var nomCourant = _fc.nom;
+        fetch(COPILOT_URL + '/close/taches-ouvertes?' + new URLSearchParams({ leads: lead }), { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).then(function(j) { var v = j && j.ok && j.leads ? j.leads[lead] : null; _sdTachesMoi[lead] = { at: Date.now(), taches: Array.isArray(v) ? v : [] }; }).catch(function() { _sdTachesMoi[lead] = { at: Date.now(), taches: [] }; }).then(function() { window._fcTachesEnCours = null; try { if (_fc && _fc.nom === nomCourant && (_sdTachesMoi[lead].taches || []).length) fcRendre(); } catch (e) {} }); } }
+    if (t) { it.t = t; it.lead = lead || t.lead; if (t.date) it.date = String(t.date).slice(0, 10); }
+  } catch (e) {}
   window._rlItems = (window._rlItems || []).filter(function(x) { return x.cle !== it.cle; }).concat([it]); return it;
 }
 function fcRendreProchaineEtape() {
@@ -5023,7 +5033,16 @@ function rlJourOuvre(iso, n) { var d = iso; var k = n || 1; while (k > 0) { d = 
 function rlCleSuivi(it) { return it.t && it.t.lead ? it.t.lead : 'n:' + fcNormNom(it.nom); }
 function rlSuivi(it) { var st = (window._rlStoreCache || loadStore()); return (st._tachesCloseSuivi || {})[rlCleSuivi(it)] || {}; }
 function rlPoserSuivi(it, patch) { var st = loadStore(); if (!st._tachesCloseSuivi) st._tachesCloseSuivi = {}; var k = rlCleSuivi(it); st._tachesCloseSuivi[k] = Object.assign({}, st._tachesCloseSuivi[k] || {}, patch, { nom: it.nom, at: new Date().toISOString() }); saveStore(st); return st._tachesCloseSuivi[k]; }
-function rlPost(chemin, corps) { try { if (corps && corps.nom && !corps.lead) { var _l = sdLeadPour(corps.nom, corps.email || ''); if (_l) corps = Object.assign({}, corps, { lead: _l }); } } catch (e) {} return fetch(COPILOT_URL + chemin, { method: 'POST', mode: 'cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corps || {}) }).then(function(r) { return r.json().catch(function() { throw new Error(r.status === 404 ? 'le copilot ne connaît pas encore cette action : redémarre-le (Objectifs & Config › Sauvegardes et diagnostic), puis réessaie' : 'réponse illisible du copilot (HTTP ' + r.status + ')'); }).then(function(j) { if (!r.ok || j.ok === false) throw new Error(j.error || ('HTTP ' + r.status)); return j; }); }); }
+function rlPost(chemin, corps) { try { if (corps && corps.nom && !corps.lead) { var _l = sdLeadPour(corps.nom, corps.email || ''); if (_l) corps = Object.assign({}, corps, { lead: _l }); } } catch (e) {} return fetch(COPILOT_URL + chemin, { method: 'POST', mode: 'cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corps || {}) }).then(function(r) { return r.json().catch(function() { throw new Error(r.status === 404 ? 'le copilot ne connaît pas encore cette action : redémarre-le (Objectifs & Config › Sauvegardes et diagnostic), puis réessaie' : 'réponse illisible du copilot (HTTP ' + r.status + ')'); }).then(function(j) { if (!r.ok || j.ok === false) throw new Error(j.error || ('HTTP ' + r.status)); try { sdMajTachesMoi(chemin, corps, j); } catch (e) {} return j; }); }); }
+// 17 oct. 2026 (Guigou : tâche clôturée 3 fois qui revenait) : le cache des tâches Close ouvertes par fiche (_sdTachesMoi, 10 min) suit chaque écriture faite depuis SalesDesk — clôture, transmission, déplacement, création, remplacement
+function sdMajTachesMoi(chemin, corps, j) {
+  var m = String(chemin || '').match(/^\/close\/taches\/([^/?]+)/), id = m ? decodeURIComponent(m[1]) : '', action = (corps && corps.action) || '';
+  var retirer = function(tid) { Object.keys(_sdTachesMoi).forEach(function(l) { var c = _sdTachesMoi[l]; if (c && c.taches) c.taches = c.taches.filter(function(t) { return t.id !== tid; }); }); };
+  if (id && (action === 'terminer' || action === 'supprimer')) retirer(id);
+  else if (id && action === 'decaler') Object.keys(_sdTachesMoi).forEach(function(l) { ((_sdTachesMoi[l] || {}).taches || []).forEach(function(t) { if (t.id === id) { if (corps.date) t.date = corps.date + (corps.heure ? 'T' + corps.heure : ''); if (corps.texte) t.texte = corps.texte; } }); });
+  else if (/^\/close\/taches(\?|$)/.test(chemin) && j && j.tache && j.tache.id) { var lead = j.tache.lead || (corps && corps.lead); if (j.remplacee && j.remplacee.id) retirer(j.remplacee.id); if (lead) { var c = _sdTachesMoi[lead] || { at: Date.now(), taches: [] }; if (!c.taches.some(function(t) { return t.id === j.tache.id; })) c.taches.push({ id: j.tache.id, texte: j.tache.texte || (corps && corps.texte) || '', date: j.tache.date || (corps && corps.date) || '' }); _sdTachesMoi[lead] = c; } }
+  else if (/^\/close\/transmettre/.test(chemin)) { if (corps && corps.tacheNicolas) retirer(corps.tacheNicolas); if (j && j.supprimee) retirer(j.supprimee); }
+}
 // La relance SalesDesk (locale ou copilot) suit la même date / le même résultat
 function rlMajRelance(it, resultat, quand) {
   var rel = it.rel, r = rel && rel.r;
@@ -13863,7 +13882,7 @@ function rlConstruireItems(today) {
   // tâches Close : rapprochées d'une relance SalesDesk par la personne (même date ou non)
   var taches = ((_tachesClose && _tachesClose.taches) || []).slice(), terminees = (_tachesClose && _tachesClose.terminees) || [];
   // 17 oct. 2026 (une tâche = une tâche Close) : une relance SalesDesk dont la personne a une tâche Close ouverte hors de la fenêtre chargée est affichée comme cette tâche, pas comme un rappel à part
-  try { var dejaIds = {}; taches.forEach(function(t) { dejaIds[t.id] = 1; });
+  try { var dejaIds = {}; taches.forEach(function(t) { dejaIds[t.id] = 1; }); terminees.forEach(function(t) { if (t && t.id) dejaIds[t.id] = 1; });
     rels.forEach(function(x) { var row = x.row; if (!row || !row.closeLead) return; var c = (window._sdTachesMoi || {})[row.closeLead]; if (!c || !c.taches || !c.taches.length) return;
       var t0 = c.taches.filter(function(t) { return !dejaIds[t.id]; })[0]; if (!t0) return; dejaIds[t0.id] = 1;
       taches.push({ id: t0.id, lead: row.closeLead, fiche: row.client, contact: row.client, contacts: [row.client], texte: t0.texte || 'Rappeler', date: t0.date, heure: '', fait: false, url: 'https://app.close.com/lead/' + row.closeLead + '/', vue: 'future', horsFenetre: true }); }); } catch (e) {}
