@@ -4175,7 +4175,10 @@ function sdAppliquerAlignement() {
 }
 // Rappels SalesDesk sans tâche Close (17 oct. 2026, « une tâche = une tâche Close ») : proposés une fois à Nicolas, créés dans Close seulement s'il confirme ; les rappels sans fiche Close restent dans SalesDesk
 function sdProposerMigrationRappels(st) {
-  if (window._sdMigrRappelsOuverte || typeof COPILOT_URL === 'undefined') return; st = st || loadStore(); var today = rlIso(new Date()), orph = [], sansFiche = 0;
+  if (window._sdMigrRappelsOuverte || typeof COPILOT_URL === 'undefined') return;
+  // d'abord les correctifs (ex. rappels clos le 17 oct.), sinon la fenêtre propose des rappels déjà clos ; et toujours une lecture fraîche du store
+  if (!window._sdCorrectifsVus) { window._sdMigrEssais = (window._sdMigrEssais || 0) + 1; if (window._sdMigrEssais <= 8) setTimeout(function() { sdProposerMigrationRappels(); }, 3000); return; }
+  st = loadStore(); var today = rlIso(new Date()), orph = [], sansFiche = 0;
   Object.keys(st).forEach(function(k) { if (!/^\d{4}-\d{2}$/.test(k) || !Array.isArray(st[k])) return; st[k].forEach(function(r, i) {
     if (!r || !r.relanceDate || r.relanceFait || r.relanceSuitTache) return;
     if (!r.closeLead) { sansFiche++; return; } var c = _sdTachesMoi[r.closeLead]; if (!c) return; if (c.taches && c.taches.length) return;
@@ -4193,6 +4196,7 @@ function sdProposerMigrationRappels(st) {
   document.getElementById('sd-mr-ok').onclick = function() {
     var b = this; b.disabled = true; var etat = document.getElementById('sd-mr-etat'), ok = 0, ko = []; var file = orph.slice();
     var suite = function() { var o = file.shift(); if (!o) { try { var st2 = loadStore(); orph.forEach(function(x) { var rr = (st2[x.k] || [])[x.i]; if (rr && x.tacheId) rr.relanceSuitTache = x.tacheId; }); saveStore(st2); } catch (e) {} try { _relances = fusionRelances((_relances || []).filter(function(x) { return !x.local; })); } catch (e) {} fermerModalDoublon(); window._sdMigrRappelsOuverte = false; if (typeof showCopyToast === 'function') showCopyToast('✓ ' + ok + ' tâche' + (ok > 1 ? 's' : '') + ' Close créée' + (ok > 1 ? 's' : '') + (ko.length ? ' · ' + ko.length + ' en échec : ' + ko.join(', ') : '')); try { _tachesCloseAt = 0; if (typeof _rlLundi !== 'undefined' && _rlLundi) chargerTachesClose(rlPlus(_rlLundi, -7), rlPlus(_rlLundi, 13), true); } catch (e) {} try { renderRelancesPage(); } catch (e) {} return; }
+      try { var frais = (loadStore()[o.k] || [])[o.i]; if (!frais || frais.relanceFait || frais.relanceSuitTache || frais.client !== o.r.client) { suite(); return; } } catch (e) {}
       etat.textContent = 'Création ' + (ok + ko.length + 1) + ' / ' + orph.length + ' : ' + o.r.client + '…';
       rlPost('/close/taches', { lead: o.r.closeLead, nom: o.r.client, email: o.r.email || '', date: o.r.relanceDate, texte: o.r.relanceCond || 'Rappeler', motif: 'rappel SalesDesk converti en tâche Close' }).then(function(j) { if (j && j.tache && j.tache.id) { o.tacheId = j.tache.id; ok++; try { var cm = _sdTachesMoi[o.r.closeLead] || { taches: [] }; cm.at = Date.now(); cm.taches = (cm.taches || []).concat([{ id: j.tache.id, texte: o.r.relanceCond || 'Rappeler', date: o.r.relanceDate }]); _sdTachesMoi[o.r.closeLead] = cm; } catch (e) {} } else ko.push(o.r.client); suite(); }).catch(function() { ko.push(o.r.client); suite(); }); };
     suite();
@@ -12869,7 +12873,7 @@ function sdAppliquerCorrectifs() {
         appliques.push(c.client); }
       faits[c.id] = new Date().toISOString(); });
     if (Object.keys(faits).length !== avant) { st._correctifsFaits = faits; saveStore(st); if (appliques.length) { try { refreshAll(); } catch (e) {} try { renderAujourdhui(); } catch (e) {} if (typeof showCopyToast === 'function') showCopyToast('✓ Correction appliquée : ' + appliques.join(', ')); } }
-  }).catch(function() {}).finally(function() { _sdCorrEnCours = false; });
+  }).catch(function() {}).finally(function() { _sdCorrEnCours = false; window._sdCorrectifsVus = true; /* la proposition de migration des rappels attend ce passage */ });
 }
 setInterval(sdAppliquerCorrectifs, 120000);
 // 14 oct. 2026 (un prospect) : mail de fin de RDV envoyé à la main → « Déjà envoyé » le retire des priorités (le copilot le note « manuel » et ne le prépare plus)
