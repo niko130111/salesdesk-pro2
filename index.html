@@ -4845,12 +4845,18 @@ function sdResultatAppelPopup() {
   var cleJs = JSON.stringify(a.cle).replace(/"/g, '&quot;'), B = function(act, lib, cls, t) { return '<button class="btn' + (cls ? ' ' + cls : '') + '" style="justify-content:flex-start;" title="' + escapeHtml(t) + '" onclick="sdResultatAppel(\'' + act + '\')">' + lib + '</button>'; };
   window._sdAppelPopup = a;
   document.getElementById('fc-dup-modal').innerHTML = '<div class="fc-dup" style="width:min(420px,90vw);max-width:100%;box-sizing:border-box;"><div style="font-size:16px;font-weight:700;margin-bottom:2px;">📞 Appel à ' + escapeHtml(a.nom) + '</div><div class="fc-muted" style="margin-bottom:12px;">Résultat ?</div>'
-    + '<div style="display:grid;gap:6px;">' + B('joint', '✅ Joint', 'btn-primary', 'Tu choisis la date du rappel ; la tâche Close suit') + B('pas_reponse', '📭 Sans réponse', '', 'Appel loggé dans Close, date proposée par la cadence') + B('rdv_pris', '📅 RDV pris', '', 'Créneau Calendly') + B('pas_interesse', '✗ Pas intéressé', '', 'Close : Not interested / Lost, tâches clôturées') + B('ghost', '👻 Ghost', '', 'Close : Not interested / Lost - Ghosted, tâches clôturées') + '</div>'
+    + '<div id="sd-appel-choix" style="display:grid;gap:6px;">' + B('joint_menu', '✅ Joint', 'btn-primary', 'Puis : RDV pris, à rappeler ou pas intéressé') + B('pas_reponse', '📭 Sans réponse', '', 'Appel loggé dans Close, date proposée par la cadence') + B('ghost', '👻 Ghost', '', 'Close : Not interested / Lost - Ghosted, tâches clôturées') + '</div>'
     + '<div style="display:flex;justify-content:flex-end;margin-top:10px;"><button class="btn btn-sm" onclick="fermerModalDoublon()">Plus tard</button></div></div>';
   ov.classList.add('open');
 }
 function sdResultatAppel(action) {
-  var a = window._sdAppelPopup; fermerModalDoublon(); if (!a) return;
+  var a = window._sdAppelPopup; if (!a) { fermerModalDoublon(); return; }
+  if (action === 'joint_menu') { // joint : qu'est-ce qui en sort ?
+    var B = function(act, lib, cls, t) { return '<button class="btn' + (cls ? ' ' + cls : '') + '" style="justify-content:flex-start;" title="' + escapeHtml(t) + '" onclick="sdResultatAppel(\'' + act + '\')">' + lib + '</button>'; };
+    var z = document.getElementById('sd-appel-choix'); if (z) z.innerHTML = '<div class="fc-muted" style="margin-bottom:2px;">Joint — et alors ?</div>' + B('rdv_pris', '📅 RDV pris', 'btn-primary', 'Tu choisis le créneau, réservé dans Calendly') + B('joint', '🔁 À rappeler', '', 'Tu choisis la date du rappel ; la tâche Close suit') + B('pas_interesse', '✗ Pas intéressé', '', 'Close : Not interested / Lost, tâches clôturées');
+    return;
+  }
+  fermerModalDoublon();
   if (action === 'ghost') { var lead = ''; try { lead = sdLeadPour(a.nom, a.email) || ''; } catch (e) {} sdStatutClose({ client: a.nom, email: a.email, closeLead: lead }, 'ghost'); return; }
   var cle = a.cle; if (!cle || !(window._rlItems || []).some(function(i) { return i.cle === cle; })) { try { window._rlItems = rlConstruireItems(rlIso(new Date())).items; var f = window._rlItems.find(function(i) { return fcNormNom(i.nom || '') === fcNormNom(a.nom); }); cle = f ? f.cle : ''; } catch (e) {} }
   if (!cle && _fc && _fc.nom && fcNormNom(_fc.nom) === fcNormNom(a.nom) && typeof fcItemFiche === 'function') cle = fcItemFiche().cle;
