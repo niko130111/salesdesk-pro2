@@ -14059,9 +14059,11 @@ function svRendreFile(items, today) {
   try { sdPrechauffer(items.filter(function(it) { return dansQuand(it, 'atraiter'); }).slice(0, 40).map(function(it) { return { lead: it.lead || (it.t && it.t.lead) || '', nom: it.nom, email: it.email || '' }; })); } catch (e) {} // les 8 prochains à appeler : fiches préparées en arrière-plan
   var nQ = function(q) { return items.filter(function(it) { return dansQuand(it, q); }).length; };
   var base = items.filter(function(it) { return dansQuand(it, _sv.quand); });
-  var M = [['config', 'À configurer (signés)'], ['r2', 'R2 sans réponse'], ['nsin', 'No-show inbound'], ['nsout', 'No-show outbound'], ['rappel', 'Rappel demandé'], ['rdv', 'Prise de RDV'], ['aclasser', 'À classer']];
-  var motifDe = function(it) { try { return (it.col !== 'r2' && rlSuivi(it).dernier === 'joint') ? 'rappel' : it.col; } catch (e) { return it.col; } }; // joint et « rappelez-moi » : avant la prise de RDV
-  var vis = base.filter(function(it) { return !_sv.motif || it.col === _sv.motif || (_sv.motif === 'aclasser' && !M.some(function(m) { return m[0] === it.col; })); });
+  var M = [['config', 'À configurer (signés)'], ['signature', 'En attente de signature'], ['r2', 'R2 sans réponse'], ['nsin', 'No-show inbound'], ['nsout', 'No-show outbound'], ['rappel', 'Rappel demandé'], ['rdv', 'Prise de RDV'], ['aclasser', 'À classer']];
+  // 19 oct. 2026 (Nicolas, Sybille après les no-shows) : « en attente de signature » juste après les signés à configurer, avant tout le reste
+  var enAttenteSign = function(it) { if (it.col === 'config') return false; var rw = (it.rel && it.rel.row) || it.row || {}; return !!(rw.attenteSignature && String(rw.result || '').trim() !== 'Signé') || /signature|contrat/i.test(((it.t && it.t.texte) || '') + ' ' + (rw.relanceCond || '')); };
+  var motifDe = function(it) { if (enAttenteSign(it)) return 'signature'; try { return (it.col !== 'r2' && rlSuivi(it).dernier === 'joint') ? 'rappel' : it.col; } catch (e) { return it.col; } }; // joint et « rappelez-moi » : avant la prise de RDV
+  var vis = base.filter(function(it) { var mo = motifDe(it); return !_sv.motif || mo === _sv.motif || (_sv.motif === 'aclasser' && !M.some(function(m) { return m[0] === mo; })); });
   // ordre d'appel : heure fixée d'abord (dans l'ordre des heures), puis par motif ; dans un motif, l'ordre de la vue Colonnes
   var rangM = function(it) { var i = M.findIndex(function(m) { return m[0] === motifDe(it); }); return i < 0 ? 9 : i; };
   var prioS = (loadStore()._tachesPrio || {}), estPrio = function(x) { return !!(x.t && prioS[x.t.id]); }; // 16 oct. 2026 : tâches prioritaires en tête
@@ -14075,7 +14077,7 @@ function svRendreFile(items, today) {
   var pauseHtml = ''; // les tâches en pause sont désormais listées en bas de la file (groupe « En pause · RDV pris »)
   var bar = pauseHtml + '<div class="sv-bar">' + [['atraiter', 'À traiter'], ['demain', sdLibelleDemain(true)], ['semaine', '7 jours']].map(function(q) { return '<button class="sv-chip' + (_sv.quand === q[0] ? ' on' : '') + '" onclick="svSet(\'quand\',\'' + q[0] + '\')">' + q[1] + '<b>' + nQ(q[0]) + '</b></button>'; }).join('')
     + '<span class="sv-sep"></span><button class="sv-chip' + (!_sv.motif ? ' on' : '') + '" onclick="svSet(\'motif\',\'\')">Tous<b>' + base.length + '</b></button>'
-    + M.map(function(m) { var n = base.filter(function(it) { return it.col === m[0] || (m[0] === 'aclasser' && !M.some(function(x) { return x[0] === it.col; })); }).length; return n ? '<button class="sv-chip' + (_sv.motif === m[0] ? ' on' : '') + '" onclick="svSet(\'motif\',\'' + m[0] + '\')">' + m[1] + '<b>' + n + '</b></button>' : ''; }).join('') + '</div>';
+    + M.map(function(m) { var n = base.filter(function(it) { var mo = motifDe(it); return mo === m[0] || (m[0] === 'aclasser' && !M.some(function(x) { return x[0] === mo; })); }).length; return n ? '<button class="sv-chip' + (_sv.motif === m[0] ? ' on' : '') + '" onclick="svSet(\'motif\',\'' + m[0] + '\')">' + m[1] + '<b>' + n + '</b></button>' : ''; }).join('') + '</div>';
   if (!ordre.length) { el.innerHTML = bar + '<div class="sv-liste"><div class="sv-vide">' + (!_tachesClose ? 'Lecture des tâches Close…' : (_tachesClose.error ? 'Tâches Close indisponibles : le copilot ne répond pas.' : 'Rien ' + (_sv.quand === 'atraiter' ? 'à traiter. File vide.' : 'sur cette période.'))) + '</div></div>'; return; }
   // liste
   var liste = '', grp = null;
