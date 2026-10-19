@@ -4833,7 +4833,34 @@ function fcOnboardingDependances() { // 6.1 / 6.2 / 6.3 n'apparaissent que si l'
   Array.prototype.forEach.call(m.querySelectorAll('[data-dep]'), function(el) { var dep = el.getAttribute('data-dep'); if (dep) el.style.display = coches.indexOf(dep) >= 0 ? '' : 'none'; });
 }
 // Bouton « Appeler » de la fiche : d'abord avec ce que la fiche sait (numéro et fiche Close du bandeau), sinon par l'item du Suivi. Avant, hors Suivi, l'item n'était pas connu et le bouton ne faisait rien (constat du 9 oct. 2026).
+// 19 oct. 2026 (Nicolas) : après « Appeler », au retour sur SalesDesk, une fenêtre demande le résultat de l'appel (mêmes actions que les boutons) — sauf si la personne a un RDV aujourd'hui
+var _sdAppel = null;
+function sdRdvAujourdhui(nom) { try { var st = loadStore(), n = fcNormNom(nom || ''), auj = new Date().toLocaleDateString('fr-FR'), k = rlIso(new Date()).slice(0, 7); return (st[k] || []).some(function(r) { if (!r || fcNormNom(r.client || '') !== n) return false; var p = String(r.presence || '').trim(); return (r.date === auj && p !== 'Annulé' && p !== 'Reprogrammé') || (r.dateR2 === auj && String(r.presenceR2 || '') !== 'Annulé'); }); } catch (e) { return false; } }
+function sdNoterAppel(cle, nom, email) { if (!nom || sdRdvAujourdhui(nom)) { _sdAppel = null; return; } _sdAppel = { cle: cle || '', nom: nom, email: email || '', at: Date.now() }; }
+function sdResultatAppelPopup() {
+  var a = _sdAppel; if (!a || Date.now() - a.at < 4000 || Date.now() - a.at > 3 * 3600000) return; _sdAppel = null;
+  var ov = document.getElementById('fc-dup-overlay'); if (ov && ov.classList.contains('open')) return; // une autre fenêtre est déjà ouverte
+  if (!ov) { ov = document.createElement('div'); ov.id = 'fc-dup-overlay'; ov.className = 'modal-overlay'; ov.style.zIndex = '1300'; ov.innerHTML = '<div class="modal" id="fc-dup-modal"></div>'; document.body.appendChild(ov); }
+  ov.onclick = function(ev) { if (ev.target === ov) fermerModalDoublon(); };
+  var cleJs = JSON.stringify(a.cle).replace(/"/g, '&quot;'), B = function(act, lib, cls, t) { return '<button class="btn' + (cls ? ' ' + cls : '') + '" style="justify-content:flex-start;" title="' + escapeHtml(t) + '" onclick="sdResultatAppel(\'' + act + '\')">' + lib + '</button>'; };
+  window._sdAppelPopup = a;
+  document.getElementById('fc-dup-modal').innerHTML = '<div class="fc-dup" style="width:min(420px,90vw);max-width:100%;box-sizing:border-box;"><div style="font-size:16px;font-weight:700;margin-bottom:2px;">📞 Appel à ' + escapeHtml(a.nom) + '</div><div class="fc-muted" style="margin-bottom:12px;">Résultat ?</div>'
+    + '<div style="display:grid;gap:6px;">' + B('joint', '✅ Joint', 'btn-primary', 'Tu choisis la date du rappel ; la tâche Close suit') + B('pas_reponse', '📭 Sans réponse', '', 'Appel loggé dans Close, date proposée par la cadence') + B('rdv_pris', '📅 RDV pris', '', 'Créneau Calendly') + B('pas_interesse', '✗ Pas intéressé', '', 'Close : Not interested / Lost, tâches clôturées') + B('ghost', '👻 Ghost', '', 'Close : Not interested / Lost - Ghosted, tâches clôturées') + '</div>'
+    + '<div style="display:flex;justify-content:flex-end;margin-top:10px;"><button class="btn btn-sm" onclick="fermerModalDoublon()">Plus tard</button></div></div>';
+  ov.classList.add('open');
+}
+function sdResultatAppel(action) {
+  var a = window._sdAppelPopup; fermerModalDoublon(); if (!a) return;
+  if (action === 'ghost') { var lead = ''; try { lead = sdLeadPour(a.nom, a.email) || ''; } catch (e) {} sdStatutClose({ client: a.nom, email: a.email, closeLead: lead }, 'ghost'); return; }
+  var cle = a.cle; if (!cle || !(window._rlItems || []).some(function(i) { return i.cle === cle; })) { try { window._rlItems = rlConstruireItems(rlIso(new Date())).items; var f = window._rlItems.find(function(i) { return fcNormNom(i.nom || '') === fcNormNom(a.nom); }); cle = f ? f.cle : ''; } catch (e) {} }
+  if (!cle && _fc && _fc.nom && fcNormNom(_fc.nom) === fcNormNom(a.nom) && typeof fcItemFiche === 'function') cle = fcItemFiche().cle;
+  if (!cle) { if (typeof showCopyToast === 'function') showCopyToast(a.nom + ' n\'est pas dans le Suivi : ouvre sa fiche pour noter le résultat'); ouvrirFicheClient(a.nom, a.email); return; }
+  rlAction(cle, action, null);
+}
+window.addEventListener('focus', function() { setTimeout(sdResultatAppelPopup, 400); });
+document.addEventListener('visibilitychange', function() { if (document.visibilityState === 'visible') setTimeout(sdResultatAppelPopup, 400); });
 function fcAppelerFiche(ev, cle) {
+  try { var itA = (window._rlItems || []).find(function(i) { return i.cle === cle; }) || (/^fiche\|/.test(cle || '') && typeof fcItemFiche === 'function' && _fc && _fc.nom ? fcItemFiche() : null); if (itA) sdNoterAppel(itA.cle, itA.nom, itA.email || ((itA.row || {}).email) || ''); } catch (e) {}
   var ov = document.getElementById('fc-overlay'), ouvert = !!(ov && ov.classList.contains('open'));
   if (ouvert) { // fiche en surimpression : son bandeau (numéro + fiche Close) fait foi
     var a = document.querySelector('#fc-contact a[href^="tel:"]');
@@ -12942,6 +12969,7 @@ function sdMailFinManuel(cle) {
   rlPost('/mails-fin-r1/e/' + encodeURIComponent(cle) + '/manuel', {}).then(function() { if (typeof showCopyToast === 'function') showCopyToast('✓ Mail de fin de RDV noté comme envoyé à la main'); }).catch(function() { if (typeof showCopyToast === 'function') showCopyToast('⚠️ Copilot injoignable : la ligne reviendra au prochain rafraîchissement'); });
 }
 function sdAppelerRdv(ev, nom, email, lead, tel) {
+  try { var itR = (window._rlItems || []).find(function(i) { return fcNormNom(i.nom || '') === fcNormNom(nom || ''); }); sdNoterAppel(itR ? itR.cle : '', nom, email || ''); } catch (e) {}
   if (ev && ev.preventDefault) ev.preventDefault(); var alt = false; // toujours par Close, jamais FaceTime (Nicolas, 15 oct. 2026)
   try { lead = lead || sdLeadPour(nom, email) || ''; } catch (e) {}
   if (/^lead_/.test(lead)) return fcAppeler({ altKey: alt }, tel, 'https://app.close.com/lead/' + lead + '/');
@@ -13981,7 +14009,7 @@ function svCharger(it) { // contexte Close du prospect choisi (une fois par pros
     .then(function(j) { var mx = sdMeilleurLead(j.leads || [], it.nom, email, sdLead, { impose: !!(it.t && it.t.lead), tel: row.tel || row.telephone || '' }), l = mx.lead || (mx.impose ? null : (j.leads || [])[0]); var tel = ''; if (l) (l.contacts || []).some(function(c) { tel = ((c.tels || [])[0]) || ''; return !!tel; }); _sv.tel[cle] = { tel: tel, url: l ? l.url : (mx.id ? 'https://app.close.com/lead/' + mx.id + '/' : ''), lead: mx.id || '', divergent: mx.divergent }; /* 12 oct. 2026 : fiche imposée par la tâche mais absente de la recherche par nom → jamais la première fiche venue (« Guy-Hoquet » appelait Guillaume Baptista) */ lireDernier(mx.id || sdLead); if (_sv.sel === cle) renderRelancesPage(); })
     .catch(function() { lireDernier(sdLead); });
 }
-function svAppeler(ev, cle) { var x = _sv.tel[cle] || {}, it = (window._rlItems || []).find(function(i) { return i.cle === cle; }); var leadT = it && it.t && it.t.lead ? it.t.lead : '', url = leadT ? 'https://app.close.com/lead/' + leadT + '/' : (x.url || ''); if (leadT && x.lead && x.lead !== leadT) x = {}; if (!url && !x.tel) { if (typeof showCopyToast === 'function') showCopyToast('Fiche Close introuvable pour cet appel'); return; } fcAppeler(ev, x.tel || '', url); }
+function svAppeler(ev, cle) { try { var itS = (window._rlItems || []).find(function(i) { return i.cle === cle; }); if (itS) sdNoterAppel(cle, itS.nom, itS.email || ((itS.row || {}).email) || ''); } catch (e) {} var x = _sv.tel[cle] || {}, it = (window._rlItems || []).find(function(i) { return i.cle === cle; }); var leadT = it && it.t && it.t.lead ? it.t.lead : '', url = leadT ? 'https://app.close.com/lead/' + leadT + '/' : (x.url || ''); if (leadT && x.lead && x.lead !== leadT) x = {}; if (!url && !x.tel) { if (typeof showCopyToast === 'function') showCopyToast('Fiche Close introuvable pour cet appel'); return; } fcAppeler(ev, x.tel || '', url); }
 // Déplacer UNE tâche Close (16 oct. 2026) : depuis Mes priorités, le Suivi ou la fiche ; même tâche (même identifiant, priorité gardée), nouvelle date et heure
 // Prioritaire sur une tâche existante (17 oct. 2026) : même marque que celle posée à la création (_tachesPrio), en tête de Mes priorités et de la file
 function sdPrioToggle(cle) {
