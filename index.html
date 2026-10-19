@@ -6098,7 +6098,7 @@ function fcRaisonChoisir(monthKey, idx, raison) {
   var sansMail = !!window._sdRaisonSansMail; window._sdRaisonSansMail = false;
   r.result = 'Non signé'; r.nosignRaison = raison; saveStore(store); fermerModalDoublon(); refreshAll(); try { if (document.querySelector('#fc-overlay.open')) fcRendre(); } catch (e) {}
   if (sansMail && typeof showCopyToast === 'function') showCopyToast('✓ ' + r.client + ' : Non signé · ' + ({ pasinteresse: 'pas intéressé', pasbudget: 'pas de budget', promo: 'à relancer si promo', carte: 'carte de prospection', rent: 'à relancer au RENT' }[raison] || raison));
-  if (raison === 'pasinteresse') sdStatutClose(r, 'pas_interesse');
+  if (raison === 'pasinteresse') sdStatutClose(r, 'pas_interesse'); else if (raison === 'ghost') sdStatutClose(r, 'ghost'); // ghost → Close « Not interested » + opportunité « Lost - Ghosted » + tâches clôturées
   else if (!sansMail) { try { var _isoR = frVersIsoSd(r.date), _tj = rlIso(new Date()); if (r.source !== 'R2' && String(r.presence || '').trim() === 'Show' && _isoR <= _tj && _isoR >= rlPlus(_tj, -3)) sdDemanderMailFinR1(Object.assign({}, r), 'nosign', r.email || ''); } catch (e) {} }
   if (document.getElementById('fc-overlay').classList.contains('open')) { _fc.rows = fcLignesFiche(); fcRendre(); }
   sdChaineSuite();
@@ -6347,6 +6347,7 @@ function arValiderSuivi() {
   if (a.presence === 'Show' && a.result === 'Attente') sdStatutClose({ client: r.client, email: r.email || '', closeLead: r.closeLead || '' }, 'mail_envoye'); // en attente de signature (R1 comme R2) : opportunité → Contract Sent / Offer Sent
   else if (!a.estR2) {
     if (a.presence === 'Show' && a.result === 'Non signé' && a.raison === 'pasinteresse') sdStatutClose(copie, 'pas_interesse');
+    else if (a.presence === 'Show' && a.result === 'Non signé' && a.raison === 'ghost') sdStatutClose(copie, 'ghost');
     else if (a.presence === 'No Show' && a.nsChoix === 'stop') sdStatutClose(copie, 'laisser_tomber');
     else if (!(a.presence === 'Show' && a.result === 'Signé')) sdStatutDepuisPresence(copie, a.presence);
     else if (a.presenceAvant !== 'Show') sdStatutDepuisPresence(copie, 'Show');
@@ -7373,8 +7374,8 @@ function sdCloreTachesDossier(row) {
   }).catch(function() {});
 }
 function sdStatutClose(row, evenement) {
-  if (evenement === 'pas_interesse') { try { sdCloreTachesDossier(row); } catch (e) {} }
-  if (typeof COPILOT_URL === 'undefined' || !row || !row.client || row.source === 'R2') return;
+  if (evenement === 'pas_interesse' || evenement === 'ghost') { try { sdCloreTachesDossier(row); } catch (e) {} }
+  if (typeof COPILOT_URL === 'undefined' || !row || !row.client || (row.source === 'R2' && evenement !== 'pas_interesse' && evenement !== 'ghost')) return; // 19 oct. 2026 : pas intéressé / ghost passent aussi depuis une ligne R2 (même opportunité)
   var cle = fcNormNom(row.client) + '|' + evenement; if (_sdStatutDernier[cle] && Date.now() - _sdStatutDernier[cle] < 5000) return; _sdStatutDernier[cle] = Date.now();
   fetch(COPILOT_URL + '/close/statut', { method: 'POST', mode: 'cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nom: row.client, email: row.email || '', evenement: evenement, lead: row.closeLead || sdLeadPour(row.client, row.email || '') }) })
     .then(function(r) { return r.json(); }).then(function(j) {
@@ -14385,6 +14386,7 @@ function pipelineDrop(e, dropZone, colId, raison) {
   store[monthKey] = rows;
   saveStore(store);
   refreshAll();
+  if (colId === 'pipe-col-nosigned' && (raison === 'pasinteresse' || raison === 'ghost')) { try { sdStatutClose(Object.assign({}, r), raison === 'ghost' ? 'ghost' : 'pas_interesse'); } catch (e) {} } // 19 oct. 2026 : le Pipeline écrit aussi dans Close
   // Intéressé sans suite : on demande tout de suite R2 ou relance (Annuler remet la carte où elle était)
   if (colId === 'pipe-col-interested' && !(r.dateR2 && String(r.dateR2).trim()) && !(r.relanceDate && !r.relanceFait)) fcPopupSuivi(monthKey, storeKey, avant);
 }
