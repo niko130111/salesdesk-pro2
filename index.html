@@ -7358,7 +7358,16 @@ function sdEnvoyerEtatCopilot() {
 // No-show confirmé → le copilot prépare le message de reprogrammation et cale un rappel (automatisation « no_show », aucun envoi)
 // Statuts Close pilotés depuis SalesDesk : présence / pas intéressé / mail envoyé / laisser tomber → opportunité (+ lead), jamais sur un R2, jamais Won/Customer, rien créé
 var _sdStatutDernier = {};
+// 19 oct. 2026 (Sprecher : R2 → pas intéressé, la tâche « R2 Validation & lancement » restait) : un dossier clos « pas intéressé » termine les tâches Close ouvertes de Nicolas sur la fiche (sauf « Configurer » d'un client signé)
+function sdCloreTachesDossier(row) {
+  if (typeof COPILOT_URL === 'undefined' || !row || !row.client) return; var lead = row.closeLead || sdLeadPour(row.client, row.email || ''); if (!/^lead_/.test(lead || '')) return;
+  fetch(COPILOT_URL + '/close/taches-ouvertes?' + new URLSearchParams({ leads: lead }), { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).then(function(j) {
+    var L = ((j && j.ok && j.leads && j.leads[lead]) || []).filter(function(t) { return !/configur|onboard|vitrine/i.test(t.texte || ''); }); if (!L.length) return;
+    return Promise.all(L.map(function(t) { return rlPost('/close/taches/' + encodeURIComponent(t.id), { action: 'terminer', motif: 'dossier clos : pas intéressé' }).catch(function() { return null; }); })).then(function(rs) { var n = rs.filter(Boolean).length; if (n && typeof showCopyToast === 'function') showCopyToast('✓ ' + n + ' tâche' + (n > 1 ? 's' : '') + ' Close clôturée' + (n > 1 ? 's' : '') + ' (' + row.client + ' pas intéressé)'); });
+  }).catch(function() {});
+}
 function sdStatutClose(row, evenement) {
+  if (evenement === 'pas_interesse') { try { sdCloreTachesDossier(row); } catch (e) {} }
   if (typeof COPILOT_URL === 'undefined' || !row || !row.client || row.source === 'R2') return;
   var cle = fcNormNom(row.client) + '|' + evenement; if (_sdStatutDernier[cle] && Date.now() - _sdStatutDernier[cle] < 5000) return; _sdStatutDernier[cle] = Date.now();
   fetch(COPILOT_URL + '/close/statut', { method: 'POST', mode: 'cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nom: row.client, email: row.email || '', evenement: evenement, lead: row.closeLead || sdLeadPour(row.client, row.email || '') }) })
