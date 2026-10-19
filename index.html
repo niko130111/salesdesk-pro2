@@ -5205,7 +5205,7 @@ function rlAction(ix, action, btn, opts) { opts = opts || {};
     sdDemanderConfirmation(it.t ? 'Clôturer la tâche de ' + it.nom + ' ?' : 'Retirer ' + it.nom + ' du suivi ?', it.t ? 'La tâche Close est terminée et la relance s\'arrête. Rien n\'est envoyé au prospect.' : 'Il n\'y a plus de tâche Close pour cette personne : la relance SalesDesk s\'arrête. Rien n\'est envoyé au prospect.', { ok: it.t ? '✅ Clôturer' : '🗑 Retirer' }).then(function(ok) { if (!ok) return;
       occupe(true);
       terminerClose().catch(function(e) { if (/404|introuvable|not found/i.test(String((e && e.message) || e))) return null; throw e; }) // tâche déjà supprimée dans Close : on retire quand même du suivi
-        .then(function() { rlPoserSuivi(it, { col: it.col, dernier: 'abandon' }); return rlMajRelance(it, 'abandon', ''); }).then(function() { fini(it.t ? '🗑 Relance supprimée' : '🗑 Retiré du suivi'); }).catch(echec); });
+        .then(function() { rlPoserSuivi(it, { col: it.col, dernier: 'abandon' }); return rlMajRelance(it, 'abandon', ''); }).then(function() { try { var idC = rlIdentite(it); sdClorerRappelsPersonne(it.nom, idC.lead || (it.t && it.t.lead) || ''); } catch (e) {} fini(it.t ? '🗑 Relance supprimée' : '🗑 Retiré du suivi'); }).catch(echec); });
     return;
   }
   if (action === 'signe') { // signé : la ligne SalesDesk passe en Signé (pack, fréquence, tier, FMS, remise), une tâche « Configurer » demain en tête du Suivi
@@ -7366,7 +7366,14 @@ function sdEnvoyerEtatCopilot() {
 // Statuts Close pilotés depuis SalesDesk : présence / pas intéressé / mail envoyé / laisser tomber → opportunité (+ lead), jamais sur un R2, jamais Won/Customer, rien créé
 var _sdStatutDernier = {};
 // 19 oct. 2026 (Sprecher : R2 → pas intéressé, la tâche « R2 Validation & lancement » restait) : un dossier clos « pas intéressé » termine les tâches Close ouvertes de Nicolas sur la fiche (sauf « Configurer » d'un client signé)
+// 19 oct. 2026 (Franck Sassone : « retiré du suivi » mais toujours là — 2 lignes avec un rappel SalesDesk ouvert) : clôt les rappels SalesDesk de TOUTES les lignes de la personne (même fiche Close ou même nom)
+function sdClorerRappelsPersonne(nom, lead) {
+  try { var st = loadStore(), n = fcNormNom(nom || ''), k0 = 0;
+    Object.keys(st).forEach(function(k) { if (!/^\d{4}-\d{2}$/.test(k) || !Array.isArray(st[k])) return; st[k].forEach(function(r) { if (!r || !r.relanceDate || r.relanceFait) return; if ((lead && r.closeLead === lead) || (n && fcNormNom(r.client || '') === n)) { r.relanceFait = true; r.relanceDernier = 'abandon'; r.relanceDernierAt = rlIso(new Date()); k0++; } }); });
+    if (k0) { saveStore(st); try { _relances = fusionRelances((_relances || []).filter(function(x) { return !x.local; })); } catch (e) {} } return k0; } catch (e) { return 0; }
+}
 function sdCloreTachesDossier(row) {
+  try { sdClorerRappelsPersonne(row && row.client, row && (row.closeLead || sdLeadPour(row.client, row.email || ''))); } catch (e) {}
   if (typeof COPILOT_URL === 'undefined' || !row || !row.client) return; var lead = row.closeLead || sdLeadPour(row.client, row.email || ''); if (!/^lead_/.test(lead || '')) return;
   fetch(COPILOT_URL + '/close/taches-ouvertes?' + new URLSearchParams({ leads: lead }), { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).then(function(j) {
     var L = ((j && j.ok && j.leads && j.leads[lead]) || []).filter(function(t) { return !/configur|onboard|vitrine/i.test(t.texte || ''); }); if (!L.length) return;
