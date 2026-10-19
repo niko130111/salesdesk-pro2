@@ -3404,7 +3404,8 @@ async function supabaseSave(data, _retry) {
   try {
     // Garde du 13 oct. 2026 : rien ne part vers le cloud avant le chargement initial (un appareil resté sur de vieilles données les y poussait).
     if (_sdChargementInitial) return false;
-    if (!_retry && await sdCloudConflit(data)) return false;
+    if (window._sdOngletPerime) { setSyncStatus('error'); _syncErreur = true; return false; } // 19 oct. 2026 : un onglet plus récent de SalesDesk est ouvert dans ce navigateur → celui-ci n'écrit plus
+    if (await sdCloudConflit(data)) return false; // 19 oct. 2026 : vérifié AUSSI au 2e essai — après une session expirée (401), le nouvel essai sautait la garde, et un onglet resté sur un vieil état a écrasé le cloud (16:43)
     const res = await fetch(SUPA_URL + '/rest/v1/' + SUPA_TABLE + '?id=eq.' + SUPA_ID + '&select=id', {
       method: 'PATCH',
       headers: Object.assign({ 'Content-Type': 'application/json', 'Prefer': 'return=representation' }, supaAuthHeaders()), // la réponse dit combien de lignes ont été écrites : 0 = pas connecté (RLS), pas « sauvegardé »
@@ -3808,6 +3809,11 @@ function loadStore() {
 // Arbitrage par horodatage _lastWrite (posé par saveStore) : le plus récent gagne.
 // En cas d'égalité ou d'absence d'horodatage, le local est prioritaire — on ne perd pas
 // une saisie faite hors-ligne pour un cloud potentiellement périmé.
+// 19 oct. 2026 (écrasement de 16:43) : un seul onglet SalesDesk écrit dans le cloud — à l'ouverture d'un nouvel onglet, les anciens passent en lecture seule avec un bandeau « recharge »
+try { (function() { if (typeof BroadcastChannel === 'undefined') return; var bc = new BroadcastChannel('salesdesk_onglets'), moi = Date.now() + '-' + Math.random().toString(36).slice(2, 7);
+  bc.onmessage = function(ev) { var m = ev && ev.data; if (!m || m.type !== 'nouvel_onglet' || m.id === moi || window._sdOngletPerime) return; window._sdOngletPerime = true; if (_syncTimeout) { clearTimeout(_syncTimeout); _syncTimeout = null; }
+    try { var b = document.createElement('div'); b.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:#c0392b;color:#fff;font:600 15px/1.4 -apple-system,sans-serif;padding:12px 16px;text-align:center;'; b.innerHTML = 'SalesDesk est ouvert dans un autre onglet : celui-ci n\'enregistre plus rien. <button style="margin-left:10px;font:inherit;padding:4px 12px;border-radius:8px;border:0;cursor:pointer;" onclick="location.reload()">Recharger</button>'; document.body.appendChild(b); } catch (e) {} };
+  bc.postMessage({ type: 'nouvel_onglet', id: moi }); })(); } catch (e) {}
 var _sdCloudVu = null; // horodatage (_lastWrite) du cloud tel que cet appareil l'a vu en dernier : null = chargement initial raté (on ne sait pas ce qu'il contient)
 var _sdChargementInitial = true; // vrai tant que le premier chargement du cloud n'est pas arbitré : aucune écriture cloud pendant ce temps
 var _sdDonneesPretes = false; // vrai dès que les données sont fiables : store local présent, ou cloud chargé (ou cloud injoignable)
