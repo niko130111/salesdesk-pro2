@@ -4836,11 +4836,12 @@ function fcOnboardingDependances() { // 6.1 / 6.2 / 6.3 n'apparaissent que si l'
 // Bouton « Appeler » de la fiche : d'abord avec ce que la fiche sait (numéro et fiche Close du bandeau), sinon par l'item du Suivi. Avant, hors Suivi, l'item n'était pas connu et le bouton ne faisait rien (constat du 9 oct. 2026).
 // 19 oct. 2026 (Nicolas) : après « Appeler », au retour sur SalesDesk, une fenêtre demande le résultat de l'appel (mêmes actions que les boutons) — sauf si la personne a un RDV aujourd'hui
 var _sdAppel = null;
-function sdRdvAujourdhui(nom) { try { var st = loadStore(), n = fcNormNom(nom || ''), auj = new Date().toLocaleDateString('fr-FR'), k = rlIso(new Date()).slice(0, 7); return (st[k] || []).some(function(r) { if (!r || fcNormNom(r.client || '') !== n) return false; var p = String(r.presence || '').trim(); return (r.date === auj && p !== 'Annulé' && p !== 'Reprogrammé') || (r.dateR2 === auj && String(r.presenceR2 || '') !== 'Annulé'); }); } catch (e) { return false; } }
+function sdRdvAujourdhui(nom) { try { var st = loadStore(), n = fcNormNom(nom || ''), auj = new Date().toLocaleDateString('fr-FR'); return Object.keys(st).filter(function(k) { return /^\d{4}-\d{2}$/.test(k) && Array.isArray(st[k]); }).some(function(k) { return st[k].some(function(r) { if (!r || fcNormNom(r.client || '') !== n) return false; var p = String(r.presence || '').trim(); return (r.date === auj && p !== 'Annulé' && p !== 'Reprogrammé') || (r.dateR2 === auj && ['Annulé', 'Reprogrammé'].indexOf(String(r.presenceR2 || '')) < 0); }); }); } catch (e) { return false; } } // audit 20 oct. : tous les mois (un R2 du jour noté sur un R1 du mois précédent)
 function sdNoterAppel(cle, nom, email) { if (!nom || sdRdvAujourdhui(nom)) { _sdAppel = null; return; } _sdAppel = { cle: cle || '', nom: nom, email: email || '', at: Date.now() }; }
 function sdResultatAppelPopup() {
-  var a = _sdAppel; if (!a || Date.now() - a.at < 4000 || Date.now() - a.at > 3 * 3600000) return; _sdAppel = null;
-  var ov = document.getElementById('fc-dup-overlay'); if (ov && ov.classList.contains('open')) return; // une autre fenêtre est déjà ouverte
+  var a = _sdAppel; if (!a || Date.now() - a.at < 4000 || Date.now() - a.at > 3 * 3600000) return;
+  var ov = document.getElementById('fc-dup-overlay'); if (ov && ov.classList.contains('open')) { setTimeout(sdResultatAppelPopup, 3000); return; } // une autre fenêtre est ouverte : on repropose dès qu'elle est fermée (audit 20 oct.)
+  _sdAppel = null;
   if (!ov) { ov = document.createElement('div'); ov.id = 'fc-dup-overlay'; ov.className = 'modal-overlay'; ov.style.zIndex = '1300'; ov.innerHTML = '<div class="modal" id="fc-dup-modal"></div>'; document.body.appendChild(ov); }
   ov.onclick = function(ev) { if (ev.target === ov) fermerModalDoublon(); };
   var cleJs = JSON.stringify(a.cle).replace(/"/g, '&quot;'), B = function(act, lib, cls, t) { return '<button class="btn' + (cls ? ' ' + cls : '') + '" style="justify-content:flex-start;" title="' + escapeHtml(t) + '" onclick="sdResultatAppel(\'' + act + '\')">' + lib + '</button>'; };
