@@ -4618,10 +4618,12 @@ function fcRendreContact() {
   // ↗ Close (avec le statut) va sur la ligne du nom ; téléphone et mail en petit à droite de « Prochaine étape » : plus de carte contact qui mangeait l'écran
   var chipClose = url ? '<a class="fc-badge" id="fc-close-chip" href="' + escapeHtml(url) + '" target="_blank" rel="noopener" style="text-decoration:none;color:var(--accent);" title="Ouvrir la fiche dans Close">↗ Close' + (statut ? ' · ' + escapeHtml(statut) : '') + '</a>' : '';
   try { var ancien = document.getElementById('fc-close-chip'); if (ancien) ancien.remove(); if (chipClose) document.getElementById('fc-badges').insertAdjacentHTML('beforeend', chipClose); } catch (e) {}
-  _fc.contactMini = chips.join('<span style="opacity:.4;margin:0 6px;">·</span>') + '<span id="fc-secteur-chips" style="display:inline-flex;gap:6px;margin-left:8px;"></span>'; chips = [];
+  _fc.contactMini = chips.join('<span style="opacity:.4;margin:0 6px;">·</span>') + '<span id="fc-secteur-chips" data-nom="' + escapeHtml(fcNormNom(_fc.nom)) + '" style="display:inline-flex;gap:6px;margin-left:8px;"></span>'; chips = [];
   try { var nc = document.getElementById('fc-next-contact'); if (nc) nc.innerHTML = _fc.contactMini; } catch (e) {}
   try { var leadS = _fc.leadChoisi || (c && c.leads && c.leads[0] && c.leads[0].id) || (_fc.rows || []).map(function(r) { return r.closeLead; }).find(Boolean) || '', nomS = _fc.nom; // 20 oct. 2026 : partenaires à 15 km / projets à 25 km
-    sdSecteurChiffres({ lead: leadS, nom: nomS, email: _fc.email || '' }, function(j) { if (!_fc || _fc.nom !== nomS) return; var h = sdSecteurChipsHtml(j); _fc.contactMini = _fc.contactMini.replace(/<span id="fc-secteur-chips"[^>]*>[\s\S]*?<\/span>$/, '<span id="fc-secteur-chips" style="display:inline-flex;gap:6px;margin-left:8px;">' + h + '</span>'); document.querySelectorAll('#fc-secteur-chips').forEach(function(e) { e.innerHTML = h; }); }); } catch (e) {}
+    sdSecteurChiffres({ lead: leadS, nom: nomS, email: _fc.email || '' }, function(j) { var h = sdSecteurChipsHtml(j), nn = fcNormNom(nomS); /* le panneau du Suivi restaure _fc après le rendu : on met à jour par le nom, pas par _fc */
+      if (_fc && _fc.nom === nomS) _fc.contactMini = _fc.contactMini.replace(/<span id="fc-secteur-chips"[^>]*>[\s\S]*?<\/span>$/, '<span id="fc-secteur-chips" data-nom="' + escapeHtml(nn) + '" style="display:inline-flex;gap:6px;margin-left:8px;">' + h + '</span>');
+      document.querySelectorAll('#fc-secteur-chips').forEach(function(e) { if (e.getAttribute('data-nom') === nn) e.innerHTML = h; }); }); } catch (e) {}
   if (c === null) note = 'Close : recherche…';
   else if (c && c.configure === false) note = 'Close : clé absente';
   else if (c && c.error) note = 'Close : ' + c.error;
@@ -14212,11 +14214,13 @@ function svRendreFile(items, today) {
     var ech = sel.date < today ? 'en retard depuis le ' + fcFrDepuisIso(sel.date) : (sel.date === today ? 'à faire aujourd\'hui' + (t && t.heure ? ' à ' + t.heure : '') : 'prévu le ' + fcFrDepuisIso(sel.date));
     pan = '<h2 onclick="ouvrirFicheClient(' + nomJs + ',' + emailJs + ',\'\',' + leadJs + ')" title="Ouvrir la fiche">' + escapeHtml(sel.nom) + '</h2>'
       + '<div class="meta">' + escapeHtml([motifLib, row.type, row.source, ech, nbT ? nbT + ' appel' + (nbT > 1 ? 's' : '') + ' sans réponse' : ''].filter(Boolean).join(' · ')) + '</div>'
+      + '<div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;"><span id="fc-secteur-chips" data-nom="' + escapeHtml(fcNormNom(sel.nom)) + '" style="display:inline-flex;gap:6px;flex-wrap:wrap;"></span></div>' /* 20 oct. 2026 : partenaires à 15 km, projets à 25 km, Autour · 5 km — aussi dans le panneau du Suivi */
       + (svRaison(sel) ? '<div class="meta" style="color:var(--text);margin-top:6px;">📌 ' + escapeHtml(svRaison(sel)) + '</div>' : '')
       + '<div class="sv-acts" style="flex-wrap:wrap;">' + fcBoutonsSuivi(sel) + '</div>'
       + (t ? '<div class="sv-acts2">' + (t ? '<select title="Changer le motif" onchange="rlClasser(' + JSON.stringify(t.id).replace(/"/g, '&quot;') + ', this.value)" style="height:28px;font-size:12px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text2);"><option value="">Motif : ' + escapeHtml(motifLib) + '</option><option value="r2">R2 sans réponse</option><option value="rdv">Prise de RDV</option><option value="nsin">No-show inbound</option><option value="nsout">No-show outbound</option></select>' : '') + '</div>' : '')
       + rlChipAppels(sel, items.indexOf(sel)) + rlChipRdvPris(sel);
     pan += svFicheHtml(sel, email);
+    try { (function(nomS, q) { setTimeout(function() { sdSecteurChiffres(q, function(j) { var h = sdSecteurChipsHtml(j), nn = fcNormNom(nomS); document.querySelectorAll('#fc-secteur-chips').forEach(function(e) { if (e.getAttribute('data-nom') === nn) e.innerHTML = h; }); }); }, 0); })(sel.nom, { lead: (t && t.lead) || row.closeLead || '', nom: sel.nom, email: email || '' }); } catch (e) {}
     pan += '<div style="margin-top:12px;font-size:12px;"><a style="color:var(--accent);cursor:pointer;font-weight:600;" onclick="ouvrirFicheClient(' + nomJs + ',' + emailJs + ',\'\',' + leadJs + ')">Ouvrir la fiche complète ›</a>' + (t && t.url ? ' · <a style="color:var(--text3);" href="' + escapeHtml(t.url) + '" target="_blank" rel="noopener">voir dans Close ↗</a>' : '') + '</div>';
   }
   _sv.visibles = ordre.filter(function(it) { return it.t && !it.pause; }).map(function(it) { return it.cle; }); // « Tout cocher » laisse les tâches en pause
