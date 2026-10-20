@@ -856,6 +856,7 @@ details.gl-details > .body { padding: 0 20px 20px; }
 .fc-head { flex: none; padding: 14px 22px 12px; background: var(--surface); border-bottom: 1px solid var(--border); }
 .fc-nom { font-size: 26px; font-weight: 700; display: flex; align-items: center; gap: 12px; letter-spacing: -.01em; }
 .fc-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.fc-chip.ra15 { background: #efe6ff; color: #5b2ea6; border-color: #d9c8ff; } .fc-chip.pro25 { background: #e3f6ea; color: #1e7a46; border-color: #bfe8cf; } /* 20 oct. 2026 : partenaires RA à 15 km / projets de vente à 25 km */
 .fc-chip { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 600; padding: 4px 9px; border-radius: 8px; background: var(--surface2); color: var(--text); text-decoration: none; border: 1px solid var(--border); }
 .fc-chip:hover { border-color: var(--accent); color: var(--accent); }
 .fc-chip.accent { background: var(--accent-bg); color: var(--accent); border-color: transparent; }
@@ -4547,6 +4548,22 @@ function fcCorrigerNom() {
   if (typeof showCopyToast === 'function') showCopyToast('✎ ' + ancien + ' → ' + nouveau + ' · ' + lignes + ' ligne(s)' + (fusion ? ' · fiches fusionnées' : ''));
   refreshAll(); fermerFicheClient(); setTimeout(function() { ouvrirFicheClient(nouveau, _fc.email); }, 150);
 }
+// 20 oct. 2026 (Nicolas) : sur chaque fiche et chaque carte de prospection, partenaires RealAdvisor à 15 km (violet) et projets de vente déclarés à 25 km depuis janvier (vert) — copilot GET /secteur/chiffres
+var _sdSecteurCache = {};
+function sdSecteurChiffres(q, cb) {
+  if (typeof COPILOT_URL === 'undefined') return;
+  var cle = q.lead || ((q.cp || '') + '|' + (q.ville || '').toLowerCase()) || (q.email || q.nom || ''); if (!cle || cle === '|') return;
+  var c = _sdSecteurCache[cle]; if (c && c.data) { cb(c.data); return; } if (c && c.enCours) { c.cbs.push(cb); return; }
+  _sdSecteurCache[cle] = { enCours: true, cbs: [cb] };
+  fetch(COPILOT_URL + '/secteur/chiffres?' + new URLSearchParams({ lead: q.lead || '', nom: q.nom || '', email: q.email || '', cp: q.cp || '', ville: q.ville || '' }), { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).catch(function() { return null; })
+    .then(function(j) { var e = _sdSecteurCache[cle]; e.enCours = false; e.data = j && j.ok ? j : null; if (!e.data) { delete _sdSecteurCache[cle]; return; } e.cbs.forEach(function(f) { try { f(e.data); } catch (x) {} }); e.cbs = []; });
+}
+function sdSecteurChipsHtml(j) {
+  if (!j || !j.trouve) return ''; var nb = function(n) { return Number(n || 0).toLocaleString('fr-FR'); }, out = '';
+  if (j.partenaires15 !== null && j.partenaires15 !== undefined) out += '<span class="fc-chip ra15" title="Clients RealAdvisor actifs à 15 km (base Close)' + ((j.partenairesNoms || []).length ? ' : ' + escapeHtml(j.partenairesNoms.join(', ')) + '…' : '') + '">🟣 ' + nb(j.partenaires15) + ' partenaire' + (j.partenaires15 > 1 ? 's' : '') + ' RA à 15 km</span>';
+  if (j.projets25 !== null && j.projets25 !== undefined) out += '<span class="fc-chip pro25" title="Propriétaires ayant déclaré un projet de vente à RealAdvisor, à 25 km' + (j.depuis ? ', depuis le ' + escapeHtml(fcFrDepuisIso(j.depuis)) : '') + '">🟢 ' + nb(j.projets25) + ' projet' + (j.projets25 > 1 ? 's' : '') + ' de vente à 25 km</span>';
+  return out;
+}
 function fcRendreContact() {
   var el = document.getElementById('fc-contact'), chips = [], note = '';
   var propre = function(arr) { return (arr || []).map(function(x) { return String(x || '').trim(); }).filter(function(x) { return x && x !== 'null' && x !== 'undefined'; }); };
@@ -4572,8 +4589,10 @@ function fcRendreContact() {
   // ↗ Close (avec le statut) va sur la ligne du nom ; téléphone et mail en petit à droite de « Prochaine étape » : plus de carte contact qui mangeait l'écran
   var chipClose = url ? '<a class="fc-badge" id="fc-close-chip" href="' + escapeHtml(url) + '" target="_blank" rel="noopener" style="text-decoration:none;color:var(--accent);" title="Ouvrir la fiche dans Close">↗ Close' + (statut ? ' · ' + escapeHtml(statut) : '') + '</a>' : '';
   try { var ancien = document.getElementById('fc-close-chip'); if (ancien) ancien.remove(); if (chipClose) document.getElementById('fc-badges').insertAdjacentHTML('beforeend', chipClose); } catch (e) {}
-  _fc.contactMini = chips.join('<span style="opacity:.4;margin:0 6px;">·</span>'); chips = [];
+  _fc.contactMini = chips.join('<span style="opacity:.4;margin:0 6px;">·</span>') + '<span id="fc-secteur-chips" style="display:inline-flex;gap:6px;margin-left:8px;"></span>'; chips = [];
   try { var nc = document.getElementById('fc-next-contact'); if (nc) nc.innerHTML = _fc.contactMini; } catch (e) {}
+  try { var leadS = _fc.leadChoisi || (c && c.leads && c.leads[0] && c.leads[0].id) || (_fc.rows || []).map(function(r) { return r.closeLead; }).find(Boolean) || '', nomS = _fc.nom; // 20 oct. 2026 : partenaires à 15 km / projets à 25 km
+    sdSecteurChiffres({ lead: leadS, nom: nomS, email: _fc.email || '' }, function(j) { if (!_fc || _fc.nom !== nomS) return; var h = sdSecteurChipsHtml(j); _fc.contactMini = _fc.contactMini.replace(/<span id="fc-secteur-chips"[^>]*>[\s\S]*?<\/span>$/, '<span id="fc-secteur-chips" style="display:inline-flex;gap:6px;margin-left:8px;">' + h + '</span>'); document.querySelectorAll('#fc-secteur-chips').forEach(function(e) { e.innerHTML = h; }); }); } catch (e) {}
   if (c === null) note = 'Close : recherche…';
   else if (c && c.configure === false) note = 'Close : clé absente';
   else if (c && c.error) note = 'Close : ' + c.error;
@@ -12370,11 +12389,13 @@ function psRendreFile() {
     + '<div class="ps-nom">' + escapeHtml(psNomAff(cur)) + '</div><div class="ps-sous">' + escapeHtml([cur.type, cur.structure].filter(Boolean).join(' ') + ' · ' + cur.commune + (cur.cp ? ' (' + cur.cp + ')' : '')) + (cur.lien ? ' · <a href="' + escapeHtml(cur.lien) + '" target="_blank" rel="noopener">voir sa vitrine ↗</a>' : '') + (cur.activite ? ' · ' + escapeHtml(cur.activite) : '') + '</div>'
     + '<div class="ps-tel">' + escapeHtml(cur.tel) + '</div>'
     + '<div class="ps-sous" style="margin-top:-2px;">✉ ' + (cur.email ? '<b style="color:var(--text);">' + escapeHtml(cur.email) + '</b>' + (cur.emailSource === 'site de l\'agence' ? ' <span class="fc-muted">(adresse de l\'agence)</span>' : '') : cur.emailSuggere ? escapeHtml(cur.emailSuggere) + ' <span style="color:var(--orange);font-weight:600;">à confirmer au téléphone</span>' : '<span style="color:var(--orange);font-weight:600;">e-mail à demander pendant l\'appel</span>') + '</div>'
+    + '<div id="ps-secteur-chips" style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0 -4px;"></div>'
     + '<div class="ps-tile"><div><b>' + cur.clients15 + '</b><span>client' + (cur.clients15 > 1 ? 's' : '') + ' RealAdvisor à 15 km' + (cur.clientsNoms && cur.clientsNoms.length ? ' (' + escapeHtml(cur.clientsNoms.slice(0, 3).join(', ')) + ')' : '') + '</span></div><div><b>' + nb(cur.pop15) + '</b><span>habitants à 15 km</span></div></div>'
     + '<div class="ps-row"><button class="btn btn-primary" style="font-size:15px;padding:11px 18px;" onclick="psAppeler(' + idJs + ')">📞 ' + (deja ? 'Rappeler' : 'Appeler') + ' avec Close</button></div><div class="ps-note">Close compose le numéro sans créer de fiche. Le prospect passe en fin de file dès le clic.</div>'
     + '<div class="ps-apres"><div class="t">Après l\'appel</div><div class="ps-row"><button class="btn ps-btn-ok" onclick="psFormulaire(' + idJs + ',\'rdv\')">📅 Prendre un RDV</button><button class="btn ps-btn-ok" onclick="psFormulaire(' + idJs + ',\'tache\')">⏰ Tâche de rappel</button><button class="btn" onclick="psResultat(' + idJs + ',\'pas_reponse\')">Pas de réponse</button><button class="btn ps-btn-warn" onclick="psResultat(' + idJs + ',\'pas_interesse\')">Pas intéressé</button><button class="btn" onclick="psResultat(' + idJs + ',\'mauvais_numero\')">Mauvais numéro</button></div>'
     + '<div class="ps-note"><b>RDV ou tâche</b> : la fiche Close est créée à ce moment-là, à ton nom. <b>Pas de réponse</b> : il reste en fin de file. <b>Pas intéressé / mauvais numéro</b> : il sort de la file, rien dans Close.</div></div></div>';
   var ligne = function(x, gris) { return '<div class="ps-it' + (gris ? ' ps-gris' : '') + '" onclick="_ps.courant=' + JSON.stringify(x.id).replace(/"/g, '&quot;') + ';renderProspection()" title="Passer à ce prospect"><span class="n">' + escapeHtml(psNomAff(x)) + '<small>' + escapeHtml((x.structure || '') + ' · ' + (x.commune || '')) + (gris && x.dernierAppel ? ' · ' + escapeHtml({ pas_reponse: 'pas de réponse', '': 'appelé' }[x.dernierAppel.res || ''] || 'appelé') + ' ' + new Date(x.dernierAppel.at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '') + '</small></span><span class="z">' + x.clients15 + ' client' + (x.clients15 > 1 ? 's' : '') + ' · ' + nb(x.pop15) + ' hab.</span></div>'; };
+  setTimeout(function() { try { sdSecteurChiffres({ cp: cur.cp || '', ville: cur.commune || '', nom: cur.nom || '' }, function(j) { var e = document.getElementById('ps-secteur-chips'); if (e && _ps.courant === cur.id || (e && !_ps.courant)) e.innerHTML = sdSecteurChipsHtml(j); }); } catch (e) {} }, 0); // 20 oct. 2026
   var suite = items.filter(function(x) { return x.id !== cur.id && !psAujourdhui(x); }), faits = items.filter(function(x) { return x.id !== cur.id && psAujourdhui(x); });
   var cote = '<div class="ps-card"><div class="ps-eyebrow" style="margin-bottom:6px;">Ensuite · ' + suite.length + '</div>' + suite.slice(0, 7).map(function(x) { return ligne(x, false); }).join('') + (faits.length ? '<div class="ps-sep">Appelés aujourd\'hui, en fin de file · ' + faits.length + '</div>' + faits.slice(-6).reverse().map(function(x) { return ligne(x, true); }).join('') : '') + '</div>';
   return why + '<div class="ps-grid">' + carte + cote + '</div>' + (d.sortis ? '<div class="fc-muted" style="margin-top:12px;font-size:12px;">' + d.sortis + ' sorti' + (d.sortis > 1 ? 's' : '') + ' de la file (RDV, tâche, pas intéressé ou mauvais numéro).</div>' : '');
