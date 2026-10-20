@@ -3895,6 +3895,7 @@ function _signalerQuotaPlein(e) {
 }
 
 function saveStore(store) {
+  if (window._sdOngletPerime) { _sessionStore = store; return; } // audit externe 20 oct. 2026 : un onglet périmé n'écrit plus non plus dans le localStorage partagé (il pouvait y remettre un vieil état, renvoyé au cloud au rechargement)
   // FIX SD-01 : horodatage utilisé pour arbitrer local vs cloud au démarrage.
   store._lastWrite = new Date().toISOString();
   _sessionStore = store;
