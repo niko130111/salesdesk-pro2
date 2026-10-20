@@ -4558,10 +4558,39 @@ function sdSecteurChiffres(q, cb) {
   fetch(COPILOT_URL + '/secteur/chiffres?' + new URLSearchParams({ lead: q.lead || '', nom: q.nom || '', email: q.email || '', cp: q.cp || '', ville: q.ville || '' }), { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).catch(function() { return null; })
     .then(function(j) { var e = _sdSecteurCache[cle]; e.enCours = false; e.data = j && j.ok ? j : null; if (!e.data) { delete _sdSecteurCache[cle]; return; } e.cbs.forEach(function(f) { try { f(e.data); } catch (x) {} }); e.cbs = []; });
 }
+// 20 oct. 2026 (Nicolas) : « Autour · 5 km » — 5 agents / agences À PROSPECTER (jamais des clients) autour du prospect : fiches Close non clientes + base hors Close ; recherche possible ailleurs (ville ou code postal), rayon 5 / 10 / 15 km
+function sdAutourOuvrir(q) {
+  window._sdAutour = Object.assign({ rayon: 5, q: '' }, q || {});
+  var ov = document.getElementById('fc-dup-overlay'); if (!ov) { ov = document.createElement('div'); ov.id = 'fc-dup-overlay'; ov.className = 'modal-overlay'; ov.style.zIndex = '1300'; ov.innerHTML = '<div class="modal" id="fc-dup-modal"></div>'; document.body.appendChild(ov); }
+  ov.onclick = function(ev) { if (ev.target === ov) fermerModalDoublon(); }; ov.classList.add('open'); sdAutourRendre();
+}
+function sdAutourRendre() {
+  var a = window._sdAutour, m = document.getElementById('fc-dup-modal'); if (!a || !m) return;
+  var champ = 'font-family:var(--font);font-size:13px;padding:6px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg);color:var(--text);';
+  var tete = '<div class="fc-dup" style="width:min(640px,94vw);max-width:100%;box-sizing:border-box;"><div style="font-size:16px;font-weight:700;margin-bottom:2px;">🎯 À prospecter autour de ' + escapeHtml(a.q || [a.ville, a.cp].filter(Boolean).join(' ') || '…') + '</div>'
+    + '<div class="fc-muted" style="margin-bottom:10px;">Agents et agences non clients (fiches Close jamais signées + base hors Close), les plus proches d\'abord.</div>'
+    + '<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:10px;"><input type="text" id="sd-autour-q" placeholder="Autre ville ou code postal" value="' + escapeHtml(a.q || '') + '" style="' + champ + 'flex:1;min-width:160px;" onkeydown="if(event.key===\'Enter\')sdAutourChercher()">'
+    + [5, 10, 15].map(function(r) { return '<button class="btn btn-sm' + (a.rayon === r ? ' btn-primary' : '') + '" onclick="window._sdAutour.rayon=' + r + ';sdAutourChercher()">' + r + ' km</button>'; }).join('') + '<button class="btn btn-sm" onclick="sdAutourChercher()">Chercher</button></div>';
+  m.innerHTML = tete + '<div id="sd-autour-liste" class="fc-muted">Recherche en cours (5 à 15 s la première fois)…</div><div style="display:flex;justify-content:flex-end;margin-top:10px;"><button class="btn btn-sm" onclick="fermerModalDoublon()">Fermer</button></div></div>';
+  var q = { rayon: a.rayon, n: 5 }; if (a.q) q.q = a.q; else { q.cp = a.cp || ''; q.ville = a.ville || ''; } if (a.lead) q.lead = a.lead;
+  var jeton = window._sdAutourJeton = Math.random();
+  fetch(COPILOT_URL + '/secteur/prospects?' + new URLSearchParams(q), { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).catch(function() { return null; }).then(function(j) {
+    if (window._sdAutourJeton !== jeton) return; var z = document.getElementById('sd-autour-liste'); if (!z) return;
+    if (!j || !j.ok) { z.innerHTML = '<span style="color:var(--red);">Le copilot ne répond pas.</span>'; return; } if (!j.trouve) { z.innerHTML = 'Lieu introuvable : essaie un code postal.'; return; }
+    if (!j.liste.length) { z.innerHTML = 'Personne à prospecter à ' + j.rayon + ' km de ' + escapeHtml(j.point.ville || j.point.cp) + ' (' + j.communes + ' communes). Élargis le rayon.'; return; }
+    z.className = ''; z.innerHTML = '<div class="fc-muted" style="font-size:12px;margin-bottom:6px;">' + j.total + ' à prospecter à ' + j.rayon + ' km de ' + escapeHtml(j.point.ville || j.point.cp) + ' (' + j.totalClose + ' dans Close, ' + j.totalHors + ' hors Close)' + (j.limite ? ' · ' + escapeHtml(j.limite) : '') + '</div>'
+      + j.liste.map(function(x) { var nomJs = JSON.stringify(x.nom).replace(/"/g, '&quot;'), telJs = JSON.stringify(x.tel || '').replace(/"/g, '&quot;'), urlJs = JSON.stringify(x.source === 'Close' ? x.url : '').replace(/"/g, '&quot;');
+        return '<div style="display:flex;gap:10px;align-items:center;padding:8px 0;border-top:1px solid var(--border);"><div style="flex:1;min-width:0;"><div style="font-weight:700;">' + escapeHtml(x.nom) + (x.contact && fcNormNom(x.contact) !== fcNormNom(x.nom) ? ' <span class="fc-muted" style="font-weight:400;">' + escapeHtml(x.contact) + '</span>' : '') + ' <span class="fc-chip" style="font-size:10.5px;padding:1px 6px;margin-left:4px;' + (x.source === 'Close' ? '' : 'background:#fff3dc;color:#8a5a00;border-color:#f0d9a8;') + '">' + escapeHtml(x.source) + '</span></div>'
+          + '<div class="fc-muted" style="font-size:12.5px;">' + escapeHtml([x.type, x.reseau].filter(Boolean).join(' · ')) + ' · ' + escapeHtml(x.ville) + ' · ' + String(x.km).replace('.', ',') + ' km' + (x.statut && x.source === 'Close' ? ' · ' + escapeHtml(x.statut) : '') + (x.tel ? ' · ' + escapeHtml(x.tel) : ' · <span style="color:var(--orange);">pas de numéro</span>') + '</div></div>'
+          + '<div style="display:flex;gap:6px;flex:none;">' + (x.tel ? '<button class="btn btn-sm btn-primary" title="Close compose le numéro" onclick="fcAppeler(event,' + telJs + ',' + urlJs + ')">' + aujIco('phone') + 'Appeler</button>' : '') + (x.source === 'Close' ? '<a class="btn btn-sm" href="' + escapeHtml(x.url) + '" target="_blank" rel="noopener">Close ↗</a>' : (x.url ? '<a class="btn btn-sm" href="' + escapeHtml(x.url) + '" target="_blank" rel="noopener">Site ↗</a>' : '')) + '</div></div>'; }).join('');
+  });
+}
+function sdAutourChercher() { var e = document.getElementById('sd-autour-q'); if (e) window._sdAutour.q = e.value.trim(); sdAutourRendre(); }
 function sdSecteurChipsHtml(j) {
   if (!j || !j.trouve) return ''; var nb = function(n) { return Number(n || 0).toLocaleString('fr-FR'); }, out = '';
   if (j.partenaires15 !== null && j.partenaires15 !== undefined) out += '<span class="fc-chip ra15" title="Clients RealAdvisor actifs à 15 km (base Close)' + ((j.partenairesNoms || []).length ? ' : ' + escapeHtml(j.partenairesNoms.join(', ')) + '…' : '') + '">🟣 ' + nb(j.partenaires15) + ' partenaire' + (j.partenaires15 > 1 ? 's' : '') + ' RA à 15 km</span>';
   if (j.projets25 !== null && j.projets25 !== undefined) out += '<span class="fc-chip pro25" title="Propriétaires ayant déclaré un projet de vente à RealAdvisor, à 25 km' + (j.depuis ? ', depuis le ' + escapeHtml(fcFrDepuisIso(j.depuis)) : '') + '">🟢 ' + nb(j.projets25) + ' projet' + (j.projets25 > 1 ? 's' : '') + ' de vente à 25 km</span>';
+  if (out) out += '<button class="fc-chip" style="cursor:pointer;" title="5 agents / agences à prospecter autour (non clients), rayon 5 km, recherche possible ailleurs" onclick="sdAutourOuvrir({ cp: ' + JSON.stringify(j.cp || '').replace(/"/g, '&quot;') + ', ville: ' + JSON.stringify(j.ville || '').replace(/"/g, '&quot;') + ', lead: ' + JSON.stringify(j.lead || '').replace(/"/g, '&quot;') + ' })">🎯 Autour · 5 km</button>';
   return out;
 }
 function fcRendreContact() {
