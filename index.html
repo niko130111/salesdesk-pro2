@@ -4169,13 +4169,13 @@ function sdAlignerRelancesSurClose() {
   if (typeof COPILOT_URL === 'undefined' || _sdAlignEnCours) return; var st = loadStore(), today = rlIso(new Date()), cand = {};
   Object.keys(st).forEach(function(k) { if (!/^\d{4}-\d{2}$/.test(k) || !Array.isArray(st[k])) return; st[k].forEach(function(r) { if (r && r.relanceDate && !r.relanceFait && r.closeLead && /^lead_/.test(r.closeLead)) { var c = _sdTachesMoi[r.closeLead]; if (!c || Date.now() - c.at > 600000) cand[r.closeLead] = 1; } }); });
   var leads = Object.keys(cand).slice(0, 40); if (!leads.length) { sdAppliquerAlignement(); return; } _sdAlignEnCours = true;
-  fetch(COPILOT_URL + '/close/taches-ouvertes?' + new URLSearchParams({ leads: leads.join(',') }), { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).then(function(j) { leads.forEach(function(l) { var v = j && j.ok && j.leads ? j.leads[l] : null; _sdTachesMoi[l] = { at: Date.now(), taches: Array.isArray(v) ? v : [] }; }); })
-    .catch(function() { leads.forEach(function(l) { _sdTachesMoi[l] = { at: Date.now(), taches: [] }; }); }).then(function() { _sdAlignEnCours = false; sdAppliquerAlignement(); });
+  fetch(COPILOT_URL + '/close/taches-ouvertes?' + new URLSearchParams({ leads: leads.join(',') }), { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).then(function(j) { leads.forEach(function(l) { var v = j && j.ok && j.leads ? j.leads[l] : null; _sdTachesMoi[l] = { at: Date.now(), taches: Array.isArray(v) ? v : null }; }); }) // null = lecture ratée (copilot ou Close indisponible) : on ne sait pas, on ne conclut rien
+    .catch(function() { leads.forEach(function(l) { _sdTachesMoi[l] = { at: Date.now() - 540000, taches: null }; }); }).then(function() { _sdAlignEnCours = false; sdAppliquerAlignement(); });
 }
 function sdAppliquerAlignement() {
   var st = loadStore(), today = rlIso(new Date()), n = 0, noms = [];
   Object.keys(st).forEach(function(k) { if (!/^\d{4}-\d{2}$/.test(k) || !Array.isArray(st[k])) return; st[k].forEach(function(r) {
-    if (!r || !r.relanceDate || r.relanceFait || !r.closeLead) return; var c = _sdTachesMoi[r.closeLead]; if (!c || !c.taches.length) return;
+    if (!r || !r.relanceDate || r.relanceFait || !r.closeLead) return; var c = _sdTachesMoi[r.closeLead]; if (!c || !c.taches || !c.taches.length) return;
     var t = c.taches.filter(function(x) { return x.date >= today && !/configur|onboard|vitrine/i.test(x.texte || ''); })[0] || c.taches[c.taches.length - 1]; if (!t || !t.date || t.date === r.relanceDate) return;
     r.relanceDateAvant = r.relanceDate; r.relanceDate = t.date; r.relanceSuitTache = t.id; n++; noms.push(r.client + ' → ' + fcFrDepuisIso(t.date)); }); });
   try { sdProposerMigrationRappels(st); } catch (e) {}
@@ -4189,8 +4189,8 @@ function sdProposerMigrationRappels(st) {
   st = loadStore(); var today = rlIso(new Date()), orph = [], sansFiche = 0;
   Object.keys(st).forEach(function(k) { if (!/^\d{4}-\d{2}$/.test(k) || !Array.isArray(st[k])) return; st[k].forEach(function(r, i) {
     if (!r || !r.relanceDate || r.relanceFait || r.relanceSuitTache) return;
-    if (!r.closeLead) { sansFiche++; return; } var c = _sdTachesMoi[r.closeLead]; if (!c) return; if (c.taches && c.taches.length) return;
-    if (r.relanceMigrationProposee && r.relanceMigrationProposee > rlPlus(today, -7)) return; orph.push({ k: k, i: i, r: r }); }); });
+    if (!r.closeLead) { sansFiche++; return; } var c = _sdTachesMoi[r.closeLead]; if (!c || !c.taches) return; if (c.taches.length) return;
+    if (r.relanceMigrationProposee) return; orph.push({ k: k, i: i, r: r }); }); });
   if (!orph.length) return; window._sdMigrRappelsOuverte = true;
   var html = '<div class="fc-dup" style="width:min(560px,90vw);max-width:100%;box-sizing:border-box;"><div style="font-size:16px;font-weight:700;margin-bottom:2px;">' + orph.length + ' rappel' + (orph.length > 1 ? 's' : '') + ' sans tâche Close</div>'
     + '<div class="fc-muted" style="margin-bottom:10px;">Pour n\'avoir qu\'une seule liste, chaque rappel SalesDesk devient une tâche Close, à la même date et avec le même motif. Rien n\'est créé sans ton clic.' + (sansFiche ? ' ' + sansFiche + ' rappel' + (sansFiche > 1 ? 's' : '') + ' sans fiche Close reste' + (sansFiche > 1 ? 'nt' : '') + ' dans SalesDesk.' : '') + '</div>'
@@ -4745,7 +4745,7 @@ function fcItemFiche() {
     if (!t && lead) { var c = _sdTachesMoi[lead];
       if (c && c.taches && c.taches.length) { var t0 = c.taches[0]; t = { id: t0.id, lead: lead, fiche: _fc.nom, contact: _fc.nom, contacts: [_fc.nom], texte: t0.texte || 'Rappeler', date: String(t0.date || '').slice(0, 10), heure: '', fait: false, url: 'https://app.close.com/lead/' + lead + '/', horsFenetre: true }; }
       else if ((!c || Date.now() - c.at > 600000) && typeof COPILOT_URL !== 'undefined' && window._fcTachesEnCours !== lead) { window._fcTachesEnCours = lead; var nomCourant = _fc.nom;
-        fetch(COPILOT_URL + '/close/taches-ouvertes?' + new URLSearchParams({ leads: lead }), { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).then(function(j) { var v = j && j.ok && j.leads ? j.leads[lead] : null; _sdTachesMoi[lead] = { at: Date.now(), taches: Array.isArray(v) ? v : [] }; }).catch(function() { _sdTachesMoi[lead] = { at: Date.now(), taches: [] }; }).then(function() { window._fcTachesEnCours = null; try { if (_fc && _fc.nom === nomCourant && (_sdTachesMoi[lead].taches || []).length) fcRendre(); } catch (e) {} }); } }
+        fetch(COPILOT_URL + '/close/taches-ouvertes?' + new URLSearchParams({ leads: lead }), { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).then(function(j) { var v = j && j.ok && j.leads ? j.leads[lead] : null; _sdTachesMoi[lead] = { at: Date.now(), taches: Array.isArray(v) ? v : null }; }).catch(function() { _sdTachesMoi[lead] = { at: Date.now() - 540000, taches: null }; }).then(function() { window._fcTachesEnCours = null; try { if (_fc && _fc.nom === nomCourant && (_sdTachesMoi[lead].taches || []).length) fcRendre(); } catch (e) {} }); } }
     if (t) { it.t = t; it.lead = lead || t.lead; if (t.date) it.date = String(t.date).slice(0, 10); }
   } catch (e) {}
   window._rlItems = (window._rlItems || []).filter(function(x) { return x.cle !== it.cle; }).concat([it]); return it;
