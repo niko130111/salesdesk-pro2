@@ -4266,11 +4266,11 @@ function sdTransmettreValider(btn) {
 // 17 oct. 2026 (règle de Nicolas) : un R2 passé dont la ligne a déjà un retour (Signé, Non signé, Intéressé) a eu lieu → présence R2 = Show, sans lui redemander. Sauvegarde avant, marque presenceR2Auto, idempotent (tourne après les correctifs à chaque chargement).
 function sdQualifierR2DepuisResultat(sansRendu) { // sansRendu (22 oct. 2026) : appelé pendant un rendu, ne redessine pas
   var st = loadStore(), now = new Date(), today = rlIso(now), faits = [], lignesR2 = {};
-  Object.keys(st).forEach(function(k) { if (!/^\d{4}-\d{2}$/.test(k) || !Array.isArray(st[k])) return; st[k].forEach(function(r) { if (r && r.source === 'R2' && r.client) lignesR2[fcNormNom(r.client) + '|' + r.date] = 1; }); });
+  Object.keys(st).forEach(function(k) { if (!/^\d{4}-\d{2}$/.test(k) || !Array.isArray(st[k])) return; st[k].forEach(function(r) { if (r && r.source === 'R2' && r.client) lignesR2[fcNormNom(String(r.client).split('|')[0]) + '|' + r.date] = 1; }); });
   Object.keys(st).forEach(function(k) { if (!/^\d{4}-\d{2}$/.test(k) || !Array.isArray(st[k])) return; st[k].forEach(function(r) {
     if (!r || !r.client || r.source === 'R2' || !r.dateR2) return; var p2 = String(r.presenceR2 || '').trim(); if (p2 && p2 !== 'Programmé') return;
     if (['Signé', 'Non signé', 'Intéressé'].indexOf(String(r.result || '').trim()) < 0) return;
-    var iso = frVersIsoSd(r.dateR2); if (!iso || iso > today) return; if (lignesR2[fcNormNom(r.client) + '|' + r.dateR2]) return;
+    var iso = frVersIsoSd(r.dateR2); if (!iso || iso > today) return; if (lignesR2[fcNormNom(String(r.client).split('|')[0]) + '|' + r.dateR2]) return;
     if (iso === today && (['Signé', 'Non signé'].indexOf(String(r.result || '').trim()) < 0 || !r.heureR2 || !aujMoment({ heure: r.heureR2 }, now, today).passe)) return; // 22 oct. 2026 (Nidriche) : R2 du jour, heure passée, décision notée → tenu tout de suite
     if (typeof estSupprime === 'function' && estSupprime(st, r.client, r.dateR2)) return;
     r.presenceR2 = 'Show'; r.presenceR2Auto = today; faits.push(r.client + ' (R2 du ' + r.dateR2 + ')'); }); });
@@ -4283,10 +4283,10 @@ function sdQualifierR2DepuisResultat(sansRendu) { // sansRendu (22 oct. 2026) : 
 }
 function sdR2AQualifier(st, depuis, auJour) {
   st = st || loadStore(); var out = [], lignesR2 = {};
-  Object.keys(st).forEach(function(k) { if (!/^\d{4}-\d{2}$/.test(k) || !Array.isArray(st[k])) return; st[k].forEach(function(r) { if (r && r.source === 'R2' && r.client) lignesR2[fcNormNom(r.client) + '|' + r.date] = 1; }); });
+  Object.keys(st).forEach(function(k) { if (!/^\d{4}-\d{2}$/.test(k) || !Array.isArray(st[k])) return; st[k].forEach(function(r) { if (r && r.source === 'R2' && r.client) lignesR2[fcNormNom(String(r.client).split('|')[0]) + '|' + r.date] = 1; }); });
   Object.keys(st).forEach(function(k) { if (!/^\d{4}-\d{2}$/.test(k) || !Array.isArray(st[k])) return; st[k].forEach(function(r, i) {
     if (!r || !r.client || r.source === 'R2' || !r.dateR2) return; var p2 = String(r.presenceR2 || '').trim(); if (p2 && p2 !== 'Programmé') return;
-    var iso = frVersIsoSd(r.dateR2); if (!iso || iso < depuis || iso > auJour) return; if (lignesR2[fcNormNom(r.client) + '|' + r.dateR2]) return;
+    var iso = frVersIsoSd(r.dateR2); if (!iso || iso < depuis || iso > auJour) return; if (lignesR2[fcNormNom(String(r.client).split('|')[0]) + '|' + r.dateR2]) return;
     if (typeof estSupprime === 'function' && estSupprime(st, r.client, r.dateR2)) return; out.push({ r: r, k: k, i: i, iso: iso }); }); });
   return out.sort(function(a, b) { return b.iso.localeCompare(a.iso); });
 }
