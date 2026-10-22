@@ -12495,7 +12495,7 @@ function chargerNouveautes(force) {
     _nouv.enCours = false; if (!j || j.ok === false) return;
     var vus = loadStore()._nouvVus || {}, avant = {}; ((_nouv.data || {}).rdv || []).concat((_nouv.data || {}).mails || []).forEach(function(x) { avant[x.id] = 1; });
     var neufs = _nouv.data ? (j.rdv || []).concat(j.mails || []).filter(function(x) { return !avant[x.id] && !vus[x.id]; }) : [];
-    _nouv.data = j; _nouv.at = Date.now(); renderNouveautes();
+    _nouv.data = j; _nouv.at = Date.now(); renderNouveautes(); try { sdReprisesAuto(); } catch (e) {}
     if (neufs.length && typeof showCopyToast === 'function') showCopyToast('🔔 ' + neufs.map(function(x) { return x.sujet !== undefined ? 'Mail de ' + x.de : (x.deplace ? x.nom + ' a déplacé son RDV' : 'Nouveau RDV : ' + x.nom); }).slice(0, 3).join(' · '));
   }).catch(function() { _nouv.enCours = false; });
 }
@@ -12964,6 +12964,10 @@ function sdReporterAncien(btn, k1, i1, k2, i2) { // ancien RDV → Reprogrammé 
   if (!(window._sdArme[cleA] > Date.now())) { window._sdArme[cleA] = Date.now() + 8000; if (btn) { btn.textContent = 'Confirmer ?'; btn.style.color = 'var(--red, #c0392b)'; } setTimeout(function() { if (window._sdArme[cleA] <= Date.now()) { delete window._sdArme[cleA]; try { renderAujourdhui(); } catch (e) {} } }, 8100); return; }
   delete window._sdArme[cleA];
   var st = loadStore(), an = (st[k1] || [])[i1], nv = (st[k2] || [])[i2]; if (!an || !nv) return;
+  sdReporterAncienFaire(st, an, nv, {});
+}
+// Le report lui-même (manuel depuis Mes priorités, ou automatique depuis la synchro Calendly, 22 oct. 2026). opts.uri : événement Calendly déjà connu (sinon recherché par nom / date).
+function sdReporterAncienFaire(st, an, nv, opts) { opts = opts || {};
   if (typeof sdBackupStore === 'function') sdBackupStore(st);
   var quand = nv.date + (nv.heure ? ' à ' + nv.heure : ''), isoAn = frVersIsoSd(an.date);
   an.presence = 'Reprogrammé'; an.result = ''; an.annuleLe = new Date().toISOString(); an.annulePar = 'prospect'; an.annuleLeSource = 'salesdesk'; delete an.confirme; delete an.confirmeAt; delete an.relanceDate; delete an.relanceCond; an.relanceFait = true;
@@ -12973,7 +12977,7 @@ function sdReporterAncien(btn, k1, i1, k2, i2) { // ancien RDV → Reprogrammé 
   saveStore(st);
   if (horsOutb && nv.email) saveOutboundOverride(String(nv.email).toLowerCase().trim(), an.source === 'PUB' ? 'PUB' : 'Inbound');
   var cle = (state.calendly && state.calendly.apiKey) || localStorage.getItem('calendly_key');
-  sdTrouverUriCalendly(an.client, an.email || '', isoAn, an.heure || '').then(function(uri) {
+  (opts.uri ? Promise.resolve(opts.uri) : sdTrouverUriCalendly(an.client, an.email || '', isoAn, an.heure || '')).then(function(uri) {
     if (!uri || !cle) return 'introuvable';
     return fetch(uri, { headers: { Authorization: 'Bearer ' + cle } }).then(function(r) { return r.json(); }).then(function(j) { if (!j.resource || j.resource.status !== 'active') return 'deja';
       return fetch(uri + '/cancellation', { method: 'POST', headers: { Authorization: 'Bearer ' + cle, 'Content-Type': 'application/json' }, body: JSON.stringify({ reason: 'Rendez-vous reporté au ' + quand + ', comme convenu.' }) }).then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return 'annule'; }); });
@@ -12982,6 +12986,27 @@ function sdReporterAncien(btn, k1, i1, k2, i2) { // ancien RDV → Reprogrammé 
   try { renderAujourdhui(); } catch (e) {} try { renderDaily(); } catch (e) {}
 }
 // 14 oct. 2026 (un prospect, un prospect) : RDV annulé / déplacé dans Calendly parce que le prospect l'a repris avec un autre BDR → Annulé chez toi, rien dans Close
+// 22 oct. 2026 (Nicolas) : « quand les agents reprogramment, ils créent un nouveau RDV et ça n'annule pas l'ancien ». Le copilot repère les paires
+// (même personne, deux R1 actifs à des jours différents, 60 jours) ; ici l'ancien passe « Reprogrammé » (annulé dans Calendly, même flux que le clic manuel), une fois par événement.
+// Jamais sur un R2, jamais si l'ancien est passé ou déjà noté, jamais sur un RDV d'un collègue (le copilot ne lit que tes événements).
+function sdReprisesAuto() {
+  if (typeof COPILOT_URL === 'undefined' || window._sdReprisesEnCours) return; window._sdReprisesEnCours = true;
+  fetch(COPILOT_URL + '/calendly/reprises-r1', { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).catch(function() { return null; }).then(function(j) {
+    window._sdReprisesEnCours = false; if (!j || !j.ok || !(j.paires || []).length) return;
+    var st = loadStore(), faits = st._reprisesAuto || {}, todayIso = rlIso(new Date()), touche = false;
+    var trouver = function(p) { var out = null; Object.keys(st).forEach(function(k) { if (!/^\d{4}-\d{2}$/.test(k) || !Array.isArray(st[k])) return; st[k].forEach(function(r) { if (out || !r || r.source === 'R2') return; var em = String(r.email || '').toLowerCase().trim(); var meme = (p.email && em === p.email) || fcNormNom(r.client) === fcNormNom(p.nom); if (meme && frVersIsoSd(r.date) === p.date) out = r; }); }); return out; };
+    j.paires.forEach(function(p) { var a = p.ancien, nv = p.nouveau; if (!a || !nv || faits[a.evenement] || a.date < todayIso) return;
+      var an = trouver(a); if (an && String(an.presence || '').trim()) return; // déjà noté : on ne touche pas
+      var rowNv = trouver(nv) || { date: fcFrDepuisIso(nv.date), heure: nv.heure, source: nv.surMonLien ? 'Outbound' : 'Inbound', client: nv.nom, email: nv.email };
+      faits[a.evenement] = { le: todayIso, nom: a.nom, de: a.date, vers: nv.date, ligne: !!an }; st._reprisesAuto = faits; touche = true;
+      if (an) { sdReporterAncienFaire(st, an, rowNv, { uri: a.evenement }); st = loadStore(); st._reprisesAuto = faits; }
+      else { // la semaine de l'ancien n'est pas encore dans le store : on annule seulement le créneau Calendly (la synchro ignore les annulés)
+        var cle = (state.calendly && state.calendly.apiKey) || localStorage.getItem('calendly_key'), quand = fcFrDepuisIso(nv.date) + (nv.heure ? ' à ' + nv.heure : '');
+        if (cle) fetch(a.evenement + '/cancellation', { method: 'POST', headers: { Authorization: 'Bearer ' + cle, 'Content-Type': 'application/json' }, body: JSON.stringify({ reason: 'Rendez-vous reporté au ' + quand + ', comme convenu.' }) }).then(function(r) { if (typeof showCopyToast === 'function') showCopyToast((r.ok ? '✓ ' : '⚠️ ') + a.nom + ' : RDV du ' + fcFrDepuisIso(a.date) + ' reporté au ' + quand + (r.ok ? ' · annulé dans Calendly' : ' · Calendly n\'a pas annulé l\'ancien (' + r.status + ')')); }).catch(function() {}); }
+    });
+    if (touche) saveStore(st);
+  });
+}
 function sdAnnulAutreBdr(btn, u) {
   var cleA = 'autrebdr|' + u; window._sdArme = window._sdArme || {};
   if (!(window._sdArme[cleA] > Date.now())) { window._sdArme[cleA] = Date.now() + 8000; if (btn) { btn.textContent = 'Confirmer ?'; btn.style.color = 'var(--red, #c0392b)'; } setTimeout(function() { if (window._sdArme[cleA] <= Date.now()) { delete window._sdArme[cleA]; try { renderAujourdhui(); } catch (e) {} } }, 8100); return; }
