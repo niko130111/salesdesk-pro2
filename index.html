@@ -13014,6 +13014,17 @@ function sdReprisesAuto() {
     if (touche) saveStore(st);
   });
 }
+// 23 oct. 2026 (Nicolas) : « Non signé » avec un rappel à plus de 7 jours ⇒ l'opportunité Close passe en « Lost - No Longer Interested » (pas « Demo Completed ») ; à 7 jours ou moins elle reste active.
+// Appliqué une fois par ligne (closeLointaine), seulement pour les lignes posées à partir d'aujourd'hui : l'existant est marqué sans rien écrire dans Close.
+function sdRelancesLointainesVersClose() {
+  if (typeof COPILOT_URL === 'undefined') return; var st = loadStore(), today = rlIso(new Date()), lim = rlPlus(today, 7), init = !st._relanceLointaineInit, touche = false, n = 0;
+  Object.keys(st).forEach(function(k) { if (!/^\d{4}-\d{2}$/.test(k) || !Array.isArray(st[k])) return; st[k].forEach(function(r) {
+    if (!r || r.source === 'R2' || String(r.result || '').trim() !== 'Non signé' || !r.relanceDate || r.relanceFait || r.closeLointaine) return; if (r.relanceDate <= lim) return;
+    if (init) { r.closeLointaine = 'init'; touche = true; return; }
+    r.closeLointaine = today; touche = true; n++; try { sdStatutClose(Object.assign({}, r), 'relance_lointaine'); } catch (e) {} }); });
+  if (init) { st._relanceLointaineInit = today; touche = true; }
+  if (touche) saveStore(st); if (n && typeof showCopyToast === 'function') showCopyToast('✓ ' + n + ' dossier' + (n > 1 ? 's' : '') + ' « Non signé, rappel à plus de 7 jours » → opportunité Close perdue (No Longer Interested)');
+}
 function sdAnnulAutreBdr(btn, u) {
   var cleA = 'autrebdr|' + u; window._sdArme = window._sdArme || {};
   if (!(window._sdArme[cleA] > Date.now())) { window._sdArme[cleA] = Date.now() + 8000; if (btn) { btn.textContent = 'Confirmer ?'; btn.style.color = 'var(--red, #c0392b)'; } setTimeout(function() { if (window._sdArme[cleA] <= Date.now()) { delete window._sdArme[cleA]; try { renderAujourdhui(); } catch (e) {} } }, 8100); return; }
@@ -13423,6 +13434,7 @@ function renderAujourdhui() {
   }); });
   // 17 oct. 2026 (audit) : un R2 noté sur le R1 (dateR2) et passé, jamais qualifié, sans ligne R2 → il manque au suivi des R2 ; même fenêtre de 10 jours
   try { if (!window._sdQualR2Tick || Date.now() - window._sdQualR2Tick > 30000) { window._sdQualR2Tick = Date.now(); sdQualifierR2DepuisResultat(true); } } catch (e) {}
+  try { if (!window._sdLointTick || Date.now() - window._sdLointTick > 60000) { window._sdLointTick = Date.now(); sdRelancesLointainesVersClose(); } } catch (e) {}
   try { sdR2AQualifier(st, depuis, todayIso).forEach(function(x) { var cleA = fcNormNom(x.r.client) + '|' + x.iso; if (vus[cleA]) return; if (['Signé', 'Non signé'].indexOf(String(x.r.result || '').trim()) >= 0) return; /* décision notée : qualifié automatiquement, rien à saisir */ if (x.iso === todayIso && !(x.r.heureR2 && aujMoment({ heure: x.r.heureR2 }, now, todayIso).passe)) return; vus[cleA] = 1; apres.push({ nom: x.r.client, quoi: 'Résultat du R2 à saisir', det: 'R2 du ' + x.r.dateR2 + (x.r.heureR2 ? ' à ' + x.r.heureR2 : '') + ' · noté sur le R1, jamais qualifié', act: 'sdResultatR2Sans(' + Q(x.r.client) + ',' + Q(x.r.email || '') + ',' + Q(x.iso) + ',' + Q(x.r.heureR2 || '') + ')', lib: 'Résultat du R2', k: x.iso, type: 'resultat' }); }); } catch (e) {}
   (_mailsFinR1 || []).forEach(function(mf) { if (mf.statut === 'attente_cr') apres.push({ nom: mf.nom, quoi: 'Mail de fin de RDV en préparation', det: 'RDV du ' + fcFrDepuisIso(mf.date), act: '', lib: '', k: mf.date, type: 'mail_attente', attente: true }); else if (mf.statut === 'brouillon') apres.push({ nom: mf.nom, quoi: 'Mail post-RDV prêt à relire', det: 'RDV du ' + fcFrDepuisIso(mf.date) + ' · brouillon prêt, à relire puis envoyer', act: 'sdVoirMailFinR1(' + Q(mf.cle || (String(mf.nom || '').toLowerCase() + '|' + mf.date)) + ')', lib: 'Relire le mail', act2: 'sdMailFinManuel(' + Q(mf.cle || (String(mf.nom || '').toLowerCase() + '|' + mf.date)) + ')', lib2: 'Déjà envoyé', k: mf.date, type: 'mail' }); else if (mf.statut === 'sans_cr') apres.push({ nom: mf.nom, quoi: 'Mail de fin de RDV à écrire', det: 'RDV du ' + fcFrDepuisIso(mf.date) + ' · pas de compte rendu dans Close', act: 'sdMailPour(' + Q(mf.nom) + ',' + Q(mf.email || '') + ')', lib: 'Écrire le mail', act2: 'sdMailFinManuel(' + Q(mf.cle || (String(mf.nom || '').toLowerCase() + '|' + mf.date)) + ')', lib2: 'Déjà envoyé', k: mf.date, type: 'mail_sans_cr' }); });
   var traites = {}; Object.keys(st).forEach(function(k) { if (/^\d{4}-\d{2}$/.test(k) && Array.isArray(st[k]) && k >= depuis.slice(0, 7)) st[k].forEach(function(r) { if (r && r.client && String(r.presence || '').trim()) traites[fcNormNom(r.client) + '|' + frVersIsoSd(r.date)] = 1; }); });
