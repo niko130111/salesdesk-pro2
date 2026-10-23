@@ -13014,16 +13014,16 @@ function sdReprisesAuto() {
     if (touche) saveStore(st);
   });
 }
-// 23 oct. 2026 (Nicolas) : « Non signé » avec un rappel à plus de 7 jours ⇒ l'opportunité Close passe en « Lost - No Longer Interested » (pas « Demo Completed ») ; à 7 jours ou moins elle reste active.
+// 23 oct. 2026 (Nicolas) : « Non signé » avec un rappel ⇒ opportunité Close « Contract Sent / Offer Sent » si le rappel est à 15 jours ou moins (suivi d'offre), « Lost - No Longer Interested » au-delà (simple suivi). Jamais « Demo Completed ».
 // Appliqué une fois par ligne (closeLointaine), seulement pour les lignes posées à partir d'aujourd'hui : l'existant est marqué sans rien écrire dans Close.
 function sdRelancesLointainesVersClose() {
-  if (typeof COPILOT_URL === 'undefined') return; var st = loadStore(), today = rlIso(new Date()), lim = rlPlus(today, 7), init = !st._relanceLointaineInit, touche = false, n = 0;
+  if (typeof COPILOT_URL === 'undefined') return; var st = loadStore(), today = rlIso(new Date()), lim = rlPlus(today, 15), init = !st._relanceLointaineInit, touche = false, n = 0, nP = 0;
   Object.keys(st).forEach(function(k) { if (!/^\d{4}-\d{2}$/.test(k) || !Array.isArray(st[k])) return; st[k].forEach(function(r) {
-    if (!r || r.source === 'R2' || String(r.result || '').trim() !== 'Non signé' || !r.relanceDate || r.relanceFait || r.closeLointaine) return; if (r.relanceDate <= lim) return;
+    if (!r || r.source === 'R2' || String(r.result || '').trim() !== 'Non signé' || !r.relanceDate || r.relanceFait || r.closeLointaine) return; if (r.relanceDate < today) return;
     if (init) { r.closeLointaine = 'init'; touche = true; return; }
-    r.closeLointaine = today; touche = true; n++; try { sdStatutClose(Object.assign({}, r), 'relance_lointaine'); } catch (e) {} }); });
+    var proche = r.relanceDate <= lim; r.closeLointaine = today + (proche ? ' proche' : ' lointain'); touche = true; if (proche) nP++; else n++; try { sdStatutClose(Object.assign({}, r), proche ? 'relance_proche' : 'relance_lointaine'); } catch (e) {} }); });
   if (init) { st._relanceLointaineInit = today; touche = true; }
-  if (touche) saveStore(st); if (n && typeof showCopyToast === 'function') showCopyToast('✓ ' + n + ' dossier' + (n > 1 ? 's' : '') + ' « Non signé, rappel à plus de 7 jours » → opportunité Close perdue (No Longer Interested)');
+  if (touche) saveStore(st); if ((n || nP) && typeof showCopyToast === 'function') showCopyToast('✓ Close : ' + (nP ? nP + ' offre' + (nP > 1 ? 's' : '') + ' en suivi (Offer Sent)' : '') + (n && nP ? ' · ' : '') + (n ? n + ' rappel' + (n > 1 ? 's' : '') + ' à plus de 15 j → No Longer Interested' : ''));
 }
 function sdAnnulAutreBdr(btn, u) {
   var cleA = 'autrebdr|' + u; window._sdArme = window._sdArme || {};
