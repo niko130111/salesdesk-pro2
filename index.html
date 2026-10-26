@@ -7470,7 +7470,7 @@ function sdStatutClose(row, evenement) {
   if (evenement === 'pas_interesse' || evenement === 'ghost') { try { sdCloreTachesDossier(row); } catch (e) {} }
   if (typeof COPILOT_URL === 'undefined' || !row || !row.client || (row.source === 'R2' && evenement !== 'pas_interesse' && evenement !== 'ghost')) return; // 19 oct. 2026 : pas intéressé / ghost passent aussi depuis une ligne R2 (même opportunité)
   var cle = fcNormNom(row.client) + '|' + evenement; if (_sdStatutDernier[cle] && Date.now() - _sdStatutDernier[cle] < 5000) return; _sdStatutDernier[cle] = Date.now();
-  fetch(COPILOT_URL + '/close/statut', { method: 'POST', mode: 'cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nom: row.client, email: row.email || '', evenement: evenement, lead: row.closeLead || sdLeadPour(row.client, row.email || '') }) })
+  fetch(COPILOT_URL + '/close/statut', { method: 'POST', mode: 'cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nom: row.client, email: row.email || '', evenement: evenement, lead: row.closeLead || sdLeadPour(row.client, row.email || ''), date: frVersIsoSd(row.date) || '', heure: row.heure || '' }) }) /* date + heure (26 oct. 2026) : couleur du RDV dans Google Agenda côté copilot */
     .then(function(r) { return r.json(); }).then(function(j) {
       if (!j || typeof showCopyToast !== 'function') return;
       if (j.sansFiche) { showCopyToast('Close : pas de fiche pour ' + row.client + ' (statut non modifié)'); return; }
