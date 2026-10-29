@@ -5352,16 +5352,10 @@ function rlEscalader(it, id, suivi) {
     var tel = '', mail = id.email || ''; var cl = fcClients(loadStore())[fcCle(it.nom, id.email)] || {};
     var lignesNote = ['Escalade SalesDesk → ' + RL_MANAGER + ' — ' + fcFrDepuisIso(today) + ' — par Nicolas', ''];
     lignesNote.push('Prospect : ' + it.nom + (row.type || row.source ? ' (' + [row.type, row.source].filter(Boolean).join(' · ') + ')' : ''));
-    if (row.date) lignesNote.push('R1 : ' + row.date + (row.presence ? ' · ' + row.presence : '') + (row.result ? ' · ' + row.result : ''));
-    lignesNote.push('Appels sans réponse depuis le dernier échange : ' + (suivi.tentatives || j.tentativesDepuis || 0));
-    if (c.promesse) lignesNote.push('Promesse / dernier engagement : ' + c.promesse);
-    if (c.deal) lignesNote.push('Où en est le deal : ' + c.deal);
-    if (c.accroche) lignesNote.push('Accroche : ' + c.accroche);
-    if (c.promesse_sdr) lignesNote.push('Promis par un collègue : ' + c.promesse_sdr);
-    if (c.demo_faite) lignesNote.push('Démo faite le ' + c.demo_faite);
-    if (row.retour) lignesNote.push('Retour SalesDesk : ' + row.retour);
-    if (ech.length) { lignesNote.push('', 'Derniers échanges :'); ech.slice(0, 4).forEach(function(e) { lignesNote.push('- ' + e.date + ' · ' + e.type + (e.par ? ' · ' + e.par : ' · Nicolas') + ' : ' + e.lignes.join(' / ')); }); }
-    if (j && j.prochaine) lignesNote.push('', 'Prochaine étape convenue : ' + j.prochaine);
+    /* 29 oct. 2026 (Nicolas) : la note au manager = seulement le résumé des derniers RDV, plus d'appels sans réponse, promesse, accroche ni autres échanges */
+    var rdvsEch = ech.filter(function(e) { return e.type === 'rdv'; }).slice(0, 3);
+    if (rdvsEch.length) { lignesNote.push('', 'Résumé des derniers RDV :'); rdvsEch.forEach(function(e) { lignesNote.push('- ' + e.date + (e.par ? ' · ' + e.par : ' · Nicolas') + ' : ' + e.lignes.join(' / ')); }); }
+    else lignesNote.push('', 'Aucun RDV résumé dans Close.');
     var note = lignesNote.join('\n');
     var excel = [fcFrDepuisIso(today), it.nom, row.type || '', row.source || '', mail, row.date || '', row.result || row.presence || '', String(suivi.tentatives || j.tentativesDepuis || 0), c.promesse || '', c.deal || '', (j && j.url) || (cl.closeUrl || ''), 'Nicolas → ' + RL_MANAGER].join('\t');
     m.innerHTML = '<div class="fc-dup"><div style="font-size:15px;font-weight:700;">👔 Passer ' + escapeHtml(it.nom) + ' à ' + escapeHtml(RL_MANAGER) + '</div>'
