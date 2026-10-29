@@ -12842,8 +12842,8 @@ function sdDpDeplacer() { // le copilot réserve le nouveau créneau puis annule
 function sdDpAnnuler(btn) {
   var d = _dp; if (!d || !d.r.uri) return; var cle = (state.calendly && state.calendly.apiKey) || localStorage.getItem('calendly_key'); if (!cle) { alert('Clé Calendly absente sur cet appareil.'); return; }
   btn.disabled = true; btn.textContent = 'Annulation…';
-  fetch(d.r.uri + '/cancellation', { method: 'POST', headers: { Authorization: 'Bearer ' + cle, 'Content-Type': 'application/json' }, body: JSON.stringify({ reason: (document.getElementById('dp-raison').value || '').trim().slice(0, 500) }) })
-    .then(function(x) { if (!x.ok) return x.json().catch(function() { return {}; }).then(function(j) { throw new Error(j.message || ('Calendly ' + x.status)); }); return x.json().catch(function() { return {}; }); })
+  fetch(d.r.uri + '/cancellation', { method: 'POST', headers: { Authorization: 'Bearer ' + cle, 'Content-Type': 'application/json' }, body: JSON.stringify({ reason: (document.getElementById('dp-raison').value || '').trim().slice(0, 500) || 'Rendez-vous annulé.' }) }) /* 29 oct. 2026 : motif vide refusé par Calendly (« supplied parameters are invalid ») */
+    .then(function(x) { if (!x.ok) return x.json().catch(function() { return {}; }).then(function(j) { throw new Error((j.message || ('Calendly ' + x.status)) + (Array.isArray(j.details) && j.details.length ? ' (' + j.details.map(function(t) { return (t.parameter ? t.parameter + ' : ' : '') + (t.message || ''); }).join(' ; ') + ')' : '')); }); return x.json().catch(function() { return {}; }); })
     .then(function() { sdDpFait('Annulé', true); })
     .catch(function(e) { btn.disabled = false; btn.textContent = 'Annuler le rendez-vous'; alert('Annulation refusée par Calendly : ' + e.message + '\nRien n\'a été modifié.'); });
 }
