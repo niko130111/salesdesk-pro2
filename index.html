@@ -12009,8 +12009,8 @@ function renderBilan() {
   h += '<div class="bh-6">'
     + K('phone', 'Appels passés', apV('total'), ap && !ap.erreur ? ap.uniques + ' fiche' + (ap.uniques > 1 ? 's' : '') + ' différente' + (ap.uniques > 1 ? 's' : '') : 'Close, appels sortants')
     + K('user', 'Conversations obtenues', apV('joints'), 'appels de 45 s ou plus')
-    + K('cal', 'RDV outbound pris', obSem === null ? String(c.outbound) + '<small>≈</small>' : String(obSem), obSem === null ? 'd\'après les lignes RDV (Calendly pas encore lu) · un par prospect' : 'pris du lundi au vendredi, un par prospect, même règle que l\'onglet Outbound', "mjAller('Rendez-vous')")
-    + K('check', 'RDV tenus', String(c.tenus), c.r1Tenus + ' R1 · ' + c.r2Tenus + ' R2 · ' + c.planifies + ' R1 planifiés', "mjAller('Rendez-vous')")
+    + K('cal', 'RDV outbound pris', obSem === null ? String(c.outbound) + '<small>≈</small>' : String(obSem), obSem === null ? 'd\'après les lignes RDV (Calendly pas encore lu) · un par prospect' : 'pris du lundi au vendredi, un par prospect, même règle que l\'onglet Outbound', "mjAller('RDV Table');setTimeout(function(){try{switchRdvTab('outbound')}catch(e){}},150)")
+    + K('check', 'RDV tenus', String(c.tenus), c.r1Tenus + ' R1 · ' + c.r2Tenus + ' R2 · ' + c.planifies + ' R1 planifiés', "mjAller('RDV Table');setTimeout(function(){try{switchRdvTab('r1')}catch(e){}},150)")
     + K('doc', 'Signatures', String(c.ventes), c.ventesNoms.length ? escapeHtml(c.ventesNoms.join(', ')) : 'date de signature dans la semaine')
     + K('euro', 'Commissions', Math.round(c.comm).toLocaleString('fr-FR') + ' €', 'sur les signatures de la semaine', "sdPerfOnglet('mois')")
     + '</div><div class="bh-lien"><a onclick="_bh.detail=!_bh.detail;renderBilan()">' + (_bh.detail ? 'Masquer les statistiques détaillées' : 'Voir les statistiques détaillées') + ' ' + aujIco('arrow') + '</a></div>';
