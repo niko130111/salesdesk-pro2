@@ -1,12 +1,13 @@
 # SalesDesk Pro — Contexte projet
 
 ## 🎯 Objectif du projet
-SalesDesk Pro est un dashboard **single-file HTML** (~9600 lignes) utilisé par Nicolas Lapeyre (BDR RealAdvisor France) pour tracker son activité sales indépendamment du CRM d'équipe.
+SalesDesk Pro est un dashboard **single-file HTML** (~16 700 lignes au 31 oct. 2026) utilisé par Nicolas Lapeyre (BDR RealAdvisor France, qui mène et signe lui-même ses R1/R2) pour piloter sa journée : RDV du jour, suivi/relances, prospection, stats. Il **écrit dans Close** (statuts, tâches, notes, mails) via le copilot local ; Close reste la référence des faits commerciaux, SalesDesk organise le travail.
 
 ## 📂 Structure
 - **Un seul fichier** : `index.html` (HTML + CSS + JS inline)
 - **Hébergé** : GitHub Pages sur `niko130111.github.io/salesdesk-pro2`
-- **Stockage** : `localStorage` uniquement (clé principale `salesdesk_rdvs`) + Supabase (backup)
+- **Stockage** : Supabase (table `salesdesk_store`, ligne `main`, colonne jsonb `data`) = source partagée entre appareils, protégée par RLS + compte Auth (voir `docs-supabase-rls.md` du copilot) ; `localStorage` (`salesdesk_rdvs`) = copie locale. Gardes anti-écrasement : `_sdCloudVu`, `salesdesk_cloud_base`, `_sdChargementInitial`, PATCH conditionné à `data->>_lastWrite` (31 oct. 2026). **Synchro vivante** (31 oct. 2026) : événement `storage` entre onglets, veille cloud 20 s + retour sur l'onglet (`sdVeilleCloud`), une seule sauvegarde en vol.
+- **Copilot** : serveur Node local `~/Desktop/Mes projets/sales-copilot/sales-copilot-v2/server/` (port 3015, `COPILOT_URL`) — toutes les lectures/écritures Close, Calendly, SMS, mails, RealAdvisor passent par lui.
 
 ## 🔑 Terminologie
 - **R1** = premier rendez-vous avec le prospect
@@ -57,13 +58,23 @@ salesdesk_processed = { ... }  // ancien nom, legacy
 - `markRdvAsProcessed(rdvId, data)` — marque un RDV comme traité (utilise nom|date, pas index)
 - `persistCalendlyEventsToStore()` — sync Calendly → store (skip R2)
 
-## 📊 Sections principales
-- **Quotidien** (`page-daily`) — vue jour, blocs de pilotage, Calendly du jour
-- **Analytics** (`page-analytics`) — KPIs mensuels, donuts, détail par source
-- **Global** (`page-global`) — vue annuelle
-- **Pipeline** (`page-pipeline`) — Kanban (drag & drop) : Won/Lost/No Show/Interesting
-- **RDV Table** (`page-rdvtable`) — tableau éditable (5 onglets)
-- **Objectifs & Config** (`page-config`) — cibles + config
+## 📊 Onglets (état au 31 oct. 2026)
+- **Aujourd'hui** (`page-aujourdhui`, `renderAujourdhui`) — RDV du jour avec cartes Calendly, demain, priorités ; l'ancien « Quotidien » (`page-daily`) est redirigé dessus
+- **Suivi** (`page-relances`, `renderRelancesPage`) — file de relances = tâches Close ouvertes + relances SalesDesk, deux panneaux, barre d'actions commune (Appeler, Close, RDV, Tâche, Modifier, Prioritaire, Plus)
+- **Prospection** (`page-prospection`) — listes d'appel nocturnes du copilot (`/listes-appel`), secteurs, « Hors Close »
+- **Copilot** (`page-mesrdv`) — le copilot intégré (prépa, live, après-RDV — Nicolas n'utilise pas l'après-RDV)
+- **Pipeline** (`page-pipeline`) — Kanban drag & drop
+- **Performance** (`page-analytics`) — KPIs mensuels, donuts, détail par source ; **Global** (`page-global`) vue annuelle
+- **Bilan hebdo** (`page-bilan`), **Créneaux** (`page-creneaux`), **Contrôle** (`page-controle`), **Automatisations** (`page-automatisations`)
+- **Données brutes** (`page-rdvtable`, `renderRdvTable`) — tableau éditable (5 onglets)
+- **Objectifs & Config** (`page-settings`) — cibles, config, compte Supabase, sauvegardes
+- **Fiche client** (`fc-overlay`, `ouvrirFicheClient`/`fcRendre`) — en-tête (Prochaine étape, ⏰ Tâche Close), onglets Synthèse / Échanges / Mails / Offre / Rendez-vous
+
+## ✍️ Ce que SalesDesk écrit dans Close (via le copilot)
+- Statut d'opportunité et de lead (`sdStatutClose` → `/close/statut` : show, no_show, annule, reprogramme, pas_interesse, ghost, mail_envoye, laisser_tomber) ; un échec affiche un toast rouge
+- Tâches (`/close/taches`, règle **une tâche ouverte par client** : « Remplacer » par défaut après affichage de l'existante, sinon « Ajouter »), déplacement/clôture (`/close/taches/:id`), snooze du soir vers le prochain jour ouvré
+- Notes (`/close/note`), mails (`/close/mail`, statut `outbox` ; validation obligatoire pour les mails automatiques), appels (`/close/appeler`, `/close/appel-sans-reponse`), escalade manager (`/close/escalader`), transmission (`/close/transmettre`), création de fiche au 1er appel « Hors Close » (`/close/lead/creer`), onboarding (`/close/onboarding*`)
+- Homonymes : même nom + téléphone ou mail différents = deux personnes (`sdMemeContact`, 31 oct. 2026) ; un même prospect peut avoir plusieurs fiches Close
 
 ## 🎨 Préférences de code de Nicolas
 - **Communication** : français, rapide, souvent abrégé
@@ -88,6 +99,8 @@ salesdesk_processed = { ... }  // ancien nom, legacy
 - Ne pas modifier les données de localStorage sans backup
 - Ne pas casser la compat des mois passés (le store contient l'historique depuis oct 2025)
 - Ne pas activer `autoMatchR2FromCalendly` (bug connu, doublons)
+- Ne jamais déclencher une vraie écriture Close / Calendly / SMS / Supabase pendant un test : copie locale (`python3 -m http.server 8765`), `fetch` simulé, noms fictifs
+- Ne pas remettre le verrou « un seul onglet écrit » (supprimé le 31 oct. 2026 au profit de la synchro vivante)
 
 ## 📅 Jours fériés français 2025-2027 (hardcodés dans `getJoursOuvres` et `_frenchHolidays`)
 - 2025 : 01/01, 21/04, 01/05, 08/05, 29/05, 09/06, 14/07, 15/08, 01/11, 11/11, 25/12
