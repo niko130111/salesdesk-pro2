@@ -486,6 +486,16 @@ main { max-width: 100%; margin: 0; padding: 6px 8px; }
 .fc-kv { display: grid; grid-template-columns: 150px 1fr; gap: 10px; padding: 7px 0; border-top: 1px solid var(--border); font-size: 13.5px; line-height: 1.45; } .fc-kv .k { color: var(--text2); font-weight: 600; } .fc-kv .v { color: var(--text); min-width: 0; }
 .fc-aclarifier { color: var(--orange); font-weight: 600; } .fc-src { font-size: 11px; color: var(--text3); font-weight: 500; }
 .fc-big { font-size: 20px; font-weight: 800; color: var(--accent); margin: 2px 0 4px; line-height: 1.2; }
+/* 31 oct. 2026 : onglet « Avant d'appeler » de la fiche (objectif, dernier mot du client, à savoir, pour ouvrir, secteur par rayons, derniers échanges) — ouvert par défaut depuis le Suivi */
+.fc-av { display: flex; flex-direction: column; gap: 14px; }
+.fc-av-obj { background: var(--sd-navy, #1e2846); color: #fff; border-radius: 12px; padding: 14px 18px; display: flex; align-items: center; gap: 14px; }
+.fc-av-obj .l { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #a9b2cc; } .fc-av-obj .t { font-size: 19px; font-weight: 800; letter-spacing: -.01em; margin-top: 2px; line-height: 1.25; }
+.fc-av-dit { background: var(--soft-blue, #f6f8fe); border-color: #c9d3ee; } .fc-av-dit .q { font-size: 21px; font-weight: 700; line-height: 1.3; margin: 4px 0 2px; }
+.fc-av-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: start; } @media (max-width: 900px) { .fc-av-2 { grid-template-columns: 1fr; } }
+.fc-av .cle { padding: 6px 0; border-top: 1px solid var(--border); } .fc-av .cle:first-child { border-top: 0; padding-top: 0; }
+.fc-av-al { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-top: 1px solid var(--border); font-size: 13.5px; } .fc-av-al:first-child { border-top: 0; padding-top: 0; } .fc-av-al i { width: 9px; height: 9px; border-radius: 50%; flex: none; display: inline-block; }
+.fc-av-tab { width: 100%; border-collapse: collapse; font-size: 13.5px; margin-top: 4px; } .fc-av-tab th { text-align: left; font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text3); padding: 6px 8px; border-bottom: 1px solid var(--border); } .fc-av-tab td { padding: 8px; border-bottom: 1px solid var(--border); font-variant-numeric: tabular-nums; } .fc-av-tab tr:last-child td { border-bottom: 0; } .fc-av-tab td.n, .fc-av-tab th.n { text-align: right; } .fc-av-tab td.n b { font-size: 15px; } .fc-av-tab td.conc { color: var(--red, #b42318); font-weight: 700; text-align: right; }
+.fc-av-ech { display: flex; gap: 12px; padding: 8px 0; border-top: 1px solid var(--border); font-size: 13px; align-items: baseline; } .fc-av-ech:first-child { border-top: 0; padding-top: 0; } .fc-av-ech .d { color: var(--text3); flex: 0 0 118px; font-variant-numeric: tabular-nums; font-size: 12.5px; } .fc-av-ech b { font-weight: 600; }
 .fc-pill { display: inline-block; font-size: 11.5px; font-weight: 700; padding: 2px 9px; border-radius: 999px; white-space: nowrap; } .fc-pill.ok { background: var(--soft-green); color: var(--green); } .fc-pill.warn { background: var(--soft-orange); color: var(--orange); }
 .fc-card .ech { font-size: 13.5px; line-height: 1.45; } .fc-card .ech-t { font-size: 12.5px; color: var(--text2); display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; } .fc-card .ech ul { margin: 6px 0 0 18px; padding: 0; } .fc-card .preuves a { color: var(--accent); cursor: pointer; margin-left: 10px; font-size: 12px; text-decoration: none; }
 
@@ -4357,27 +4367,27 @@ function sdPopupR2AQualifier() {
 }
 // Nom cliquable vers la fiche client, partout où un nom s'écrit (11 oct. 2026) : avant = code à exécuter d'abord (fermer une fenêtre…)
 function sdNomLien(nom, email, avant) { nom = String(nom || '').trim(); if (!nom) return ''; var Q = function(v) { return JSON.stringify(String(v || '')).replace(/"/g, '&quot;'); }; return '<span class="fc-nomlien" title="Ouvrir la fiche" onclick="event.stopPropagation();' + (avant || '') + 'ouvrirFicheClient(' + Q(nom) + ',' + Q(email) + ')">' + escapeHtml(nom) + '</span>'; }
-function ouvrirFicheClient(nom, email, date, lead, tel, site, org) { // tel / site / org : ce que la liste de Prospection sait déjà du prospect (utile quand il n'a pas encore de fiche Close)
+function ouvrirFicheClient(nom, email, date, lead, tel, site, org, tab) { // tab : onglet à ouvrir ('avant' depuis le Suivi et « Avant d'appeler ») // tel / site / org : ce que la liste de Prospection sait déjà du prospect (utile quand il n'a pas encore de fiche Close)
   if (window._pipelineJustDragged) { window._pipelineJustDragged = false; return; }
   nom = String(nom || '').trim(); if (!nom) return;
   email = String(email || '').trim().toLowerCase();
   var rows = fcLignesDuNom(nom);
   var emails = {}; rows.forEach(function(r) { var e = String(r.email || '').toLowerCase().trim(); if (e) emails[e] = (emails[e] || []).concat([r.date]); });
   var distincts = Object.keys(emails);
-  if (!email && distincts.length > 1) { fcPopupDoublon(nom, emails, rows); return; }
+  if (!email && distincts.length > 1) { fcPopupDoublon(nom, emails, rows, tab); return; }
   if (!email && distincts.length === 1) email = distincts[0];
   if (email && distincts.length > 1) { rows = rows.filter(function(r) { var e = String(r.email || '').toLowerCase().trim(); return !e || e === email; }); } // cet email + les lignes sans email
-  _fc = { cle: fcCle(nom, email), nom: nom, email: email, tel: String(tel || '').trim(), site: String(site || '').trim(), org: String(org || '').trim(), rows: rows, tab: 'synthese', dossiers: null, close: null, leadChoisi: (/^lead_/.test(String(lead || '')) ? lead : (function() { try { return sdLeadPour(nom, email) || ''; } catch (e) { return ''; } })()), leadImpose: /^lead_/.test(String(lead || '')), date: date || '' };
+  _fc = { cle: fcCle(nom, email), nom: nom, email: email, tel: String(tel || '').trim(), site: String(site || '').trim(), org: String(org || '').trim(), rows: rows, tab: (tab === 'avant' ? 'avant' : 'synthese'), dossiers: null, close: null, leadChoisi: (/^lead_/.test(String(lead || '')) ? lead : (function() { try { return sdLeadPour(nom, email) || ''; } catch (e) { return ''; } })()), leadImpose: /^lead_/.test(String(lead || '')), date: date || '' };
   fcRendre();
   document.getElementById('fc-overlay').classList.add('open');
   fcChargerClose(function() { fcChargerDernierContact(); }); fcChargerDossiers();
 }
-function fcPopupDoublon(nom, emails, rows) {
+function fcPopupDoublon(nom, emails, rows, tab) {
   var sansEmail = rows.filter(function(r) { return !String(r.email || '').trim(); }).length;
   var html = '<div class="fc-dup"><div style="font-size:15px;font-weight:700;margin-bottom:4px;">⚠️ Plusieurs personnes s\'appellent « ' + escapeHtml(nom) + ' »</div>'
     + '<div style="font-size:12px;color:var(--text3);">Emails différents dans tes RDV : choisis la bonne fiche, elles ne seront pas mélangées.</div>';
   Object.keys(emails).forEach(function(e) {
-    html += '<button class="fc-dup-item" onclick="fermerModalDoublon();ouvrirFicheClient(' + JSON.stringify(nom).replace(/"/g, '&quot;') + ',' + JSON.stringify(e).replace(/"/g, '&quot;') + ')"><b>' + escapeHtml(e) + '</b><div style="font-size:12px;color:var(--text3);">RDV : ' + escapeHtml(emails[e].join(', ')) + '</div></button>';
+    html += '<button class="fc-dup-item" onclick="fermerModalDoublon();ouvrirFicheClient(' + JSON.stringify(nom).replace(/"/g, '&quot;') + ',' + JSON.stringify(e).replace(/"/g, '&quot;') + (tab ? ',\'\',\'\',\'\',\'\',\'\',' + JSON.stringify(tab).replace(/"/g, '&quot;') : '') + ')"><b>' + escapeHtml(e) + '</b><div style="font-size:12px;color:var(--text3);">RDV : ' + escapeHtml(emails[e].join(', ')) + '</div></button>';
   });
   if (sansEmail) html += '<div style="font-size:11px;color:var(--text3);margin-top:8px;">' + sansEmail + ' ligne(s) sans email seront affichées dans chaque fiche.</div>';
   html += '<div style="text-align:right;margin-top:12px;"><button class="btn btn-sm" onclick="fermerModalDoublon()">Annuler</button></div></div>';
@@ -4438,7 +4448,8 @@ function fcRendre() {
   fcRendreContact();
   document.querySelectorAll('.fc-tab').forEach(function(b) { b.classList.toggle('on', b.dataset.tab === _fc.tab); });
   var body = document.getElementById('fc-body');
-  if (_fc.tab === 'synthese') body.innerHTML = fcHtmlSynthese();
+  if (_fc.tab === 'avant') body.innerHTML = fcHtmlAvant();
+  else if (_fc.tab === 'synthese') body.innerHTML = fcHtmlSynthese();
   else if (_fc.tab === 'rdv') body.innerHTML = fcHtmlRdvListe();
   else if (_fc.tab === 'prepa') body.innerHTML = fcHtmlPrepa();
   else if (_fc.tab === 'mails') body.innerHTML = fcHtmlMails();
@@ -5110,14 +5121,14 @@ function fcChargerClose(apres) { // apres : lancé une fois la fiche Close chois
 function fcChargerDernierContact(force, leadId) {
   var cle = _fc.cle, el = document.getElementById('fc-dernier'); // la carte jaune n'existe plus : la synthèse lit _fc.dernier
   if (el) el.innerHTML = '<div class="t"><span>🗣 Avant d\'appeler</span></div><div class="fc-muted">lecture de Close' + (force ? ' et transcription des appels enregistrés (10-20 s)' : '') + '…</div>';
-  if (force) { _fc.dernier = null; try { if (_fc.tab === 'synthese') fcRendre(); } catch (e) {} }
+  if (force) { _fc.dernier = null; try { if (_fc.tab === 'synthese' || _fc.tab === 'avant') fcRendre(); } catch (e) {} }
   var ctrl = new AbortController(); setTimeout(function() { ctrl.abort(); }, 90000);
   var q = { email: _fc.email || '', nom: _fc.nom, force: force ? '1' : '0' }; if (fcTelConnu()) q.tel = fcTelConnu(); if (leadId) { q.lead = leadId; _fc.leadChoisi = leadId; } else if (_fc.leadChoisi) q.lead = _fc.leadChoisi; else { var _lk = sdLeadPour(_fc.nom, _fc.email || ''); if (_lk) q.lead = _lk; }
   // en deux temps : les faits tout de suite (dernier appel, journal, sans attendre le modèle), puis la synthèse complète
-  if (!force) fetch(COPILOT_URL + '/close/dernier-contact?' + new URLSearchParams(Object.assign({}, q, { rapide: '1' })), { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).then(function(j) { if (_fc.cle === cle && !_fc.dernier && j && j.trouve) { _fc.dernier = j; fcRendreDernierContact(j); if (_fc.tab === 'prepa' || _fc.tab === 'synthese') fcRendre(); } }).catch(function() {});
+  if (!force) fetch(COPILOT_URL + '/close/dernier-contact?' + new URLSearchParams(Object.assign({}, q, { rapide: '1' })), { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).then(function(j) { if (_fc.cle === cle && !_fc.dernier && j && j.trouve) { _fc.dernier = j; fcRendreDernierContact(j); if (_fc.tab === 'prepa' || _fc.tab === 'synthese' || _fc.tab === 'avant') fcRendre(); } }).catch(function() {});
   fetch(COPILOT_URL + '/close/dernier-contact?' + new URLSearchParams(q), { mode: 'cors', cache: 'no-store', signal: ctrl.signal })
-    .then(function(r) { return r.json(); }).then(function(j) { if (_fc.cle === cle) { _fc.dernier = j; fcRendreDernierContact(j); if (_fc.tab === 'prepa' || _fc.tab === 'synthese') fcRendre(); } })
-    .catch(function() { if (_fc.cle === cle) { _fc.dernier = { error: 'copilot sans réponse' }; if (_fc.tab === 'prepa' || _fc.tab === 'synthese') fcRendre(); } if (_fc.cle === cle) el.innerHTML = '<div class="t"><span>🗣 Avant d\'appeler</span><a onclick="fcChargerDernierContact(true)">↻ réessayer</a></div><div class="fc-muted">Le copilot n\'a pas répondu à temps (appels longs à transcrire ?) — réessaie dans quelques secondes.</div>'; });
+    .then(function(r) { return r.json(); }).then(function(j) { if (_fc.cle === cle) { _fc.dernier = j; fcRendreDernierContact(j); if (_fc.tab === 'prepa' || _fc.tab === 'synthese' || _fc.tab === 'avant') fcRendre(); } })
+    .catch(function() { if (_fc.cle === cle) { _fc.dernier = { error: 'copilot sans réponse' }; if (_fc.tab === 'prepa' || _fc.tab === 'synthese' || _fc.tab === 'avant') fcRendre(); } if (_fc.cle === cle) el.innerHTML = '<div class="t"><span>🗣 Avant d\'appeler</span><a onclick="fcChargerDernierContact(true)">↻ réessayer</a></div><div class="fc-muted">Le copilot n\'a pas répondu à temps (appels longs à transcrire ?) — réessaie dans quelques secondes.</div>'; });
 }
 // Les 3 lignes closer (promesse datée · accroche · état du deal) + alertes, puis le détail par échange avec la preuve (audio, mots exacts, Claap)
 // le modèle écrit parfois « vide » / « rien » au lieu de laisser la clé vide : on ne l'affiche pas
@@ -5565,24 +5576,7 @@ function rlChipRdvPris(it) {
 }
 function rlValiderRdvPris(cle, btn) { var it = (window._rlItems || []).find(function(x) { return x.cle === cle; }); if (!it) return; rlAction(cle, 'rdv_pris', btn); }
 // Depuis une carte Relances : les 3 lignes closer sans ouvrir la fiche
-function rlAvantAppel(nom, email) {
-  var ov = document.getElementById('fc-dup-overlay');
-  if (!ov) { ov = document.createElement('div'); ov.id = 'fc-dup-overlay'; ov.className = 'modal-overlay'; ov.style.zIndex = '1300'; ov.innerHTML = '<div class="modal" id="fc-dup-modal"></div>'; document.body.appendChild(ov); }
-  ov.onclick = function(ev) { if (ev.target === ov) fermerModalDoublon(); };
-  var m = document.getElementById('fc-dup-modal'); ov.classList.add('open');
-  var nomJs = JSON.stringify(nom).replace(/"/g, '&quot;'), emailJs = JSON.stringify(email || '').replace(/"/g, '&quot;');
-  var entete = '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:8px;"><div style="font-size:16px;font-weight:700;">' + escapeHtml(nom) + '</div><button class="btn btn-sm" onclick="fermerModalDoublon();ouvrirFicheClient(' + nomJs + ',' + emailJs + ')">Ouvrir la fiche</button></div>';
-  m.innerHTML = '<div class="fc-dup">' + entete + '<div class="fc-dernier"><div class="fc-muted">lecture de Close…</div></div></div>';
-  var ctrl = new AbortController(); setTimeout(function() { ctrl.abort(); }, 90000);
-  fetch(COPILOT_URL + '/close/dernier-contact?' + new URLSearchParams({ email: email || '', nom: nom }), { mode: 'cors', cache: 'no-store', signal: ctrl.signal })
-    .then(function(r) { return r.json(); }).then(function(j) {
-      if (!ov.classList.contains('open')) return;
-      var zone = m.querySelector('.fc-dernier'); if (!zone) return;
-      if (!j || j.error || j.trouve === false || j.configure === false) { zone.innerHTML = '<div class="fc-muted">' + (j && j.error ? 'Close : ' + escapeHtml(j.error) : 'Aucune fiche Close trouvée.') + '</div>'; return; }
-      var ech = (j.echanges || []).slice(0, 2).map(function(e) { return '<div class="ech"><div class="ech-t"><span>' + escapeHtml(e.date || '') + ' · ' + escapeHtml(e.type || 'appel') + (e.par ? ' · <b>' + escapeHtml(e.par) + '</b>' : ' · toi') + '</span></div><ul>' + e.lignes.slice(0, 3).map(function(l) { return '<li>' + escapeHtml(l) + '</li>'; }).join('') + '</ul></div>'; }).join('');
-      zone.innerHTML = fcHtmlCles(j) + (ech ? '<div class="echs">' + ech + '</div>' : '<div class="fc-muted">Rien d\'exploitable dans Close.</div>') + (j.prochaine ? '<div class="ech-next">➡ ' + escapeHtml(j.prochaine) + '</div>' : '');
-    }).catch(function() { var zone = m.querySelector('.fc-dernier'); if (zone) zone.innerHTML = '<div class="fc-muted">Le copilot n\'a pas répondu.</div>'; });
-}
+function rlAvantAppel(nom, email) { ouvrirFicheClient(nom, email, '', '', '', '', '', 'avant'); } // 31 oct. 2026 : la fenêtre à part a disparu, c'est l'onglet « Avant d'appeler » de la fiche
 function fcEcouter(i, a) {
   var e = ((_fc.dernier || {}).echanges || [])[Number(i)]; if (!e || !e.source) return;
   var zone = document.querySelector('#fc-ech-' + i + ' .ech-plus'); if (!zone) return;
@@ -5628,7 +5622,73 @@ function fcChargerDossiers() {
   var cidRow = (_fc.rows.find(function(r) { return r.contactId; }) || {}).contactId || '';
   fetch(COPILOT_URL + '/clients/dossiers?' + new URLSearchParams({ nom: _fc.nom, email: _fc.email || '', contactId: cidRow }), { mode: 'cors', cache: 'no-store', signal: ctrl.signal })
     .then(function(r) { return r.json(); }).then(function(j) { if (_fc.cle === cle) { _fc.dossiers = j.dossiers || []; _fc.contact = j.contact || null; fcRendre(); } })
-    .catch(function() { if (_fc.cle === cle) { _fc.dossiers = false; if (_fc.tab === 'prepa' || _fc.tab === 'synthese') fcRendre(); } });
+    .catch(function() { if (_fc.cle === cle) { _fc.dossiers = false; if (_fc.tab === 'prepa' || _fc.tab === 'synthese' || _fc.tab === 'avant') fcRendre(); } });
+}
+// ── Onglet « Avant d'appeler » (31 oct. 2026) : ce qu'il faut avoir sous les yeux avant de décrocher — l'objectif de l'appel, le dernier mot du client, les alertes, de quoi ouvrir, son secteur par rayons (demandes 30 j / année, concurrents), les derniers échanges. Ouvert par défaut depuis le Suivi. ──
+var _fcRayons = {}; // (cp|ville) → { enCours, data } — GET /secteur/rayons du copilot (cache 24 h côté copilot)
+function fcAvantRafraichir(cle) { // une donnée est arrivée : on redessine la fiche si elle est ouverte sur cet onglet, sinon le panneau du Suivi
+  try { if (document.querySelector('#fc-overlay.open')) { if (_fc && _fc.cle === cle && (_fc.tab === 'avant' || _fc.tab === 'synthese')) fcRendre(); return; }
+    var pg = document.getElementById('page-relances'); if (pg && pg.classList.contains('active') && typeof renderRelancesPage === 'function') renderRelancesPage(); } catch (e) {}
+}
+function fcAvQuand(at) { var d = new Date(at); if (isNaN(d)) return String(at || ''); return ['dim.', 'lun.', 'mar.', 'mer.', 'jeu.', 'ven.', 'sam.'][d.getDay()] + ' ' + String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0') + ' ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); }
+function fcAvTechnique(a) { var o = String(a.objet || ''); return /delivery status|undeliver|mail delivery|not delivered|failure notice|auto(matic)?[ -]?reply|réponse automatique|out of office|absence du bureau/i.test(o) || /^(mise à jour|nouvel événement|nouveau rendez-vous|annulation|annulé|invitation|rappel|reminder|updated|cancell?ed|new event)\s*:/i.test(o) || /validation & lancement realadvisor/i.test(o); } // rebonds, réponses automatiques et notifications Calendly : pas la voix du client
+function fcAvantDernierMot(j) { // le dernier message reçu du client (SMS ou mail), hors messages techniques
+  var jr = (j && j.journal) || []; var recus = jr.filter(function(a) { return (a.type === 'sms' || a.type === 'mail') && a.sortant === false && String(a.objet || '').trim() && !fcAvTechnique(a); });
+  recus.sort(function(x, y) { return new Date(y.at) - new Date(x.at); }); var a = recus[0]; if (!a) return null;
+  return { texte: String(a.objet).trim(), quand: (a.type === 'sms' ? 'SMS' : 'Mail') + ' reçu · ' + fcAvQuand(a.at), at: a.at };
+}
+function fcAvantEchanges(j, n) { // les n derniers échanges, RDV SalesDesk et journal Close mêlés, une ligne chacun
+  var today = rlIso(new Date()), E = [], sec = function(x) { return x >= 60 ? Math.round(x / 60) + ' min' : x + ' s'; };
+  (_fc.rows || []).forEach(function(r) { var d = frVersIsoSd(String(r.date || '').trim()); if (!d || d > today) return; var pres = String(r.presence || '').trim(), res = String(r.result || '').trim();
+    var t = (r.source === 'R2' ? 'R2' : 'R1') + (pres ? ' · ' + (pres === 'Show' ? 'tenu' : pres.toLowerCase()) : ' · présence non renseignée') + (res ? ' · ' + (res === 'Promo' ? 'non signé, si promo' : res.toLowerCase()) : '');
+    E.push({ k: d + 'T' + (r.heure || '00:00'), quand: fcAvQuand(d + 'T' + (r.heure || '00:00') + ':00'), titre: t, sous: r.dateR2 ? 'R2 le ' + r.dateR2 : '' }); });
+  ((j && j.journal) || []).forEach(function(a) { if (a.meeting || a.type === 'note' || (a.type === 'mail' && fcAvTechnique(a))) return; var d = new Date(a.at); if (isNaN(d)) return; var k = rlIso(d) + 'T' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+    if (a.type === 'rdv' && (_fc.rows || []).some(function(r) { return frVersIsoSd(String(r.date || '').trim()) === k.slice(0, 10) || frVersIsoSd(String(r.dateR2 || '').trim()) === k.slice(0, 10); })) return; // le compte rendu Claap double le RDV SalesDesk
+    var t = a.type === 'appel' ? (a.joint ? 'Appel · ' + sec(a.duree || 0) : 'Appel sans réponse' + (a.duree ? ' (' + sec(a.duree) + ')' : '')) : a.type === 'rdv' ? 'Rendez-vous · compte rendu Claap' : a.type === 'mail' ? (a.sortant === false ? 'Mail reçu' : 'Mail envoyé') : (a.sortant === false ? 'SMS reçu' : 'SMS envoyé');
+    E.push({ k: k, quand: fcAvQuand(a.at), titre: t + (a.par && !a.moi ? ' · ' + a.par : ''), sous: a.objet || '' }); });
+  E.sort(function(x, y) { return x.k < y.k ? 1 : x.k > y.k ? -1 : 0; });
+  return E.slice(0, n).map(function(e) { return '<div class="fc-av-ech"><span class="d">' + escapeHtml(e.quand) + '</span><span><b>' + escapeHtml(e.titre) + '</b>' + (e.sous ? ' · ' + escapeHtml(String(e.sous).slice(0, 90)) : '') + '</span></div>'; }).join('');
+}
+function fcChargerRayons() { // demandes de vendeurs à 5 / 10 / 15 / 20 km (30 jours, année) et partenaires RealAdvisor (= concurrents) — lieu résolu par le copilot (fiche Close), puis GET /secteur/rayons
+  if (typeof COPILOT_URL === 'undefined') return null; var cle = _fc.cle, sync = true, S = null;
+  sdSecteurChiffres({ lead: _fc.leadChoisi || '', nom: _fc.nom, email: _fc.email || '' }, function(x) { S = x; var k = fcRayonsCle(x); if (k && !_fcRayons[k]) { _fcRayons[k] = { enCours: true, data: null };
+      fetch(COPILOT_URL + '/secteur/rayons?' + new URLSearchParams({ ville: x.ville || '', cp: x.cp || '' }), { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).catch(function() { return null; })
+        .then(function(j) { _fcRayons[k] = { enCours: false, data: j && j.ok ? j : { ok: false, error: (j && j.error) || 'copilot sans réponse' } }; fcAvantRafraichir(cle); }); }
+    if (!sync) fcAvantRafraichir(cle); });
+  sync = false; return S;
+}
+function fcRayonsCle(x) { if (!x || !x.trouve) return ''; var k = (x.cp || '') + '|' + String(x.ville || '').toLowerCase().trim(); return k === '|' ? '' : k; }
+function fcHtmlRayons() {
+  var S = fcChargerRayons(), k = fcRayonsCle(S), R = k && _fcRayons[k] ? _fcRayons[k] : null, nb = function(n) { return Number(n || 0).toLocaleString('fr-FR'); }, court = function(n) { return String(n || '').split('|')[0].trim(); };
+  var titre = '<div class="fc-card-t"><span>📍 Son secteur' + (S && S.trouve && (S.ville || S.cp) ? ' · ' + escapeHtml([S.ville, S.cp].filter(Boolean).join(' ')) : '') + '</span><span class="fc-muted" style="font-weight:500;font-size:12px;">demandes = propriétaires ayant déclaré un projet de vente · CRM RealAdvisor</span></div>';
+  if (!S) return '<div class="fc-card">' + titre + '<div class="fc-muted">Lecture du secteur…</div></div>';
+  if (!S.trouve || !k) return '<div class="fc-card">' + titre + '<div class="fc-muted">Lieu inconnu : pas d\'adresse ni de ville sur la fiche Close.</div></div>';
+  if (!R || R.enCours) return '<div class="fc-card">' + titre + '<div class="fc-muted">Comptage par rayon (5 à 20 s la première fois)…</div></div>';
+  var j = R.data; if (!j || !j.ok) return '<div class="fc-card">' + titre + '<div class="fc-muted">CRM indisponible : ' + escapeHtml((j && j.error) || '') + ' · <a style="color:var(--accent);cursor:pointer" onclick="delete _fcRayons[' + JSON.stringify(k).replace(/"/g, '&quot;') + '];fcRendre()">Réessayer</a></div></div>';
+  var ray = j.rayons || {}, noms = [];
+  var lignes = [5, 10, 15, 20].map(function(km) { var r = ray[km] || {}; if (r.noms && r.noms.length) noms.push(km + ' km : ' + r.noms.map(court).join(', '));
+    return '<tr><td><b>' + km + ' km</b></td><td class="n"><b>' + nb(r.demandes30) + '</b></td><td class="n">' + nb(r.demandesAn) + '</td><td class="conc">' + nb(r.partenaires) + '</td></tr>'; }).join('');
+  return '<div class="fc-card">' + titre + '<table class="fc-av-tab"><thead><tr><th>Rayon</th><th class="n">30 derniers jours</th><th class="n">Depuis le 1er janv.</th><th class="n">Concurrents (partenaires RA)</th></tr></thead><tbody>' + lignes + '</tbody></table>'
+    + (noms.length ? '<div class="fc-muted" style="font-size:12px;margin-top:8px;line-height:1.5;">' + escapeHtml(noms.join(' · ')) + '</div>' : '') + '</div>';
+}
+function fcHtmlAvant() {
+  var j = _fc.dernier || null, today = rlIso(new Date());
+  var obj = ''; try { obj = fcObjectifAppel(); } catch (e) {} if (!obj && j && j.prochaine) obj = j.prochaine; if (obj) obj = obj.charAt(0).toUpperCase() + obj.slice(1);
+  var bande = obj ? '<div class="fc-av-obj"><span style="font-size:24px;" aria-hidden="true">🎯</span><div><div class="l">Ce que je veux obtenir</div><div class="t">' + escapeHtml(obj) + '</div></div></div>' : '';
+  var dit = fcAvantDernierMot(j), etat = !j ? 'Lecture de Close…' : (j.error ? 'Close : ' + j.error : (j.trouve === false ? 'Aucune fiche Close trouvée.' : 'Aucun message reçu de sa part dans Close.'));
+  var ditH = '<div class="fc-card fc-av-dit"><div class="fc-card-t"><span>💬 Il a dit</span><span class="fc-muted" style="font-weight:500;">' + (dit ? escapeHtml(dit.quand) : '') + '</span></div>' + (dit ? '<div class="q">« ' + escapeHtml(dit.texte) + ' »</div>' : '<div class="fc-muted">' + escapeHtml(etat) + (j && j.partiel ? ' · synthèse en cours…' : '') + '</div>') + '</div>';
+  // à savoir : les clés closer (promesse, promis par un collègue, appels sans réponse, démo faite) + mail d'offre + R2 sans résultat
+  var al = j && j.trouve ? fcHtmlCles(j, 'essentiel').replace(/<div class="cle">🎯[\s\S]*?<\/div>/, '') : '';
+  try { var moF = sdMailOffrePour(_fc.nom, _fc.email || ''); if (moF) al += '<div class="fc-av-al"><i style="background:' + (moF.lu ? 'var(--sd-green, #2f9e5b)' : 'var(--orange, #e0a62a)') + ';"></i>Mail d\'offre ' + escapeHtml(sdMailOffreTexte(moF)) + '</div>'; } catch (e) {}
+  var r2s = (_fc.rows || []).filter(function(r) { var d2 = r.source === 'R2' ? frVersIsoSd(String(r.date || '').trim()) : frVersIsoSd(String(r.dateR2 || '').trim()); return d2 && d2 < today && !String(r.source === 'R2' ? r.presence || '' : r.presenceR2 || '').trim(); });
+  r2s.forEach(function(r) { al += '<div class="fc-av-al"><i style="background:var(--orange, #e0a62a);"></i>R2 du ' + escapeHtml(r.source === 'R2' ? r.date : r.dateR2) + ' : ni présence ni résultat</div>'; });
+  var alH = '<div class="fc-card"><div class="fc-card-t"><span>⚠ À savoir avant de décrocher</span></div>' + (al || '<div class="fc-muted">' + (j ? 'Rien de particulier.' : 'Lecture de Close…') + '</div>') + '</div>';
+  // pour ouvrir : l'accroche closer + ton R1 en bref
+  var ouv = j && j.trouve ? fcHtmlCles(j, 'reste').replace('💬 <b>Pour ouvrir :</b> ', '').replace('💬 <b>Pour ouvrir</b> ', '') : ''; /* la carte s'appelle déjà « Pour ouvrir » */ var r1b = ''; try { fcChargerResumeR1(false); var b = _fcR1b && _fcR1b.cle === _fc.cle ? _fcR1b : null, R = b && b.data && b.data.ok && b.data.resume; if (R && R.en_bref) r1b = '<div style="margin-top:' + (ouv ? '8px' : '0') + ';line-height:1.5;">' + escapeHtml(R.en_bref) + ' <span class="fc-muted">(ton R1' + (b.data.date ? ' du ' + escapeHtml(fcFrDepuisIso(b.data.date)) : '') + ')</span></div>'; else if (b && !b.data) r1b = '<div class="fc-muted">Lecture du compte rendu Claap du R1…</div>'; } catch (e) {}
+  var ouvH = '<div class="fc-card"><div class="fc-card-t"><span>🗣 Pour ouvrir</span></div>' + (ouv || r1b ? ouv + r1b : '<div class="fc-muted">' + (j ? 'Rien d\'exploitable dans Close pour ouvrir.' : 'Lecture de Close…') + '</div>') + '</div>';
+  var ech = fcAvantEchanges(j, 4);
+  var echH = '<div class="fc-card"><div class="fc-card-t"><span>🕘 Derniers échanges</span><a onclick="fcOnglet(\'prepa\')">Tous les échanges →</a></div>' + (ech || '<div class="fc-muted">' + (j ? 'Aucun échange connu.' : 'Lecture de Close…') + '</div>') + '</div>';
+  return '<div class="fc-av">' + bande + ditH + '<div class="fc-av-2">' + alH + ouvH + '</div>' + fcHtmlRayons() + echH + '</div>';
 }
 // ── Synthèse : ce qu'il faut savoir en dix secondes. Contexte (depuis Close, par l'IA), dernier échange réel, ma note ; à droite prochaine étape, offre, à vérifier. Rien d'inventé : ce qui manque est « À clarifier ». ──
 function fcBlocEchangeHtml(e, i) {
@@ -5671,7 +5731,7 @@ function fcChargerResumeR1(force) {
   _fcR1b = { id: id, cle: cle, data: null, enCours: true };
   fetch(COPILOT_URL + '/close/resume-r1?' + new URLSearchParams(Object.assign({ nom: _fc.nom, email: _fc.email || '' }, lead ? { lead: lead } : {}, tel ? { tel: tel } : {}, force ? { force: '1' } : {})), { mode: 'cors', cache: 'no-store' })
     .then(function(r) { return r.json(); }).catch(function() { return { ok: false, error: 'copilot sans réponse' }; })
-    .then(function(j) { if (!_fcR1b || _fcR1b.id !== id) return; _fcR1b.data = j; _fcR1b.enCours = false; if (_fc.cle === cle && _fc.tab === 'synthese' && document.querySelector('#fc-overlay.open, .sv-fiche')) fcRendre(); });
+    .then(function(j) { if (!_fcR1b || _fcR1b.id !== id) return; _fcR1b.data = j; _fcR1b.enCours = false; if (_fc.cle === cle && (_fc.tab === 'synthese' || _fc.tab === 'avant') && document.querySelector('#fc-overlay.open')) fcRendre(); else fcAvantRafraichir(cle); });
 }
 function fcHtmlResumeR1() {
   var aEuR1 = _fc.rows.some(function(r) { return r.source !== 'R2' && String(r.presence || '').trim() === 'Show'; }); if (!aEuR1) return '';
@@ -5908,7 +5968,7 @@ function fcChargerHistorique() {
   ]).then(function(res) {
     if (_fc.cle !== cle) return; var n = fcNormNom(nom);
     _fcHisto = { cle: cle, data: { ecritures: (res[0].ecritures || []).filter(function(e) { return m ? e.lead === m[0] : fcNormNom(e.nom || '') === n; }), sms: (res[1].sms || []).filter(function(x) { return fcNormNom(x.nom || '') === n; }), mails: (res[2].mails || []).filter(function(x) { return fcNormNom(x.nom || '') === n; }) } };
-    if (_fc.tab === 'prepa' || _fc.tab === 'synthese') fcRendre();
+    if (_fc.tab === 'prepa' || _fc.tab === 'synthese' || _fc.tab === 'avant') fcRendre();
   });
 }
 // Un dossier copilot (prépa, notes, après-RDV, coach) — compact = dans la chronologie (replié sous un résumé)
@@ -14338,7 +14398,7 @@ function svFicheHtml(sel, email) {
   var Q = function(v) { return JSON.stringify(v).replace(/"/g, '&quot;'); }, cle = fcCle(nom, email), nomJs = Q(nom), emailJs = Q(email || '');
   var saved = _fc, next = document.getElementById('fc-next'), avant = next ? next.innerHTML : '', html = '';
   _fc = { cle: cle, nom: nom, email: email || '', rows: rows, tab: 'synthese', dossiers: null, close: null, date: '', dernier: _sv.ctx[sel.cle] || null, contactMini: '', leadChoisi: (sel.t && sel.t.lead) || '', leadImpose: !!(sel.t && sel.t.lead) };
-  try { try { fcRendreProchaineEtape(); } catch (e) {} try { fcRendreTacheClose(); } catch (e) {} html = fcHtmlSynthese(); }
+  try { try { fcRendreProchaineEtape(); } catch (e) {} try { fcRendreTacheClose(); } catch (e) {} html = '<div style="text-align:right;margin:-4px 0 8px;"><a style="font-size:12.5px;font-weight:600;color:var(--accent);cursor:pointer;" onclick="fcOnglet(\'synthese\')">Fiche complète →</a></div>' + fcHtmlAvant(); } // 31 oct. 2026 : le Suivi s'ouvre sur « Avant d'appeler »
   catch (e) { html = '<div class="fc-muted">Synthèse indisponible : ' + escapeHtml(e.message) + '</div>'; }
   finally { _fc = saved; if (next) next.innerHTML = avant; }
   return '<div class="sv-fiche">' + html
@@ -16558,6 +16618,7 @@ window.addEventListener('load', function() {
       <div class="fc-tache" id="fc-tache"></div>
     </div>
     <div class="fc-tabs">
+      <button class="fc-tab" data-tab="avant" onclick="fcOnglet('avant')">Avant d'appeler</button>
       <button class="fc-tab on" data-tab="synthese" onclick="fcOnglet('synthese')">Synthèse</button>
       <button class="fc-tab" data-tab="prepa" onclick="fcOnglet('prepa')">Échanges</button>
       <button class="fc-tab" data-tab="mails" onclick="fcOnglet('mails')">Mails</button>
