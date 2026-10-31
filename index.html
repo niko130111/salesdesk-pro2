@@ -7491,8 +7491,10 @@ function sdStatutClose(row, evenement) {
       if (!j || typeof showCopyToast !== 'function') return;
       if (j.sansFiche) { showCopyToast('Close : pas de fiche pour ' + row.client + ' (statut non modifié)'); return; }
       if (j.ok && j.fait) { var f = j.fait; var txt = [f.opp && /→/.test(f.opp) ? 'opportunité ' + f.opp : '', f.lead && /→/.test(f.lead) ? 'lead ' + f.lead : ''].filter(Boolean).join(' · '); if (txt) showCopyToast('🧭 Close : ' + txt); else if (f.opp && /aucune opportunité/.test(f.opp)) showCopyToast('Close : ' + row.client + ' n\'a pas d\'opportunité, statut non modifié'); }
-    }).catch(function() {});
+      else if (j.ok === false) showCopyToast('⚠ Close non mis à jour pour ' + row.client + ' (' + sdLibEvenement(evenement) + ') : ' + (j.error || 'erreur'), { erreur: true }); // 31 oct. 2026 (audit T03) : l'échec se voit
+    }).catch(function() { if (typeof showCopyToast === 'function') showCopyToast('⚠ Close non mis à jour pour ' + row.client + ' (' + sdLibEvenement(evenement) + ') : copilot injoignable', { erreur: true }); });
 }
+function sdLibEvenement(ev) { return { no_show: 'No Show', annule: 'Annulé', reprogramme: 'Reprogrammé', show: 'Show', pas_interesse: 'Pas intéressé', ghost: 'Ghost', mail_envoye: 'Attente de signature', laisser_tomber: 'Laisser tomber' }[ev] || ev; }
 function sdStatutDepuisPresence(row, presence) { var ev = { 'No Show': 'no_show', 'Annulé': 'annule', 'Reprogrammé': 'reprogramme', 'Show': 'show' }[String(presence || '').trim()]; if (ev) sdStatutClose(row, ev); }
 // Après un no-show : Nicolas décide — relancer (tâche Close demain / autre jour) ou laisser tomber. Rien n'entre dans la file sans ce choix.
 function sdDeciderNoShow(row) { // une seule fenêtre no-show, quelle que soit la porte d'entrée (tableau, carte, fiche, Aujourd'hui)
@@ -15553,12 +15555,12 @@ window.addEventListener('load', () => {
 // ============================================================
 
 
-function showCopyToast(msg) {
-  const toast = document.createElement('div');
-  toast.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--green);color:white;padding:14px 24px;border-radius:99px;font-size:14px;font-weight:600;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,.2);max-width:90vw;';
+function showCopyToast(msg, opts) { // opts.erreur (31 oct. 2026) : toast rouge, 8 s — une écriture Close qui a échoué doit se voir
+  const toast = document.createElement('div'), err = !!(opts && opts.erreur);
+  toast.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:' + (err ? 'var(--red)' : 'var(--green)') + ';color:white;padding:14px 24px;border-radius:99px;font-size:14px;font-weight:600;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,.2);max-width:90vw;';
   toast.textContent = msg;
   document.body.appendChild(toast);
-  setTimeout(() => toast.remove(), 4000);
+  setTimeout(() => toast.remove(), err ? 8000 : 4000);
 }
 
 
