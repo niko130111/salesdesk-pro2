@@ -4492,8 +4492,9 @@ function fcMailEur(n) { return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ' ') +
 function fcMailTierDefaut() { try { var t = (_fc.rows || []).map(function(r) { return (/(\d)/.exec(String(r.tier || '')) || [])[1]; }).filter(Boolean)[0]; return +t || 1; } catch (e) { return 1; } }
 function fcMailModelesHtml(M) {
   var chip = function(id, lib) { return '<button class="btn btn-sm' + (M.modele === id ? ' btn-primary' : '') + '" onclick="fcMailModele(\'' + id + '\')">' + lib + '</button>'; };
-  var h = '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:8px;"><span class="fc-muted" style="min-width:44px;">Modèle</span>' + chip('offres', '💶 Offres') + chip('presentation', '👋 Présentation RealAdvisor') + chip('reseau', '🤝 Partenaires de son réseau') + chip('retard', '⏰ Retard') + chip('libre', '✍️ Libre') + '</div>';
+  var h = '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:8px;"><span class="fc-muted" style="min-width:44px;">Modèle</span>' + chip('offres', '💶 Offres') + chip('presentation', '👋 Présentation RealAdvisor') + chip('reseau', '🤝 Partenaires de son réseau') + chip('retard', '⏰ Retard') + chip('decision', '🤔 Décision attendue') + chip('preuve', '📎 Preuve promise') + chip('signature', '✍️ Signature en attente') + chip('silence', '🔁 Reprise après silence') + chip('libre', '✍️ Libre') + '</div>'; // 31 oct. 2026 (audit M01) : les 4 moments du suivi après R1
   if (M.modele === 'offres') h += '<div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;"><span class="fc-muted" style="min-width:44px;">Tier</span>' + [1, 2, 3, 4].map(function(t) { return '<button class="btn btn-sm' + (M.tier === t ? ' btn-primary' : '') + '" onclick="fcMailModele(\'offres\',' + t + ')">' + t + '</button>'; }).join('') + '</div>';
+  if (['decision', 'preuve', 'signature', 'silence'].indexOf(M.modele) >= 0) { try { var S = fcMailSuiviCtx(); var rap = [S.promesse ? 'promesse : ' + S.promesse : '', S.deal ? 'deal : ' + S.deal : ''].filter(Boolean).join(' · '); if (rap) h += '<div class="fc-muted" style="margin:-2px 0 8px;">D\'après Close (pour toi, pas dans le mail) : ' + escapeHtml(rap) + '</div>'; } catch (e) {} } // 31 oct. 2026 : les notes du copilot sont écrites pour Nicolas (« Tu devais… »), elles guident, elles ne partent pas
   if (M.modele === 'retard') h += '<div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;"><span class="fc-muted" style="min-width:44px;">Retard</span>' + [5, 10, 15, 20, 30].map(function(t) { return '<button class="btn btn-sm' + (M.retard === t ? ' btn-primary' : '') + '" onclick="fcMailModele(\'retard\',' + t + ')">' + t + ' min</button>'; }).join('') + '</div>';
   return h;
 }
@@ -4514,8 +4515,28 @@ function fcMailModele(id, tier) {
     var hRdv = rdvJ ? ' de ' + String(rdvJ.heure).replace(':', 'h') : '';
     M.b.objet = (p ? p + ' – ' : '') + 'Petit retard pour notre rendez-vous' + hRdv;
     M.b.texte = 'Bonjour ' + p + ',\n\nVeuillez m\'excuser, mon rendez-vous précédent dure un peu plus longtemps que prévu : j\'aurai environ ' + mn + ' minutes de retard pour notre rendez-vous' + hRdv + '.\n\nJe vous rejoins dès que possible, sur le même lien.\n\nMerci de votre compréhension,\n\nBien cordialement,'; }
+  else if (['decision', 'preuve', 'signature', 'silence'].indexOf(id) >= 0) { // 31 oct. 2026 (audit M01) : mails de suivi pré-remplis avec ce que le copilot sait (promesse datée, offre discutée) ; « … » = à compléter ; rien ne part sans relecture
+    var S = fcMailSuiviCtx(), q = S.quandRdv;
+    if (id === 'decision') { M.b.objet = (p ? p + ' – ' : '') + 'Où en êtes-vous ?';
+      M.b.texte = 'Bonjour ' + p + ',\n\nSuite à ' + q + (S.offre ? ', nous avions parlé de ' + S.offre : '') + '.\n\nOù en êtes-vous de votre réflexion ? S\'il reste une question ouverte, dix minutes au téléphone suffisent : ' + S.jourProche + ' vous conviendrait-il ?\n\nBien cordialement,'; }
+    else if (id === 'preuve') { M.b.objet = (p ? p + ' – ' : '') + 'Comme promis';
+      M.b.texte = 'Bonjour ' + p + ',\n\nComme promis lors de ' + q + ', voici … :\n\n• \n\nDites-moi si cela répond à votre question, et quand nous pouvons en reparler.\n\nBien cordialement,'; }
+    else if (id === 'signature') { M.b.objet = (p ? p + ' – ' : '') + 'Votre accès RealAdvisor';
+      M.b.texte = 'Bonjour ' + p + ',\n\nNous étions convenus de ' + (S.offre ? S.offre : '…') + '. Tout est prêt de mon côté.\n\nSouhaitez-vous que je vous renvoie le lien de signature, ou préférez-vous que nous le fassions ensemble au téléphone ? Dix minutes suffisent.\n\nBien cordialement,'; }
+    else { M.b.objet = (p ? p + ' – ' : '') + 'On en reste là ?';
+      M.b.texte = 'Bonjour ' + p + ',\n\nJe n\'ai pas eu de retour depuis ' + q + '. Nous en étions à ' + (S.offre || '…') + '.\n\nPour ne pas vous relancer inutilement : on en reste là, ou on se reparle cette semaine ? Un mot suffit.\n\nBien cordialement,'; } }
   else { M.b.objet = ''; M.b.texte = 'Bonjour ' + p + ',\n\n\n\nBien cordialement,'; }
   fcRendre();
+}
+function fcMailSuiviCtx() { // ce que la fiche sait déjà, pour les mails de suivi : dernier RDV tenu, offre discutée (ligne SalesDesk puis Close), promesse datée du copilot, prochain jour ouvré
+  var out = { quandRdv: 'notre dernier échange', deal: '', promesse: '', offre: '', jourProche: '' };
+  try { var tenu = (_fc.rows || []).filter(function(r) { var d = parseDateFR(r.date); return String(r.presence || '').trim() === 'Show' && d && d <= new Date(); }).sort(function(x, y) { return parseDateFR(y.date) - parseDateFR(x.date); })[0];
+    if (tenu) out.quandRdv = frVersIsoSd(tenu.date) === rlIso(new Date()) ? 'notre rendez-vous de ce jour' : 'notre rendez-vous du ' + tenu.date;
+    var r1 = (_fc.rows || []).filter(function(r) { return r.source !== 'R2' && (r.pack || r.freq); }).sort(function(x, y) { return parseDateFR(y.date) - parseDateFR(x.date); })[0];
+    if (r1 && r1.pack) out.offre = 'l\'offre ' + r1.pack + (r1.freq ? ' en ' + String(r1.freq).toLowerCase() : '');
+    var c = sdClesPropres(((_fc.dernier || {}).cles) || {}); out.deal = (c.deal || '').replace(/\.$/, ''); out.promesse = (c.promesse || '').replace(/\.$/, '');
+    var j = rlJourOuvre(rlIso(new Date()), 1), d = new Date(j + 'T12:00:00'); out.jourProche = d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }); } catch (e) {}
+  return out;
 }
 function fcMailEnvoyer(reel) {
   var M = _fcMails, j = M.data, b = M.b; if (!j || M.enCours) return;
