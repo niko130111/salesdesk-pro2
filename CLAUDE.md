@@ -26,6 +26,7 @@ SalesDesk Pro est un dashboard **single-file HTML** (~16 700 lignes au 31 oct. 2
 5. **Jours fériés français** : à exclure dans tous les calculs de "jours ouvrés"
 6. **Deduplication Outbound** : par email, sur 2 mois glissants
 7. **Matching auto R2 Calendly** : DÉSACTIVÉ (générait des doublons)
+8. **Opportunité Close après un RDV tenu** : jamais « Demo Completed » (Nicolas, 31 oct. 2026). Un show → « Contract Sent / Offer Sent » (= offre envoyée) ; sinon « Lost - … ». Mapping dans `STATUTS_OPP` du copilot.
 
 ## 🗄️ Structure localStorage
 ```js

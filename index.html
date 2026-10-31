@@ -6449,7 +6449,7 @@ function arPlan() {
   L.push('SalesDesk : ' + sd.join(' · '));
   if (a.estR2 && a.presence === 'Show' && a.result === 'Attente') { L.push('Close : opportunité → Contract Sent / Offer Sent'); if (a.relDate) L.push('Close : tâche « Relancer : en attente de signature » le ' + fcFrDepuisIso(a.relDate)); }
   if (!a.estR2) {
-    var ev = { 'No Show': 'Demo No Show', 'Annulé': 'Demo Cancelled', 'Reprogrammé': 'Demo Rescheduled', 'Show': 'Demo Completed' }[a.presence];
+    var ev = { 'No Show': 'Demo No Show', 'Annulé': 'Demo Cancelled', 'Reprogrammé': 'Demo Rescheduled', 'Show': 'Contract Sent / Offer Sent' }[a.presence]; // 31 oct. 2026 (Nicolas) : jamais « Demo Completed »
     if (a.presence === 'Show' && a.result === 'Non signé' && a.raison === 'pasinteresse') ev = 'Lost - No Longer Interested · lead Not interested';
     if (a.presence === 'No Show' && a.nsChoix === 'stop') ev = 'Lost - Cancelled';
     if (a.presence === 'Show' && a.result === 'Attente') ev = 'Contract Sent / Offer Sent';
