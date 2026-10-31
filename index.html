@@ -5324,7 +5324,7 @@ function rlAction(ix, action, btn, opts) { opts = opts || {};
     var pasCad = it.col === 'r2' ? 1 : cad[Math.min(n - 1, cad.length - 1)], dateCad = rlJourOuvre(today, pasCad), dVeille = rlJourOuvre(rlPlus(today, 29), 1), finCad = it.col !== 'r2' && n > cad.length;
     // 17 oct. 2026 (tâches, étape 2) : la cadence propose, Nicolas dispose — la date est pré-remplie, modifiable avant toute écriture dans Close ; J+30 = veille (compteur remis à zéro)
     if (!opts.date) {
-      rlDateModal(it.nom + ' — sans réponse (appel ' + n + (it.col !== 'r2' ? '/' + cad.length : '') + '). Prochain appel ?',
+      rlDateModal(it.nom + ' — sans réponse (' + (cad.length > 1 ? 'appel ' + n + '/' + cad.length : n + (n === 1 ? 'er' : 'e') + ' appel') + '). Prochain appel ?', /* 31 oct. 2026 (audit R06) : « /max » seulement quand la colonne a une vraie cadence (no-show, prise de RDV) ; plus de « appel 2/1 » */
         finCad ? 'Cadence terminée (' + nb + ' appels sans réponse) : la mise en veille 30 jours est proposée. Tu peux choisir une autre date.' : 'Proposé par la cadence : ' + fcFrDepuisIso(dateCad) + '. Tu peux choisir une autre date ; à J+30 ou plus, c\'est une mise en veille (le compteur repart).',
         finCad ? dVeille : dateCad, function(d) { rlAction(it.cle, 'pas_reponse', btn, { date: d }); }, false,
         [[sdLibelleDemain(true), rlJourOuvre(today, 1)], ['+2 j ouvrés', rlJourOuvre(today, 2)], ['+1 semaine', rlJourOuvre(today, 5)], ['Veille 30 j', dVeille]]);
@@ -5341,7 +5341,7 @@ function rlAction(ix, action, btn, opts) { opts = opts || {};
     var date = opts.date;
     occupe(true);
     rlPost('/close/appel-sans-reponse', { lead: id.lead, nom: id.nom, email: id.email, note: 'Pas de réponse · ' + lib + ' · appel ' + n + ' (SalesDesk)' }).catch(function() {})
-      .then(function() { return tacheClose(date, lib + ' · appel ' + (n + 1) + (it.col !== 'r2' ? '/' + cad.length : '') + ''); })
+      .then(function() { return tacheClose(date, lib + ' · appel ' + (n + 1) + (cad.length > 1 ? '/' + cad.length : '') + ''); })
       .then(function() { rlPoserSuivi(it, { tentatives: n, col: it.col, dernier: 'pas_de_reponse', prochaine: date }); return rlMajRelance(it, 'pas_de_reponse', date); })
       .then(function() { fini('📭 Sans réponse (' + n + ') → ' + fcFrDepuisIso(date) + (it.col === 'r2' && n >= 3 ? ' · pense à passer la main (👔)' : '')); if (it.col !== 'r2' && (n === 2 || n === 4)) rlProposerSms(it, id, n === 2 ? 'appel2' : 'appel4'); })
       .catch(echec);
@@ -14202,6 +14202,7 @@ function svChoisir(cle) { _sv.sel = cle; renderRelancesPage(); }
 function svRaison(it) { var t = it.t, r = it.rel && it.rel.r, row = (it.rel && it.rel.row) || it.row || {}; var x = (t && t.texte && !/^follow ?up(\s*\(\d+\))?$/i.test(t.texte.trim()) ? t.texte : '') || (r && r.relance && r.relance.condition) || row.relanceCond || (r && r.contexte) || row.retour || '';
   // 14 oct. 2026 : le titre de la tâche Close garde l'ancien motif (« Prise de RDV ») alors que la ligne est classée ailleurs → on affiche le vrai motif
   var vrai = sdRappelChaud(row) ? 'À rappeler · délai demandé' : (RL_LIBELLES[it.col] || ''); Object.keys(RL_LIBELLES).forEach(function(c) { if (c !== it.col && vrai && x.indexOf(RL_LIBELLES[c]) === 0) x = vrai + x.slice(RL_LIBELLES[c].length); });
+  x = x.replace(/\bappel (\d+)\/1\b/g, function(m, k) { return k + (k === '1' ? 'er' : 'e') + ' appel'; }); // 31 oct. 2026 (audit R06) : les anciens textes « appel 2/1 » se lisent « 2e appel »
   if (it.autres && it.autres.length) x = (x ? x + ' · ' : '') + (it.autres.length + 1) + ' tâches Close ouvertes (aussi : ' + it.autres.map(function(a) { return (a.texte || 'Follow up') + (a.date ? ' le ' + fcFrDepuisIso(String(a.date).slice(0, 10)) : ''); }).join(' ; ') + ')'; // 31 oct. 2026 (audit R01) : les doublons se voient au lieu de faire deux cartes
   return x; }
 function svCharger(it) { // contexte Close du prospect choisi (une fois par prospect) + son téléphone
@@ -14335,7 +14336,7 @@ function svRendreFile(items, today) {
   // barre : quand · motif
   var pauseHtml = ''; // les tâches en pause sont désormais listées en bas de la file (groupe « En pause · RDV pris »)
   var bar = pauseHtml + '<div class="sv-bar">' + [['atraiter', 'À traiter'], ['demain', sdLibelleDemain(true)], ['semaine', '7 jours']].map(function(q) { return '<button class="sv-chip' + (_sv.quand === q[0] ? ' on' : '') + '" onclick="svSet(\'quand\',\'' + q[0] + '\')">' + q[1] + '<b>' + nQ(q[0]) + '</b></button>'; }).join('')
-    + '<span class="sv-sep"></span><button class="sv-chip' + (!_sv.motif ? ' on' : '') + '" onclick="svSet(\'motif\',\'\')">Tous<b>' + base.length + '</b></button>'
+    + '<span class="sv-sep"></span><button class="sv-chip' + (!_sv.motif ? ' on' : '') + '" onclick="svSet(\'motif\',\'\')" title="Tous les motifs, dans la période choisie">Tous motifs<b>' + base.length + '</b></button>'
     + M.map(function(m) { var n = base.filter(function(it) { var mo = motifDe(it); return mo === m[0] || (m[0] === 'aclasser' && !M.some(function(x) { return x[0] === mo; })); }).length; return n ? '<button class="sv-chip' + (_sv.motif === m[0] ? ' on' : '') + '" onclick="svSet(\'motif\',\'' + m[0] + '\')">' + m[1] + '<b>' + n + '</b></button>' : ''; }).join('') + '</div>';
   if (!ordre.length) { el.innerHTML = bar + '<div class="sv-liste"><div class="sv-vide">' + (!_tachesClose ? 'Lecture des tâches Close…' : (_tachesClose.error ? 'Tâches Close indisponibles : le copilot ne répond pas.' : 'Rien ' + (_sv.quand === 'atraiter' ? 'à traiter. File vide.' : 'sur cette période.'))) + '</div></div>'; return; }
   // liste
