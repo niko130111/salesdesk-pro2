@@ -3389,10 +3389,10 @@ async function sdCloudConflit(data, _retry) {
     let res = await lire();
     if ((res.status === 401 || res.status === 403) && await supaAuthRequise(res.status)) res = await lire();
     if (!res.ok) { setSyncStatus('error'); _syncErreur = true; return true; } // cloud illisible : on n'écrit pas à l'aveugle
-    const rows = await res.json(); const distant = (rows && rows[0] && rows[0]._lastWrite) || '';
+    const rows = await res.json(); const distant = (rows && rows[0] && rows[0]._lastWrite) || ''; window._sdCloudDistant = distant; // 31 oct. 2026 (audit T04) : l'écriture qui suit est conditionnée à cette valeur, côté base
     if (Array.isArray(rows) && !rows.length) { if (!_retry && await supaSessionRequise()) return sdCloudConflit(data, true); setSyncStatus('error'); _syncErreur = true; return true; } // ligne invisible sans session : on n'écrit pas
     if (!distant || distant === _sdCloudVu || distant === data._lastWrite) return false;
-    if (_sdCloudVu !== null && distant < _sdCloudVu) return false;
+    // 31 oct. 2026 : la tolérance « cloud plus vieux que ce que j'ai vu » est retirée — _sdCloudVu ne vient plus que du cloud (chargement, PATCH réussi, veille, clé cloud_base d'un autre onglet), un écart est donc toujours un conflit
     console.warn('[sync] écriture bloquée : le cloud a été réécrit ailleurs (' + distant + '), dernier vu ici : ' + _sdCloudVu);
     setSyncStatus('error'); _syncErreur = true;
     if (!window._sdConflitSignale) { window._sdConflitSignale = true; try { alert('⚠️ Les données du cloud ont été modifiées depuis un autre appareil.\n\nPour ne rien écraser, la sauvegarde est bloquée : recharge la page (tes dernières modifs seront à refaire).'); } catch (e) {} }
@@ -3402,21 +3402,26 @@ async function sdCloudConflit(data, _retry) {
 // Horodatage du cloud dont descend le store local (posé à chaque chargement ou sauvegarde réussis).
 // Au démarrage, le local ne l'emporte que s'il descend de la version actuelle du cloud.
 function sdBaseCloud(v) { try { if (v === undefined) return localStorage.getItem('salesdesk_cloud_base') || ''; localStorage.setItem('salesdesk_cloud_base', v || ''); } catch (e) {} return ''; }
+var _sdSaveEnVol = false, _sdSaveARefaire = null;
 async function supabaseSave(data, _retry) {
+  if (_sdSaveEnVol && !_retry) { _sdSaveARefaire = data; return false; } // 31 oct. 2026 : une seule écriture en vol ; celle-ci repartira à la fin de l'autre, avec la copie courante
+  _sdSaveEnVol = true;
   try {
     // Garde du 13 oct. 2026 : rien ne part vers le cloud avant le chargement initial (un appareil resté sur de vieilles données les y poussait).
     if (_sdChargementInitial) return false;
     if (window._sdOngletPerime) { setSyncStatus('error'); _syncErreur = true; return false; } // 19 oct. 2026 : un onglet plus récent de SalesDesk est ouvert dans ce navigateur → celui-ci n'écrit plus
     if (await sdCloudConflit(data)) return false; // 19 oct. 2026 : vérifié AUSSI au 2e essai — après une session expirée (401), le nouvel essai sautait la garde, et un onglet resté sur un vieil état a écrasé le cloud (16:43)
-    const res = await fetch(SUPA_URL + '/rest/v1/' + SUPA_TABLE + '?id=eq.' + SUPA_ID + '&select=id', {
+    // 31 oct. 2026 (audit T04) : « écris seulement si l'horodatage du cloud est encore celui que je viens de lire » — c'est la base qui vérifie, en une seule opération ; deux appareils qui écrivent à la même seconde ne peuvent plus s'écraser. 0 ligne écrite = conflit → le nouvel essai repasse par sdCloudConflit, qui prévient.
+    const cond = window._sdCloudDistant ? '&data->>_lastWrite=eq.' + encodeURIComponent(window._sdCloudDistant) : '';
+    const res = await fetch(SUPA_URL + '/rest/v1/' + SUPA_TABLE + '?id=eq.' + SUPA_ID + cond + '&select=id', {
       method: 'PATCH',
       headers: Object.assign({ 'Content-Type': 'application/json', 'Prefer': 'return=representation' }, supaAuthHeaders()), // la réponse dit combien de lignes ont été écrites : 0 = pas connecté (RLS), pas « sauvegardé »
       body: JSON.stringify({ data: data, updated_at: new Date().toISOString() })
     });
-    if ((res.status === 401 || res.status === 403) && !_retry && await supaAuthRequise(res.status)) return supabaseSave(data, true);
+    if ((res.status === 401 || res.status === 403) && !_retry && await supaAuthRequise(res.status)) return await supabaseSave(sdCopieLaPlusRecente(data), true);
     if (!res.ok) throw new Error('PATCH failed ' + res.status);
     let ecrites = null; try { ecrites = await res.json(); } catch (e) {}
-    if (Array.isArray(ecrites) && !ecrites.length) { if (!_retry && await supaSessionRequise()) return supabaseSave(data, true); setSyncStatus('error'); _syncErreur = true; return false; }
+    if (Array.isArray(ecrites) && !ecrites.length) { if (!_retry && await supaSessionRequise()) return await supabaseSave(sdCopieLaPlusRecente(data), true); setSyncStatus('error'); _syncErreur = true; return false; } // 0 ligne avec une session valide = quelqu'un a écrit entre-temps : le nouvel essai repasse par sdCloudConflit
     _sdCloudVu = data._lastWrite || _sdCloudVu;
     sdBaseCloud(data._lastWrite || '');
     setSyncStatus('saved');
@@ -3425,8 +3430,9 @@ async function supabaseSave(data, _retry) {
     console.warn('Supabase save error:', e);
     setSyncStatus('error'); _syncErreur = true;
     return false;   // FIX SD-02 : l'appelant doit pouvoir savoir que la sauvegarde a echoue
-  }
+  } finally { if (!_retry) { _sdSaveEnVol = false; if (_sdSaveARefaire) { var d2 = _sdSaveARefaire; _sdSaveARefaire = null; setTimeout(function() { supabaseSave(d2); }, 0); } } }
 }
+function sdCopieLaPlusRecente(data) { return (_sessionStore && data && String(_sessionStore._lastWrite || '') > String(data._lastWrite || '')) ? _sessionStore : data; } // un nouvel essai ne repousse jamais une copie plus vieille que celle affichée
 
 async function supabaseLoad(_retry) {
   try {
@@ -3812,10 +3818,58 @@ function loadStore() {
 // En cas d'égalité ou d'absence d'horodatage, le local est prioritaire — on ne perd pas
 // une saisie faite hors-ligne pour un cloud potentiellement périmé.
 // 19 oct. 2026 (écrasement de 16:43) : un seul onglet SalesDesk écrit dans le cloud — à l'ouverture d'un nouvel onglet, les anciens passent en lecture seule avec un bandeau « recharge »
-try { (function() { if (typeof BroadcastChannel === 'undefined') return; var bc = new BroadcastChannel('salesdesk_onglets'), moi = Date.now() + '-' + Math.random().toString(36).slice(2, 7);
-  bc.onmessage = function(ev) { var m = ev && ev.data; if (!m || m.type !== 'nouvel_onglet' || m.id === moi || window._sdOngletPerime) return; window._sdOngletPerime = true; if (_syncTimeout) { clearTimeout(_syncTimeout); _syncTimeout = null; }
-    try { var b = document.createElement('div'); b.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:#c0392b;color:#fff;font:600 15px/1.4 -apple-system,sans-serif;padding:12px 16px;text-align:center;'; b.innerHTML = 'SalesDesk est ouvert dans un autre onglet : celui-ci n\'enregistre plus rien. <button style="margin-left:10px;font:inherit;padding:4px 12px;border-radius:8px;border:0;cursor:pointer;" onclick="location.reload()">Recharger</button>'; document.body.appendChild(b); } catch (e) {} };
-  bc.postMessage({ type: 'nouvel_onglet', id: moi }); })(); } catch (e) {}
+// ── 31 oct. 2026 : plusieurs SalesDesk ouverts (onglets, appareils) restent à jour sans rechargement ──
+// Même navigateur : quand un onglet enregistre, les autres adoptent sa copie dans la seconde (événement storage) ; remplace le verrou « un seul onglet écrit » du 19 oct. (bandeau rouge), devenu inutile puisque chaque onglet part toujours de la dernière copie.
+// Autre appareil : toutes les 20 s quand l'onglet est visible, et au retour sur l'onglet, on compare l'horodatage du cloud ; plus récent → on récupère la copie et on réaffiche. Pas de fusion : une sauvegarde en attente ici bloque la récupération jusqu'au passage suivant.
+function sdAdopterStore(data, source, confirmeParLeCloud) { // confirmeParLeCloud : vrai seulement quand la copie vient d'être lue dans le cloud (veille) ; depuis un autre onglet, l'horodatage n'est pas encore confirmé (il le sera par la clé salesdesk_cloud_base, écrite après son PATCH réussi)
+  try {
+    var neuf = String((data && data._lastWrite) || ''), mien = String((_sessionStore && _sessionStore._lastWrite) || '');
+    if (!neuf || neuf <= mien) return false;
+    var sans = function(k, v) { return (k === '_lastWrite' || k === '_monthKey' || k === '_storeKey') ? undefined : v; };
+    if (_sessionStore && JSON.stringify(data, sans) === JSON.stringify(_sessionStore, sans)) { _sessionStore._lastWrite = neuf; if (confirmeParLeCloud) { _sdCloudVu = neuf; sdBaseCloud(neuf); } return false; } // même contenu, seul l'horodatage change : on s'aligne sans réafficher (évite un va-et-vient entre onglets)
+    if (_syncTimeout) { clearTimeout(_syncTimeout); _syncTimeout = null; } // une sauvegarde en attente sur l'ancienne copie ne part plus : elle repartirait d'une base périmée
+    _sessionStore = sdMigrerOneShot(Object.assign({}, BUILTIN_DATA, data));
+    if (confirmeParLeCloud) { _sdCloudVu = neuf; sdBaseCloud(neuf); _sdChargementInitial = false; }
+    try { reparerTypesCorrompus(); } catch (e) {}
+    console.info('[sync] copie adoptée depuis ' + source + ' (' + neuf + ')');
+    sdRendreApresSync(); return true;
+  } catch (e) { console.warn('[sync] adoption impossible :', e); return false; }
+}
+var _sdRenduTimer = null;
+function sdRendreApresSync() { // la page affichée se redessine avec la nouvelle copie ; la fiche ouverte relit ses lignes. Pendant une saisie (champ actif) ou une fenêtre d'édition ouverte, on attend : réessai 3 s plus tard
+  try { var ae = document.activeElement, saisie = ae && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName || '') && ae.type !== 'checkbox' && ae.type !== 'button', fenetre = !!document.querySelector('.modal-overlay.open');
+    if (saisie || fenetre) { if (_sdRenduTimer) clearTimeout(_sdRenduTimer); _sdRenduTimer = setTimeout(sdRendreApresSync, 3000); return; } _sdRenduTimer = null; } catch (e) {}
+  try { refreshAll(); } catch (e) {}
+  var actif = (document.querySelector('.page.active') || {}).id || '';
+  try { if (actif === 'page-aujourdhui' && typeof renderAujourdhui === 'function') renderAujourdhui(); } catch (e) {}
+  try { if (actif === 'page-relances' && typeof renderRelancesPage === 'function') renderRelancesPage(); } catch (e) {}
+  try { if (actif === 'page-global' && typeof renderGlobal === 'function') renderGlobal(); } catch (e) {}
+  try { if (actif === 'page-daily' && typeof _dailyCalSelectedDay !== 'undefined' && _dailyCalSelectedDay) dailyCalRenderDay(_dailyCalSelectedDay); } catch (e) {}
+  try { var ov = document.getElementById('fc-overlay'); if (ov && ov.classList.contains('open') && typeof _fc !== 'undefined' && _fc && _fc.nom) { var rows = fcLignesDuNom(_fc.nom); if (_fc.email) { var distincts = {}; rows.forEach(function(r) { var e = String(r.email || '').toLowerCase().trim(); if (e) distincts[e] = 1; }); if (Object.keys(distincts).length > 1) rows = rows.filter(function(r) { var e = String(r.email || '').toLowerCase().trim(); return !e || e === _fc.email; }); } _fc.rows = rows; fcRendre(); } } catch (e) {}
+}
+window.addEventListener('storage', function(ev) { if (!ev || !ev.newValue) return;
+  if (ev.key === 'salesdesk_rdvs') { try { sdAdopterStore(JSON.parse(ev.newValue), 'un autre onglet', false); } catch (e) {} }
+  else if (ev.key === 'salesdesk_cloud_base' && _sdCloudVu !== null && ev.newValue > (_sdCloudVu || '')) _sdCloudVu = ev.newValue; }); // l'autre onglet a chargé ou écrit le cloud avec succès : c'est la valeur confirmée
+var _sdVeilleEnCours = false, _sdVeilleDerniere = 0;
+async function sdVeilleCloud(force) {
+  try {
+    if (_sdVeilleEnCours || _sdChargementInitial || _syncTimeout || _sdSaveEnVol || _sdConnexionRequise || _sdCloudVu === null || document.visibilityState !== 'visible') return;
+    if (!force && Date.now() - _sdVeilleDerniere < 15000) return; _sdVeilleDerniere = Date.now(); _sdVeilleEnCours = true;
+    var res = await fetch(SUPA_URL + '/rest/v1/' + SUPA_TABLE + '?id=eq.' + SUPA_ID + '&select=data->>_lastWrite', { headers: supaAuthHeaders() });
+    if (res.status === 401 || res.status === 403) { try { await supaRefresh(); } catch (e) {} return; } // session expirée : rafraîchie sans fenêtre, prochain passage
+    if (!res.ok) return;
+    var rows = await res.json(), distant = (rows && rows[0] && rows[0]._lastWrite) || '';
+    if (!distant || distant <= (_sdCloudVu || '')) return;
+    var avant = (_sessionStore && _sessionStore._lastWrite) || '';
+    var r2 = await fetch(SUPA_URL + '/rest/v1/' + SUPA_TABLE + '?id=eq.' + SUPA_ID + '&select=data', { headers: supaAuthHeaders() }); if (!r2.ok) return;
+    var d = (((await r2.json()) || [])[0] || {}).data; if (!d || !d._lastWrite) return;
+    if (_syncTimeout || _sdSaveEnVol || ((_sessionStore && _sessionStore._lastWrite) || '') !== avant) return; // tu as modifié quelque chose pendant la lecture : on ne remplace rien, prochain passage
+    if (sdAdopterStore(d, 'l\'autre appareil', true)) { try { localStorage.setItem('salesdesk_rdvs', JSON.stringify(_sessionStore, function(k, v) { return (k === '_monthKey' || k === '_storeKey') ? undefined : v; })); } catch (e) { _signalerQuotaPlein(e); } } // les autres onglets de ce navigateur suivent (storage)
+  } catch (e) {} finally { _sdVeilleEnCours = false; }
+}
+setInterval(function() { sdVeilleCloud(false); }, 20000);
+document.addEventListener('visibilitychange', function() { if (document.visibilityState === 'visible') sdVeilleCloud(true); });
+window.addEventListener('focus', function() { sdVeilleCloud(false); });
 var _sdCloudVu = null; // horodatage (_lastWrite) du cloud tel que cet appareil l'a vu en dernier : null = chargement initial raté (on ne sait pas ce qu'il contient)
 var _sdChargementInitial = true; // vrai tant que le premier chargement du cloud n'est pas arbitré : aucune écriture cloud pendant ce temps
 var _sdDonneesPretes = false; // vrai dès que les données sont fiables : store local présent, ou cloud chargé (ou cloud injoignable)
@@ -3907,7 +3961,7 @@ function saveStore(store) {
   // 2. Sauvegarder dans Supabase (debounce 1s pour éviter trop d'appels)
   if (_syncTimeout) clearTimeout(_syncTimeout);
   setSyncStatus('saving');
-  _syncTimeout = setTimeout(() => { supabaseSave(_sessionStore); }, 1000); // le store courant : si le cloud a remplacé le local entre-temps, on ne repousse pas l'ancien
+  _syncTimeout = setTimeout(() => { _syncTimeout = null; supabaseSave(_sessionStore); }, 1000); // le store courant : si le cloud a remplacé le local entre-temps, on ne repousse pas l'ancien
 }
 
 function getRdvs(month, year) {
