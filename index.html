@@ -5307,7 +5307,7 @@ function rlAction(ix, action, btn, opts) { opts = opts || {};
     sdDemanderConfirmation(it.t ? 'Clôturer la tâche de ' + it.nom + ' ?' : 'Retirer ' + it.nom + ' du suivi ?', it.t ? 'La tâche Close est terminée et la relance s\'arrête. Rien n\'est envoyé au prospect.' : 'Il n\'y a plus de tâche Close pour cette personne : la relance SalesDesk s\'arrête. Rien n\'est envoyé au prospect.', { ok: it.t ? '✅ Clôturer' : '🗑 Retirer' }).then(function(ok) { if (!ok) return;
       occupe(true);
       terminerClose().catch(function(e) { if (/404|introuvable|not found/i.test(String((e && e.message) || e))) return null; throw e; }) // tâche déjà supprimée dans Close : on retire quand même du suivi
-        .then(function() { rlPoserSuivi(it, { col: it.col, dernier: 'abandon' }); return rlMajRelance(it, 'abandon', ''); }).then(function() { try { var idC = rlIdentite(it); sdClorerRappelsPersonne(it.nom, idC.lead || (it.t && it.t.lead) || ''); } catch (e) {} fini(it.t ? '🗑 Relance supprimée' : '🗑 Retiré du suivi'); }).catch(echec); });
+        .then(function() { rlPoserSuivi(it, { col: it.col, dernier: 'abandon' }); return rlMajRelance(it, 'abandon', ''); }).then(function() { try { var idC = rlIdentite(it); sdClorerRappelsPersonne(it.nom, idC.lead || (it.t && it.t.lead) || '', { tel: idC.tel, email: idC.email }); } catch (e) {} fini(it.t ? '🗑 Relance supprimée' : '🗑 Retiré du suivi'); }).catch(echec); });
     return;
   }
   if (action === 'signe') { // signé : la ligne SalesDesk passe en Signé (pack, fréquence, tier, FMS, remise), une tâche « Configurer » demain en tête du Suivi
@@ -7466,13 +7466,16 @@ function sdEnvoyerEtatCopilot() {
 var _sdStatutDernier = {};
 // 19 oct. 2026 (Sprecher : R2 → pas intéressé, la tâche « R2 Validation & lancement » restait) : un dossier clos « pas intéressé » termine les tâches Close ouvertes de Nicolas sur la fiche (sauf « Configurer » d'un client signé)
 // 19 oct. 2026 (Franck Sassone : « retiré du suivi » mais toujours là — 2 lignes avec un rappel SalesDesk ouvert) : clôt les rappels SalesDesk de TOUTES les lignes de la personne (même fiche Close ou même nom)
-function sdClorerRappelsPersonne(nom, lead) {
+// 31 oct. 2026 (audit T02, homonymes) : même nom ne suffit pas si le téléphone ou le mail diffèrent des deux côtés. Le numéro fait foi, pas la fiche Close (un même prospect peut avoir plusieurs fiches Close). Téléphone ou mail absent d'un côté : on ne peut pas trancher, même nom = même personne comme avant.
+function sdMemeContact(a, b) { try { var tel = function(o) { return String((o && (o.tel || o.telephone)) || '').replace(/\D/g, '').replace(/^0033(?=\d{9}$)/, '0').replace(/^33(?=\d{9}$)/, '0'); }, mail = function(o) { return String((o && o.email) || '').trim().toLowerCase(); };
+  var ta = tel(a), tb = tel(b), ma = mail(a), mb = mail(b); if (ta && tb && ta !== tb) return false; if (ma && mb && ma !== mb) return false; return true; } catch (e) { return true; } }
+function sdClorerRappelsPersonne(nom, lead, ctx) { // ctx facultatif { tel, email } de la personne visée
   try { var st = loadStore(), n = fcNormNom(nom || ''), k0 = 0;
-    Object.keys(st).forEach(function(k) { if (!/^\d{4}-\d{2}$/.test(k) || !Array.isArray(st[k])) return; st[k].forEach(function(r) { if (!r || !r.relanceDate || r.relanceFait) return; if ((lead && r.closeLead === lead) || (n && fcNormNom(r.client || '') === n)) { r.relanceFait = true; r.relanceDernier = 'abandon'; r.relanceDernierAt = rlIso(new Date()); k0++; } }); });
+    Object.keys(st).forEach(function(k) { if (!/^\d{4}-\d{2}$/.test(k) || !Array.isArray(st[k])) return; st[k].forEach(function(r) { if (!r || !r.relanceDate || r.relanceFait) return; if ((lead && r.closeLead === lead) || (n && fcNormNom(r.client || '') === n && sdMemeContact(ctx, r))) { r.relanceFait = true; r.relanceDernier = 'abandon'; r.relanceDernierAt = rlIso(new Date()); k0++; } }); });
     if (k0) { saveStore(st); try { _relances = fusionRelances((_relances || []).filter(function(x) { return !x.local; })); } catch (e) {} } return k0; } catch (e) { return 0; }
 }
 function sdCloreTachesDossier(row) {
-  try { sdClorerRappelsPersonne(row && row.client, row && (row.closeLead || sdLeadPour(row.client, row.email || ''))); } catch (e) {}
+  try { sdClorerRappelsPersonne(row && row.client, row && (row.closeLead || sdLeadPour(row.client, row.email || '')), { tel: row && (row.tel || row.telephone), email: row && row.email }); } catch (e) {}
   if (typeof COPILOT_URL === 'undefined' || !row || !row.client) return; var lead = row.closeLead || sdLeadPour(row.client, row.email || ''); if (!/^lead_/.test(lead || '')) return;
   fetch(COPILOT_URL + '/close/taches-ouvertes?' + new URLSearchParams({ leads: lead }), { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).then(function(j) {
     var L = ((j && j.ok && j.leads && j.leads[lead]) || []).filter(function(t) { return !/configur|onboard|vitrine/i.test(t.texte || ''); }); if (!L.length) return;
@@ -13935,7 +13938,7 @@ function sdRowPourRelance(r) {
   var store = window._rlStoreCache || loadStore();
   if (String(r.id).indexOf('sd|') === 0) { var p = String(r.id).split('|'); return (store[p[1]] || [])[parseInt(p[2])] || null; }
   var n = fcNormNom(r.nom), best = null, bd = 0;
-  Object.keys(store).forEach(function(k) { if (!/^\d{4}-\d{2}$/.test(k) || !Array.isArray(store[k])) return; store[k].forEach(function(x) { if (!x || fcNormNom(x.client || '') !== n || x.source === 'R2') return; var d = parseDateFR(x.date); if (d && d > bd) { bd = d; best = x; } }); });
+  Object.keys(store).forEach(function(k) { if (!/^\d{4}-\d{2}$/.test(k) || !Array.isArray(store[k])) return; store[k].forEach(function(x) { if (!x || fcNormNom(x.client || '') !== n || x.source === 'R2' || !sdMemeContact(r, x)) return; var d = parseDateFR(x.date); if (d && d > bd) { bd = d; best = x; } }); }); // homonyme (autre téléphone ou autre mail) : pas sa ligne
   return best;
 }
 // R2 manqué (annulé, no-show, reporté) = « R2 sans réponse », seulement si le R2 date du mois en cours ou du précédent (Nicolas, 15 oct. 2026) ; plus vieux : simple no-show
