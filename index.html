@@ -12476,6 +12476,17 @@ function prEcarter(lead, raison, jours, btn) {
   rlPost('/listes-appel/ecarter', { lead: lead, raison: raison, jours: jours }).then(function() { var L = (_pr.data && _pr.data.listes[_pr.liste]); if (L) { L.items = L.items.filter(function(i) { return i.id !== lead; }); L.n = L.items.length; } renderProspection(); if (typeof showCopyToast === 'function') showCopyToast(jours === 30 ? '✓ Noté « ' + raison + ' » · retiré 30 jours' : '✓ Écarté ' + jours + ' jours'); }).catch(function(e) { if (btn) btn.disabled = false; alert(e.message); });
 }
 function prTelFr(t) { var d = String(t || '').replace(/[^0-9+]/g, ''); if (d.indexOf('+33') === 0) d = '0' + d.slice(3); return /^0\d{9}$/.test(d) ? d.replace(/(\d{2})(?=\d)/g, '$1 ') : String(t || ''); }
+// 31 oct. 2026 (audit G03) : les listes sont construites la nuit ; juste avant de composer, on relit l'état de la fiche dans Close (client ? tâche ouverte ? RDV à venir ?) et on demande avant d'appeler quand même
+function sdAvantAppel(lead, suite) {
+  if (!/^lead_/.test(String(lead || '')) || typeof COPILOT_URL === 'undefined') { suite(); return; }
+  var fini = false, go = function() { if (!fini) { fini = true; suite(); } };
+  var minuteur = setTimeout(go, 4000); // copilot lent ou éteint : on appelle quand même
+  fetch(COPILOT_URL + '/close/avant-appel?' + new URLSearchParams({ lead: lead }), { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).then(function(j) {
+    clearTimeout(minuteur); if (fini) return; var al = (j && j.ok && j.alertes) || [];
+    if (!al.length) { go(); return; }
+    fini = true; if (confirm('⚠ Depuis la construction de la liste, la fiche Close de ' + (j.nom || 'ce prospect') + ' a bougé :\n\n• ' + al.join('\n• ') + '\n\nAppeler quand même ?')) suite();
+  }).catch(function() { clearTimeout(minuteur); go(); });
+}
 function prAppeler(ev, tel, url, lead, nom) { // ouvre la fiche Close (numéro copié) et compose ; le prospect reste dans la liste tant que Nicolas n'a pas dit ce que l'appel a donné (avant : retiré 30 jours dès le clic, même si l'appel échouait)
   if (!_pr.appeles) _pr.appeles = {}; _pr.appeles[lead] = Date.now();
   if (/^ext:/.test(String(lead)) && !url) { // prospect hors Close (liste « Hors Close ») : la fiche Close se crée au premier appel, puis s'ouvre avec le numéro
@@ -12484,7 +12495,8 @@ function prAppeler(ev, tel, url, lead, nom) { // ouvre la fiche Close (numéro c
     rlPost('/close/lead/creer', { id: lead }).then(function(r) { if (!r || !r.ok) throw new Error((r && r.error) || 'copilot'); var it = ((_pr.data && _pr.data.listes.externes) || { items: [] }).items.find(function(i) { return i.id === lead; }); if (it) { it.url = r.url || ''; if (r.lead) it.id = r.lead; } if (typeof showCopyToast === 'function') showCopyToast(r.deja ? 'Fiche Close déjà créée · ouverture' : (r.rattache ? 'Numéro déjà dans Close · fiche rattachée' : '✓ Fiche créée dans Close')); fcAppeler(alt ? { altKey: true, preventDefault: function() {} } : null, tel, r.url || ''); try { renderProspection(); } catch (e) {} }).catch(function(e) { if (typeof showCopyToast === 'function') showCopyToast('Fiche Close non créée : ' + e.message); });
     return false;
   }
-  fcAppeler(ev, tel, url); try { renderProspection(); } catch (e) {} return false;
+  if (ev && ev.preventDefault) ev.preventDefault(); var evA = { altKey: !!(ev && ev.altKey), preventDefault: function() {} };
+  sdAvantAppel(lead, function() { fcAppeler(evA, tel, url); try { renderProspection(); } catch (e) {} }); return false;
 }
 // ── File « Secteurs vides » (12 oct. 2026) : 100 prospects hors Close, secteurs les moins couverts ; rien dans Close avant un RDV ou une tâche ; Close compose sans fiche ; l'appelé passe en fin de file ──
 var _ps = { data: null, at: 0, courant: null, enCours: false };
@@ -12497,7 +12509,8 @@ function psEstPersonne(x) { var n = String(x.nom || '').trim(); return !!n && n 
 function psAujourdhui(x) { return x.dernierAppel && rlIso(new Date(x.dernierAppel.at)) === rlIso(new Date()); }
 function psAction(id, action, lead) { return rlPost('/prospection/secteurs/action', { id: id, action: action, lead: lead || '' }).then(function(j) { if (j && j.items) { _ps.data = j; _ps.at = Date.now(); } try { renderProspection(); } catch (e) {} return j; }); }
 function psAppeler(id) {
-  var x = psItem(id); if (!x) return; _ps.courant = id; var num = String(x.tel || '').replace(/\s/g, '');
+  var x = psItem(id); if (!x) return; if (x.lead && !x._verifie) { sdAvantAppel(x.lead, function() { x._verifie = true; psAppeler(id); x._verifie = false; }); return; } // 31 oct. 2026 (audit G03) : état Close relu avant de composer
+  _ps.courant = id; var num = String(x.tel || '').replace(/\s/g, '');
   try { navigator.clipboard.writeText(num); } catch (e) {}
   if (typeof showCopyToast === 'function') showCopyToast('📞 Close compose le ' + x.tel + '…');
   // 31 oct. 2026 (audit G02) : « appelé » n'est noté que si Close a vraiment composé ; sinon on demande s'il appelle à la main, et le prospect ne sort pas de sa place pour un simple clic
