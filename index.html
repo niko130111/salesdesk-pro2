@@ -12500,9 +12500,9 @@ function psAppeler(id) {
   var x = psItem(id); if (!x) return; _ps.courant = id; var num = String(x.tel || '').replace(/\s/g, '');
   try { navigator.clipboard.writeText(num); } catch (e) {}
   if (typeof showCopyToast === 'function') showCopyToast('📞 Close compose le ' + x.tel + '…');
-  rlPost('/close/composer', { tel: num }).then(function() { if (typeof showCopyToast === 'function') showCopyToast('📞 Close appelle ' + psNomAff(x) + ' (' + x.tel + ')'); })
-    .catch(function(e) { alert('📞 Close n\'a pas pu composer tout seul : ' + e.message + '\n\nLe numéro est copié : dans Close, clique sur l\'icône téléphone, colle (⌘V) puis Entrée.'); });
-  psAction(id, 'appele').catch(function() {});
+  // 31 oct. 2026 (audit G02) : « appelé » n'est noté que si Close a vraiment composé ; sinon on demande s'il appelle à la main, et le prospect ne sort pas de sa place pour un simple clic
+  rlPost('/close/composer', { tel: num }).then(function() { if (typeof showCopyToast === 'function') showCopyToast('📞 Close appelle ' + psNomAff(x) + ' (' + x.tel + ')'); psAction(id, 'appele').catch(function() {}); })
+    .catch(function(e) { var main = confirm('📞 Close n\'a pas pu composer tout seul : ' + e.message + '\n\nLe numéro est copié : dans Close, clique sur l\'icône téléphone, colle (⌘V) puis Entrée.\n\nTu l\'appelles à la main maintenant ? (OK = noté appelé · Annuler = il reste dans la file)'); if (main) psAction(id, 'appele').catch(function() {}); });
   setTimeout(function() { try { chargerAppelsJour(true); } catch (e) {} }, 20000);
 }
 function psResultat(id, action) { var x = psItem(id); psAction(id, action).then(function() { if (_ps.courant === id) _ps.courant = null; try { renderProspection(); } catch (e) {} if (typeof showCopyToast === 'function') showCopyToast(action === 'pas_reponse' ? '↻ ' + (x ? psNomAff(x) : '') + ' : en fin de file' : action === 'retire' ? '🗑 ' + (x ? psNomAff(x) : '') + ' retiré de la file · rien dans Close' : '✓ Sorti de la file · rien dans Close'); }).catch(function(e) { alert(e.message); }); }
