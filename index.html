@@ -5088,10 +5088,23 @@ function fcChargerDernierContact(force, leadId) {
 // Les 3 lignes closer (promesse datée · accroche · état du deal) + alertes, puis le détail par échange avec la preuve (audio, mots exacts, Claap)
 // le modèle écrit parfois « vide » / « rien » au lieu de laisser la clé vide : on ne l'affiche pas
 function sdClesPropres(c) { var o = {}; Object.keys(c || {}).forEach(function(k) { var v = String(c[k] == null ? '' : c[k]).trim(); o[k] = /^(vide|rien|aucun[e]?|n\/?a|—|-)\.?$/i.test(v) ? '' : v; }); return o; }
+// 31 oct. 2026 (audit R04) : ce que l'appel doit obtenir, d'après l'état du dossier et le motif de la carte du Suivi — une phrase fixe par cas, jamais de l'IA
+function fcObjectifAppel() {
+  try { var it = fcItemFiche(), row = (it && it.row) || (_fc && _fc.rows && _fc.rows[0]) || {}, col = (it && it.col) || '', tx = ((it && it.t && it.t.texte) || '').toLowerCase();
+    if (col === 'config' || /configur|onboard|vitrine/.test(tx)) return 'finir la configuration du client';
+    if ((row.attenteSignature && String(row.result || '').trim() !== 'Signé') || /signature|contrat/.test(tx)) return 'le oui et la signature';
+    if (col === 'r2') return 'fixer le R2 (date et heure)';
+    if (col === 'nsin' || col === 'nsout') return 'reprendre un RDV';
+    if (col === 'rappel') return 'une décision : R2 daté ou signature';
+    if (col === 'rdv') return 'un créneau de RDV';
+    return ''; } catch (e) { return ''; }
+}
 function fcHtmlCles(j, mode, rowsRef) { // mode 'essentiel' = ce qu'il faut avoir en tête avant de décrocher ; 'reste' = l'accroche et le deal, repliés par défaut ; rien = tout
   var c = sdClesPropres(j.cles), out = [], ess = mode !== 'reste', reste = mode !== 'essentiel';
+  if (ess) { var obj = fcObjectifAppel(); if (obj) out.push('<div class="cle">🎯 <b>Ce que je veux obtenir :</b> ' + escapeHtml(obj) + '</div>'); } // 31 oct. 2026 (audit R04) : l'objectif de l'appel, déduit du motif de la carte, sans IA
   if (ess && c.promesse) out.push('<div class="cle promesse">🤝 ' + escapeHtml(c.promesse) + '</div>');
   if (reste && c.accroche) out.push('<div class="cle">💬 <b>Pour ouvrir :</b> ' + escapeHtml(c.accroche) + '</div>');
+  else if (reste && c.ouverture) out.push('<div class="cle">💬 <b>Pour ouvrir</b> <span class="fc-muted">(proposé, à valider)</span> <b>:</b> ' + escapeHtml(c.ouverture) + '</div>'); // 31 oct. 2026 (audit R04) : sans détail humain, une phrase repartant de la dernière promesse
   if (reste && c.deal) out.push('<div class="cle">💶 <b>Le deal :</b> ' + escapeHtml(c.deal) + '</div>');
   // promesse d'un collègue : seulement si elle est postérieure à ton dernier RDV avec lui (ou de moins de 45 jours s'il n'y a pas eu de RDV) — une promesse d'avant tes RDV n'apporte rien
   var promSdrUtile = !!c.promesse_sdr; if (promSdrUtile) { try { var ds = (String(c.promesse_sdr).match(/\b(\d{2})\/(\d{2})\/(\d{4})\b/g) || []).map(function(d) { var p = d.split('/'); return p[2] + '-' + p[1] + '-' + p[0]; }).sort(); var dMax = ds[ds.length - 1] || ''; var dRdv = (rowsRef || _fc.rows || []).filter(function(r) { return r.source !== 'R2' && r.date; }).map(function(r) { return frVersIsoSd(r.date) || ''; }).sort().pop() || ''; var seuil = dRdv || rlPlus(rlIso(new Date()), -45); if (dMax && dMax < seuil) promSdrUtile = false; } catch (e) {} }
