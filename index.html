@@ -448,6 +448,7 @@ main { max-width: 100%; margin: 0; padding: 6px 8px; }
 .fc-bloc-t { font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--text3); margin-bottom: 8px; }
 .fc-contact { margin-top: 6px; padding: 0; border: 0; background: transparent; }
 .fc-next { margin-top: 12px; border-left: 4px solid var(--purple); background: var(--surface); }
+.fc-tache { margin-top: 8px; font-size: 12.5px; line-height: 1.5; display: flex; gap: 6px; align-items: baseline; flex-wrap: wrap; } .fc-tache a { color: inherit; }
 .fc-dernier { margin: 12px 0 0; border-left: 4px solid var(--orange); border-radius: 12px; }
 .fc-head .fc-dernier .synth { margin: 12px 0 0; padding: 10px 12px; border-radius: 10px; background: #eef4fb; border: 1px solid #c9d8ea; border-left: 4px solid #185FA5; }
 .fc-head .fc-dernier .synth .st { color: #0C447C; }
@@ -4635,7 +4636,7 @@ function fcRendreContact() {
   var suiviHtml = fcHtmlSuivi();
   el.innerHTML = (note ? '<div class="fc-muted">' + (/^<span /.test(note) ? note : escapeHtml(note)) + '</div>' : '') + '<div class="fc-suivi" id="fc-suivi">' + suiviHtml + '</div>'; // la note « plusieurs fiches Close » porte des liens de choix
   el.style.display = (note || suiviHtml) ? '' : 'none';
-  try { fcRendreProchaineEtape(); } catch (e) {}
+  try { fcRendreProchaineEtape(); } catch (e) {} try { fcRendreTacheClose(); } catch (e) {}
 }
 // Prochaine étape : la réponse à « que dois-je faire maintenant ? » — RDV à venir, R2 calé, tâche Close / relance datée, ou rien (→ à décider)
 // Depuis la fiche : les mêmes boutons que dans le Suivi, sur la tâche Close de la personne (appeler, sans réponse, joint, pas intéressé, déplacer, prendre un RDV, manager, clôturer)
@@ -4746,10 +4747,25 @@ function fcItemFiche() {
     if (!t && lead) { var c = _sdTachesMoi[lead];
       if (c && c.taches && c.taches.length) { var t0 = c.taches[0]; t = { id: t0.id, lead: lead, fiche: _fc.nom, contact: _fc.nom, contacts: [_fc.nom], texte: t0.texte || 'Rappeler', date: String(t0.date || '').slice(0, 10), heure: '', fait: false, url: 'https://app.close.com/lead/' + lead + '/', horsFenetre: true }; }
       else if ((!c || Date.now() - c.at > 600000) && typeof COPILOT_URL !== 'undefined' && window._fcTachesEnCours !== lead) { window._fcTachesEnCours = lead; var nomCourant = _fc.nom;
-        fetch(COPILOT_URL + '/close/taches-ouvertes?' + new URLSearchParams({ leads: lead }), { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).then(function(j) { var v = j && j.ok && j.leads ? j.leads[lead] : null; _sdTachesMoi[lead] = { at: Date.now(), taches: Array.isArray(v) ? v : null }; }).catch(function() { _sdTachesMoi[lead] = { at: Date.now() - 540000, taches: null }; }).then(function() { window._fcTachesEnCours = null; try { if (_fc && _fc.nom === nomCourant && (_sdTachesMoi[lead].taches || []).length) fcRendre(); } catch (e) {} }); } }
+        fetch(COPILOT_URL + '/close/taches-ouvertes?' + new URLSearchParams({ leads: lead }), { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).then(function(j) { var v = j && j.ok && j.leads ? j.leads[lead] : null; _sdTachesMoi[lead] = { at: Date.now(), taches: Array.isArray(v) ? v : null }; }).catch(function() { _sdTachesMoi[lead] = { at: Date.now() - 540000, taches: null }; }).then(function() { window._fcTachesEnCours = null; try { if (_fc && _fc.nom === nomCourant) { if ((_sdTachesMoi[lead].taches || []).length) fcRendre(); else fcRendreTacheClose(); } } catch (e) {} }); } }
     if (t) { it.t = t; it.lead = lead || t.lead; if (t.date) it.date = String(t.date).slice(0, 10); }
   } catch (e) {}
   window._rlItems = (window._rlItems || []).filter(function(x) { return x.cle !== it.cle; }).concat([it]); return it;
+}
+function fcRendreTacheClose() { // 31 oct. 2026 : la tâche Close ouverte de la personne, toujours visible dans l'en-tête de la fiche quel que soit l'état du dossier (signé, RDV à venir, R2…) — avant, « Prochaine étape » ne la montrait que si rien ne passait devant et si elle était dans la fenêtre du Suivi
+  var el = document.getElementById('fc-tache'); if (!el || !_fc || !_fc.nom) return;
+  var it = null; try { it = fcItemFiche(); } catch (e) {} // déclenche la lecture copilot si le cache est vide
+  var lead = (it && it.lead) || _fc.leadChoisi || (_fc.rows || []).map(function(r) { return r.closeLead; }).find(Boolean) || sdLeadPour(_fc.nom, _fc.email || '') || '';
+  var t = it && it.t && !it.t.fait ? it.t : null, c = lead ? _sdTachesMoi[lead] : null, liste = c && Array.isArray(c.taches) ? c.taches : null;
+  if (!t && liste && liste.length) t = { id: liste[0].id, texte: liste[0].texte, date: liste[0].date, url: 'https://app.close.com/lead/' + lead + '/' };
+  var ico = '<span>⏰</span>', html, lib = function(d) { try { var x = new Date(d + 'T12:00:00'); if (isNaN(x)) return fcFrDepuisIso(d); return x.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' }); } catch (e) { return fcFrDepuisIso(d); } };
+  if (t) { var ret = t.date && t.date < rlIso(new Date()), n = liste && liste.length > 1 ? liste.length - 1 : 0;
+    html = ico + '<span><b>Tâche Close :</b> ' + escapeHtml(t.texte || 'Follow up') + ' · <span' + (ret ? ' style="color:var(--red);font-weight:700;"' : '') + '>' + escapeHtml(lib(t.date)) + (ret ? ' (en retard)' : '') + '</span>' + (n ? ' <span class="fc-muted">+' + n + ' autre' + (n > 1 ? 's' : '') + '</span>' : '') + (t.url ? ' <a href="' + t.url + '" target="_blank" rel="noopener" class="fc-muted" style="text-decoration:underline;">ouvrir</a>' : '') + '</span>'; }
+  else if (!lead) html = ico + '<span class="fc-muted">Tâche Close : fiche Close non reliée</span>';
+  else if (liste) html = ico + '<span class="fc-muted">Aucune tâche Close ouverte</span>';
+  else if (c && c.taches === null) html = ico + '<span class="fc-muted">Tâche Close : copilot injoignable</span>';
+  else html = ico + '<span class="fc-muted">Tâche Close : lecture…</span>';
+  el.innerHTML = html;
 }
 function fcRendreProchaineEtape() {
   var el = document.getElementById('fc-next'); if (!el) return;
@@ -5992,21 +6008,24 @@ function fcTacheClose(ctx) { // ctx facultatif { nom, email, lead } : depuis le 
     + '<input type="text" id="fc-tc-texte" value="Rappeler" style="' + champ + 'width:100%;box-sizing:border-box;margin-bottom:10px;" placeholder="Quoi faire">'
     + '<div id="fc-tc-existante" style="display:none;margin:-2px 0 10px;padding:8px 10px;border:1px solid var(--border);border-radius:10px;background:var(--surface);font-size:12.5px;line-height:1.5;"></div>'
     + '<div style="margin-bottom:12px;"><button type="button" class="btn btn-sm btn-prio" id="fc-tc-prio" onclick="fcTcPrio(this)" title="Elle passe en tête de Mes priorités et du Suivi dès son jour">Prioritaire</button></div>'
-    + '<div style="display:flex;justify-content:flex-end;gap:6px;"><button class="btn btn-sm" style="margin-right:auto;" title="Tâche « Ghost Nicolas » pour Ludovic ou Eugénie dans Close, ta tâche est supprimée" onclick="sdTransmettre(window._fcTacheCtx)">' + aujIco('arrow') + 'Transmettre</button><button class="btn btn-sm" onclick="fermerModalDoublon()">Annuler</button><button class="btn btn-sm btn-primary" id="fc-tc-ok" onclick="fcTacheCloseCreer(this)">Créer la tâche</button></div></div>';
+    + '<div style="display:flex;justify-content:flex-end;gap:6px;"><button class="btn btn-sm" style="margin-right:auto;" title="Tâche « Ghost Nicolas » pour Ludovic ou Eugénie dans Close, ta tâche est supprimée" onclick="sdTransmettre(window._fcTacheCtx)">' + aujIco('arrow') + 'Transmettre</button><button class="btn btn-sm" onclick="fermerModalDoublon()">Annuler</button><button class="btn btn-sm btn-primary" id="fc-tc-ok" onclick="fcTacheCloseCreer(this)" disabled title="Lecture de la tâche Close existante…">Créer la tâche</button></div></div>';
   var ov = document.getElementById('fc-dup-overlay');
   if (!ov) { ov = document.createElement('div'); ov.id = 'fc-dup-overlay'; ov.className = 'modal-overlay'; ov.style.zIndex = '1300'; ov.innerHTML = '<div class="modal" id="fc-dup-modal"></div>'; document.body.appendChild(ov); }
   ov.onclick = function(ev) { if (ev.target === ov) fermerModalDoublon(); };
   document.getElementById('fc-dup-modal').innerHTML = html; ov.classList.add('open');
   setTimeout(function() { var e = document.getElementById('fc-tc-texte'); if (e) { e.focus(); e.select(); } }, 50);
   // 17 oct. 2026 (tâches, étape 2) : s'il a déjà une tâche ouverte à ton nom, tu choisis « Remplacer » (défaut) ou « Ajouter » au lieu d'un écrasement silencieux
-  window._fcTcMode = 'remplacer'; var leadX = c.lead || sdLeadPour(c.nom, c.email || '') || '';
+  // 31 oct. 2026 (audit T01) : tant que l'existante n'a pas été lue et affichée, le mode est « ajouter » (rien n'est remplacé à l'aveugle) et « Créer » est grisé ; il se débloque à la réponse du copilot, ou après 5 s
+  window._fcTcMode = 'ajouter'; var leadX = c.lead || sdLeadPour(c.nom, c.email || '') || '';
+  var tcOk = function() { var b = document.getElementById('fc-tc-ok'); if (b && window._fcTacheCtx === c) { b.disabled = false; b.title = ''; } }; setTimeout(tcOk, 5000);
+  if (!leadX || typeof COPILOT_URL === 'undefined') tcOk();
   if (leadX && typeof COPILOT_URL !== 'undefined') fetch(COPILOT_URL + '/close/taches-ouvertes?' + new URLSearchParams({ leads: leadX }), { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).then(function(j) {
     var l = (j && j.ok && j.leads && j.leads[leadX]) || []; var bx = document.getElementById('fc-tc-existante'); if (!bx || !l.length || window._fcTacheCtx !== c) return;
     window._fcTcExistante = l[0]; bx.style.display = '';
     bx.innerHTML = '<div style="margin-bottom:6px;">Déjà une tâche ouverte : <b>' + escapeHtml(fcFrDepuisIso(String(l[0].date || '').slice(0, 10))) + '</b> · ' + escapeHtml(l[0].texte || 'Follow up') + (l.length > 1 ? ' <span class="fc-muted">(+' + (l.length - 1) + ' autre' + (l.length > 2 ? 's' : '') + ')</span>' : '') + '</div>'
       + '<div style="display:flex;gap:6px;"><button class="btn btn-sm fc-tc-mode on" data-mode="remplacer" onclick="fcTcMode(this)" title="La tâche existante prend la nouvelle date et le nouveau texte">Remplacer</button><button class="btn btn-sm fc-tc-mode" data-mode="ajouter" onclick="fcTcMode(this)" title="Les deux tâches restent ouvertes">Ajouter</button></div>';
     fcTcMode(bx.querySelector('[data-mode="remplacer"]'));
-  }).catch(function() {});
+  }).catch(function() {}).then(tcOk);
 }
 function fcTcMode(b) { if (!b) return; window._fcTcMode = b.getAttribute('data-mode'); b.parentNode.querySelectorAll('.fc-tc-mode').forEach(function(x) { var on = x === b; x.classList.toggle('on', on); x.style.setProperty('background', on ? 'var(--accent)' : 'var(--surface)', 'important'); x.style.setProperty('color', on ? '#fff' : 'var(--text)', 'important'); x.style.setProperty('border-color', on ? 'var(--accent)' : 'var(--border)', 'important'); }); }
 function fcTcPrio(b) { var on = window._fcTcPrioOn = !window._fcTcPrioOn; b.classList.toggle('on', on); b.textContent = on ? '✓ Prioritaire' : 'Prioritaire'; b.style.setProperty('background', on ? 'var(--red)' : 'var(--surface)', 'important'); b.style.setProperty('color', on ? '#fff' : 'var(--red)', 'important'); b.style.setProperty('border-color', 'var(--red)', 'important'); }
@@ -14184,7 +14203,7 @@ function svFicheHtml(sel, email) {
   var Q = function(v) { return JSON.stringify(v).replace(/"/g, '&quot;'); }, cle = fcCle(nom, email), nomJs = Q(nom), emailJs = Q(email || '');
   var saved = _fc, next = document.getElementById('fc-next'), avant = next ? next.innerHTML : '', html = '';
   _fc = { cle: cle, nom: nom, email: email || '', rows: rows, tab: 'synthese', dossiers: null, close: null, date: '', dernier: _sv.ctx[sel.cle] || null, contactMini: '', leadChoisi: (sel.t && sel.t.lead) || '', leadImpose: !!(sel.t && sel.t.lead) };
-  try { try { fcRendreProchaineEtape(); } catch (e) {} html = fcHtmlSynthese(); }
+  try { try { fcRendreProchaineEtape(); } catch (e) {} try { fcRendreTacheClose(); } catch (e) {} html = fcHtmlSynthese(); }
   catch (e) { html = '<div class="fc-muted">Synthèse indisponible : ' + escapeHtml(e.message) + '</div>'; }
   finally { _fc = saved; if (next) next.innerHTML = avant; }
   return '<div class="sv-fiche">' + html
@@ -16401,6 +16420,7 @@ window.addEventListener('load', function() {
       <div class="fc-nom"><span id="fc-nom"></span><div class="fc-badges" id="fc-badges"></div><button class="fc-close" onclick="fermerFicheClient()" title="Fermer">✕</button></div>
       <div class="fc-contact" id="fc-contact"></div>
       <div class="fc-next" id="fc-next"></div>
+      <div class="fc-tache" id="fc-tache"></div>
     </div>
     <div class="fc-tabs">
       <button class="fc-tab on" data-tab="synthese" onclick="fcOnglet('synthese')">Synthèse</button>
