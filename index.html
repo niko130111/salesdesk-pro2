@@ -14154,6 +14154,9 @@ function rlConstruireItems(today) {
   });
   rels.forEach(function(x) { if (!relsUtilisees[x.r.id]) items.push({ type: 'sd', rel: x, nom: x.nom, date: x.date, col: x.col }); });
   // Pas d'entrée automatique des no-shows (règle de Nicolas, 4 oct. 2026) : après un no-show, c'est lui qui décide de poser une tâche ou de laisser tomber
+  // 31 oct. 2026 (audit R01, Gadrat / Vinchon) : une personne = une carte. Deux tâches Close ouvertes sur la même fiche → une seule entrée dans le Suivi et Mes priorités (la plus proche en date, texte le plus complet à date égale), les autres accrochées en « autres » : elles restent dans Close et se lisent dans la carte et dans la fiche. On n'appelle jamais quelqu'un deux fois.
+  try { var parPers = {}; items.forEach(function(it) { if (it.type !== 'close' || !it.t) return; var k = it.t.lead || ('n:' + fcNormNom(it.nom || '')); (parPers[k] = parPers[k] || []).push(it); });
+    Object.keys(parPers).forEach(function(k) { var L = parPers[k]; if (L.length < 2) return; L.sort(function(a, b) { return String(a.date || '').localeCompare(String(b.date || '')) || String((b.t && b.t.texte) || '').length - String((a.t && a.t.texte) || '').length; }); L[0].autres = L.slice(1).map(function(x) { return x.t; }); L.slice(1).forEach(function(x) { var i = items.indexOf(x); if (i >= 0) items.splice(i, 1); }); }); } catch (e) {}
   items.concat(pauses).forEach(function(it) { it.cle = it.t ? 't:' + it.t.id : (it.rel && it.rel.r ? 'r:' + it.rel.r.id : 'n:' + fcNormNom(it.nom) + '|' + (it.date || '')); });
   rlTrierItems(items); window._rlPauses = pauses;
   return { items: items, liste: liste, taches: taches, terminees: terminees, pauses: pauses };
@@ -14185,7 +14188,9 @@ function svSet(k, v) { _sv[k] = v; renderRelancesPage(); }
 function svChoisir(cle) { _sv.sel = cle; renderRelancesPage(); }
 function svRaison(it) { var t = it.t, r = it.rel && it.rel.r, row = (it.rel && it.rel.row) || it.row || {}; var x = (t && t.texte && !/^follow ?up(\s*\(\d+\))?$/i.test(t.texte.trim()) ? t.texte : '') || (r && r.relance && r.relance.condition) || row.relanceCond || (r && r.contexte) || row.retour || '';
   // 14 oct. 2026 : le titre de la tâche Close garde l'ancien motif (« Prise de RDV ») alors que la ligne est classée ailleurs → on affiche le vrai motif
-  var vrai = sdRappelChaud(row) ? 'À rappeler · délai demandé' : (RL_LIBELLES[it.col] || ''); Object.keys(RL_LIBELLES).forEach(function(c) { if (c !== it.col && vrai && x.indexOf(RL_LIBELLES[c]) === 0) x = vrai + x.slice(RL_LIBELLES[c].length); }); return x; }
+  var vrai = sdRappelChaud(row) ? 'À rappeler · délai demandé' : (RL_LIBELLES[it.col] || ''); Object.keys(RL_LIBELLES).forEach(function(c) { if (c !== it.col && vrai && x.indexOf(RL_LIBELLES[c]) === 0) x = vrai + x.slice(RL_LIBELLES[c].length); });
+  if (it.autres && it.autres.length) x = (x ? x + ' · ' : '') + (it.autres.length + 1) + ' tâches Close ouvertes (aussi : ' + it.autres.map(function(a) { return (a.texte || 'Follow up') + (a.date ? ' le ' + fcFrDepuisIso(String(a.date).slice(0, 10)) : ''); }).join(' ; ') + ')'; // 31 oct. 2026 (audit R01) : les doublons se voient au lieu de faire deux cartes
+  return x; }
 function svCharger(it) { // contexte Close du prospect choisi (une fois par prospect) + son téléphone
   var cle = it.cle; if (_sv.ctx[cle] !== undefined || typeof COPILOT_URL === 'undefined') return;
   _sv.ctx[cle] = null;
