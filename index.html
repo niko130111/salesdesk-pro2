@@ -1927,7 +1927,7 @@ select.form-input { cursor: pointer; }
     </div>
     </div></div>
     <div class="kpi-grp"><div class="kpi-grp-t">Rythme et suivi</div><div class="kpi-grp-c" style="--n:4">
-    <div class="kpi-card" id="kpi-suivi-card" title="Relances : part des relances du mois faites au plus tard le jour prévu (journal des relances). Sans suite : RDV passés sans action, aujourd'hui.">
+    <div class="kpi-card" id="kpi-suivi-card" title="Relances faites : tâches Close terminées dans le mois (échéance dans le mois), lues via le copilot. Sans suite : RDV passés sans action, aujourd'hui.">
       <div class="kpi-label">Suivi</div>
       <div class="kpi-value blue" id="kpi-suivi">—</div>
       <div class="kpi-sub" id="kpi-suivi-sub">relances à temps</div>
@@ -9865,10 +9865,14 @@ function renderKpiSuivi() {
   var MONTHS_IDX = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
   var k = state.year + '-' + String(MONTHS_IDX.indexOf(state.month) + 1).padStart(2, '0');
   var duMois = log.filter(function(x) { return (x.fait || '').slice(0, 7) === k; });
-  var aTemps = duMois.filter(function(x) { return x.aTemps; }).length;
   var el = document.getElementById('kpi-suivi'); if (!el) return;
-  el.textContent = duMois.length ? Math.round(aTemps / duMois.length * 100) + '%' : '—';
-  document.getElementById('kpi-suivi-sub').textContent = duMois.length ? aTemps + '/' + duMois.length + ' relances faites à temps' : 'aucune relance faite ce mois';
+  // 31 oct. 2026 (audit, section 8) : plus de « % à temps » (le journal SalesDesk n'est presque plus alimenté, et le report du soir rend « à temps » vide de sens) → le nombre de tâches Close terminées dans le mois, lu via le copilot (cache 10 min)
+  var sub = document.getElementById('kpi-suivi-sub'), c = (window._kpiSuiviCache = window._kpiSuiviCache || {})[k];
+  var poser = function(n) { el.textContent = n == null ? '—' : String(n); sub.textContent = n == null ? 'relances faites ce mois : copilot injoignable' : n + ' relance' + (n > 1 ? 's' : '') + ' faite' + (n > 1 ? 's' : '') + ' ce mois (tâches Close terminées)' + (duMois.length ? ' · ' + duMois.length + ' via SalesDesk' : ''); };
+  if (c && Date.now() - c.at < 600000) poser(c.n);
+  else if (typeof COPILOT_URL !== 'undefined') { el.textContent = '…'; sub.textContent = 'lecture des tâches Close…'; var dernier = new Date(state.year, MONTHS_IDX.indexOf(state.month) + 1, 0);
+    fetch(COPILOT_URL + '/close/taches?' + new URLSearchParams({ depuis: k + '-01', jusqua: rlIso(dernier), terminees: '1' }), { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).then(function(j) { var n = (j && j.terminees || []).length; window._kpiSuiviCache[k] = { at: Date.now(), n: n }; if (document.getElementById('kpi-suivi')) poser(n); }).catch(function() { poser(null); }); }
+  else poser(duMois.length || null);
   var sans = (typeof sdRdvsSansAction === 'function') ? sdRdvsSansAction().length : 0;
   document.getElementById('kpi-suivi-sans').textContent = sans ? sans + ' RDV sans prochaine action' : '';
 }
@@ -11510,7 +11514,7 @@ function renderEtapesPipeline(cols) {
   var ns = cols.nosigned || [], raisonNS = function(r) { return r.result === 'Promo' ? 'promo' : (r.nosignRaison || ''); };
   var dues = (_relances || []).filter(function(r) { var q = r.relance && r.relance.quand; return q && q <= today; }).length;
   var etapes = [
-    ['À contacter', dues, 'relances dues aujourd\'hui ou en retard'],
+    ['À relancer après RDV', dues, 'relances nées d\'un RDV, dues aujourd\'hui ou en retard (le Suivi compte en plus toutes les tâches Close)'], // 31 oct. 2026 (audit, section 8) : même mot que le Suivi mais pas le même périmètre → on le dit
     ['R1 prévu', (cols.futurs || []).filter(function(r) { return r.source !== 'R2'; }).length, 'RDV à venir sans résultat'],
     ['Suivi après R1', (cols.interested || []).filter(function(r) { return !r2Futur(r); }).length + ns.filter(function(r) { return ['promo', 'pasbudget', 'carte', 'rent', 'relancer'].indexOf(raisonNS(r)) >= 0; }).length, 'intéressés sans R2 calé + à relancer / si promo / pas de budget / carte / RENT'],
     ['R2 prévu', (cols.interested || []).filter(r2Futur).length, 'un R2 daté à venir'],
@@ -11848,7 +11852,9 @@ function renderControle(recharger, retester) {
   var L = function(ico, titre, detail) { return '<div class="ctl-ligne"><span>' + ico + '</span><span style="flex:1;"><div>' + titre + '</div>' + (detail ? '<div class="d">' + detail + '</div>' : '') + '</span></div>'; };
   document.getElementById('ctl-at').textContent = j.at ? 'testé ' + fr(j.at) + (j.demarre_at ? ' · copilot démarré ' + fr(j.demarre_at) : '') : (j.copilotAbsent ? 'copilot injoignable' : '');
   var p = ctlTousProblemes();
-  document.getElementById('ctl-problemes').innerHTML = p.length ? '<div class="controle-alerte' + (p.some(function(x) { return x.niveau === 'rouge'; }) ? '' : ' orange') + '" style="flex-direction:column;align-items:flex-start;gap:4px;">' + p.map(function(x) { var vu = ctlEstVu(x), cle = JSON.stringify(ctlCleIncident(x)).replace(/"/g, '&quot;'); return '<div style="display:flex;gap:10px;align-items:baseline;width:100%;' + (vu ? 'opacity:.55;' : '') + '"><span style="flex:1;min-width:0;">' + (x.niveau === 'rouge' ? '🔴' : '🟠') + ' ' + escapeHtml(x.quoi) + (vu ? ' <small>(vu, masqué du bandeau)</small>' : '') + '</span>' + (x.niveau !== 'rouge' ? '<button class="btn btn-sm" style="flex:none;" onclick="ctlMarquerVu(' + cle + ',' + (vu ? 'false' : 'true') + ')">' + (vu ? 'Réafficher' : 'Vu') + '</button>' : '') + '</div>'; }).join('') + '</div>' : '<div style="padding:10px 14px;border-radius:12px;background:var(--soft-green);border:1px solid var(--green);color:var(--green);font-weight:700;margin-bottom:12px;">🟢 Tout est connecté, rien en erreur.</div>';
+  document.getElementById('ctl-problemes').innerHTML = p.length ? '<div class="controle-alerte' + (p.some(function(x) { return x.niveau === 'rouge'; }) ? '' : ' orange') + '" style="flex-direction:column;align-items:flex-start;gap:4px;">' + p.map(function(x) { var vu = ctlEstVu(x), cle = JSON.stringify(ctlCleIncident(x)).replace(/"/g, '&quot;'); return '<div style="display:flex;gap:10px;align-items:baseline;width:100%;' + (vu ? 'opacity:.55;' : '') + '"><span style="flex:1;min-width:0;">' + (x.niveau === 'rouge' ? '🔴' : '🟠') + ' ' + escapeHtml(x.quoi) + (vu ? ' <small>(vu, masqué du bandeau)</small>' : '') + '</span>' + (x.niveau !== 'rouge' ? '<button class="btn btn-sm" style="flex:none;" onclick="ctlMarquerVu(' + cle + ',' + (vu ? 'false' : 'true') + ')">' + (vu ? 'Réafficher' : 'Vu') + '</button>' : '') + '</div>'; }).join('') + '</div>' : '<div style="padding:10px 14px;border-radius:12px;background:var(--soft-green);border:1px solid var(--green);color:var(--green);font-weight:700;margin-bottom:12px;">🟢 Connexions : tout fonctionne (copilot, Close, Calendly, Supabase).</div>';
+  try { var vcN = (typeof sdVerifCloseRestants === 'function') ? sdVerifCloseRestants().length : 0, nfN = ((_verifClose && _verifClose.nonTrouves) || []).length; // 31 oct. 2026 (audit, section 8) : la cohérence Close ↔ SalesDesk a son propre feu, séparé des connexions
+    document.getElementById('ctl-problemes').insertAdjacentHTML('beforeend', (vcN || nfN) ? '<div style="padding:10px 14px;border-radius:12px;background:var(--soft-orange, #fff4e5);border:1px solid var(--orange);color:var(--orange);font-weight:700;margin-bottom:12px;">🟠 Close et SalesDesk : ' + (vcN ? vcN + ' écart' + (vcN > 1 ? 's' : '') + ' à regarder' : '') + (vcN && nfN ? ' · ' : '') + (nfN ? nfN + ' RDV introuvable' + (nfN > 1 ? 's' : '') + ' dans Close' : '') + ' (détail plus bas)</div>' : '<div style="padding:10px 14px;border-radius:12px;background:var(--soft-green);border:1px solid var(--green);color:var(--green);font-weight:700;margin-bottom:12px;">🟢 Close et SalesDesk sont d\'accord.</div>'); } catch (e) {}
   // connexions : SalesDesk d'abord, puis copilot
   var cx = '';
   cx += L(typeof _syncErreur !== 'undefined' && _syncErreur ? '🔴' : '🟢', 'Supabase (sauvegarde en ligne)', (typeof _supaEmail !== 'undefined' && _supaEmail) ? 'connecté : ' + escapeHtml(_supaEmail) : 'clé publique seule');
