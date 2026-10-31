@@ -4163,10 +4163,10 @@ function renderCreneaux() {
   // Conclusion en trois lignes (12 oct. 2026, demandée par Nicolas) : le problème de fond, où placer ses RDV, quand il vend le mieux. Recalculée avec les filtres.
   var concl = [];
   if (assez.length >= 2) {
-    var ecartPts = pc(assez[0].c.nt, assez[0].c.base) - pc(assez[assez.length - 1].c.nt, assez[assez.length - 1].c.base);
+    var ecartPts = pc(assez[0].c.nt, assez[0].c.base) - pc(assez[assez.length - 1].c.nt, assez[assez.length - 1].c.base), nbBaseCr = assez.reduce(function(acc, x) { return acc + (x.c.base || 0); }, 0);
     concl.push(ecartPts <= 12
-      ? '<b>Ton vrai problème n\'est pas l\'horaire.</b> ' + moyNT + ' % de tes R1 ne sont pas tenus le jour J, et ton meilleur et ton pire créneau ne sont qu\'à ' + ecartPts + ' points d\'écart : le levier, c\'est la confirmation.'
-      : '<b>L\'horaire compte.</b> De ' + pc(assez[assez.length - 1].c.nt, assez[assez.length - 1].c.base) + ' % à ' + pc(assez[0].c.nt, assez[0].c.base) + ' % de R1 non tenus le jour J selon le créneau (moyenne ' + moyNT + ' %) : choisis tes créneaux.');
+      ? '<b>L\'horaire pèse peu, d\'après tes chiffres.</b> Sur ' + nbBaseCr + ' R1, ' + moyNT + ' % ne sont pas tenus le jour J, et ton meilleur et ton pire créneau ne sont qu\'à ' + ecartPts + ' points d\'écart : la confirmation pèse sans doute plus que l\'heure. Lecture descriptive, pas une preuve : les populations diffèrent d\'un créneau à l\'autre.'
+      : '<b>L\'horaire semble compter.</b> De ' + pc(assez[assez.length - 1].c.nt, assez[assez.length - 1].c.base) + ' % à ' + pc(assez[0].c.nt, assez[0].c.base) + ' % de R1 non tenus le jour J selon le créneau (moyenne ' + moyNT + ' % sur ' + nbBaseCr + ' R1) : une piste à tester, l\'heure qui convient au prospect reste prioritaire.'); // 31 oct. 2026 (audit G10) : recommandation proportionnée aux données
     var hs = Object.keys(R.H).map(Number).filter(function(x) { return R.H[x].base >= CR_SEUIL; }).sort(function(a, b) { return pc(R.H[a].nt, R.H[a].base) - pc(R.H[b].nt, R.H[b].base); });
     var hB = hs[0], hW = hs.slice(-2).sort(function(a, b) { return a - b; }), mieux2 = assez[assez.length - 1], pire2 = assez[0];
     if (hs.length >= 3) concl.push('<b>Place tes RDV le ' + mieux2.lib + ' et à ' + hB + ' h</b> (' + pc(R.H[hB].nt, R.H[hB].base) + ' % de non tenus' + (R.H[hB].show >= CR_SEUIL_V ? ', closing ' + pc(R.H[hB].sig, R.H[hB].show) + ' %' : '') + '). Évite ' + hW.map(function(x) { return x + ' h'; }).join(' et ') + ' (' + hW.map(function(x) { return pc(R.H[x].nt, R.H[x].base) + ' %'; }).join(' et ') + ' de non tenus) et le ' + pire2.lib + ' (' + pc(pire2.c.nt, pire2.c.base) + ' %).');
@@ -5312,7 +5312,7 @@ function sdRvReserver() {
   var v = _rv; if (!v || !v.choix || v.enCours) return; v.enCours = true; v.err = ''; sdRvRendre();
   rlPost('/calendly/reserver', { type: v.o.type, debut: v.choix, nom: v.o.nom, email: v.o.email || '', tel: v.o.tel || '', cp: v.o.cp || '', lead: v.o.lead || '' }).then(function(j) {
     if (_rv === v) { fermerModalDoublon(); _rv = null; } // fenêtre déjà fermée : le RDV existe quand même dans Calendly, on termine la suite (tâche Close, ligne SalesDesk)
-    if (typeof showCopyToast === 'function') showCopyToast('✓ RDV réservé dans Calendly : ' + fcFrDepuisIso(j.date) + ' à ' + j.heure);
+    if (typeof showCopyToast === 'function') showCopyToast('✓ RDV réservé dans Calendly : ' + fcFrDepuisIso(j.date) + ' à ' + j.heure + (j.email ? ' · invitation envoyée à ' + j.email : '')); // 31 oct. 2026 (audit G09) : l'adresse qui reçoit l'invitation se voit
     try { _auj.calEtat = {}; _auj.cal = {}; } catch (e) {} if (v.cb) v.cb(j);
   }).catch(function(e) { if (_rv !== v) { if (typeof showCopyToast === 'function') showCopyToast('✗ Réservation Calendly refusée : ' + e.message); return; } v.enCours = false; v.err = e.message; sdRvRendre(); });
 }
