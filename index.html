@@ -4050,12 +4050,12 @@ function sdReporterSignatureR2(st, r2) {
   Object.keys(st).forEach(function(k) { if (!/^\d{4}-\d{2}$/.test(k) || !Array.isArray(st[k])) return; st[k].forEach(function(x) { if (!x || x.source === 'R2' || fcNormNom(x.client || '') !== n) return; var d1 = parseDateFR(x.date) || 0; if (d1 && d2 && d1 > d2) return; cands.push(x); }); });
   cands.sort(function(x, y) { return (parseDateFR(y.date) || 0) - (parseDateFR(x.date) || 0); }); var r1 = cands[0]; if (!r1) return null;
   if (r1.result === 'Signé') { // déjà signé : seulement s'il l'a été via CE R2, et sans commission figée (montant vérifié par Nicolas)
-    if (r1.signeViaR2 !== r2.date || (r1.commFigee !== undefined && r1.commFigee !== null)) return false;
+    if ((r1.signeViaR2 !== r2.date && !(!r1.signeViaR2 && r1.dateR2 === r2.date)) || (r1.commFigee !== undefined && r1.commFigee !== null)) return false;
     // 16 oct. 2026 (un prospect) : une correction faite ensuite sur la ligne R2 (Données brutes) remonte sur le R1, qui seul compte dans la commission
     var ch = false; ['pack', 'freq', 'tier', 'fms', 'remise', 'oneshot', 'dateSignature'].forEach(function(f) { var v = r2[f]; if (v === undefined || v === null || String(v).trim() === '') return; if (String(r1[f] == null ? '' : r1[f]) !== String(v)) { r1[f] = v; ch = true; } });
     return ch ? r1 : false;
   }
-  r1.result = 'Signé'; r1.presence = r1.presence || 'Show'; r1.pack = r2.pack || r1.pack; r1.freq = r2.freq || r1.freq; r1.tier = r2.tier || r1.tier; r1.fms = r2.fms || r1.fms; if (r2.remise) r1.remise = r2.remise; r1.dateSignature = r2.dateSignature || r1.dateSignature || new Date().toLocaleDateString('fr-FR');
+  r1.result = 'Signé'; r1.presence = r1.presence || 'Show'; r1.pack = r2.pack || r1.pack; r1.freq = r2.freq || r1.freq; r1.tier = r2.tier || r1.tier; r1.fms = r2.fms || r1.fms; if (r2.remise) r1.remise = r2.remise; r1.dateSignature = r2.dateSignature || r1.dateSignature || r2.date || new Date().toLocaleDateString('fr-FR'); /* 1er nov. 2026 : à défaut, le jour du R2, pas le jour du clic */
   r1.dateR2 = r1.dateR2 || r2.date; if (r2.heure && !r1.heureR2) r1.heureR2 = r2.heure; r1.presenceR2 = 'Show'; delete r1.attenteSignature; delete r1.nosignRaison; delete r1.relanceDate; r1.signeViaR2 = r2.date;
   return r1;
 }
@@ -6386,8 +6386,9 @@ function sdApresRdvPour(nom, date) { // date : jj/mm/aaaa ou aaaa-mm-jj ; sans d
 function sdApresRdv(monthKey, idx) {
   var store = loadStore(), r = (store[monthKey] || [])[idx]; if (!r) return;
   var pres = String(r.presence || '').trim(), res = r.result === 'Promo' ? 'Non signé' : String(r.result || '').trim();
+  var sigR1 = ''; if (r.source === 'R2') { try { var l1 = fcLignesDuNom(r.client).filter(function(x) { return x.source !== 'R2' && (x.dateR2 === r.date || !x.dateR2 || parseDateFR(x.date) <= parseDateFR(r.date)); }).sort(function(x, y) { return (parseDateFR(y.date) || 0) - (parseDateFR(x.date) || 0); })[0]; if (l1 && l1.result === 'Signé') sigR1 = fcIsoDepuisFr(l1.dateSignature || ''); } catch (e) {} } /* 1er nov. 2026 (Martine Thomas) : la vente et sa date sont sur la ligne R1 */
   _ar = { monthKey: monthKey, idx: idx, row: r, estR2: r.source === 'R2',
-    presence: pres, result: (res === 'Intéressé' && r.attenteSignature) ? 'Attente' : res, raison: r.nosignRaison || (r.result === 'Promo' ? 'promo' : ''), pack: r.pack || '', freq: r.freq || '', tier: r.tier || '', fms: /offert/i.test(r.fms || '') ? 'Offert' : (r.fms || ''), remise: r.remise || '', dateSign: fcIsoDepuisFr(r.dateSignature || '') || fcIsoDepuisFr(r.date || '') || rlIso(new Date()), dateSign0: fcIsoDepuisFr(r.dateSignature || '') || fcIsoDepuisFr(r.date || '') || rlIso(new Date()), oneshot: r.oneshot === 'O', type: r.type || '',
+    presence: pres, result: (res === 'Intéressé' && r.attenteSignature) ? 'Attente' : res, raison: r.nosignRaison || (r.result === 'Promo' ? 'promo' : ''), pack: r.pack || '', freq: r.freq || '', tier: r.tier || '', fms: /offert/i.test(r.fms || '') ? 'Offert' : (r.fms || ''), remise: r.remise || '', dateSign: sigR1 || fcIsoDepuisFr(r.dateSignature || '') || fcIsoDepuisFr(r.date || '') || rlIso(new Date()), oneshot: r.oneshot === 'O', type: r.type || '',
     suite: (r.dateR2 && String(r.dateR2).trim()) ? 'r2' : ((r.relanceDate && !r.relanceFait) ? 'rel' : ''), r2Date: fcIsoDepuisFr(r.dateR2 || ''), r2Heure: r.heureR2 || '', relDate: r.relanceDate || '', relCond: r.relanceCond || '',
     nsChoix: '', nsDate: rlJourOuvre(rlIso(new Date()), 1), note: r.retour || '',
     dossier: null, dernier: undefined, mail: null, presenceAvant: pres, resultAvant: res, raisonAvant: r.nosignRaison || '' };
@@ -6447,7 +6448,6 @@ function arChamp(champ, val) { if (_ar) { _ar[champ] = val; arRendreEcrit(); } }
 function arEcrireOffre(ligne, a, dateRdv) {
   if (a.tier) ligne.tier = a.tier; if (a.fms) ligne.fms = a.fms;
   var rem = String(a.remise || '').replace(/[^\d]/g, ''); if (rem) ligne.remise = rem; else if (a.remise === '') delete ligne.remise;
-  if (ligne.dateSignature && a.dateSign === a.dateSign0) return; /* date non touchée à l'écran : une signature déjà datée (ex. R1 signé avant le R2) garde sa date */
   ligne.dateSignature = a.dateSign ? fcFrDepuisIso(a.dateSign) : (ligne.dateSignature || dateRdv || new Date().toLocaleDateString('fr-FR'));
 }
 // Colonne 2 : résultat & suite
@@ -6599,7 +6599,7 @@ function arValiderSuivi() {
     var r1s = fcLignesDuNom(r.client).filter(function(x) { return x.source !== 'R2' && (x.dateR2 === r.date || !x.dateR2 || parseDateFR(x.date) <= parseDateFR(r.date)); }).sort(function(x, y) { return (parseDateFR(y.date) || 0) - (parseDateFR(x.date) || 0); });
     var r1 = r1s[0] ? (store[r1s[0]._monthKey] || [])[r1s[0]._storeKey] : null;
     if (r1) { r1.dateR2 = r.date; if (r.heure) r1.heureR2 = r.heure; r1.presenceR2 = a.presence;
-      if (a.presence === 'Show' && a.result === 'Signé') { r1.result = 'Signé'; r1.pack = a.pack; r1.freq = a.freq; r1.oneshot = a.oneshot ? 'O' : 'N'; if (a.type) r1.type = a.type; arEcrireOffre(r1, a, r.date); delete r1.attenteSignature; }
+      if (a.presence === 'Show' && a.result === 'Signé') { r1.result = 'Signé'; r1.pack = a.pack; r1.freq = a.freq; r1.oneshot = a.oneshot ? 'O' : 'N'; if (a.type) r1.type = a.type; arEcrireOffre(r1, a, r.date); r1.signeViaR2 = r.date; delete r1.attenteSignature; }
       else if (a.presence === 'Show' && a.result === 'Non signé') { r1.result = 'Non signé'; r1.nosignRaison = a.raison; delete r1.attenteSignature; }
       else if (a.presence === 'Show' && a.result === 'Intéressé') { r1.result = 'Intéressé'; delete r1.nosignRaison; if (estR3) r1.r3 = a.r2Date ? fcFrDepuisIso(a.r2Date) + (a.r2Heure ? ' ' + a.r2Heure : '') : 'à caler'; }
       else if (a.presence === 'Show' && a.result === 'Attente') { r1.result = 'Intéressé'; r1.attenteSignature = true; r1.attenteDepuis = r1.attenteDepuis || new Date().toISOString().slice(0, 10); } }
@@ -7527,6 +7527,7 @@ function updateFieldMK(idx, field, value, type, monthKey) {
   rows[idx][field] = value;
   if (field === 'result' && value !== 'Non signé' && value !== 'Promo') delete rows[idx].nosignRaison;
   if (field === 'result' && value === 'Promo') { rows[idx].result = 'Non signé'; rows[idx].nosignRaison = 'promo'; }
+  if (rows[idx].source === 'R2' && ['pack', 'freq', 'tier', 'fms', 'remise', 'oneshot', 'dateSignature', 'result'].indexOf(field) >= 0) { try { sdReporterSignatureR2(store, rows[idx]); } catch (e) {} } /* 1er nov. 2026 : la ligne R1 porte la vente, une correction sur la R2 doit la suivre */
   store[monthKey] = rows;
   saveStore(store);
   if (field === 'result' && value === 'Non signé' && !rows[idx].nosignRaison) setTimeout(function() { try { fcPopupRaison(monthKey, idx); } catch (e) {} }, 60); // un « Non signé » sans raison : on la demande tout de suite (« Pas intéressé » passe Close en Not interested)
