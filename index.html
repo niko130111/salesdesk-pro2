@@ -5842,7 +5842,7 @@ function fcHtmlRdvListe() {
       + '<span class="x">' + escapeHtml([offre, suite].filter(Boolean).join(' — ')) + '</span>' + (url ? '<a class="c" href="' + escapeHtml(url) + '" target="_blank" rel="noopener" onclick="event.stopPropagation()">Claap ↗</a>' : '') + '<span class="v">Modifier</span></summary>'
       + '<div class="fc-rl-corps"><div class="fc-claap"><span style="font-size:12px;color:var(--text3);">Claap</span><input placeholder="Coller le lien de l\'enregistrement" value="' + escapeHtml(url) + '" onchange="fcSetClaap(' + JSON.stringify(r.date || '').replace(/"/g, '&quot;') + ', this.value)"></div>'
       + fcHtmlEdition(r)
-      + '<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">' + (sdRdvPasse(r) && !String(r.presence || '').trim() ? '<button class="btn btn-sm btn-primary" onclick="sdApresRdv(' + mkJs + ',' + r._storeKey + ')">Terminer ce RDV</button>' : '')
+      + '<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">' + (sdRdvPasse(r) && !String(r.presence || '').trim() ? '<button class="btn btn-sm btn-primary" onclick="sdApresRdv(' + mkJs + ',' + r._storeKey + ')">Terminer ce RDV</button>' : (sdRdvPasse(r) ? '<button class="btn btn-sm" onclick="sdApresRdv(' + mkJs + ',' + r._storeKey + ')" title="Rouvre l\'écran après-RDV avec ce qui est déjà noté (résultat, offre, date de signature)">Corriger le résultat</button>' : ''))
       + (r.source !== 'R2' ? '<button class="btn btn-sm" onclick="fcPopupSuivi(' + mkJs + ',' + r._storeKey + ')">R2 / rappel</button>' : '')
       + '<button class="btn btn-sm" onclick="fermerFicheClient();goToRdvTableRow(' + mkJs + ',' + r._storeKey + ',' + JSON.stringify(tab).replace(/"/g, '&quot;') + ')">Voir dans RDV Table</button></div></div></details>';
   }).join('') + '</div>';
@@ -6387,7 +6387,7 @@ function sdApresRdv(monthKey, idx) {
   var store = loadStore(), r = (store[monthKey] || [])[idx]; if (!r) return;
   var pres = String(r.presence || '').trim(), res = r.result === 'Promo' ? 'Non signé' : String(r.result || '').trim();
   _ar = { monthKey: monthKey, idx: idx, row: r, estR2: r.source === 'R2',
-    presence: pres, result: (res === 'Intéressé' && r.attenteSignature) ? 'Attente' : res, raison: r.nosignRaison || (r.result === 'Promo' ? 'promo' : ''), pack: r.pack || '', freq: r.freq || '', oneshot: r.oneshot === 'O', type: r.type || '',
+    presence: pres, result: (res === 'Intéressé' && r.attenteSignature) ? 'Attente' : res, raison: r.nosignRaison || (r.result === 'Promo' ? 'promo' : ''), pack: r.pack || '', freq: r.freq || '', tier: r.tier || '', fms: /offert/i.test(r.fms || '') ? 'Offert' : (r.fms || ''), remise: r.remise || '', dateSign: fcIsoDepuisFr(r.dateSignature || '') || fcIsoDepuisFr(r.date || '') || rlIso(new Date()), dateSign0: fcIsoDepuisFr(r.dateSignature || '') || fcIsoDepuisFr(r.date || '') || rlIso(new Date()), oneshot: r.oneshot === 'O', type: r.type || '',
     suite: (r.dateR2 && String(r.dateR2).trim()) ? 'r2' : ((r.relanceDate && !r.relanceFait) ? 'rel' : ''), r2Date: fcIsoDepuisFr(r.dateR2 || ''), r2Heure: r.heureR2 || '', relDate: r.relanceDate || '', relCond: r.relanceCond || '',
     nsChoix: '', nsDate: rlJourOuvre(rlIso(new Date()), 1), note: r.retour || '',
     dossier: null, dernier: undefined, mail: null, presenceAvant: pres, resultAvant: res, raisonAvant: r.nosignRaison || '' };
@@ -6443,6 +6443,13 @@ function arSet(groupe, val) {
   arRendreC2(); arRendreC3(); arRendreEcrit();
 }
 function arChamp(champ, val) { if (_ar) { _ar[champ] = val; arRendreEcrit(); } }
+/* 1er nov. 2026 (Nicolas, vente de la veille comptée le jour du traitement) : la date de signature est celle choisie à l'écran, par défaut la date du RDV traité ; tier, mise en service et remise s'écrivent aussi (ils comptent dans la commission). */
+function arEcrireOffre(ligne, a, dateRdv) {
+  if (a.tier) ligne.tier = a.tier; if (a.fms) ligne.fms = a.fms;
+  var rem = String(a.remise || '').replace(/[^\d]/g, ''); if (rem) ligne.remise = rem; else if (a.remise === '') delete ligne.remise;
+  if (ligne.dateSignature && a.dateSign === a.dateSign0) return; /* date non touchée à l'écran : une signature déjà datée (ex. R1 signé avant le R2) garde sa date */
+  ligne.dateSignature = a.dateSign ? fcFrDepuisIso(a.dateSign) : (ligne.dateSignature || dateRdv || new Date().toLocaleDateString('fr-FR'));
+}
 // Colonne 2 : résultat & suite
 function arRendreC2() {
   var a = _ar; if (!a) return; var el = document.getElementById('ar-c2'), out = '<h4><span class="n">2</span>Résultat & suite</h4>';
@@ -6452,7 +6459,8 @@ function arRendreC2() {
       + (a.result === 'Attente' ? '<div class="fc-muted" style="margin-top:6px;">Ni signé ni perdu : il a dit oui, tu attends sa signature ou son paiement. Compté comme une affaire en cours, pas comme une vente.</div>' : '');
     if (a.result === 'Signé') {
       var sel = function(champ, opts, val) { return '<select onchange="arChamp(\'' + champ + '\', this.value)">' + opts.map(function(o) { return '<option value="' + escapeHtml(o[0]) + '"' + (o[0] === val ? ' selected' : '') + '>' + escapeHtml(o[1]) + '</option>'; }).join('') + '</select>'; };
-      out += '<div class="ar-lab">Offre signée</div><div class="ar-row">' + sel('pack', [['', 'Pack ?'], ['Start+', 'Start+'], ['Pro+', 'Pro+'], ['Expert+', 'Expert+']], a.pack) + sel('freq', [['', 'Fréquence ?'], ['Annuelle', 'Annuelle'], ['Mensuelle', 'Mensuelle']], a.freq) + (a.type ? '' : sel('type', [['', 'Type ?'], ['Mandataire', 'Mandataire'], ['Agences', 'Agences']], a.type)) + '<label style="font-size:12.5px;display:flex;gap:5px;align-items:center;"><input type="checkbox"' + (a.oneshot ? ' checked' : '') + ' onchange="arChamp(\'oneshot\', this.checked)">One shot</label></div>';
+      out += '<div class="ar-lab">Offre signée</div><div class="ar-row">' + sel('pack', [['', 'Pack ?'], ['Start+', 'Start+'], ['Pro+', 'Pro+'], ['Expert+', 'Expert+']], a.pack) + sel('freq', [['', 'Fréquence ?'], ['Annuelle', 'Annuelle'], ['Mensuelle', 'Mensuelle']], a.freq) + sel('tier', [['', 'Tier ?'], ['T1', 'T1'], ['T2', 'T2'], ['T3', 'T3'], ['T4', 'T4']], a.tier) + sel('fms', [['', 'Mise en service ?'], ['100%', 'FMS 100 %'], ['50%', 'FMS 50 %'], ['Offert', 'FMS offerte']], a.fms) + (a.type ? '' : sel('type', [['', 'Type ?'], ['Mandataire', 'Mandataire'], ['Agences', 'Agences']], a.type)) + '<label style="font-size:12.5px;display:flex;gap:5px;align-items:center;"><input type="checkbox"' + (a.oneshot ? ' checked' : '') + ' onchange="arChamp(\'oneshot\', this.checked)">One shot</label></div>'
+        + '<div class="ar-row"><label style="font-size:12.5px;display:flex;gap:5px;align-items:center;">Remise <input type="text" inputmode="numeric" placeholder="0" value="' + escapeHtml(String(a.remise || '')) + '" style="flex:0;min-width:70px;width:70px;" onchange="arChamp(\'remise\', this.value)"> €</label><label style="font-size:12.5px;display:flex;gap:5px;align-items:center;">Signé le <input type="date" value="' + escapeHtml(a.dateSign || '') + '" onchange="arChamp(\'dateSign\', this.value)"></label><span class="fc-muted" style="font-size:11.5px;">par défaut la date du RDV : c\'est elle qui range la vente dans le bon mois</span></div>';
       out += '<div class="fc-muted" style="margin-top:6px;">Close passe en Won tout seul au paiement — rien à écrire côté statut.</div>';
     }
     if (a.result === 'Non signé') {
@@ -6545,7 +6553,7 @@ function arPlan() {
     if (!a.result) M.push('le résultat');
     else { sd.push('résultat ' + (a.result === 'Attente' ? 'en attente de signature' : a.result) + (a.raison ? ' · ' + ({ pasinteresse: 'pas intéressé', pasbudget: 'pas de budget', promo: 'si promo', carte: 'carte de prospection', rent: 'au RENT', ghost: 'ghost', relancer: 'à relancer' }[a.raison] || a.raison) : '')); }
     if (a.result === 'Non signé' && !a.raison) M.push('la raison');
-    if (a.result === 'Signé') { if (!a.pack) M.push('le pack'); if (!a.freq) M.push('la fréquence'); if (!a.type) M.push('le type'); sd.push([a.pack, a.freq, a.oneshot ? 'one shot' : ''].filter(Boolean).join(' ') + (r.dateSignature ? '' : ' · signé le ' + new Date().toLocaleDateString('fr-FR'))); }
+    if (a.result === 'Signé') { if (!a.pack) M.push('le pack'); if (!a.freq) M.push('la fréquence'); if (!a.type) M.push('le type'); if (!a.dateSign) M.push('la date de signature'); var remN = String(a.remise || '').replace(/[^\d]/g, ''); sd.push([a.pack, a.freq, a.tier, a.fms ? 'FMS ' + a.fms : '', remN ? 'remise ' + remN + ' €' : '', a.oneshot ? 'one shot' : ''].filter(Boolean).join(' · ') + (a.dateSign ? ' · signé le ' + fcFrDepuisIso(a.dateSign) : '')); }
     if (arInt(a) && !a.suite) M.push(a.result === 'Attente' ? 'la date à laquelle tu le relances' : 'la suite (R2 ou rappel)');
     if (a.suite === 'r2' && a.r2Debut && !a.r2Reserve) M.push('réserver le R2 (bouton vert sous les créneaux)');
     if (a.suite === 'r2') sd.push('R2 ' + (a.r2Date ? 'le ' + fcFrDepuisIso(a.r2Date) + (a.r2Heure ? ' à ' + a.r2Heure : '') : 'attendu dans Calendly'));
@@ -6582,7 +6590,7 @@ function arValiderSuivi() {
   if (a.presence === 'Show') {
     r.result = a.result === 'Attente' ? 'Intéressé' : a.result; if (a.result === 'Attente') { r.attenteSignature = true; r.attenteDepuis = r.attenteDepuis || new Date().toISOString().slice(0, 10); } else delete r.attenteSignature;
     if (a.result === 'Non signé') r.nosignRaison = a.raison; else delete r.nosignRaison;
-    if (a.result === 'Signé') { r.pack = a.pack; r.freq = a.freq; r.oneshot = a.oneshot ? 'O' : 'N'; if (a.type) r.type = a.type; if (!r.dateSignature) r.dateSignature = new Date().toLocaleDateString('fr-FR'); }
+    if (a.result === 'Signé') { r.pack = a.pack; r.freq = a.freq; r.oneshot = a.oneshot ? 'O' : 'N'; if (a.type) r.type = a.type; arEcrireOffre(r, a, r.date); }
     if (a.suite === 'r2') { if (a.r2Date) { r.dateR2 = fcFrDepuisIso(a.r2Date); if (a.r2Heure) r.heureR2 = a.r2Heure; if (!r.presenceR2) r.presenceR2 = 'Programmé'; } else r.r2Attendu = true; }
     if (a.suite === 'rel' && a.relDate) { r.relanceDate = a.relDate; r.relanceCond = a.relCond; r.relanceFait = false; }
     if (a.suite === '' && a.result === 'Non signé') { delete r.relanceDate; delete r.relanceCond; }
@@ -6591,7 +6599,7 @@ function arValiderSuivi() {
     var r1s = fcLignesDuNom(r.client).filter(function(x) { return x.source !== 'R2' && (x.dateR2 === r.date || !x.dateR2 || parseDateFR(x.date) <= parseDateFR(r.date)); }).sort(function(x, y) { return (parseDateFR(y.date) || 0) - (parseDateFR(x.date) || 0); });
     var r1 = r1s[0] ? (store[r1s[0]._monthKey] || [])[r1s[0]._storeKey] : null;
     if (r1) { r1.dateR2 = r.date; if (r.heure) r1.heureR2 = r.heure; r1.presenceR2 = a.presence;
-      if (a.presence === 'Show' && a.result === 'Signé') { r1.result = 'Signé'; r1.pack = a.pack; r1.freq = a.freq; r1.oneshot = a.oneshot ? 'O' : 'N'; if (a.type) r1.type = a.type; if (!r1.dateSignature) r1.dateSignature = new Date().toLocaleDateString('fr-FR'); delete r1.attenteSignature; }
+      if (a.presence === 'Show' && a.result === 'Signé') { r1.result = 'Signé'; r1.pack = a.pack; r1.freq = a.freq; r1.oneshot = a.oneshot ? 'O' : 'N'; if (a.type) r1.type = a.type; arEcrireOffre(r1, a, r.date); delete r1.attenteSignature; }
       else if (a.presence === 'Show' && a.result === 'Non signé') { r1.result = 'Non signé'; r1.nosignRaison = a.raison; delete r1.attenteSignature; }
       else if (a.presence === 'Show' && a.result === 'Intéressé') { r1.result = 'Intéressé'; delete r1.nosignRaison; if (estR3) r1.r3 = a.r2Date ? fcFrDepuisIso(a.r2Date) + (a.r2Heure ? ' ' + a.r2Heure : '') : 'à caler'; }
       else if (a.presence === 'Show' && a.result === 'Attente') { r1.result = 'Intéressé'; r1.attenteSignature = true; r1.attenteDepuis = r1.attenteDepuis || new Date().toISOString().slice(0, 10); } }
@@ -7695,7 +7703,7 @@ function sdAppliquerCopilot(m) {
   if (c.nosignRaison && row.result === 'Non signé') row.nosignRaison = String(c.nosignRaison);
   if (m.sc === 'rdv_terminer') {
     const isR2 = row.source === 'R2';
-    if (m.result === 'oneshot') { row.result = 'Signé'; row.oneshot = isR2 ? 'N' : 'O'; if (!row.dateSignature) row.dateSignature = new Date().toLocaleDateString('fr-FR'); }
+    if (m.result === 'oneshot') { row.result = 'Signé'; row.oneshot = isR2 ? 'N' : 'O'; if (!row.dateSignature) row.dateSignature = row.date || new Date().toLocaleDateString('fr-FR'); }
     else if (m.result === 'nosign') { row.result = 'Non signé'; row.oneshot = 'N'; if (c.nosignRaison) row.nosignRaison = String(c.nosignRaison); if (String(c.nosignRaison || '') === 'pasinteresse') sdStatutClose(row, 'pas_interesse'); }
     else if (m.result === 'r2') { row.result = 'Intéressé'; row.oneshot = 'N'; row.r2Attendu = new Date().toISOString().slice(0, 10); } // intéressé, R2 à venir : la date est reprise de l'agenda
     else if (m.result === 'relance') { row.result = 'Intéressé'; row.oneshot = 'N'; } // à relancer = intéressé sans R2 : même résultat que « Intéressé » à la main, compté partout pareil
@@ -7904,7 +7912,7 @@ function addToRdvTable(btn) {
     if (type)     _rows[_idx].type     = type;
     if (source)   _rows[_idx].source   = source;
     if (resNorm === 'Signé' && !_rows[_idx].dateSignature) {
-      _rows[_idx].dateSignature = new Date().toLocaleDateString('fr-FR');
+      _rows[_idx].dateSignature = rdvDate || new Date().toLocaleDateString('fr-FR');
     }
     _store[_mk] = _rows;
     saveStore(_store);
@@ -7914,7 +7922,7 @@ function addToRdvTable(btn) {
       datePrise: card.dataset.created || '',
       client: name, presence: presNorm, result: resNorm,
       source, type, pack: '', freq: '', oneshot: 'N', commission: 0,
-      dateSignature: resNorm === 'Signé' ? new Date().toLocaleDateString('fr-FR') : ''
+      dateSignature: resNorm === 'Signé' ? (rdvDate || new Date().toLocaleDateString('fr-FR')) : ''
     });
   }
 
@@ -16083,7 +16091,7 @@ function autoSyncCardToTable(card) {
     if (heureR2) rows[existingIdx].heureR2 = heureR2;
     // Auto-remplir dateSignature avec aujourd'hui quand on passe en Signé (si pas déjà remplie)
     if (resNorm === 'Signé' && !rows[existingIdx].dateSignature) {
-      rows[existingIdx].dateSignature = new Date().toLocaleDateString('fr-FR');
+      rows[existingIdx].dateSignature = rdvDate || new Date().toLocaleDateString('fr-FR');
     }
     store[monthKey] = rows;
     saveStore(store);
@@ -16105,8 +16113,8 @@ function autoSyncCardToTable(card) {
       commission: 0,
       dateR2: dateR2,
       heureR2: heureR2,
-      // Auto-remplir dateSignature avec aujourd'hui quand création directe en Signé
-      dateSignature: resNorm === 'Signé' ? new Date().toLocaleDateString('fr-FR') : ''
+      // Signé à la création de la ligne : date du RDV (1er nov. 2026), pas le jour du clic
+      dateSignature: resNorm === 'Signé' ? (rdvDate || new Date().toLocaleDateString('fr-FR')) : ''
     });
   }
 
