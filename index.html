@@ -2195,7 +2195,8 @@ select.form-input { cursor: pointer; }
     <div><h1 class="pf-h1">RENT · prépa express</h1><div class="pf-sub">Un code postal : vendeurs et partenaires autour, retours France Sales, estimations à montrer, raccourcis.</div></div>
     <form style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;" onsubmit="event.preventDefault();rentChercher()">
       <input id="rent-cp" inputmode="numeric" maxlength="5" placeholder="Code postal" style="width:110px;font-size:16px;font-weight:700;padding:7px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);">
-      <input id="rent-nom" placeholder="Nom / agence (Google, Facebook)" style="width:220px;padding:7px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);">
+      <input id="rent-ville" placeholder="Ville (si pas celle du CP)" style="width:150px;padding:7px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);">
+      <input id="rent-nom" placeholder="Nom prénom (Close, Google)" style="width:220px;padding:7px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);">
       <input id="rent-reseau" placeholder="Réseau (iad, Safti…)" style="width:150px;padding:7px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);">
       <button type="submit" class="btn btn-primary">Chercher</button>
     </form>
@@ -4147,24 +4148,61 @@ function crCalculer() {
 }
 // ── Onglet « RENT » (2 nov. 2026) : prépa express sur stand — un code postal, et en parallèle : demandes de vendeurs + partenaires par rayon (/secteur/rayons),
 // retours France Sales du même réseau / département (/csm/retours), estimations du secteur à montrer (/slack/estimations), raccourcis Google / Facebook / ma présentation. ──
-var _rent = { cp: '', nom: '', reseau: '', rayons: null, csm: null, estim: null, cpEstim: '', est: [] }; // est : jusqu'à 2 pages d'estimation retenues pour le schéma
+var _rent = { cp: '', nom: '', reseau: '', ville: '', rayons: null, csm: null, estim: null, cpEstim: '', est: [], close: null, prec: null, leadChoisi: '' }; // close : fiches Close trouvées sur le nom ; prec : dernier RDV de la fiche choisie // est : jusqu'à 2 pages d'estimation retenues pour le schéma
 var PUBS_META_RA = 'https://www.facebook.com/ads/library/?active_status=active&ad_type=housing_ads&country=FR&is_targeted_country=false&media_type=all&search_type=page&sort_data[direction]=desc&sort_data[mode]=total_impressions&view_all_page_id=1782992428603838'; // même lien que la prépa du copilot
 function rentRecents() { try { return (JSON.parse(localStorage.getItem('salesdesk_rent_recents') || '[]') || []).filter(function(x) { return /^\d{5}$/.test(x); }); } catch (e) { return []; } }
 function rentHref(u) { u = String(u || '').trim(); return /^https?:\/\//i.test(u) ? u : ''; } // seuls les liens http(s) sont rendus (données Slack / copilot / saisie)
 function rentChercher(cp) {
-  var iCp = document.getElementById('rent-cp'), iNom = document.getElementById('rent-nom'), iRes = document.getElementById('rent-reseau');
+  var iCp = document.getElementById('rent-cp'), iNom = document.getElementById('rent-nom'), iRes = document.getElementById('rent-reseau'), iVi = document.getElementById('rent-ville');
   if (cp && iCp) iCp.value = cp;
   cp = ((iCp && iCp.value) || '').replace(/\D/g, '').slice(0, 5); if (cp.length !== 5) { if (typeof showCopyToast === 'function') showCopyToast('Code postal à 5 chiffres'); return; }
-  _rent = { cp: cp, nom: ((iNom && iNom.value) || '').trim(), reseau: ((iRes && iRes.value) || '').trim(), rayons: null, csm: null, estim: null, cpEstim: cp, est: [] };
+  _rent = { cp: cp, nom: ((iNom && iNom.value) || '').trim(), reseau: ((iRes && iRes.value) || '').trim(), ville: ((iVi && iVi.value) || '').replace(/\b\d{5}\b/g, '').trim(), rayons: null, csm: null, estim: null, cpEstim: cp, est: [], close: null, prec: null, leadChoisi: '' };
   var rec = rentRecents().filter(function(x) { return x !== cp; }); rec.unshift(cp); try { localStorage.setItem('salesdesk_rent_recents', JSON.stringify(rec.slice(0, 6))); } catch (e) {}
   rentRendre();
   if (typeof COPILOT_URL === 'undefined') { _rent.rayons = _rent.csm = _rent.estim = { ok: false, error: 'copilot éteint' }; rentRendre(); return; }
-  rentGet('/secteur/rayons?' + new URLSearchParams({ cp: cp }), 'rayons');
+  rentGet('/secteur/rayons?' + new URLSearchParams({ cp: cp, ville: _rent.ville }), 'rayons');
+  if (_rent.nom.length >= 3) rentGet('/close/recherche?' + new URLSearchParams({ q: _rent.nom }), 'close'); else _rent.close = { ok: true, leads: [], sansNom: true };
   rentGet('/csm/retours?' + new URLSearchParams({ cp: cp, reseau: _rent.reseau, nom: _rent.nom }), 'csm');
   rentEstimCharger(cp);
 }
 function rentGet(url, cle) { var moi = _rent, cpE = _rent.cpEstim; fetch(COPILOT_URL + url, { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).catch(function(e) { return { ok: false, error: 'copilot sans réponse' }; })
-    .then(function(j) { if (_rent !== moi || (cle === 'estim' && _rent.cpEstim !== cpE)) return; moi[cle] = j || { ok: false, error: 'vide' }; rentRendre(); }); }
+    .then(function(j) { if (_rent !== moi || (cle === 'estim' && _rent.cpEstim !== cpE)) return; moi[cle] = j || { ok: false, error: 'vide' }; if (cle === 'close' && j && j.ok && (j.leads || []).length) rentPrecedent(j.leads[0].id); rentRendre(); }); }
+function rentPrecedent(lead) { // dernier RDV de cette fiche Close (Close + SalesDesk) : d'abord sans IA (tout de suite), puis le compte rendu résumé s'il existe
+  var moi = _rent; moi.leadChoisi = lead; moi.prec = null; rentRendre(); var L = (moi.close && moi.close.leads || []).find(function(x) { return x.id === lead; }) || {};
+  var q = function(rapide) { return '/prepa/precedent?' + new URLSearchParams(Object.assign({ lead: lead, nom: String(L.nom || moi.nom).split('|')[0].trim(), email: L.email || '' }, rapide ? { rapide: '1' } : {})); };
+  var lire = function(url) { return fetch(COPILOT_URL + url, { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).catch(function() { return { ok: false, error: 'copilot sans réponse' }; }); };
+  lire(q(true)).then(function(j) { if (_rent !== moi || moi.leadChoisi !== lead) return; moi.prec = j; rentRendre(); if (j && j.resume && j.resume.enCours) lire(q(false)).then(function(j2) { if (_rent !== moi || moi.leadChoisi !== lead || !(j2 && j2.ok)) return; moi.prec = j2; rentRendre(); }); });
+}
+function rentSlug(v) { v = String(v || '').replace(/\b\d{5}\b/g, '').trim(); return v ? v.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/œ/g, 'oe').replace(/æ/g, 'ae').replace(/['’]/g, '-').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') : ''; }
+function rentHtmlClose() { // la fiche Close du prospect (s'il en a une) et son dernier RDV RealAdvisor
+  var j = _rent.close, t = function(sous) { return '<div class="fc-card-t"><span>👤 Déjà dans Close ?' + (_rent.nom ? ' · ' + escapeHtml(_rent.nom) : '') + '</span><span class="fc-muted" style="font-weight:500;">' + sous + '</span></div>'; };
+  if (!_rent.nom || (j && j.sansNom)) return '<div class="fc-card">' + t('') + '<div class="fc-muted">Tape son nom prénom (3 lettres mini) pour savoir s\'il a déjà une fiche et un RDV.</div></div>';
+  if (!j) return '<div class="fc-card">' + t('') + '<div class="fc-muted">Recherche dans Close…</div></div>';
+  if (!j.ok) return '<div class="fc-card">' + t('') + '<div class="fc-muted">Close : ' + escapeHtml(j.error || 'indisponible') + '</div></div>';
+  var L = j.leads || []; if (!L.length) return '<div class="fc-card">' + t('') + '<div style="font-size:15px;font-weight:700;color:var(--green,#15803d);">Aucune fiche Close à ce nom : nouveau pour nous.</div><div class="fc-muted" style="margin-top:4px;">La fiche se créera au 1er appel ou à la prise de RDV.</div></div>';
+  var h = L.slice(0, 4).map(function(l) { var nom = String(l.nom || '').split('|')[0].trim(), actif = l.id === _rent.leadChoisi;
+    return '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);' + (actif ? '' : 'opacity:.75;') + '"><b>' + escapeHtml(l.nom || '') + '</b><span class="fc-muted">' + escapeHtml([l.contact && l.contact !== l.nom ? l.contact : '', l.cat, l.ville, l.statut].filter(Boolean).join(' · ')) + '</span><span style="margin-left:auto;display:flex;gap:6px;">' + (actif || L.length === 1 ? '' : '<button class="btn btn-sm" onclick="rentPrecedent(' + escapeHtml(JSON.stringify(l.id)) + ')">Son RDV</button>') + '<button class="btn btn-sm" onclick="ouvrirFicheClient(' + escapeHtml(JSON.stringify(nom)) + ',' + escapeHtml(JSON.stringify(l.email || '')) + ',\'\',' + escapeHtml(JSON.stringify(l.id)) + ',' + escapeHtml(JSON.stringify(l.tel || '')) + ')">Fiche</button><a class="btn btn-sm" href="https://app.close.com/lead/' + escapeHtml(l.id) + '/" target="_blank" rel="noopener" style="text-decoration:none;">Close</a></span></div>'; }).join('');
+  return '<div class="fc-card">' + t(L.length + ' fiche' + (L.length > 1 ? 's' : '') + ' Close') + h + rentHtmlPrecedent() + '</div>';
+}
+function rentHtmlPrecedent() {
+  var j = _rent.prec, fr = function(iso) { return String(iso || '').split('-').reverse().join('/'); }; if (!_rent.leadChoisi) return '';
+  if (!j) return '<div class="fc-muted" style="margin-top:8px;">Lecture de ses RDV…</div>';
+  if (!j.ok) return '<div class="fc-muted" style="margin-top:8px;">RDV : ' + escapeHtml(j.error || j.raison || 'indisponible') + '</div>';
+  if (!j.trouve) return '<div style="margin-top:8px;font-weight:700;">Aucun RDV RealAdvisor passé avec lui : premier RDV.</div>';
+  var ETAT = { 'tenu': ['var(--green,#15803d)', 'Tenu'], 'no-show': ['var(--amber,#b45309)', 'No-show'], 'annulé': ['var(--text3)', 'Annulé'], 'reprogrammé': ['var(--text3)', 'Reprogrammé'] }, sd = j.salesdesk || {}, r = j.resume || {}, e = ETAT[j.etat] || ['var(--text3)', j.etat || (sd.presence ? sd.presence : 'tenue non renseignée')];
+  var oc = j.offreClose || null, ocTxt = oc ? [oc.pack, oc.periode === 'one_time' ? '' : (oc.periode || oc.freq), oc.tier ? 'tier ' + oc.tier : '', oc.valeur && isFinite(Number(oc.valeur)) ? Number(oc.valeur).toLocaleString('fr-FR') + ' €' + (oc.periode === 'annuel' ? '/an' : oc.periode === 'mensuel' ? '/mois' : '') : '', oc.setup === 0 ? 'mise en service offerte' : '', oc.coupon ? 'remise ' + oc.coupon : ''].filter(Boolean).join(' · ') : '';
+  var resSd = [sd.pack, sd.freq, sd.tier, sd.result].filter(Boolean).join(' · ');
+  var resume = r.en_bref ? escapeHtml(r.en_bref) + (r.convenu ? ' <b>Convenu :</b> ' + escapeHtml(r.convenu) : '') : (j.tenu && r.enCours ? '<span class="fc-muted">Résumé du compte rendu en cours (30 s)…</span>' : (j.tenu && r.vide ? '<span class="fc-muted">Compte rendu non importé dans Close.</span>' : (sd.raison ? 'Raison notée : ' + escapeHtml(sd.raison) : '')));
+  var claap = r.claap && rentHref(r.claap.url) ? ' <a href="' + escapeHtml(rentHref(r.claap.url)) + '" target="_blank" rel="noopener" style="color:var(--accent);">Claap' + (r.claap.minutes ? ' (' + escapeHtml(String(r.claap.minutes)) + ' min)' : '') + '</a>' : '';
+  return '<div style="margin-top:10px;border-left:3px solid ' + e[0] + ';padding:4px 10px;"><div style="font-size:15px;font-weight:800;">' + (j.tenu ? 'Il a déjà eu un RDV RealAdvisor' + (j.avec && !j.moi ? ' avec ' + escapeHtml(j.avec) : ' avec toi') + ' : ne repars pas de zéro.' : 'Un RDV était prévu mais n\'a pas eu lieu.') + '</div>'
+    + '<div style="margin-top:3px;"><b>' + escapeHtml(fr(j.date)) + (j.heure ? ' à ' + escapeHtml(j.heure) : '') + '</b> · <span style="color:' + e[0] + ';font-weight:700;">' + escapeHtml(e[1]) + '</span>' + (resSd ? ' · ' + escapeHtml(resSd) : '') + (j.nb > 1 ? ' <span class="fc-muted">(' + escapeHtml(String(j.nb)) + ' RDV au total)</span>' : '') + '</div>'
+    + (ocTxt ? '<div style="margin-top:3px;">Offre Close : ' + escapeHtml(ocTxt) + '</div>' : '') + (resume || claap ? '<div style="margin-top:4px;font-size:13.5px;">' + resume + claap + '</div>' : '') + '</div>';
+}
+function rentHtmlPrix() { // carte des prix et concurrence de la ville sur realadvisor.fr (comme la prépa) ; le tier se lit dessus
+  var ville = rentVille(), sl = rentSlug(ville); if (!sl) return '';
+  var a = function(href, txt) { return '<a class="btn" href="' + escapeHtml(href) + '" target="_blank" rel="noopener" style="text-decoration:none;">' + txt + '</a>'; };
+  return '<div class="fc-card"><div class="fc-card-t"><span>💶 Prix et tier · ' + escapeHtml(ville) + '</span><span class="fc-muted" style="font-weight:500;">realadvisor.fr ne s\'affiche pas dans une autre page : ça s\'ouvre à côté</span></div><div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">' + a('https://realadvisor.fr/fr/prix-m2-immobilier/ville-' + sl, '🗺️ Carte des prix · ' + escapeHtml(ville)) + a('https://realadvisor.fr/fr/agents-immobiliers/ville-' + sl, '👥 Agents immobiliers · ' + escapeHtml(ville)) + '</div></div>';
+}
 function rentEstimCharger(cp) { // les estimations peuvent venir d'un autre code postal que la rareté (le prospect travaille à côté)
   var i = document.getElementById('rent-cp-estim'); cp = String(cp || (i && i.value) || _rent.cp).replace(/\D/g, '').slice(0, 5); if (cp.length !== 5 || typeof COPILOT_URL === 'undefined') return;
   _rent.cpEstim = cp; _rent.estim = null; rentRendre(); rentGet('/slack/estimations?' + new URLSearchParams({ cp: cp, n: '8', jours: '180' }), 'estim');
@@ -4174,7 +4212,7 @@ function rentEstimChoisir(idx) { // 1er clic : exemple 1 ou 2 ; 2e clic : retir�
   var i = _rent.est.indexOf(page); if (i >= 0) _rent.est.splice(i, 1); else if (_rent.est.length < 2) _rent.est.push(page); else { if (typeof showCopyToast === 'function') showCopyToast('2 exemples maxi : retire-en un'); return; }
   rentRendre();
 }
-function rentVille() { return (_rent.rayons && _rent.rayons.ville) || (_rent.estim && _rent.estim.ville) || ''; }
+function rentVille() { return _rent.ville || (_rent.rayons && _rent.rayons.ville) || (_rent.estim && _rent.estim.ville) || ''; }
 function rentHtmlRayons() {
   var j = _rent.rayons, nb = function(n) { return Number(n || 0).toLocaleString('fr-FR'); }, court = function(n) { return String(n || '').split('|')[0].trim(); };
   var t = '<div class="fc-card-t"><span>📍 Rareté · ' + escapeHtml((j && j.ville) || '') + ' ' + escapeHtml(_rent.cp) + '</span><span class="fc-muted" style="font-weight:500;">vendeurs déclarés · partenaires = annuaire RealAdvisor</span></div>';
@@ -4230,7 +4268,7 @@ function rentRendre() {
   var c = document.getElementById('rent-corps'); if (!c) return; var iE = document.getElementById('rent-cp-estim'), saisie = iE && document.activeElement === iE ? iE.value : null; // un code postal en cours de frappe survit au rendu
   var rec = rentRecents(), chips = rec.length ? '<div class="fc-muted" style="margin:0 0 10px;">Récents : ' + rec.map(function(x) { return '<a style="cursor:pointer;color:var(--accent);font-weight:600;margin-right:8px;" onclick="rentChercher(\'' + x + '\')">' + escapeHtml(x) + '</a>'; }).join('') + '</div>' : '';
   if (!_rent.cp) { c.innerHTML = chips + '<div class="fc-muted">Tape un code postal, Entrée.</div>'; return; }
-  c.innerHTML = chips + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:12px;align-items:start;">' + rentHtmlRayons() + rentHtmlCsm() + rentHtmlEstim() + rentHtmlLiens() + '</div>';
+  c.innerHTML = chips + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:12px;align-items:start;">' + rentHtmlClose() + rentHtmlRayons() + rentHtmlPrix() + rentHtmlCsm() + rentHtmlEstim() + rentHtmlLiens() + '</div>';
   if (saisie !== null) { var n = document.getElementById('rent-cp-estim'); if (n) { n.value = saisie; n.focus(); try { n.setSelectionRange(saisie.length, saisie.length); } catch (e) {} } }
 }
 function renderRent() { var i = document.getElementById('rent-cp'); rentRendre(); if (i && !_rent.cp) setTimeout(function() { i.focus(); }, 50); }
