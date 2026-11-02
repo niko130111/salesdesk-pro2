@@ -1475,6 +1475,7 @@ select.form-input { cursor: pointer; }
     <button class="nav-tab" data-page="analytics" onclick="showPage('analytics',this);togglePeriodSelector(false);chargerAppelsClose();renderDaily();setTimeout(function(){try{refreshKpis();renderPerfTop();}catch(e){}},60)"><span class="nav-ico">◔</span>Performance</button>
     <button class="nav-tab" data-page="bilan" onclick="showPage('bilan',this);togglePeriodSelector(false);renderBilan()"><span class="nav-ico">✎</span>Bilan hebdo</button>
     <button class="nav-tab" data-page="creneaux" onclick="showPage('creneaux',this);togglePeriodSelector(false);renderCreneaux()"><span class="nav-ico">◷</span>Créneaux</button>
+    <button class="nav-tab" data-page="rent" onclick="showPage('rent',this);togglePeriodSelector(false);renderRent()"><span class="nav-ico">🏷</span>RENT</button>
     <div class="nav-more" id="nav-more">
       <button class="nav-tab nav-more-btn" id="nav-more-btn" onclick="navPlus(event)">Plus ▾<span id="nav-more-dot" style="display:none;width:7px;height:7px;border-radius:50%;background:var(--red);margin-left:6px;vertical-align:middle;"></span></button>
       <div class="nav-more-menu" id="nav-more-menu">
@@ -2186,6 +2187,20 @@ select.form-input { cursor: pointer; }
     <div class="cr-ctrl" id="cr-ctrl"></div>
   </div>
   <div id="cr-corps"></div>
+</main>
+</div>
+<div id="page-rent" class="page">
+<main>
+  <div class="pf-head">
+    <div><h1 class="pf-h1">RENT · prépa express</h1><div class="pf-sub">Un code postal : vendeurs et partenaires autour, retours France Sales, estimations à montrer, raccourcis.</div></div>
+    <form style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;" onsubmit="event.preventDefault();rentChercher()">
+      <input id="rent-cp" inputmode="numeric" maxlength="5" placeholder="Code postal" style="width:110px;font-size:16px;font-weight:700;padding:7px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);">
+      <input id="rent-nom" placeholder="Nom / agence (Google, Facebook)" style="width:220px;padding:7px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);">
+      <input id="rent-reseau" placeholder="Réseau (iad, Safti…)" style="width:150px;padding:7px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);">
+      <button type="submit" class="btn btn-primary">Chercher</button>
+    </form>
+  </div>
+  <div id="rent-corps"></div>
 </main>
 </div>
 <div id="page-global" class="page">
@@ -4130,6 +4145,81 @@ function crCalculer() {
   }); });
   return { C: C, H: H, T: T, info: info };
 }
+// ── Onglet « RENT » (2 nov. 2026) : prépa express sur stand — un code postal, et en parallèle : demandes de vendeurs + partenaires par rayon (/secteur/rayons),
+// retours France Sales du même réseau / département (/csm/retours), estimations du secteur à montrer (/slack/estimations), raccourcis Google / Facebook / ma présentation. ──
+var _rent = { cp: '', nom: '', reseau: '', rayons: null, csm: null, estim: null, enCours: 0 };
+function rentRecents() { try { return (JSON.parse(localStorage.getItem('salesdesk_rent_recents') || '[]') || []).filter(function(x) { return /^\d{5}$/.test(x); }); } catch (e) { return []; } }
+function rentHref(u) { u = String(u || '').trim(); return /^https?:\/\//i.test(u) ? u : ''; } // seuls les liens http(s) sont rendus (données Slack / copilot / saisie)
+function rentPresentation(v) { var st = loadStore(); st._settings = st._settings || {}; if (v !== undefined) { st._settings.rentPresentation = String(v || '').trim(); saveStore(st); } return st._settings.rentPresentation || ''; }
+function rentChercher(cp) {
+  var iCp = document.getElementById('rent-cp'), iNom = document.getElementById('rent-nom'), iRes = document.getElementById('rent-reseau');
+  if (cp && iCp) iCp.value = cp;
+  cp = ((iCp && iCp.value) || '').replace(/\D/g, '').slice(0, 5); if (cp.length !== 5) { if (typeof showCopyToast === 'function') showCopyToast('Code postal à 5 chiffres'); return; }
+  _rent = { cp: cp, nom: ((iNom && iNom.value) || '').trim(), reseau: ((iRes && iRes.value) || '').trim(), rayons: null, csm: null, estim: null, enCours: 3 };
+  var rec = rentRecents().filter(function(x) { return x !== cp; }); rec.unshift(cp); try { localStorage.setItem('salesdesk_rent_recents', JSON.stringify(rec.slice(0, 6))); } catch (e) {}
+  rentRendre();
+  if (typeof COPILOT_URL === 'undefined') { _rent.enCours = 0; _rent.rayons = _rent.csm = _rent.estim = { ok: false, error: 'copilot éteint' }; rentRendre(); return; }
+  var moi = _rent, get = function(url, cle) { fetch(COPILOT_URL + url, { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).catch(function(e) { return { ok: false, error: 'copilot sans réponse' }; })
+    .then(function(j) { if (_rent !== moi) return; moi[cle] = j || { ok: false, error: 'vide' }; moi.enCours--; rentRendre(); }); };
+  get('/secteur/rayons?' + new URLSearchParams({ cp: cp }), 'rayons');
+  get('/csm/retours?' + new URLSearchParams({ cp: cp, reseau: _rent.reseau, nom: _rent.nom }), 'csm');
+  get('/slack/estimations?' + new URLSearchParams({ cp: cp, n: '8', jours: '180' }), 'estim');
+}
+function rentHtmlRayons() {
+  var j = _rent.rayons, nb = function(n) { return Number(n || 0).toLocaleString('fr-FR'); }, court = function(n) { return String(n || '').split('|')[0].trim(); };
+  var t = '<div class="fc-card-t"><span>📍 Rareté · ' + escapeHtml((j && j.ville) || '') + ' ' + escapeHtml(_rent.cp) + '</span><span class="fc-muted" style="font-weight:500;">vendeurs déclarés · partenaires = annuaire RealAdvisor</span></div>';
+  if (!j) return '<div class="fc-card">' + t + '<div class="fc-muted">Comptage par rayon (5 à 20 s la première fois)…</div></div>';
+  if (!j.ok) return '<div class="fc-card">' + t + '<div class="fc-muted">CRM indisponible : ' + escapeHtml(j.error || '') + '</div></div>';
+  var ray = j.rayons || {}, noms = [], r10 = ray[10] || {};
+  var lignes = [5, 10, 15, 20].map(function(km) { var r = ray[km] || {}; if (r.noms && r.noms.length) noms.push(km + ' km : ' + r.noms.map(court).join(', '));
+    return '<tr><td><b>' + km + ' km</b></td><td class="n"><b>' + nb(r.demandes30) + '</b></td><td class="n">' + nb(r.demandesAn) + '</td><td class="conc">' + nb(r.partenaires) + '</td></tr>'; }).join('');
+  var phrase = r10.demandes30 != null ? '<div style="font-size:18px;font-weight:800;color:var(--accent);margin:10px 0 2px;line-height:1.3;">« À 10 km autour de ' + escapeHtml(j.ville || _rent.cp) + ' : <u>' + nb(r10.demandes30) + ' vendeurs</u> ont demandé une estimation ces 30 jours, pour ' + nb(r10.partenaires) + ' partenaire' + (r10.partenaires > 1 ? 's' : '') + ' en place. »</div>' : '';
+  return '<div class="fc-card">' + t + phrase + '<table class="fc-av-tab"><thead><tr><th>Rayon</th><th class="n">30 jours</th><th class="n">Depuis le 1er janv.</th><th class="n">Partenaires</th></tr></thead><tbody>' + lignes + '</tbody></table>'
+    + (noms.length ? '<div class="fc-muted" style="margin-top:8px;line-height:1.5;">' + escapeHtml(noms.join(' · ')) + '</div>' : '') + '</div>';
+}
+function rentHtmlCsm() {
+  var j = _rent.csm, t = '<div class="fc-card-t"><span>🗣️ Ce que disent les CSM · #france-sales-team</span><span class="fc-muted" style="font-weight:500;">' + (j && j.ok ? 'même réseau, puis département, puis région · base du ' + escapeHtml(j.misAJour || '') : '') + '</span></div>';
+  if (!j) return '<div class="fc-card">' + t + '<div class="fc-muted">Lecture des retours…</div></div>';
+  if (!j.ok) return '<div class="fc-card">' + t + '<div class="fc-muted">' + escapeHtml(j.raison || j.error || 'indisponible') + '</div></div>';
+  var h = '';
+  (j.alertes || []).forEach(function(a) { h += '<div style="border-left:3px solid var(--red);padding:6px 10px;margin-bottom:8px;background:rgba(180,35,24,.06);border-radius:6px;"><b>⚠️ À éviter</b> · ' + escapeHtml(a.client) + (a.reseau ? ' (' + escapeHtml(a.reseau) + ')' : '') + (a.lieu ? ' · ' + escapeHtml(a.lieu) : '') + ' <span class="fc-muted">' + escapeHtml(a.csm) + ' · ' + escapeHtml(a.date) + '</span></div>'; });
+  var L = (j.retours || []).filter(function(r) { return r.pourquoi && r.pourquoi.length; }); if (!L.length) L = (j.retours || []).slice(0, 4);
+  if (!L.length) h += '<div class="fc-muted">Aucun retour citable.</div>';
+  L.forEach(function(r) {
+    h += '<div style="padding:8px 0;border-bottom:1px solid var(--border);">'
+      + '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:baseline;"><b>' + escapeHtml(r.client || '') + '</b>' + (r.reseau ? '<span class="fc-muted">' + escapeHtml(r.reseau) + '</span>' : '') + (r.lieu ? '<span class="fc-muted">' + escapeHtml(r.lieu) + '</span>' : '')
+      + (r.pourquoi && r.pourquoi.length ? '<span style="font-size:11px;font-weight:700;color:var(--accent);background:var(--sd-action-soft,rgba(37,99,235,.08));border-radius:999px;padding:1px 8px;">' + escapeHtml(r.pourquoi.join(' · ')) + '</span>' : '') + '</div>'
+      + (r.resultats ? '<div style="font-size:14px;font-weight:600;margin-top:2px;">' + escapeHtml(r.resultats) + (r.depuis ? ' <span class="fc-muted" style="font-weight:500;">(client depuis ' + escapeHtml(r.depuis) + ')</span>' : '') + '</div>' : '')
+      + (r.angle ? '<div style="font-size:13px;color:var(--text2);margin-top:2px;">' + escapeHtml(r.angle) + '</div>' : '')
+      + '<div class="fc-muted" style="margin-top:3px;">' + escapeHtml(r.csm || '') + ' · ' + escapeHtml(r.date || '') + (rentHref(r.lien) ? ' · <a href="' + escapeHtml(rentHref(r.lien)) + '" target="_blank" rel="noopener" style="color:var(--accent);">Slack</a>' : '') + '</div></div>';
+  });
+  return '<div class="fc-card">' + t + h + '</div>';
+}
+function rentHtmlEstim() {
+  var j = _rent.estim, t = '<div class="fc-card-t"><span>🏡 Estimations à montrer · appraisal requests</span><span class="fc-muted" style="font-weight:500;">' + (j && j.estimations ? escapeHtml(String(j.total)) + ' sur 180 j avec 1 ou 2 agents choisis, les plus proches d\'abord' : '') + '</span></div>';
+  if (!j) return '<div class="fc-card">' + t + '<div class="fc-muted">Lecture des estimations Slack…</div></div>';
+  if (j.error || !j.estimations) return '<div class="fc-card">' + t + '<div class="fc-muted">' + escapeHtml(j.error || 'indisponible') + '</div></div>';
+  if (!j.estimations.length) return '<div class="fc-card">' + t + '<div class="fc-muted">Aucune estimation à moins de ' + escapeHtml(String(j.rayon)) + ' km.</div></div>';
+  var h = '<table class="fc-av-tab"><tbody>' + j.estimations.map(function(e) {
+    return '<tr><td style="white-space:nowrap;">' + escapeHtml(String(e.date || '').split('-').reverse().join('/')) + '</td><td><b>' + escapeHtml(e.locality || e.commune || '') + '</b>' + (e.contact ? ' · ' + escapeHtml(e.contact) : '') + '<br><span class="fc-muted">' + (e.agents && e.agents.length ? e.agents.length + ' agent' + (e.agents.length > 1 ? 's' : '') + ' choisi' + (e.agents.length > 1 ? 's' : '') + ' · ' + escapeHtml(e.agents.map(function(a) { return a.nom; }).join(', ')) : 'aucun agent choisi') + '</span></td><td class="n" style="white-space:nowrap;">' + escapeHtml(String(e.km)) + ' km</td><td class="n">' + (rentHref(e.page) ? '<a class="btn btn-sm" href="' + escapeHtml(rentHref(e.page)) + '" target="_blank" rel="noopener" style="text-decoration:none;">Ouvrir</a>' : '') + '</td></tr>'; }).join('') + '</tbody></table>';
+  return '<div class="fc-card">' + t + h + '</div>';
+}
+function rentHtmlLiens() {
+  var q = [_rent.nom, _rent.reseau, (_rent.rayons && _rent.rayons.ville) || _rent.cp].filter(Boolean).join(' '), pres = rentPresentation();
+  var a = function(href, txt) { return '<a class="btn" href="' + escapeHtml(href) + '" target="_blank" rel="noopener" style="text-decoration:none;">' + txt + '</a>'; };
+  return '<div class="fc-card"><div class="fc-card-t"><span>🔗 Raccourcis</span></div><div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">'
+    + a('https://www.google.com/search?q=' + encodeURIComponent(q), '🔍 Google' + (_rent.nom ? ' · ' + escapeHtml(_rent.nom) : ''))
+    + a('https://www.google.com/search?q=' + encodeURIComponent(q + ' avis'), '⭐ Avis Google')
+    + a('https://www.facebook.com/search/top?q=' + encodeURIComponent(q), '📘 Facebook')
+    + (rentHref(pres) ? a(rentHref(pres), '👋 Ma présentation') : '') + '<a class="fc-muted" style="cursor:pointer;" onclick="var v=prompt(\'Lien de ta présentation (page Facebook, slides…)\', rentPresentation());if(v!==null){rentPresentation(v);rentRendre();}">' + (pres ? 'modifier le lien' : '+ lien de ma présentation') + '</a></div></div>';
+}
+function rentRendre() {
+  var c = document.getElementById('rent-corps'); if (!c) return;
+  var rec = rentRecents(), chips = rec.length ? '<div class="fc-muted" style="margin:0 0 10px;">Récents : ' + rec.map(function(x) { return '<a style="cursor:pointer;color:var(--accent);font-weight:600;margin-right:8px;" onclick="rentChercher(\'' + x + '\')">' + escapeHtml(x) + '</a>'; }).join('') + '</div>' : '';
+  if (!_rent.cp) { c.innerHTML = chips + '<div class="fc-muted">Tape un code postal, Entrée.</div>'; return; }
+  c.innerHTML = chips + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:12px;align-items:start;">' + rentHtmlRayons() + rentHtmlCsm() + rentHtmlEstim() + rentHtmlLiens() + '</div>';
+}
+function renderRent() { var i = document.getElementById('rent-cp'); rentRendre(); if (i && !_rent.cp) setTimeout(function() { i.focus(); }, 50); }
 function renderCreneaux() {
   var el = document.getElementById('cr-corps'), ctl = document.getElementById('cr-ctrl'); if (!el) return;
   crChargerClose(false);
