@@ -2701,6 +2701,7 @@ select.form-input { cursor: pointer; }
             <div id="supa-compte-etat" style="margin-bottom:8px;">—</div>
             <button class="btn btn-sm btn-primary" id="supa-btn-login" onclick="openModal('supaLoginModal')">Se connecter</button>
             <button class="btn btn-sm" id="supa-btn-logout" style="display:none;" onclick="supaLogout()">Se déconnecter</button>
+            <div style="margin-top:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;"><span style="font-weight:600;color:var(--text);">💻 Cet appareil</span><input class="form-input" id="sd-appareil" style="width:170px;padding:4px 8px;font-size:12px;" placeholder="Mac mini, MacBook Air…" onchange="sdAppareil(this.value); this.value = sdAppareil();"><span style="font-size:11px;color:var(--text3);">écrit avec chaque sauvegarde : on sait d'où vient une copie</span></div>
             <div style="margin-top:8px;font-size:11px;color:var(--text3);">Une fois connecté, la RLS peut être activée sur la table <code>salesdesk_store</code> : la sauvegarde ne sera plus lisible avec la clé publique.</div>
           </div>
           <!-- Infos -->
@@ -3371,6 +3372,7 @@ function majEtatCompteSupa(msg) {
   el.textContent = msg || (_supaAccess ? '✅ Connecté : ' + (_supaEmail || 'compte Supabase') : 'Non connecté — connexion requise pour lire et sauvegarder (table protégée depuis le 16 oct. 2026).');
   const bIn = document.getElementById('supa-btn-login'), bOut = document.getElementById('supa-btn-logout');
   if (bIn) bIn.style.display = _supaAccess ? 'none' : ''; if (bOut) bOut.style.display = _supaAccess ? '' : 'none';
+  try { const inp = document.getElementById('sd-appareil'); if (inp && document.activeElement !== inp) inp.value = sdAppareil(); } catch (e) {}
 }
 async function supaLoginDepuisModal() {
   const email = (document.getElementById('supa-email').value || '').trim(), pwd = document.getElementById('supa-password').value || '';
@@ -3419,7 +3421,8 @@ async function sdCloudConflit(data, _retry) {
     if (Array.isArray(rows) && !rows.length) { if (!_retry && await supaSessionRequise()) return sdCloudConflit(data, true); setSyncStatus('error'); _syncErreur = true; return true; } // ligne invisible sans session : on n'écrit pas
     if (!distant || distant === _sdCloudVu || distant === data._lastWrite) return false;
     // 31 oct. 2026 : la tolérance « cloud plus vieux que ce que j'ai vu » est retirée — _sdCloudVu ne vient plus que du cloud (chargement, PATCH réussi, veille, clé cloud_base d'un autre onglet), un écart est donc toujours un conflit
-    console.warn('[sync] écriture bloquée : le cloud a été réécrit ailleurs (' + distant + '), dernier vu ici : ' + _sdCloudVu);
+    if (await sdFusionAvecCloud(distant, 'la sauvegarde')) return false; // 3 nov. 2026 : plus de blocage — la copie du cloud est relue, mes changements y sont réappliqués, et c'est la fusion qui part
+    console.warn('[sync] écriture bloquée : le cloud a été réécrit ailleurs (' + distant + '), dernier vu ici : ' + _sdCloudVu + ' — fusion impossible');
     setSyncStatus('error'); _syncErreur = true;
     if (!window._sdConflitSignale) { window._sdConflitSignale = true; try { alert('⚠️ Les données du cloud ont été modifiées depuis un autre appareil.\n\nPour ne rien écraser, la sauvegarde est bloquée : recharge la page (tes dernières modifs seront à refaire).'); } catch (e) {} }
     return true;
@@ -3438,7 +3441,9 @@ async function supabaseSave(data, _retry) {
     if (window._sdOngletPerime) { setSyncStatus('error'); _syncErreur = true; return false; } // 19 oct. 2026 : un onglet plus récent de SalesDesk est ouvert dans ce navigateur → celui-ci n'écrit plus
     if (await sdCloudConflit(data)) return false; // 19 oct. 2026 : vérifié AUSSI au 2e essai — après une session expirée (401), le nouvel essai sautait la garde, et un onglet resté sur un vieil état a écrasé le cloud (16:43)
     // 31 oct. 2026 (audit T04) : « écris seulement si l'horodatage du cloud est encore celui que je viens de lire » — c'est la base qui vérifie, en une seule opération ; deux appareils qui écrivent à la même seconde ne peuvent plus s'écraser. 0 ligne écrite = conflit → le nouvel essai repasse par sdCloudConflit, qui prévient.
+    data = sdCopieLaPlusRecente(data); // 3 nov. 2026 : après une fusion avec le cloud, c'est la copie fusionnée (_sessionStore, plus récente) qui part
     const cond = window._sdCloudDistant ? '&data->>_lastWrite=eq.' + encodeURIComponent(window._sdCloudDistant) : '';
+    const tsEnvoye = data._lastWrite || '', baseEnvoyee = JSON.stringify(data, _sdSansTech); // audit 3 nov. 2026 : photo figée avant l'envoi — `data` est l'objet vivant, un clic pendant le vol le modifie, et la base/_sdCloudVu doivent décrire ce qui est VRAIMENT parti
     const res = await fetch(SUPA_URL + '/rest/v1/' + SUPA_TABLE + '?id=eq.' + SUPA_ID + cond + '&select=id', {
       method: 'PATCH',
       headers: Object.assign({ 'Content-Type': 'application/json', 'Prefer': 'return=representation' }, supaAuthHeaders()), // la réponse dit combien de lignes ont été écrites : 0 = pas connecté (RLS), pas « sauvegardé »
@@ -3448,8 +3453,9 @@ async function supabaseSave(data, _retry) {
     if (!res.ok) throw new Error('PATCH failed ' + res.status);
     let ecrites = null; try { ecrites = await res.json(); } catch (e) {}
     if (Array.isArray(ecrites) && !ecrites.length) { if (!_retry && await supaSessionRequise()) return await supabaseSave(sdCopieLaPlusRecente(data), true); setSyncStatus('error'); _syncErreur = true; return false; } // 0 ligne avec une session valide = quelqu'un a écrit entre-temps : le nouvel essai repasse par sdCloudConflit
-    _sdCloudVu = data._lastWrite || _sdCloudVu;
-    sdBaseCloud(data._lastWrite || '');
+    _sdCloudVu = tsEnvoye || _sdCloudVu;
+    _sdBaseJson = baseEnvoyee; _sdBaseTs = tsEnvoye; // 3 nov. 2026 : ce qui vient d'être écrit (la photo, pas l'objet vivant) devient la base des prochaines fusions
+    sdBaseCloud(tsEnvoye);
     setSyncStatus('saved');
     return true;
   } catch(e) {
@@ -3459,6 +3465,101 @@ async function supabaseSave(data, _retry) {
   } finally { if (!_retry) { _sdSaveEnVol = false; if (_sdSaveARefaire) { var d2 = _sdSaveARefaire; _sdSaveARefaire = null; setTimeout(function() { supabaseSave(d2); }, 0); } } }
 }
 function sdCopieLaPlusRecente(data) { return (_sessionStore && data && String(_sessionStore._lastWrite || '') > String(data._lastWrite || '')) ? _sessionStore : data; } // un nouvel essai ne repousse jamais une copie plus vieille que celle affichée
+
+// ── 3 nov. 2026 : fusion au lieu de blocage (début) ──
+// Deux SalesDesk ouverts (deux fenêtres, le mini et l'Air) écrivaient chacun le store entier : le second était bloqué (alerte « recharge la page ») ou, en adoptant la copie
+// de l'autre, jetait sa propre saisie (Catherine Dornier, 2 nov. : Show + Intéressé saisis dans une fenêtre, R2 pris dans l'autre → saisie perdue). Désormais on garde la
+// dernière copie confirmée par le cloud (la « base ») et, quand le cloud ou un autre onglet a changé entre-temps, on repart de sa copie en y réappliquant seulement ce qui a
+// changé ici depuis la base — mois par mois, ligne par ligne (client|date), champ par champ. Chaque sauvegarde porte aussi le nom de l'appareil qui l'a faite (_lastWriteBy).
+var _sdBaseJson = null, _sdBaseTs = ''; // copie confirmée (chargement, PATCH réussi, copie adoptée) sans les clés techniques, et son horodatage
+function _sdSansTech(k, v) { return (k === '_lastWrite' || k === '_lastWriteBy' || k === '_monthKey' || k === '_storeKey') ? undefined : v; }
+function sdPoserBase(data) { try { _sdBaseJson = JSON.stringify(data, _sdSansTech); _sdBaseTs = String((data && data._lastWrite) || ''); } catch (e) { _sdBaseJson = null; _sdBaseTs = ''; } }
+function sdBase() { try { return _sdBaseJson ? JSON.parse(_sdBaseJson) : null; } catch (e) { return null; } }
+function _sdMemeJson(a, b) { return JSON.stringify(a === undefined ? null : a, _sdSansTech) === JSON.stringify(b === undefined ? null : b, _sdSansTech); }
+function _sdEstObjet(x) { return !!x && typeof x === 'object' && !Array.isArray(x); }
+function _sdVide(v) { return v === undefined || v === null || v === ''; }
+// Nom de cet appareil, écrit avec chaque sauvegarde (_lastWriteBy) : on sait d'où vient une copie. Modifiable dans Objectifs & Config.
+function sdAppareil(nouveau) {
+  var n = '';
+  if (nouveau !== undefined) { n = String(nouveau || '').trim(); try { if (n) localStorage.setItem('salesdesk_appareil', n); else localStorage.removeItem('salesdesk_appareil'); } catch (e) {} }
+  try { n = localStorage.getItem('salesdesk_appareil') || ''; } catch (e) {}
+  if (!n) { n = /^100\.\d+\.\d+\.\d+$/.test(location.hostname) ? 'MacBook Air' : (/Mac/i.test(navigator.platform || '') ? 'Mac mini' : 'Cet appareil'); try { localStorage.setItem('salesdesk_appareil', n); } catch (e) {} } // servi par le copilot via Tailscale = l'Air
+  return n;
+}
+function _sdMail(r) { return String((r && r.email) || '').toLowerCase().trim(); }
+// audit 3 nov. : le mail distingue les homonymes du même jour (sinon les champs de l'un passaient à l'autre). Une ligne sans mail prend le seul mail connu pour ce nom ce jour-là (même personne saisie à la main d'un côté, importée de Calendly de l'autre)
+function sdCleLigne(r, mails) { var cd = cleSupprime(r && r.client, r && r.date), m = _sdMail(r); if (!m && mails && mails[cd] && mails[cd].length === 1) m = mails[cd][0]; return cd + '|' + m; }
+function _sdMailsConnus(listes) { var o = {}; listes.forEach(function(rows) { rows.forEach(function(r) { var m = _sdMail(r); if (!m) return; var cd = cleSupprime(r && r.client, r && r.date); o[cd] = o[cd] || []; if (o[cd].indexOf(m) < 0) o[cd].push(m); }); }); return o; }
+function _sdClesLignes(rows, mails) { var vus = {}; return rows.map(function(r) { var k = sdCleLigne(r, mails); vus[k] = (vus[k] || 0) + 1; return k + '#' + vus[k]; }); } // même clé plusieurs fois : 2e, 3e occurrence
+function _sdIndex(rows, cles) { var o = {}; cles.forEach(function(k, i) { o[k] = rows[i]; }); return o; }
+// Ligne modifiée des deux côtés : on part de la version du cloud et on y reporte les champs changés ici (presence/result d'un côté, dateR2 de l'autre → les deux)
+function sdFusionnerLigne(rb, rl, rc) { var r = Object.assign({}, rc); rb = rb || {}; rl = rl || {}; Object.keys(Object.assign({}, rb, rl)).forEach(function(f) { if (f === '_monthKey' || f === '_storeKey' || _sdMemeJson(rl[f], rb[f])) return; if (rl[f] === undefined) delete r[f]; else r[f] = rl[f]; }); return r; }
+// Même ligne créée des deux côtés sans base (double import Calendly) : la version du cloud, complétée par ce que seule la mienne renseigne
+function sdCompleterLigne(rc, rl) { var r = Object.assign({}, rc); Object.keys(rl || {}).forEach(function(f) { if (_sdVide(r[f]) && !_sdVide(rl[f])) r[f] = rl[f]; }); return r; }
+function sdFusionnerMois(b, l, c, supprimesCloud) {
+  var mails = _sdMailsConnus([b, l, c]), kb = _sdClesLignes(b, mails), kl = _sdClesLignes(l, mails), kc = _sdClesLignes(c, mails), ib = _sdIndex(b, kb), il = _sdIndex(l, kl), ic = _sdIndex(c, kc), res = [];
+  kc.forEach(function(k) { var rc = ic[k], rl = il[k], rb = ib[k];
+    if (!(k in ib)) { res.push((k in il && !_sdMemeJson(rl, rc)) ? sdCompleterLigne(rc, rl) : rc); return; } // nouvelle dans le cloud (ou créée des deux côtés)
+    if (!(k in il)) { if (!_sdMemeJson(rc, rb)) res.push(rc); return; } // supprimée ici : tient, sauf si le cloud l'a modifiée entre-temps
+    if (_sdMemeJson(rl, rb)) { res.push(rc); return; } // pas touchée ici : version du cloud
+    if (_sdMemeJson(rc, rb)) { res.push(rl); return; } // modifiée ici seulement
+    res.push(sdFusionnerLigne(rb, rl, rc)); // modifiée des deux côtés
+  });
+  kl.forEach(function(k) { if (k in ic) return; var rl = il[k];
+    if (!(k in ib)) { res.push(rl); return; } // ajoutée ici
+    if (!_sdMemeJson(rl, ib[k]) && !(supprimesCloud && supprimesCloud[cleSupprime(rl && rl.client, rl && rl.date)])) res.push(rl); // supprimée dans le cloud : tient, sauf si modifiée ici (et pas dans sa liste des supprimés)
+  });
+  return res;
+}
+function sdFusionnerObjet(b, l, c) { // clé par clé (_processedRdvs, _supprimes, _settings…) : ce qui a changé ici l'emporte, le reste vient du cloud
+  var res = Object.assign({}, c); b = _sdEstObjet(b) ? b : {};
+  Object.keys(Object.assign({}, b, l)).forEach(function(k) { var lv = l[k], bv = b[k], cv = c[k];
+    if (_sdMemeJson(lv, bv)) return; // pas touché ici
+    if (lv === undefined) { if (_sdMemeJson(cv, bv)) delete res[k]; return; } // supprimé ici : tient si le cloud n'y a pas touché
+    if (!(k in c) || _sdMemeJson(cv, bv)) { res[k] = lv; return; } // changé ici seulement
+    res[k] = (_sdEstObjet(lv) && _sdEstObjet(cv)) ? sdFusionnerObjet(bv, lv, cv) : (Array.isArray(lv) && Array.isArray(cv)) ? sdFusionnerListe(Array.isArray(bv) ? bv : [], lv, cv) : lv; // changé des deux côtés
+  });
+  return res;
+}
+function sdFusionnerListe(b, l, c) { // journaux (_relancesLog, _renommages, _manualRdvs) : le cloud, moins ce que j'ai retiré, plus ce que j'ai ajouté
+  var J = function(x) { return JSON.stringify(x, _sdSansTech); }, sb = {}, sl = {}, sc = {};
+  b.forEach(function(x) { sb[J(x)] = 1; }); l.forEach(function(x) { sl[J(x)] = 1; });
+  var res = c.filter(function(x) { var j = J(x); return !(sb[j] && !sl[j]); }); res.forEach(function(x) { sc[J(x)] = 1; });
+  l.forEach(function(x) { var j = J(x); if (!sc[j] && !sb[j]) { res.push(x); sc[j] = 1; } });
+  return res;
+}
+// Fusion à 3 du store : base = dernière copie confirmée, local = ce que j'affiche, cloud = la copie d'en face. Résultat = le cloud + mes changements depuis la base.
+function sdFusionner(base, local, cloud) {
+  base = base || {}; local = local || {}; cloud = cloud || {}; var res = {}, cles = {};
+  [cloud, local, base].forEach(function(o) { Object.keys(o).forEach(function(k) { cles[k] = 1; }); });
+  Object.keys(cles).forEach(function(k) {
+    if (k === '_lastWrite' || k === '_lastWriteBy') return;
+    var b = base[k], l = local[k], c = cloud[k];
+    if (/^\d{4}-\d{2}$/.test(k) && (Array.isArray(l) || Array.isArray(c))) { res[k] = (Array.isArray(l) && Array.isArray(c)) ? sdFusionnerMois(Array.isArray(b) ? b : [], l, c, cloud._supprimes) : (Array.isArray(l) ? l : c); return; } // un mois qui n'est un tableau que d'un côté (copie abîmée) : on garde le tableau
+    if (_sdMemeJson(l, b)) { if (c !== undefined) res[k] = c; return; } // pas touché ici : version du cloud
+    if (l === undefined) { if (!_sdMemeJson(c, b)) res[k] = c; return; } // supprimé ici : tient si le cloud n'y a pas touché
+    if (c === undefined || _sdMemeJson(c, b)) { res[k] = l; return; } // changé ici seulement
+    res[k] = (_sdEstObjet(l) && _sdEstObjet(c)) ? sdFusionnerObjet(b, l, c) : (Array.isArray(l) && Array.isArray(c)) ? sdFusionnerListe(Array.isArray(b) ? b : [], l, c) : l; // changé des deux côtés
+  });
+  return res;
+}
+// Avant une sauvegarde que le cloud refuserait (réécrit ailleurs) : on relit sa copie, on fusionne, on réaffiche ; c'est la fusion qui partira. false = fusion impossible (pas de base, cloud illisible).
+async function sdFusionAvecCloud(distant, raison) {
+  try {
+    var base = sdBase(); if (!base) return false;
+    var r2 = await fetch(SUPA_URL + '/rest/v1/' + SUPA_TABLE + '?id=eq.' + SUPA_ID + '&select=data', { headers: supaAuthHeaders() }); if (!r2.ok) return false;
+    var d = (((await r2.json()) || [])[0] || {}).data; if (!d || !d._lastWrite) return false;
+    var fusion = sdMigrerOneShot(Object.assign({}, BUILTIN_DATA, sdFusionner(base, _sessionStore || loadStore(), d)));
+    fusion._lastWrite = new Date().toISOString(); fusion._lastWriteBy = sdAppareil();
+    _sessionStore = fusion; sdPoserBase(d); _sdCloudVu = d._lastWrite; window._sdCloudDistant = d._lastWrite; sdBaseCloud(d._lastWrite);
+    try { localStorage.setItem('salesdesk_rdvs', JSON.stringify(fusion, function(k, v) { return (k === '_monthKey' || k === '_storeKey') ? undefined : v; })); } catch (e) { _signalerQuotaPlein(e); }
+    try { reparerTypesCorrompus(); } catch (e) {}
+    console.info('[sync] fusion avec la copie du cloud (' + d._lastWrite + (d._lastWriteBy ? ', écrite par ' + d._lastWriteBy : '') + ') avant ' + raison);
+    sdRendreApresSync();
+    return true;
+  } catch (e) { console.warn('[sync] fusion impossible :', e); return false; }
+}
+// ── fusion (fin) ──
 
 async function supabaseLoad(_retry) {
   try {
@@ -3849,15 +3950,32 @@ function loadStore() {
 // Autre appareil : toutes les 20 s quand l'onglet est visible, et au retour sur l'onglet, on compare l'horodatage du cloud ; plus récent → on récupère la copie et on réaffiche. Pas de fusion : une sauvegarde en attente ici bloque la récupération jusqu'au passage suivant.
 function sdAdopterStore(data, source, confirmeParLeCloud) { // confirmeParLeCloud : vrai seulement quand la copie vient d'être lue dans le cloud (veille) ; depuis un autre onglet, l'horodatage n'est pas encore confirmé (il le sera par la clé salesdesk_cloud_base, écrite après son PATCH réussi)
   try {
-    var neuf = String((data && data._lastWrite) || ''), mien = String((_sessionStore && _sessionStore._lastWrite) || '');
-    if (!neuf || neuf <= mien) return false;
-    var sans = function(k, v) { return (k === '_lastWrite' || k === '_monthKey' || k === '_storeKey') ? undefined : v; };
-    if (_sessionStore && JSON.stringify(data, sans) === JSON.stringify(_sessionStore, sans)) { _sessionStore._lastWrite = neuf; if (confirmeParLeCloud) { _sdCloudVu = neuf; sdBaseCloud(neuf); } return false; } // même contenu, seul l'horodatage change : on s'aligne sans réafficher (évite un va-et-vient entre onglets)
-    if (_syncTimeout) { clearTimeout(_syncTimeout); _syncTimeout = null; } // une sauvegarde en attente sur l'ancienne copie ne part plus : elle repartirait d'une base périmée
+    var neuf = String((data && data._lastWrite) || ''), mien = String((_sessionStore && _sessionStore._lastWrite) || ''), qui = (data && data._lastWriteBy) ? ', écrite par ' + data._lastWriteBy : '';
+    if (!neuf) return false;
+    var sansTravail = function(k, v) { return (k === '_monthKey' || k === '_storeKey') ? undefined : v; };
+    var base = sdBase();
+    // 3 nov. 2026 : des modifs d'ici pas encore dans le cloud (sauvegarde en attente ou en vol, ou sauvegarde ratée) → on fusionne au lieu de les jeter
+    if (base && _sessionStore && (_syncTimeout || _sdSaveEnVol || !_sdMemeJson(_sessionStore, base))) {
+      if (_sdBaseTs && neuf <= _sdBaseTs) return false; // pas plus neuve que la copie dont je descends déjà
+      var fusion = sdMigrerOneShot(Object.assign({}, BUILTIN_DATA, sdFusionner(base, _sessionStore, data)));
+      sdPoserBase(data); if (confirmeParLeCloud) { _sdCloudVu = neuf; sdBaseCloud(neuf); _sdChargementInitial = false; }
+      if (_sdMemeJson(fusion, _sessionStore)) { if (!_syncTimeout && !_sdSaveEnVol) { setSyncStatus('saving'); _syncTimeout = setTimeout(function() { _syncTimeout = null; supabaseSave(_sessionStore); }, 1000); } return false; } // l'autre copie n'apporte rien que je n'aie déjà : ma sauvegarde en attente suffit (ou repart, si la précédente avait échoué)
+      fusion._lastWrite = new Date().toISOString(); fusion._lastWriteBy = sdAppareil();
+      _sessionStore = fusion;
+      try { reparerTypesCorrompus(); } catch (e) {}
+      try { localStorage.setItem('salesdesk_rdvs', JSON.stringify(_sessionStore, sansTravail)); } catch (e) { _signalerQuotaPlein(e); }
+      if (_syncTimeout) clearTimeout(_syncTimeout); setSyncStatus('saving'); _syncTimeout = setTimeout(function() { _syncTimeout = null; supabaseSave(_sessionStore); }, 1000); // la fusion part (une écriture en vol finit d'abord, celle-ci repart derrière)
+      console.info('[sync] copie de ' + source + ' (' + neuf + qui + ') fusionnée avec mes modifs en attente');
+      sdRendreApresSync(); return true;
+    }
+    if (neuf <= mien) return false;
+    if (_sessionStore && _sdMemeJson(data, _sessionStore)) { _sessionStore._lastWrite = neuf; sdPoserBase(data); if (confirmeParLeCloud) { _sdCloudVu = neuf; sdBaseCloud(neuf); } return false; } // même contenu, seul l'horodatage change : on s'aligne sans réafficher (évite un va-et-vient entre onglets)
     _sessionStore = sdMigrerOneShot(Object.assign({}, BUILTIN_DATA, data));
+    sdPoserBase(data); // copie adoptée = nouvelle base (depuis un autre onglet aussi : c'est lui qui la pousse, et un tiers qui écrirait entre-temps se fusionne au prochain passage)
     if (confirmeParLeCloud) { _sdCloudVu = neuf; sdBaseCloud(neuf); _sdChargementInitial = false; }
     try { reparerTypesCorrompus(); } catch (e) {}
-    console.info('[sync] copie adoptée depuis ' + source + ' (' + neuf + ')');
+    console.info('[sync] copie adoptée depuis ' + source + ' (' + neuf + qui + ')');
+    try { if (confirmeParLeCloud && typeof showCopyToast === 'function' && data._lastWriteBy && data._lastWriteBy !== sdAppareil()) showCopyToast('🔄 Mis à jour depuis ' + data._lastWriteBy); } catch (e) {}
     sdRendreApresSync(); return true;
   } catch (e) { console.warn('[sync] adoption impossible :', e); return false; }
 }
@@ -3945,11 +4063,13 @@ async function sdInitFromSupabase() {
       if (!local.hasOwnProperty(k) || k === '_lastWrite') continue;
       if (!(k in cloudData)) _sessionStore[k] = local[k];
     }
+    sdPoserBase(cloudData); // 3 nov. 2026 : base des fusions = la copie du cloud (les clés réinjectées seront poussées comme des ajouts)
     _sdChargementInitial = false;
   } else {
     // Local au moins aussi récent : il gagne, complété par les clés présentes seulement en cloud.
     _sessionStore = sdMigrerOneShot(Object.assign({}, BUILTIN_DATA, cloudData, local));
     // Le cloud est en retard → on le remet à niveau tout de suite.
+    sdPoserBase(cloudData); // 3 nov. 2026 : base des fusions = la copie du cloud ; l'écart local part comme des changements d'ici
     _sdChargementInitial = false;
     if (tLocal && tLocal !== tCloud) { try { supabaseSave(_sessionStore); } catch(e) {} }
   }
@@ -3980,6 +4100,7 @@ function saveStore(store) {
   if (window._sdOngletPerime) { _sessionStore = store; return; } // audit externe 20 oct. 2026 : un onglet périmé n'écrit plus non plus dans le localStorage partagé (il pouvait y remettre un vieil état, renvoyé au cloud au rechargement)
   // FIX SD-01 : horodatage utilisé pour arbitrer local vs cloud au démarrage.
   store._lastWrite = new Date().toISOString();
+  store._lastWriteBy = sdAppareil(); // 3 nov. 2026 : quel appareil a écrit (Mac mini, MacBook Air…), lisible dans le cloud et les journaux
   _sessionStore = store;
   // 1. Sauvegarder localement immédiatement (sans les clés de travail _monthKey / _storeKey que le Pipeline pose sur les lignes : elles se périment dès qu'une ligne bouge)
   try { localStorage.setItem('salesdesk_rdvs', JSON.stringify(store, function(k, v) { return (k === '_monthKey' || k === '_storeKey') ? undefined : v; })); }
