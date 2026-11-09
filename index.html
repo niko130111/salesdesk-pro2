@@ -6839,6 +6839,7 @@ function arRendreC3() {
   var LIB = { attente_cr: '⏳ en attente du compte rendu Claap', brouillon: '✉ prêt — brouillon dans Close, à relire', envoye: '✓ envoyé', sans_cr: '⚠ pas de compte rendu Claap — à écrire à la main', sans_fiche: '⚠ pas de fiche Close', sans_email: '⚠ pas d\'email', annule: 'annulé', manuel: 'fait à la main' };
   if (a.presence === 'Show' && !a.estR2) {
     if (a.result === 'Non signé' && a.raison === 'pasinteresse') out += '<div class="ar-card"><div class="t">Mail de fin de RDV</div><div class="fc-muted">Pas de mail pour un « pas intéressé ».</div></div>';
+    else if (a.result === 'Signé') out += '<div class="ar-card"><div class="t">Mail de fin de RDV</div><div class="fc-muted">Pas de mail après une signature.</div></div>';
     else {
       out += '<div class="ar-card"><div class="t">Mail de fin de RDV<span class="src">ton modèle · depuis le Claap</span></div><div>🟢 Ce que je retiens · 🔵 L\'offre évoquée · 🟠 Prochaine étape' + (a.result === 'Signé' ? ' (version signé)' : (a.suite === 'r2' ? ' (R2' + (a.r2Date ? ' le ' + fcFrDepuisIso(a.r2Date) : '') + ')' : (a.suite === 'rel' && a.relDate ? ' (je vous rappelle le ' + fcFrDepuisIso(a.relDate) + ')' : ''))) + '</div>'
         + '<div class="ar-msg-etat">' + (a.mail ? LIB[a.mail.statut] || a.mail.statut : (a.mail === false ? (a.dernier && (a.dernier.echanges || []).some(function(e) { return e.date === r.date && e.type === 'rdv'; }) ? 'Sera préparé à la validation depuis le compte rendu ci-contre. Tu le relis dans « À valider » avant tout envoi.' : 'Sera préparé à la validation, prêt dès que le compte rendu Claap arrive (alerte à 45 min sinon). Tu le relis dans « À valider » avant tout envoi.') : '…')) + '</div>'
@@ -12617,6 +12618,11 @@ function sdMailOffreTexte(m) { var fr = function(iso) { return iso ? fcFrDepuisI
 function sdMailChip(nom, email) { var m = sdMailOffrePour(nom, email); if (!m) return ''; return '<span class="auj-state ' + (m.lu ? 'ok' : 'warn') + '" title="Mail de fin de RDV ' + escapeHtml(sdMailOffreTexte(m)) + '">' + aujIco('mail') + (m.lu ? 'Mail lu' : 'Mail pas lu') + '</span>'; }
 function sdDemanderMailFinR1(row, resultatCopilot, email) {
   if (typeof COPILOT_URL === 'undefined' || !row || !row.client || row.source === 'R2') return; // jamais après un R2
+  if (resultatCopilot === 'oneshot') { // signé au R1 : pas de mail de fin de RDV (Nicolas, 9 nov. 2026) ; un mail déjà en préparation pour ce RDV (ligne d'abord validée « Intéressé » ou « Non signé ») est annulé, jamais un mail déjà envoyé
+    try { var isoS = frVersIsoSd(row.date), cleS = String(row.client).trim().toLowerCase() + '|' + isoS; if (!isoS) return;
+      fetch(COPILOT_URL + '/mails-fin-r1/e/' + encodeURIComponent(cleS), { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).then(function(j) { var e = j && j.entree; if (!e || ['attente_cr', 'sans_cr', 'brouillon'].indexOf(e.statut) < 0) return;
+        return rlPost('/mails-fin-r1/e/' + encodeURIComponent(cleS) + '/annuler', {}).then(function() { if (typeof showCopyToast === 'function') showCopyToast('✉ Mail de fin de RDV annulé : le client a signé'); _mailsFinR1At = 0; chargerMailsFinR1(true); }); }).catch(function() {}); } catch (e) {}
+    return; }
   var iso = frVersIsoSd(row.date); if (!iso) return;
   if (iso < rlPlus(rlIso(new Date()), -3)) return; // un RDV de plus de 3 jours : le mail de fin a été fait à l'époque, on ne le refait pas quand on retouche la ligne
   var map = { oneshot: 'signe', nosign: 'plus_tard', r2: 'r2', relance: 'interesse' }; var resultat = map[resultatCopilot] || 'interesse';
