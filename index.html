@@ -256,6 +256,7 @@ main { max-width: 100%; margin: 0; padding: 6px 8px; }
 
 /* SOURCES */
 .sources-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px; }
+@media (min-width: 1100px) { .sources-grid.n4 { grid-template-columns: repeat(4, 1fr); } } /* 4e carte RENT, seulement les mois où il y a des RDV pris au salon (9 nov. 2026) */
 .source-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; }
 .source-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 6px; }
 .source-name { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text2); margin-bottom: 12px; }
@@ -2286,6 +2287,7 @@ select.form-input { cursor: pointer; }
         <div class="kpi-card"><div class="kpi-label">1 vente pour… · Inbound</div><div class="kpi-value" id="g-v1-inbound">—</div><div class="kpi-sub" id="g-v1-inbound-sub">—</div></div>
         <div class="kpi-card"><div class="kpi-label">1 vente pour… · Outbound</div><div class="kpi-value" id="g-v1-outbound">—</div><div class="kpi-sub" id="g-v1-outbound-sub">—</div></div>
         <div class="kpi-card"><div class="kpi-label">1 vente pour… · Pub</div><div class="kpi-value" id="g-v1-pub">—</div><div class="kpi-sub" id="g-v1-pub-sub">—</div></div>
+        <div class="kpi-card" id="g-v1-rent-carte" style="display:none;"><div class="kpi-label">1 vente pour… · RENT</div><div class="kpi-value" id="g-v1-rent">—</div><div class="kpi-sub" id="g-v1-rent-sub">—</div></div>
         <div class="kpi-card kpi-masquee"><div class="kpi-label">Shows pour 1 vente</div><div class="kpi-value" id="g-shows-per-vente">—</div><div class="kpi-sub">shows / vente</div></div>
         <div class="kpi-card kpi-masquee"><div class="kpi-label">Commission / RDV</div><div class="kpi-value" id="g-comm-per-rdv">—</div><div class="kpi-sub">€ généré par RDV pris</div></div>
         <div class="kpi-card kpi-masquee"><div class="kpi-label">Commission / Show</div><div class="kpi-value" id="g-comm-per-show">—</div><div class="kpi-sub">€ généré par présence</div></div>
@@ -3037,6 +3039,7 @@ tell application "System Events" to keystroke "d" using {command down, shift dow
           <option>Inbound</option>
           <option>Outbound</option>
           <option>PUB</option>
+          <option>RENT</option>
         </select>
       </div>
       <div class="form-group">
@@ -3117,6 +3120,7 @@ tell application "System Events" to keystroke "d" using {command down, shift dow
           <option value="Outbound">Outbound</option>
           <option value="Inbound">Inbound</option>
           <option value="PUB">PUB</option>
+          <option value="RENT">RENT</option>
         </select>
       </div>
     </div>
@@ -4397,7 +4401,7 @@ function renderCreneaux() {
   var el = document.getElementById('cr-corps'), ctl = document.getElementById('cr-ctrl'); if (!el) return;
   crChargerClose(false);
   var seg = function(cle, opts) { return '<div class="cr-seg">' + opts.map(function(o) { return '<button class="' + (_cr[cle] === o[0] ? 'on' : '') + '" onclick="_cr.' + cle + '=\'' + o[0] + '\';renderCreneaux()">' + o[1] + '</button>'; }).join('') + '</div>'; };
-  ctl.innerHTML = seg('periode', [['tout', 'Tout l\'historique'], ['12m', '12 derniers mois'], ['mai', 'Depuis mai 2026']]) + seg('source', [['', 'Toutes'], ['Inbound', 'Inbound'], ['Outbound', 'Outbound'], ['PUB', 'PUB']]);
+  ctl.innerHTML = seg('periode', [['tout', 'Tout l\'historique'], ['12m', '12 derniers mois'], ['mai', 'Depuis mai 2026']]) + seg('source', [['', 'Toutes'], ['Inbound', 'Inbound'], ['Outbound', 'Outbound'], ['PUB', 'PUB'], ['RENT', 'RENT']]);
   var R = crCalculer(), C = R.C, T = R.T, I = R.info, pc = function(n, d) { return d ? Math.round(100 * n / d) : null; };
   if (!T.base) { el.innerHTML = '<div class="pf-card cr-note">' + (_cr.chargement ? 'Lecture des heures dans Close…' : 'Aucun R1 avec une heure sur cette période.') + '</div>'; return; }
   var moyNT = pc(T.nt, T.base), moyCl = pc(T.sig, T.show), parts = 10;
@@ -7105,10 +7109,13 @@ function renderSources(kpis) {
       </div>
     </div>`;
   }
-  document.getElementById('sources-grid').innerHTML =
+  const _rowsRent = rowsMois.filter(r => r.source === 'RENT'), _grilleSrc = document.getElementById('sources-grid'); // source RENT (RDV pris au salon, Nicolas, 9 nov. 2026) : carte affichée seulement s'il y en a
+  _grilleSrc.classList.toggle('n4', _rowsRent.length > 0);
+  _grilleSrc.innerHTML =
     srcStats(rowsMois.filter(r => r.source === 'Inbound'), 'Inbound', 'var(--accent)') +
     srcStats(rowsMois.filter(r => r.source === 'Outbound'), 'Outbound', 'var(--purple)') +
-    srcStats(rowsMois.filter(r => r.source === 'PUB'), 'PUB', 'var(--orange)');
+    srcStats(rowsMois.filter(r => r.source === 'PUB'), 'PUB', 'var(--orange)') +
+    (_rowsRent.length ? srcStats(_rowsRent, 'RENT', 'var(--green)') : '');
 }
 
 
@@ -7491,6 +7498,7 @@ function renderOutboundTab(events, currentMonthKey) {
     else if (effectiveSource === 'Inbound') badge = '<span style="background:var(--accent-bg);color:var(--accent);padding:2px 8px;border-radius:99px;font-size:10px;font-weight:700;">INBOUND</span>';
     else if (effectiveSource === 'Reschedule') badge = '<span style="background:rgba(245,158,11,.15);color:var(--orange);padding:2px 8px;border-radius:99px;font-size:10px;font-weight:700;"' + (reprise ? ' title="Déjà eu en RDV le ' + reprise.date + (reprise.source ? ' (' + reprise.source + ')' : '') + ', moins de 2 mois avant : ne compte pas dans les 10 points"' : '') + '>RESCHEDULE' + (reprise ? ' · RDV du ' + reprise.date : '') + '</span>';
     else if (effectiveSource === 'PUB') badge = '<span style="background:rgba(59,130,246,.15);color:#2563eb;padding:2px 8px;border-radius:99px;font-size:10px;font-weight:700;">PUB</span>';
+    else if (effectiveSource === 'RENT') badge = '<span style="background:var(--green-bg);color:var(--green);padding:2px 8px;border-radius:99px;font-size:10px;font-weight:700;">RENT</span>';
     // Badge de pondération : Agences vaut 2x
     const ptBadge = (effectiveSource === 'Outbound' && isAgence) ? '<span style="margin-left:6px;background:rgba(34,197,94,.15);color:var(--green);padding:1px 6px;border-radius:4px;font-size:9px;font-weight:700;">🏢 AGENCE ×2</span>' : '';
     const dupeBadge = isDuplicate ? '<span title="Email présent plusieurs fois (probable reschedule)" style="margin-left:6px;background:rgba(239,68,68,.1);color:#dc2626;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:700;">⚠️ DOUBLON</span>' : '';
@@ -7506,6 +7514,7 @@ function renderOutboundTab(events, currentMonthKey) {
           <option value="Inbound" ${effectiveSource==='Inbound'?'selected':''}>📥 Inbound</option>
           <option value="Reschedule" ${effectiveSource==='Reschedule'?'selected':''}>🔄 Reschedule (ne compte pas)</option>
           <option value="PUB" ${effectiveSource==='PUB'?'selected':''}>📢 PUB</option>
+          <option value="RENT" ${effectiveSource==='RENT'?'selected':''}>🏷 RENT</option>
         </select>
       </td>
       <td style="padding:8px;" colspan="3">
@@ -7732,7 +7741,7 @@ function renderRdvTable() {
     return `<tr class="${rowClass}" data-idx="${i}" data-month-key="${monthKey}">
       <!-- CONTEXTE : Client | Source | Type -->
       <td style="padding:4px 6px;"><div style="display:flex;gap:4px;align-items:center;"><button title="Fiche client" onclick="ouvrirFicheClient(${JSON.stringify(r.client||'').replace(/"/g,'&quot;')},${JSON.stringify(r.email||'').replace(/"/g,'&quot;')},${JSON.stringify(r.date||'').replace(/"/g,'&quot;')})" style="border:0;background:transparent;cursor:pointer;font-size:13px;padding:0 2px;">👤</button>${mkTextMK(r.client, i, 'client', 'Client', '100%', monthKey)}</div></td>
-      <td style="padding:4px 6px;">${mkSelMK(['','Inbound','Outbound','PUB','R2'], r.source||'', i, 'source', monthKey)}</td>
+      <td style="padding:4px 6px;">${mkSelMK(['','Inbound','Outbound','PUB','RENT','R2'], r.source||'', i, 'source', monthKey)}</td>
       <td style="padding:4px 6px;">${mkSelMK(['Mandataire','Agences'], r.type||'Mandataire', i, 'type', monthKey)}</td>
       <!-- BLOC R1 : Date R1 | Présence R1 | Résultat -->
       <td style="padding:4px 6px;background:rgba(34,197,94,.04);border-left:2px solid rgba(34,197,94,.3);">${mkDateMK(r.date||'', i, 'date', monthKey)}</td>
@@ -7791,8 +7800,14 @@ function updateFieldMK(idx, field, value, type, monthKey) {
   if (field === 'result' && value !== 'Non signé' && value !== 'Promo') delete rows[idx].nosignRaison;
   if (field === 'result' && value === 'Promo') { rows[idx].result = 'Non signé'; rows[idx].nosignRaison = 'promo'; }
   if (rows[idx].source === 'R2' && ['pack', 'freq', 'tier', 'fms', 'remise', 'oneshot', 'dateSignature', 'result'].indexOf(field) >= 0) { try { sdReporterSignatureR2(store, rows[idx]); } catch (e) {} } /* 1er nov. 2026 : la ligne R1 porte la vente, une correction sur la R2 doit la suivre */
+  var _emRent = String(rows[idx].email || '').toLowerCase().trim(), _ovrRent = ''; // source RENT (9 nov. 2026) : un RDV pris au salon sur le lien perso sort aussi des compteurs outbound (jour, semaine, bilan), qui lisent Calendly + les reclassements par e-mail
+  if (field === 'source' && _emRent && String(_avant || '') !== String(value || '')) {
+    if (value === 'RENT') { if (_avant === 'Outbound' && !rows[idx].sourceOrigine) rows[idx].sourceOrigine = 'Outbound'; _ovrRent = 'RENT'; }
+    else if (_avant === 'RENT' && loadOutboundOverrides()[_emRent] === 'RENT') { if (value === 'Outbound') delete rows[idx].sourceOrigine; _ovrRent = 'Outbound'; }
+  }
   store[monthKey] = rows;
   saveStore(store);
+  if (_ovrRent) saveOutboundOverride(_emRent, _ovrRent);
   if (field === 'result' && value === 'Non signé' && !rows[idx].nosignRaison) setTimeout(function() { try { fcPopupRaison(monthKey, idx); } catch (e) {} }, 60); // un « Non signé » sans raison : on la demande tout de suite (« Pas intéressé » passe Close en Not interested)
   refreshKpis();
   renderRdvTable();
@@ -8018,7 +8033,7 @@ function sdValiderMessageCopilot(m) {
   const champs = {};
   Object.keys(OK).forEach(function(k) { const c = m.champs && m.champs[k]; if (c === undefined || c === null) return; const v = txt(String(c), 20); if (OK[k].indexOf(v) >= 0) champs[k] = v; });
   const cid = txt(m.champs && m.champs.contactId, 40); if (/^ct-[a-z0-9-]+$/.test(cid)) champs.contactId = cid; // identité stable du copilot
-  const source = ['Inbound', 'Outbound', 'R2'].indexOf(m.source) >= 0 ? m.source : '';
+  const source = ['Inbound', 'Outbound', 'RENT', 'R2'].indexOf(m.source) >= 0 ? m.source : '';
   const result = ['oneshot', 'nosign', 'r2', 'relance'].indexOf(m.result) >= 0 ? m.result : '';
   if (m.sc === 'rdv_terminer' && !result) return null;
   return { sc: m.sc, nom: nom, date: date, source: source, email: txt(m.email, 200), heure: txt(m.heure, 5), result: result, champs: champs, annuler: m.annuler === true };
@@ -9447,8 +9462,8 @@ function persistCalendlyEventsToStore(weekEvents) {
         heure: heureStr,
         client: ev.name,
         email: ev.email || '',
-        source: (function() { var o = ev.source === 'Outbound' ? (loadOutboundOverrides()[String(ev.email || '').toLowerCase().trim()] || '') : ''; return (o === 'Inbound' || o === 'PUB') ? o : (ev.source || 'Inbound'); })(), // 'Inbound', 'Outbound' ou 'R2' ; un outbound reclassé « Pris par un SDR » / PUB dans Aujourd'hui garde ce choix
-        sourceOrigine: (ev.source === 'Outbound' && /^(Inbound|PUB)$/.test(loadOutboundOverrides()[String(ev.email || '').toLowerCase().trim()] || '')) ? 'Outbound' : undefined,
+        source: (function() { var o = ev.source === 'Outbound' ? (loadOutboundOverrides()[String(ev.email || '').toLowerCase().trim()] || '') : ''; return (o === 'Inbound' || o === 'PUB' || o === 'RENT') ? o : (ev.source || 'Inbound'); })(), // 'Inbound', 'Outbound' ou 'R2' ; un outbound reclassé « Pris par un SDR » / PUB dans Aujourd'hui garde ce choix
+        sourceOrigine: (ev.source === 'Outbound' && /^(Inbound|PUB|RENT)$/.test(loadOutboundOverrides()[String(ev.email || '').toLowerCase().trim()] || '')) ? 'Outbound' : undefined,
         type: 'Mandataire',
         presence: '',
         result: '',
@@ -10071,9 +10086,10 @@ function computeKpis(month, year) {
   // Outbound du mois (12 oct. 2026) : même règle que « Semaine » d'Aujourd'hui — prise ce mois, reclassements respectés, reprises de moins de 2 mois exclues, un par prospect
   const _ob = sdOutboundDuMois(monthKey), outbound = _ob.comptes, outboundExclus = _ob.exclus;
   const pub = rowsR1Traites.filter(r => r.source === 'PUB');   // même population qu'inbound
+  const rent = rowsR1Traites.filter(r => r.source === 'RENT'); // RDV pris au salon RENT
 
   return { total, shows, noshow, signes, closing, oneshot, showrate, noshowrate,
-    commission, mrr, inbound, outbound, outboundExclus, pub, rdvParJour, showsParJour, joursOuvres,
+    commission, mrr, inbound, outbound, outboundExclus, pub, rent, rdvParJour, showsParJour, joursOuvres,
     delai, nbDelai, hasDelai, hasOneShot, hasBonus, mandataires, agences, sansType, signesRows,
     delaiR1R2, nbDelaiR1R2, delaiPriseRdv, nbDelaiPriseRdv,
     reprogrammes, annules, vraisNoShow, closingCohorte, cohorteShows, cohorteSignes, rdvPris, jourJ, baseJourJ, joursTravailles };
@@ -10525,20 +10541,20 @@ function pfL(cle, html) { return '<span class="pf-liste" title="Voir les noms" o
 function sdOutboundReclasser(email, source, quand) {
   email = String(email || '').toLowerCase().trim(); if (!email) return; source = String(source || '');
   var vise = function(r) { if (!r || r.source === 'R2' || String(r.email || '').toLowerCase().trim() !== email) return false; var p = String(r.datePrise || r.date || '').split('/'); if (p.length !== 3) return false; return +new Date(+p[2], +p[1] - 1, +p[0], 12) >= Date.now() - 62 * 86400000; };
-  var change = function(r, appliquer) { if (source === 'Inbound' || source === 'PUB') { if (r.source === 'Outbound' || (r.sourceOrigine === 'Outbound' && r.source !== source)) { if (appliquer) { if (!r.sourceOrigine) r.sourceOrigine = 'Outbound'; r.source = source; } return true; } return false; }
+  var change = function(r, appliquer) { if (source === 'Inbound' || source === 'PUB' || source === 'RENT') { if (r.source === 'Outbound' || (r.sourceOrigine === 'Outbound' && r.source !== source)) { if (appliquer) { if (!r.sourceOrigine) r.sourceOrigine = 'Outbound'; r.source = source; } return true; } return false; }
     if (r.sourceOrigine === 'Outbound') { if (appliquer) { r.source = 'Outbound'; delete r.sourceOrigine; } return true; } return false; };
   var st = loadStore(), lignes = []; Object.keys(st).forEach(function(k) { if (/^\d{4}-\d{2}$/.test(k) && Array.isArray(st[k])) st[k].forEach(function(r) { if (vise(r) && change(r, false)) lignes.push(r); }); });
   if (lignes.length) { if (typeof sdBackupStore === 'function') sdBackupStore(st); else localStorage.setItem('salesdesk_rdvs_backup_' + Date.now(), JSON.stringify(st)); lignes.forEach(function(r) { change(r, true); }); saveStore(st); }
   saveOutboundOverride(email, source || 'Outbound');
   try { renderDaily(); } catch (e) {} try { renderAujourdhui(); } catch (e) {} try { if (typeof renderRdvTable === 'function') renderRdvTable(); } catch (e) {}
-  if (typeof showCopyToast === 'function') showCopyToast(source === 'Inbound' ? '✓ Pris par un SDR : passé en Inbound, ne compte plus en outbound' : source === 'Reschedule' ? '✓ Reprise : ne compte plus en outbound' : source === 'PUB' ? '✓ Passé en PUB' : '✓ Compté en outbound');
+  if (typeof showCopyToast === 'function') showCopyToast(source === 'Inbound' ? '✓ Pris par un SDR : passé en Inbound, ne compte plus en outbound' : source === 'Reschedule' ? '✓ Reprise : ne compte plus en outbound' : source === 'PUB' ? '✓ Passé en PUB' : source === 'RENT' ? '✓ Passé en RENT : ne compte plus en outbound' : '✓ Compté en outbound');
   setTimeout(function() { try { sdOutboundListe(quand); } catch (e) {} }, 150);
 }
 function sdOutboundListe(quand) { // Aujourd'hui : liste derrière « Outbound x / y » et « Semaine x / y »
   var os = window._sdOutboundSemaine || {}, L = (quand === 'jour' ? os.jour : os.liste) || [], X = (quand === 'jour' ? os.exclusJour : os.exclusSemaine) || [];
   var dt = function(d) { try { return d ? new Date(d).toLocaleDateString('fr-FR', { weekday: 'short', day: '2-digit', month: '2-digit' }) + ' ' + new Date(d).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '—'; } catch (e) { return '—'; } };
   var ovrO = loadOutboundOverrides(), selR = function(e) { var em = String(e.email || '').toLowerCase().trim(); if (!em) return ''; var o = ovrO[em] || ''; // 12 oct. 2026 : corriger ici un RDV pris sur ton lien par quelqu'un d'autre (SDR…) — même réglage que l'onglet Outbound
-    return '<select class="input" style="font-size:11.5px;padding:3px 6px;width:auto;margin-left:6px;" title="Corriger la source de ce RDV" onchange="sdOutboundReclasser(' + JSON.stringify(em).replace(/"/g, '&quot;') + ', this.value, ' + JSON.stringify(quand || 'jour').replace(/"/g, '&quot;') + ')">' + [['', 'Outbound'], ['Inbound', 'Pris par un SDR'], ['Reschedule', 'Reprise'], ['PUB', 'PUB']].map(function(x) { return '<option value="' + x[0] + '"' + (o === x[0] ? ' selected' : '') + '>' + x[1] + '</option>'; }).join('') + '</select>'; };
+    return '<select class="input" style="font-size:11.5px;padding:3px 6px;width:auto;margin-left:6px;" title="Corriger la source de ce RDV" onchange="sdOutboundReclasser(' + JSON.stringify(em).replace(/"/g, '&quot;') + ', this.value, ' + JSON.stringify(quand || 'jour').replace(/"/g, '&quot;') + ')">' + [['', 'Outbound'], ['Inbound', 'Pris par un SDR'], ['Reschedule', 'Reprise'], ['PUB', 'PUB'], ['RENT', 'RENT']].map(function(x) { return '<option value="' + x[0] + '"' + (o === x[0] ? ' selected' : '') + '>' + x[1] + '</option>'; }).join('') + '</select>'; };
   var ligne = function(e, badge) { return '<div class="pf-l"><span class="n">' + sdNomLien(e.name || e.email || '?', e.email || '', 'fermerModalDoublon();') + '<small>' + escapeHtml('pris ' + dt(e.createdAt) + ' · RDV ' + dt(e.start)) + '</small></span><span class="b">' + (e.annule ? '<span class="pf-b ko">annulé depuis</span>' : '') + badge + selR(e) + '</span></div>'; };
   var titre = quand === 'jour' ? 'RDV outbound pris aujourd\'hui' : 'RDV outbound pris cette semaine', cible = quand === 'jour' ? '' : (os.cible ? ' · objectif ' + os.cible : '');
   var ov = document.getElementById('fc-dup-overlay');
@@ -10633,7 +10649,7 @@ function ckDetailHtml(c) {
   h += '<div class="ck-card"><h3>🏷 Mandataires vs agences <small>même base que le Total RDV</small></h3><div class="ck-det">' + typeRow('Mandataires', k.mandataires || [], 'mand') + typeRow('Agences', k.agences || [], 'agences') + ((k.sansType || []).length ? '<div class="ck-note">⚠ ' + k.sansType.length + ' RDV sans type, à requalifier dans Données brutes</div>' : '') + '</div>' + lg([[0, 'a', 'tenus'], [0, 'b', 'non tenus le jour J']]).replace(/<span><i class="a"><\/i>0 /, '<span><i class="a"></i>').replace(/<span><i class="b"><\/i>0 /, '<span><i class="b"></i>') + '</div>';
   // sources
   var srcRow = function(nom, rs) { var p = rs.length, sh = rs.filter(function(r) { return r.presence === 'Show'; }).length, sg = rs.filter(sdAConclu).length, jj = sdAttenduPourRien(rs), b = jj.horsPeriode ? p : sh + jj.total, nt = b - sh, a2 = p - b; return '<div class="r"><span>' + pfL('src:' + nom, nom + ' · ' + b + ' RDV') + (a2 ? ' <small>' + p + ' pris · ' + a2 + ' à l\'avance</small>' : '') + '</span><b>show ' + P(sh, b) + ' · closing ' + (sh ? Math.round(sg / sh * 100) + ' %' : '—') + ' · ' + sg + ' vente' + (sg > 1 ? 's' : '') + '</b></div>' + stack([[sh, 'a', sh + ' tenus'], [nt, 'b', nt + ' non tenus le jour J']]); };
-  h += '<div class="ck-card"><h3>🧭 Par source</h3><div class="ck-det">' + srcRow('Inbound', r1.filter(function(r) { return r.source === 'Inbound'; })) + srcRow('Outbound', r1.filter(function(r) { return r.source === 'Outbound'; })) + srcRow('PUB', r1.filter(function(r) { return r.source === 'PUB'; })) + '</div></div>';
+  h += '<div class="ck-card"><h3>🧭 Par source</h3><div class="ck-det">' + srcRow('Inbound', r1.filter(function(r) { return r.source === 'Inbound'; })) + srcRow('Outbound', r1.filter(function(r) { return r.source === 'Outbound'; })) + srcRow('PUB', r1.filter(function(r) { return r.source === 'PUB'; })) + (r1.some(function(r) { return r.source === 'RENT'; }) ? srcRow('RENT', r1.filter(function(r) { return r.source === 'RENT'; })) : '') + '</div></div>';
   h += '<div class="ck-card" id="ck-det-comm"></div>'; // reçoit le bloc Commission existant (primes, réel)
   h += '</div>';
   return h;
@@ -10789,7 +10805,7 @@ function renderPerfTop() {
   var appels = (typeof _appelsJour !== 'undefined' && _appelsJour) ? _appelsJour : [];
   var outb = courant
     ? '<div class="pf-kv"><div><div class="v">' + escapeHtml((/^(\d+\s*\/\s*\d+)/.exec(T('daily-outbound-today-count')) || ['', '—'])[1]) + '</div><div class="l">pris aujourd\'hui</div></div><div><div class="v">' + escapeHtml(/^\d+$/.test(T('daily-outbound-reste')) ? T('daily-outbound-reste') : '—') + '</div><div class="l">restent cette semaine</div></div><div><div class="v">' + nbSrc(k.outbound) + '</div><div class="l">RDV outbound ce mois</div></div><div><div class="v">' + sdNbAppelsJour() + '</div><div class="l">appels aujourd\'hui · ' + appels.filter(function(a) { return a.joint; }).length + ' joints</div></div></div>'
-    : '<div class="pf-kv"><div><div class="v">' + nbSrc(k.outbound) + '</div><div class="l">RDV outbound</div></div><div><div class="v">' + nbSrc(k.inbound) + '</div><div class="l">RDV inbound</div></div><div><div class="v">' + nbSrc(k.pub) + '</div><div class="l">RDV pub</div></div></div>';
+    : '<div class="pf-kv"><div><div class="v">' + nbSrc(k.outbound) + '</div><div class="l">RDV outbound</div></div><div><div class="v">' + nbSrc(k.inbound) + '</div><div class="l">RDV inbound</div></div><div><div class="v">' + nbSrc(k.pub) + '</div><div class="l">RDV pub</div></div>' + (nbSrc(k.rent) ? '<div><div class="v">' + nbSrc(k.rent) + '</div><div class="l">RDV RENT</div></div>' : '') + '</div>';
   var conv = '<div class="pf-kv"><div><div class="v">' + sdPct(k.shows, k.total) + '</div><div class="l">show rate · ' + (k.shows || 0) + ' sur ' + (k.total || 0) + '</div></div><div><div class="v">' + sdPct(k.signes, k.shows) + '</div><div class="l">closing · ' + (k.signes || 0) + ' sur ' + (k.shows || 0) + ' shows</div></div><div><div class="v">' + (k.signes ? eur(comm / k.signes) : '—') + '</div><div class="l">par vente, primes comprises</div></div></div>';
   if (sdPerfVue() === 'cockpit') { try { ckRestaurerBlocs(); el.innerHTML = ckHtml({ k: k, comm: comm, obj: obj, pct: pct, reste: reste, prime: prime, proch: proch, s3: s3, courant: courant, jRest: jRest, jOuv: jOuv, mIdx: mIdx, yr: yr, eur: eur }); ckApres({ k: k, comm: comm, obj: obj, pct: pct, reste: reste, s3: s3, courant: courant, jOuv: jOuv, jRest: jRest, mIdx: mIdx, yr: yr, prime: prime }); return; } catch (e) { console.warn('[cockpit] repli vue classique :', e); } }
   el.innerHTML = '<div class="pf-head"><div><h1 class="pf-h1">Performance</h1><div class="pf-sub">'
@@ -12343,7 +12359,7 @@ function sdVerifCloseCle(x) { return x.champ ? ['e', x.date, x.client, x.champ, 
 function sdVerifCloseRestants() {
   if (!_verifClose) return [];
   var vus = loadStore()._verifCloseVus || {};
-  return (_verifClose.ecarts || []).concat((_verifClose.ventes || []).map(function(v) { return Object.assign({ vente: true }, v); })).filter(function(x) { return !vus[sdVerifCloseCle(x)]; });
+  return (_verifClose.ecarts || []).concat((_verifClose.ventes || []).map(function(v) { return Object.assign({ vente: true }, v); })).filter(function(x) { return !vus[sdVerifCloseCle(x)] && !(x.champ === 'source' && x.sd === 'RENT'); }); // RENT = choix de Nicolas, Close ne connaît qu'Inbound / Outbound / PUB
 }
 function sdPopupVerifClose() {
   var items = sdVerifCloseRestants(), nf = (_verifClose && _verifClose.nonTrouves) || [];
@@ -13461,7 +13477,7 @@ function sdReporterAncienFaire(st, an, nv, opts) { opts = opts || {};
   var horsOutb = nv.source === 'Outbound' && an.source && an.source !== 'Outbound';
   if (horsOutb) { nv.sourceOrigine = 'Outbound'; nv.source = an.source; }
   saveStore(st);
-  if (horsOutb && nv.email) saveOutboundOverride(String(nv.email).toLowerCase().trim(), an.source === 'PUB' ? 'PUB' : 'Inbound');
+  if (horsOutb && nv.email) saveOutboundOverride(String(nv.email).toLowerCase().trim(), (an.source === 'PUB' || an.source === 'RENT') ? an.source : 'Inbound');
   var cle = (state.calendly && state.calendly.apiKey) || localStorage.getItem('calendly_key');
   (opts.uri ? Promise.resolve(opts.uri) : sdTrouverUriCalendly(an.client, an.email || '', isoAn, an.heure || '')).then(function(uri) {
     if (!uri || !cle) return 'introuvable';
@@ -15201,8 +15217,9 @@ function renderGlobal() {
   if (subEl) subEl.textContent = fromKey ? 'Depuis ' + (filterEl?.options[filterEl?.selectedIndex]?.text||'') + ' → Aujourd\'hui' : 'Toute la période · ' + activeMois + ' mois';
   set('g-total-rdv',    totalRdv);
   // 1 vente pour X RDV, par source (R1 traités de la période)
-  [['Inbound', 'g-v1-inbound'], ['Outbound', 'g-v1-outbound'], ['PUB', 'g-v1-pub']].forEach(function(c) {
-    const rs = allR1T.filter(r => r.source === c[0]), nb = rs.length, sh = rs.filter(r => r.presence === 'Show').length, sg = rs.filter(sdAConclu).length;
+  [['Inbound', 'g-v1-inbound'], ['Outbound', 'g-v1-outbound'], ['PUB', 'g-v1-pub'], ['RENT', 'g-v1-rent']].forEach(function(c) {
+    const rs = allR1T.filter(r => r.source === c[0]), nb = rs.length; if (c[0] === 'RENT') { const ce = document.getElementById('g-v1-rent-carte'); if (ce) ce.style.display = nb ? '' : 'none'; }
+    const sh = rs.filter(r => r.presence === 'Show').length, sg = rs.filter(sdAConclu).length;
     set(c[1], sg ? (nb / sg).toFixed(1).replace('.', ',') + ' RDV' : '—');
     set(c[1] + '-sub', nb + ' RDV · show ' + (nb ? Math.round(sh / nb * 100) : 0) + '% · closing ' + (sh ? Math.round(sg / sh * 100) : 0) + '% · ' + sg + ' vente' + (sg > 1 ? 's' : ''));
   });
@@ -15314,7 +15331,7 @@ function renderGlobal() {
   set('g-sim-closing-hyp', 'Hypothèses : closing ' + closing + '% → ' + (closing + 5) + '%, ' + commAvg.toLocaleString('fr-FR') + ' \u20ac par vente.');
 
   // ── Tableau type ──
-  const srcColors = { Inbound:'var(--accent)', Outbound:'var(--purple)', PUB:'var(--orange)', Autre:'var(--text3)' };
+  const srcColors = { Inbound:'var(--accent)', Outbound:'var(--purple)', PUB:'var(--orange)', RENT:'var(--green)', Autre:'var(--text3)' };
 
   function buildTypeRow(label, rows, color) {
     const sh  = rows.filter(r => normalizePresence(r.presence) === 'Show').length;
@@ -15351,8 +15368,8 @@ function renderGlobal() {
     if (!srcMap[src]) srcMap[src] = [];
     srcMap[src].push(r);
   });
-  const VALID_SOURCES = ['Inbound','Outbound','PUB'];
-  const allSrcs = [...new Set(['Inbound','Outbound','PUB',...Object.keys(srcMap)])].filter(s => srcMap[s]?.length > 0 && VALID_SOURCES.includes(s));
+  const VALID_SOURCES = ['Inbound','Outbound','PUB','RENT'];
+  const allSrcs = [...new Set(['Inbound','Outbound','PUB','RENT',...Object.keys(srcMap)])].filter(s => srcMap[s]?.length > 0 && VALID_SOURCES.includes(s));
 
   const srcBody = document.getElementById('g-src-tbody');
   if (srcBody) {
@@ -15569,7 +15586,7 @@ function renderGlobal() {
 
   // 5. Doughnut Sources
   const srcData   = allSrcs.map(s => (srcMap[s]||[]).length);
-  const srcColArr = allSrcs.map(s => srcColors[s] === 'var(--accent)' ? 'var(--accent)' : srcColors[s] === 'var(--purple)' ? 'var(--purple)' : srcColors[s] === 'var(--orange)' ? 'var(--orange)' : 'var(--text3)');
+  const srcColArr = allSrcs.map(s => srcColors[s] === 'var(--accent)' ? 'var(--accent)' : srcColors[s] === 'var(--purple)' ? 'var(--purple)' : srcColors[s] === 'var(--orange)' ? 'var(--orange)' : srcColors[s] === 'var(--green)' ? 'var(--green)' : 'var(--text3)');
   mkChart('g-chart-sources', 'doughnut', { labels: allSrcs, datasets: [{ data: srcData, backgroundColor: srcColArr, borderWidth:2, borderColor:'var(--surface)' }] },
     { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } }, cutout:'60%' });
   const srcLegEl = document.getElementById('g-source-legend');
@@ -15870,7 +15887,7 @@ function renderProcessedSection() {
   listEl.innerHTML = items.map(([id, r]) => {
     const heure = r.heure || '—';
     const row = ligneDe(r) || {};
-    const srcColor = r.source === 'Inbound' ? 'var(--accent)' : r.source === 'Outbound' ? 'var(--purple)' : 'var(--orange)';
+    const srcColor = r.source === 'Inbound' ? 'var(--accent)' : r.source === 'Outbound' ? 'var(--purple)' : r.source === 'RENT' ? 'var(--green)' : 'var(--orange)';
     const resultVal = (r.result === 'À relancer' || row.result === 'En attente') ? 'En attente' : (row.result || r.result || '');
     return `<div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);font-size:12px;flex-wrap:wrap;">
       <div style="font-family:var(--mono);font-size:11px;color:var(--text3);min-width:42px;">${heure}</div>
