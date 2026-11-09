@@ -2574,6 +2574,7 @@ select.form-input { cursor: pointer; }
           <th style="width:46px;">1Shot</th>
           <th style="width:60px;">FMS</th>
           <th style="width:60px;">Remise</th>
+          <th style="width:52px;" title="Vente en partage : 50 % de la commission, hors paliers de prime">Partage</th>
           <th style="width:84px;" title="Carte de prospection vendue : annuelle ou mensuelle, −50 % = tarif partenaire. Prix selon le tier.">Carte</th>
           <th id="rdv-th-signature" style="width:90px;cursor:pointer;user-select:none;" onclick="sortRdvTable('dateSignature')">Signature <span class="sort-arrow"></span></th>
           <th class="col-hide-all" style="">Retour</th>
@@ -3639,12 +3640,14 @@ function sdCommCarte(r) {
   var prix = sdCartePrix(r); return c.mens ? Math.round(prix * 1.5) : Math.round((prix / 12) * 3);
 }
 function sdCarteSeule(r) { return !!r && !String(r.pack || '').trim() && !!sdCarteLue(r); } // carte vendue sans pack
-function sdNbVentesPalier(rows) { return (rows || []).filter(function(r) { return !sdCarteSeule(r); }).length; } // ventes qui comptent pour la prime par paliers : une carte de prospection vendue seule rapporte sa commission mais ne compte pas comme une vente (Nicolas, 9 nov. 2026)
+function sdNbVentesPalier(rows) { return (rows || []).filter(function(r) { return !sdCarteSeule(r) && !sdVentePartagee(r); }).length; } // ventes qui comptent pour la prime par paliers : une carte de prospection vendue seule ou une vente en partage rapportent leur commission mais ne comptent pas comme une vente (Nicolas, 9 nov. 2026)
 function sdFreqVente(r) { var f = (r && r.freq) || ''; if (/annuel|mensuel/i.test(f)) return f; var c = sdCarteLue(r); return c ? (c.mens ? 'Mensuelle' : 'Annuelle') : f; } // fréquence d'une vente pour les ventilations annuel / mensuel : celle du pack, sinon celle de la carte vendue seule (une ligne sans carte rend son champ freq tel quel)
 function getComm(r) {
   if (r && r.commFigee !== undefined && r.commFigee !== null && r.commFigee !== '') return parseFloat(r.commFigee) || 0; // commission figée : les totaux mensuels vérifiés par Nicolas ne bougent pas quand on complète une ligne (12 oct. 2026)
-  return sdCommPack(r) + sdCommCarte(r);
+  var c = sdCommPack(r) + sdCommCarte(r);
+  return sdVentePartagee(r) ? Math.round(c / 2) : c; // vente en partage (Nicolas, 9 nov. 2026) : il touche 50 % de la commission globale (pack + mise en service + carte)
 }
+function sdVentePartagee(r) { return !!r && r.partage === 'O'; }
 function sdCommPack(r) { // commission du pack + mise en service (l'ancien corps de getComm, inchangé)
   const b = getBareme();
   const pack   = (r.pack   || '').trim();
@@ -4212,14 +4215,19 @@ function sdReporterSignatureR2(st, r2) {
     if ((r1.signeViaR2 !== r2.date && !(!r1.signeViaR2 && r1.dateR2 === r2.date)) || (r1.commFigee !== undefined && r1.commFigee !== null)) return false;
     // 16 oct. 2026 (un prospect) : une correction faite ensuite sur la ligne R2 (Données brutes) remonte sur le R1, qui seul compte dans la commission
     var ch = false; var seule = sdCarteSeule(r2); // carte de prospection (9 nov. 2026) : le champ carte de la R2 fait foi même vide (carte retirée), et une carte vendue seule vide le pack du R1
-    ['pack', 'freq', 'tier', 'fms', 'remise', 'carte', 'oneshot', 'dateSignature'].forEach(function(f) { var v = r2[f];
-      if ((f === 'carte' && Object.prototype.hasOwnProperty.call(r2, 'carte')) || (seule && ['pack', 'freq', 'fms', 'remise'].indexOf(f) >= 0)) { v = (v === undefined || v === null) ? '' : String(v).trim(); if (String(r1[f] == null ? '' : r1[f]).trim() !== v) { r1[f] = v; ch = true; } return; }
+    ['pack', 'freq', 'tier', 'fms', 'remise', 'carte', 'partage', 'oneshot', 'dateSignature'].forEach(function(f) { var v = r2[f];
+      if (((f === 'carte' || f === 'partage') && Object.prototype.hasOwnProperty.call(r2, f)) || (seule && ['pack', 'freq', 'fms', 'remise'].indexOf(f) >= 0)) { v = (v === undefined || v === null) ? '' : String(v).trim(); if (String(r1[f] == null ? '' : r1[f]).trim() !== v) { r1[f] = v; ch = true; } return; }
       if (v === undefined || v === null || String(v).trim() === '') return; if (String(r1[f] == null ? '' : r1[f]) !== String(v)) { r1[f] = v; ch = true; } });
     return ch ? r1 : false;
   }
-  r1.result = 'Signé'; r1.presence = r1.presence || 'Show'; r1.pack = r2.pack || r1.pack; r1.freq = r2.freq || r1.freq; r1.tier = r2.tier || r1.tier; r1.fms = r2.fms || r1.fms; if (r2.remise) r1.remise = r2.remise; if (Object.prototype.hasOwnProperty.call(r2, 'carte')) r1.carte = r2.carte || ''; if (sdCarteSeule(r2)) { r1.pack = ''; r1.freq = ''; r1.fms = ''; r1.remise = ''; } /* carte vendue seule au R2 : le pack discuté au R1 n'est pas vendu */ r1.dateSignature = r2.dateSignature || r1.dateSignature || r2.date || new Date().toLocaleDateString('fr-FR'); /* 1er nov. 2026 : à défaut, le jour du R2, pas le jour du clic */
+  r1.result = 'Signé'; r1.presence = r1.presence || 'Show'; r1.pack = r2.pack || r1.pack; r1.freq = r2.freq || r1.freq; r1.tier = r2.tier || r1.tier; r1.fms = r2.fms || r1.fms; if (r2.remise) r1.remise = r2.remise; if (Object.prototype.hasOwnProperty.call(r2, 'carte')) r1.carte = r2.carte || ''; if (Object.prototype.hasOwnProperty.call(r2, 'partage')) r1.partage = r2.partage || ''; if (sdCarteSeule(r2)) { r1.pack = ''; r1.freq = ''; r1.fms = ''; r1.remise = ''; } /* carte vendue seule au R2 : le pack discuté au R1 n'est pas vendu */ r1.dateSignature = r2.dateSignature || r1.dateSignature || r2.date || new Date().toLocaleDateString('fr-FR'); /* 1er nov. 2026 : à défaut, le jour du R2, pas le jour du clic */
   r1.dateR2 = r1.dateR2 || r2.date; if (r2.heure && !r1.heureR2) r1.heureR2 = r2.heure; r1.presenceR2 = 'Show'; delete r1.attenteSignature; delete r1.nosignRaison; delete r1.relanceDate; r1.signeViaR2 = r2.date;
   return r1;
+}
+function sdAlignerR2(st, r1) { // carte de prospection / vente en partage modifiées sur le R1 d'une vente signée via un R2 : la ligne R2 suit, sinon sa valeur reviendrait sur le R1 au prochain chargement (audit 9 nov. 2026)
+  if (!r1 || r1.source === 'R2' || !r1.client) return; var d = r1.signeViaR2 || r1.dateR2; if (!d) return; var n = fcNormNom(r1.client);
+  Object.keys(st).forEach(function(k) { if (/^\d{4}-\d{2}$/.test(k) && Array.isArray(st[k])) st[k].forEach(function(x) { if (!x || x.source !== 'R2' || x.result !== 'Signé' || x.date !== d || fcNormNom(x.client || '') !== n) return;
+    ['carte', 'partage'].forEach(function(f) { if (Object.prototype.hasOwnProperty.call(x, f) || Object.prototype.hasOwnProperty.call(r1, f)) x[f] = r1[f] || ''; }); }); });
 }
 function sdReporterSignaturesR2(st) { // au démarrage : rattrape les signatures restées sur un R2 (ex. un prospect, signée depuis le Suivi sur sa ligne R2 le 07/10/2026)
   var nb = 0, noms = []; try { Object.keys(st).forEach(function(k) { if (!/^\d{4}-\d{2}$/.test(k) || !Array.isArray(st[k])) return; st[k].forEach(function(r) { if (r && r.source === 'R2' && r.result === 'Signé') { var r1 = sdReporterSignatureR2(st, r); if (r1) { nb++; noms.push(r1.client); } } }); }); } catch (e) {}
@@ -5712,17 +5720,19 @@ function rlAction(ix, action, btn, opts) { opts = opts || {};
   }
   if (action === 'signe') { // signé : la ligne SalesDesk passe en Signé (pack, fréquence, tier, FMS, remise), une tâche « Configurer » demain en tête du Suivi
     var champ = 'font-family:var(--font);font-size:13.5px;padding:7px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg);color:var(--text);';
+    var rowSg = (it.rel && it.rel.row) || it.row || {}; // ligne visée : sa carte et son partage déjà posés restent cochés
     var selS = function(idS, opts, val) { return '<select id="' + idS + '" style="' + champ + '">' + opts.map(function(o) { return '<option' + (o === val ? ' selected' : '') + '>' + o + '</option>'; }).join('') + '</select>'; };
     var html = '<div class="fc-dup" style="width:min(460px,84vw);max-width:100%;box-sizing:border-box;"><div style="font-size:16px;font-weight:800;margin-bottom:2px;">💰 ' + escapeHtml(it.nom) + ' a signé</div><div class="fc-muted" style="margin-bottom:12px;">Ligne SalesDesk en Signé, tâche « Configurer » demain en tête de ton Suivi.</div>'
       + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;"><label><div class="fc-muted">Pack</div>' + selS('sg-pack', ['Start+', 'Pro+', 'Expert+', 'Aucun (carte seule)'], 'Pro+') + '</label><label><div class="fc-muted">Fréquence</div>' + selS('sg-freq', ['Mensuelle', 'Annuelle'], 'Annuelle') + '</label><label><div class="fc-muted">Tier</div>' + selS('sg-tier', ['T1', 'T2', 'T3', 'T4'], (/^T[1-4]$/.exec(String((((it.rel && it.rel.row) || it.row || {}).tier) || '').trim()) || ['T2'])[0]) + '</label><label><div class="fc-muted">FMS</div>' + selS('sg-fms', ['100%', '50%', 'Offert'], '100%') + '</label></div>'
-      + '<label style="display:block;margin-top:8px;"><div class="fc-muted">Carte de prospection (prix selon le tier)</div><select id="sg-carte" style="' + champ + 'width:100%;box-sizing:border-box;"><option value="">Non</option><option>Annuelle</option><option>Annuelle −50 %</option><option>Mensuelle</option><option>Mensuelle −50 %</option></select></label>'
+      + '<label style="display:block;margin-top:8px;"><div class="fc-muted">Carte de prospection (prix selon le tier)</div><select id="sg-carte" style="' + champ + 'width:100%;box-sizing:border-box;">' + SD_CARTE_CHOIX.map(function(c) { return '<option value="' + c + '"' + (c === String(rowSg.carte || '') ? ' selected' : '') + '>' + (c || 'Non') + '</option>'; }).join('') + '</select></label>'
+      + '<label style="display:flex;gap:6px;align-items:center;margin-top:10px;font-size:13px;cursor:pointer;" title="Tu touches 50 % de la commission ; la vente ne compte pas dans les paliers de prime"><input type="checkbox" id="sg-partage"' + (rowSg.partage === 'O' ? ' checked' : '') + '>Vente en partage (50 % de la commission)</label>'
       + '<label style="display:block;margin-top:8px;"><div class="fc-muted">Remise (€, facultatif)</div><input type="text" id="sg-remise" inputmode="numeric" placeholder="ex. 500" style="' + champ + 'width:100%;box-sizing:border-box;"></label>'
       + '<div style="display:flex;justify-content:flex-end;gap:6px;margin-top:12px;"><button class="btn btn-sm" onclick="fermerModalDoublon()">Annuler</button><button class="btn btn-sm btn-primary" id="sg-ok">Valider la signature</button></div></div>';
     var ov = document.getElementById('fc-dup-overlay');
     if (!ov) { ov = document.createElement('div'); ov.id = 'fc-dup-overlay'; ov.className = 'modal-overlay'; ov.style.zIndex = '1300'; ov.innerHTML = '<div class="modal" id="fc-dup-modal"></div>'; document.body.appendChild(ov); }
     ov.onclick = function(ev) { if (ev.target === ov) fermerModalDoublon(); }; document.getElementById('fc-dup-modal').innerHTML = html; ov.classList.add('open');
     document.getElementById('sg-ok').onclick = function() {
-      var v = function(i) { return (document.getElementById(i) || {}).value || ''; }, pack = v('sg-pack'), freq = v('sg-freq'), tier = v('sg-tier'), fms = v('sg-fms'), remise = v('sg-remise').replace(/[^\d]/g, ''), carte = v('sg-carte');
+      var v = function(i) { return (document.getElementById(i) || {}).value || ''; }, pack = v('sg-pack'), freq = v('sg-freq'), tier = v('sg-tier'), fms = v('sg-fms'), remise = v('sg-remise').replace(/[^\d]/g, ''), carte = v('sg-carte'), partage = !!(document.getElementById('sg-partage') || {}).checked;
       if (/^Aucun/.test(pack)) { if (!carte) { if (typeof showCopyToast === 'function') showCopyToast('Choisis un pack ou une carte de prospection'); return; } pack = ''; freq = ''; fms = ''; remise = ''; } // carte seule : pas de pack, donc ni fréquence, ni mise en service, ni remise de pack
       fermerModalDoublon(); occupe(true);
       var dConf = rlJourOuvre(today, 1);
@@ -5731,7 +5741,7 @@ function rlAction(ix, action, btn, opts) { opts = opts || {};
           try { var st = loadStore(), row = (it.rel && it.rel.row) || it.row, cible = null;
             if (row) Object.keys(st).forEach(function(k) { if (/^\d{4}-\d{2}$/.test(k)) (st[k] || []).forEach(function(x) { if (x && x.client === row.client && x.date === row.date) cible = x; }); });
             if (!cible) { var rows = fcLignesDuNom(it.nom).filter(function(x) { return x.source !== 'R2'; }); if (rows[0]) cible = (st[rows[0]._monthKey] || [])[rows[0]._storeKey]; }
-            if (cible) { sdBackupStore(st); cible.result = 'Signé'; cible.pack = pack; cible.freq = freq; cible.tier = tier; cible.fms = fms; if (remise) cible.remise = remise; else if (!pack) cible.remise = ''; cible.carte = carte; if (!cible.presence) cible.presence = 'Show'; cible.dateSignature = cible.dateSignature || new Date().toLocaleDateString('fr-FR'); delete cible.attenteSignature; delete cible.nosignRaison; delete cible.relanceDate; if (cible.source === 'R2') sdReporterSignatureR2(st, cible); saveStore(st); }
+            if (cible) { sdBackupStore(st); cible.result = 'Signé'; cible.pack = pack; cible.freq = freq; cible.tier = tier; cible.fms = fms; if (remise) cible.remise = remise; else if (!pack) cible.remise = ''; cible.carte = carte; cible.partage = partage ? 'O' : ''; if (!cible.presence) cible.presence = 'Show'; cible.dateSignature = cible.dateSignature || new Date().toLocaleDateString('fr-FR'); delete cible.attenteSignature; delete cible.nosignRaison; delete cible.relanceDate; if (cible.source === 'R2') sdReporterSignatureR2(st, cible); else sdAlignerR2(st, cible); saveStore(st); }
             else if (typeof showCopyToast === 'function') showCopyToast('Aucune ligne de RDV SalesDesk pour ' + it.nom + ' : signature notée dans Close seulement'); } catch (e) {}
           rlPoserSuivi(it, { tentatives: 0, col: 'config', dernier: 'signe', prochaine: dConf }); return rlMajRelance(it, 'abandon', ''); })
         .then(function() { fini('💰 Signé · à configurer demain'); try { refreshAll(); } catch (e) {} try { var stF = loadStore(), rF = null; fcLignesDuNom(it.nom).filter(function(x) { return x.source !== 'R2'; }).forEach(function(x) { if (!rF) rF = (stF[x._monthKey] || [])[x._storeKey]; }); setTimeout(function() { sdFelicitations(it.nom, rF); }, 300); } catch (e) {} }).catch(echec);
@@ -6106,7 +6116,7 @@ function fcHtmlOffreTab() {
     var statut = r.result === 'Signé' ? '<span class="fc-pill ok">Offre validée' + (r.dateSignature ? ' le ' + escapeHtml(r.dateSignature) : '') + '</span>' : r.attenteSignature ? '<span class="fc-pill warn">Contrat envoyé · attente de signature' + (r.attenteDepuis ? ' depuis le ' + escapeHtml(fcFrDepuisIso(r.attenteDepuis)) : '') + '</span>' : (r.pack ? '<span class="fc-pill warn">Proposition</span>' : '<span class="fc-muted">pas d\'offre discutée</span>');
     var kv = function(k, v) { return v ? '<div class="fc-kv"><span class="k">' + k + '</span><span class="v">' + escapeHtml(String(v)) + '</span></div>' : ''; };
     return '<div class="fc-card" style="margin-bottom:12px;"><div class="fc-card-t"><span>RDV du ' + escapeHtml(r.date) + (r.heure ? ' à ' + escapeHtml(r.heure) : '') + ' · ' + escapeHtml(r.result || r.presence || 'sans résultat') + '</span>' + statut + '</div>'
-      + kv('Pack', r.pack) + kv('Fréquence', r.freq) + kv('Tier', r.tier) + kv('Mise en service', r.fms) + kv('Remise', r.remise ? r.remise + ' €' : '') + kv('Carte de prospection', r.carte) + kv('One shot', r.oneshot === 'O' ? 'oui' : '') + kv('Onboarding fait', r.onboardingAt ? fcFrDepuisIso(String(r.onboardingAt).slice(0, 10)) : '') + kv('Configuré le', r.configureAt ? fcFrDepuisIso(String(r.configureAt).slice(0, 10)) : '')
+      + kv('Pack', r.pack) + kv('Fréquence', r.freq) + kv('Tier', r.tier) + kv('Mise en service', r.fms) + kv('Remise', r.remise ? r.remise + ' €' : '') + kv('Carte de prospection', r.carte) + kv('Vente en partage', r.partage === 'O' ? '50 % de la commission, hors paliers' : '') + kv('One shot', r.oneshot === 'O' ? 'oui' : '') + kv('Onboarding fait', r.onboardingAt ? fcFrDepuisIso(String(r.onboardingAt).slice(0, 10)) : '') + kv('Configuré le', r.configureAt ? fcFrDepuisIso(String(r.configureAt).slice(0, 10)) : '')
       + (r.result === 'Signé' && typeof getComm === 'function' ? '<div class="fc-kv"><span class="k">Commission <span class="fc-src">(interne)</span></span><span class="v">' + Math.round(getComm(r)).toLocaleString('fr-FR') + ' €</span></div>' : '') + '</div>';
   }).join('');
   if (cles.deal) out += '<div class="fc-card"><div class="fc-card-t"><span>D\'après Close</span></div><div class="v" style="font-size:13.5px;">' + escapeHtml(cles.deal) + '</div></div>';
@@ -6679,7 +6689,7 @@ function sdApresRdv(monthKey, idx) {
   var pres = String(r.presence || '').trim(), res = r.result === 'Promo' ? 'Non signé' : String(r.result || '').trim();
   var sigR1 = ''; if (r.source === 'R2') { try { var l1 = fcLignesDuNom(r.client).filter(function(x) { return x.source !== 'R2' && (x.dateR2 === r.date || !x.dateR2 || parseDateFR(x.date) <= parseDateFR(r.date)); }).sort(function(x, y) { return (parseDateFR(y.date) || 0) - (parseDateFR(x.date) || 0); })[0]; if (l1 && l1.result === 'Signé') sigR1 = fcIsoDepuisFr(l1.dateSignature || ''); } catch (e) {} } /* 1er nov. 2026 (Martine Thomas) : la vente et sa date sont sur la ligne R1 */
   _ar = { monthKey: monthKey, idx: idx, row: r, estR2: r.source === 'R2',
-    presence: pres, result: (res === 'Intéressé' && r.attenteSignature) ? 'Attente' : res, raison: r.nosignRaison || (r.result === 'Promo' ? 'promo' : ''), pack: r.pack || '', freq: r.freq || '', tier: r.tier || '', fms: /offert/i.test(r.fms || '') ? 'Offert' : (r.fms || ''), remise: r.remise || '', carte: r.carte || null, dateSign: sigR1 || fcIsoDepuisFr(r.dateSignature || '') || fcIsoDepuisFr(r.date || '') || rlIso(new Date()), oneshot: r.oneshot === 'O', type: r.type || '',
+    presence: pres, result: (res === 'Intéressé' && r.attenteSignature) ? 'Attente' : res, raison: r.nosignRaison || (r.result === 'Promo' ? 'promo' : ''), pack: r.pack || '', freq: r.freq || '', tier: r.tier || '', fms: /offert/i.test(r.fms || '') ? 'Offert' : (r.fms || ''), remise: r.remise || '', carte: r.carte || null, partage: r.partage === 'O' ? true : (Object.prototype.hasOwnProperty.call(r, 'partage') ? false : null), dateSign: sigR1 || fcIsoDepuisFr(r.dateSignature || '') || fcIsoDepuisFr(r.date || '') || rlIso(new Date()), oneshot: r.oneshot === 'O', type: r.type || '',
     suite: (r.dateR2 && String(r.dateR2).trim()) ? 'r2' : ((r.relanceDate && !r.relanceFait) ? 'rel' : ''), r2Date: fcIsoDepuisFr(r.dateR2 || ''), r2Heure: r.heureR2 || '', relDate: r.relanceDate || '', relCond: r.relanceCond || '',
     nsChoix: '', nsDate: rlJourOuvre(rlIso(new Date()), 1), note: r.retour || '',
     dossier: null, dernier: undefined, mail: null, presenceAvant: pres, resultAvant: res, raisonAvant: r.nosignRaison || '' };
@@ -6739,6 +6749,7 @@ function arChamp(champ, val) { if (_ar) { _ar[champ] = val; if (champ === 'carte
 function arEcrireOffre(ligne, a, dateRdv) {
   if (a.tier) ligne.tier = a.tier; if (a.fms) ligne.fms = a.fms;
   if (a.carte) ligne.carte = a.carte; else if (a.carte === '') ligne.carte = ''; // '' = retirée à l'écran (gardé vide : sur une ligne R2, c'est ce qui fait remonter le retrait au R1) ; null = pas touchée, on ne l'efface pas
+  if (a.partage === true) ligne.partage = 'O'; else if (a.partage === false) ligne.partage = ''; // null = pas touchée
   var rem = String(a.remise || '').replace(/[^\d]/g, ''); if (rem) ligne.remise = rem; else if (a.remise === '') delete ligne.remise;
   ligne.dateSignature = a.dateSign ? fcFrDepuisIso(a.dateSign) : (ligne.dateSignature || dateRdv || new Date().toLocaleDateString('fr-FR'));
 }
@@ -6751,7 +6762,7 @@ function arRendreC2() {
       + (a.result === 'Attente' ? '<div class="fc-muted" style="margin-top:6px;">Ni signé ni perdu : il a dit oui, tu attends sa signature ou son paiement. Compté comme une affaire en cours, pas comme une vente.</div>' : '');
     if (a.result === 'Signé') {
       var sel = function(champ, opts, val) { return '<select onchange="arChamp(\'' + champ + '\', this.value)">' + opts.map(function(o) { return '<option value="' + escapeHtml(o[0]) + '"' + (o[0] === val ? ' selected' : '') + '>' + escapeHtml(o[1]) + '</option>'; }).join('') + '</select>'; };
-      out += '<div class="ar-lab">Offre signée</div><div class="ar-row">' + sel('pack', [['', 'Pack ?'], ['Start+', 'Start+'], ['Pro+', 'Pro+'], ['Expert+', 'Expert+']], a.pack) + sel('freq', [['', 'Fréquence ?'], ['Annuelle', 'Annuelle'], ['Mensuelle', 'Mensuelle']], a.freq) + sel('tier', [['', 'Tier ?'], ['T1', 'T1'], ['T2', 'T2'], ['T3', 'T3'], ['T4', 'T4']], a.tier) + sel('fms', [['', 'Mise en service ?'], ['100%', 'FMS 100 %'], ['50%', 'FMS 50 %'], ['Offert', 'FMS offerte']], a.fms) + (a.type ? '' : sel('type', [['', 'Type ?'], ['Mandataire', 'Mandataire'], ['Agences', 'Agences']], a.type)) + '<label style="font-size:12.5px;display:flex;gap:5px;align-items:center;"><input type="checkbox"' + (a.oneshot ? ' checked' : '') + ' onchange="arChamp(\'oneshot\', this.checked)">One shot</label></div>'
+      out += '<div class="ar-lab">Offre signée</div><div class="ar-row">' + sel('pack', [['', 'Pack ?'], ['Start+', 'Start+'], ['Pro+', 'Pro+'], ['Expert+', 'Expert+']], a.pack) + sel('freq', [['', 'Fréquence ?'], ['Annuelle', 'Annuelle'], ['Mensuelle', 'Mensuelle']], a.freq) + sel('tier', [['', 'Tier ?'], ['T1', 'T1'], ['T2', 'T2'], ['T3', 'T3'], ['T4', 'T4']], a.tier) + sel('fms', [['', 'Mise en service ?'], ['100%', 'FMS 100 %'], ['50%', 'FMS 50 %'], ['Offert', 'FMS offerte']], a.fms) + (a.type ? '' : sel('type', [['', 'Type ?'], ['Mandataire', 'Mandataire'], ['Agences', 'Agences']], a.type)) + '<label style="font-size:12.5px;display:flex;gap:5px;align-items:center;"><input type="checkbox"' + (a.oneshot ? ' checked' : '') + ' onchange="arChamp(\'oneshot\', this.checked)">One shot</label><label style="font-size:12.5px;display:flex;gap:5px;align-items:center;" title="Vente partagée avec un collègue : tu touches 50 % de la commission, et elle ne compte pas dans les paliers de prime"><input type="checkbox"' + (a.partage ? ' checked' : '') + ' onchange="arChamp(\'partage\', this.checked)">Vente en partage (50 %)</label></div>'
         + '<div class="ar-row">' + sel('carte', [['', 'Carte de prospection : non'], ['Annuelle', 'Carte annuelle'], ['Annuelle −50 %', 'Carte annuelle −50 %'], ['Mensuelle', 'Carte mensuelle'], ['Mensuelle −50 %', 'Carte mensuelle −50 %']], a.carte) + (a.carte ? '<span class="fc-muted" style="font-size:11.5px;">' + (a.tier ? Math.round(sdCartePrix({ carte: a.carte, tier: a.tier })).toLocaleString('fr-FR') + ' € ' + (/^Mens/.test(a.carte) ? '/ mois' : '/ an') + ' au tier ' + a.tier : 'choisis le tier : le prix de la carte en dépend') + (a.pack ? ' · vendue seule ? remets le pack sur « Pack ? »' : ' · carte seule, sans pack') + '</span>' : '') + '</div>'
         + '<div class="ar-row"><label style="font-size:12.5px;display:flex;gap:5px;align-items:center;">Remise <input type="text" inputmode="numeric" placeholder="0" value="' + escapeHtml(String(a.remise || '')) + '" style="flex:0;min-width:70px;width:70px;" onchange="arChamp(\'remise\', this.value)"> €</label><label style="font-size:12.5px;display:flex;gap:5px;align-items:center;">Signé le <input type="date" value="' + escapeHtml(a.dateSign || '') + '" onchange="arChamp(\'dateSign\', this.value)"></label><span class="fc-muted" style="font-size:11.5px;">par défaut la date du RDV : c\'est elle qui range la vente dans le bon mois</span></div>';
       out += '<div class="fc-muted" style="margin-top:6px;">Close passe en Won tout seul au paiement — rien à écrire côté statut.</div>';
@@ -6846,7 +6857,7 @@ function arPlan() {
     if (!a.result) M.push('le résultat');
     else { sd.push('résultat ' + (a.result === 'Attente' ? 'en attente de signature' : a.result) + (a.raison ? ' · ' + ({ pasinteresse: 'pas intéressé', pasbudget: 'pas de budget', promo: 'si promo', carte: 'carte de prospection', rent: 'au RENT', ghost: 'ghost', relancer: 'à relancer' }[a.raison] || a.raison) : '')); }
     if (a.result === 'Non signé' && !a.raison) M.push('la raison');
-    if (a.result === 'Signé') { if (!a.pack && !a.carte) M.push('le pack'); if (!a.freq && (a.pack || !a.carte)) M.push('la fréquence'); if (a.carte && !a.tier) M.push('le tier'); if (!a.type) M.push('le type'); if (!a.dateSign) M.push('la date de signature'); var remN = String(a.remise || '').replace(/[^\d]/g, ''); sd.push([a.pack, a.freq, a.tier, a.fms ? 'FMS ' + a.fms : '', remN ? 'remise ' + remN + ' €' : '', a.carte ? 'carte de prospection ' + a.carte.toLowerCase() : '', a.oneshot ? 'one shot' : ''].filter(Boolean).join(' · ') + (a.dateSign ? ' · signé le ' + fcFrDepuisIso(a.dateSign) : '')); }
+    if (a.result === 'Signé') { if (!a.pack && !a.carte) M.push('le pack'); if (!a.freq && (a.pack || !a.carte)) M.push('la fréquence'); if (a.carte && !a.tier) M.push('le tier'); if (!a.type) M.push('le type'); if (!a.dateSign) M.push('la date de signature'); var remN = String(a.remise || '').replace(/[^\d]/g, ''); sd.push([a.pack, a.freq, a.tier, a.fms ? 'FMS ' + a.fms : '', remN ? 'remise ' + remN + ' €' : '', a.carte ? 'carte de prospection ' + a.carte.toLowerCase() : '', a.partage ? 'vente en partage (50 %)' : '', a.oneshot ? 'one shot' : ''].filter(Boolean).join(' · ') + (a.dateSign ? ' · signé le ' + fcFrDepuisIso(a.dateSign) : '')); }
     if (arInt(a) && !a.suite) M.push(a.result === 'Attente' ? 'la date à laquelle tu le relances' : 'la suite (R2 ou rappel)');
     if (a.suite === 'r2' && a.r2Debut && !a.r2Reserve) M.push('réserver le R2 (bouton vert sous les créneaux)');
     if (a.suite === 'r2') sd.push('R2 ' + (a.r2Date ? 'le ' + fcFrDepuisIso(a.r2Date) + (a.r2Heure ? ' à ' + a.r2Heure : '') : 'attendu dans Calendly'));
@@ -6883,7 +6894,7 @@ function arValiderSuivi() {
   if (a.presence === 'Show') {
     r.result = a.result === 'Attente' ? 'Intéressé' : a.result; if (a.result === 'Attente') { r.attenteSignature = true; r.attenteDepuis = r.attenteDepuis || new Date().toISOString().slice(0, 10); } else delete r.attenteSignature;
     if (a.result === 'Non signé') r.nosignRaison = a.raison; else delete r.nosignRaison;
-    if (a.result === 'Signé') { r.pack = a.pack; r.freq = a.freq; r.oneshot = a.oneshot ? 'O' : 'N'; if (a.type) r.type = a.type; arEcrireOffre(r, a, r.date); }
+    if (a.result === 'Signé') { r.pack = a.pack; r.freq = a.freq; r.oneshot = a.oneshot ? 'O' : 'N'; if (a.type) r.type = a.type; arEcrireOffre(r, a, r.date); if (r.source !== 'R2') sdAlignerR2(store, r); }
     if (a.suite === 'r2') { if (a.r2Date) { r.dateR2 = fcFrDepuisIso(a.r2Date); if (a.r2Heure) r.heureR2 = a.r2Heure; if (!r.presenceR2) r.presenceR2 = 'Programmé'; } else r.r2Attendu = true; }
     if (a.suite === 'rel' && a.relDate) { r.relanceDate = a.relDate; r.relanceCond = a.relCond; r.relanceFait = false; }
     if (a.suite === '' && a.result === 'Non signé') { delete r.relanceDate; delete r.relanceCond; }
@@ -7105,7 +7116,7 @@ function renderDeals() {
   }
   list.innerHTML = rows.map(r => `
     <div class="deal-card">
-      <div><div class="deal-name">${escapeHtml(r.client || '')}</div><div class="deal-plan">${escapeHtml([r.pack, r.freq, r.carte ? 'carte ' + r.carte : ''].filter(Boolean).join(' · '))}</div></div>
+      <div><div class="deal-name">${escapeHtml(r.client || '')}</div><div class="deal-plan">${escapeHtml([r.pack, r.freq, r.carte ? 'carte ' + r.carte : '', r.partage === 'O' ? 'partage 50 %' : ''].filter(Boolean).join(' · '))}</div></div>
       <div class="deal-amount">${getComm(r) ? getComm(r).toLocaleString('fr-FR')+'€' : '—'}</div>
     </div>`).join('');
 }
@@ -7489,7 +7500,7 @@ function renderOutboundTab(events, currentMonthKey) {
   const _dd = (d) => String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0');
   const _weekLabel = _dd(weekMonday) + ' → ' + _dd(weekFriday);
   if (filteredEvents.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="18" style="text-align:center;padding:30px;color:var(--text3);font-size:13px;">
+    tbody.innerHTML = `<tr><td colspan="19" style="text-align:center;padding:30px;color:var(--text3);font-size:13px;">
       Aucun outbound pris cette semaine (${_weekLabel})<br>
       <span style="font-size:11px;opacity:.7;">Les outbounds créés via Calendly cette semaine apparaîtront ici</span>
     </td></tr>`;
@@ -7724,7 +7735,7 @@ function renderRdvTable() {
     } else {
       msgEmpty = `Aucun R2 planifié pour ${state.month} ${state.year}`;
     }
-    tbody.innerHTML = `<tr><td colspan="18" style="text-align:center;padding:30px;color:var(--text3);font-size:13px;">
+    tbody.innerHTML = `<tr><td colspan="19" style="text-align:center;padding:30px;color:var(--text3);font-size:13px;">
       ${msgEmpty}
       ${(_rdvTableTab === 'r1' || _rdvTableTab === 'all') ? '<button class="btn btn-sm" onclick="openModal(\'newRdvModal\')" style="margin-left:8px;">+ Ajouter</button>' : ''}
     </td></tr>`;
@@ -7784,6 +7795,7 @@ function renderRdvTable() {
       <td style="padding:4px 6px;">${mkSelMK(['Oui','Non'], r.oneshot==='O'?'Oui':'Non', i, 'oneshot', monthKey)}</td>
       <td style="padding:4px 6px;">${mkSelMK(['','100%','50%','Offert'], r.fms||'', i, 'fms', monthKey)}</td>
       <td style="padding:4px 6px;">${mkTextMK(r.remise||'', i, 'remise', '€', '60px', monthKey)}</td>
+      <td style="padding:4px 6px;">${mkSelMK(['Non','Oui'], r.partage==='O'?'Oui':'Non', i, 'partage', monthKey)}</td>
       <td style="padding:4px 6px;">${mkSelMK(SD_CARTE_CHOIX, r.carte||'', i, 'carte', monthKey)}</td>
       <td style="padding:4px 6px;">${mkDateMK(r.dateSignature||'', i, 'dateSignature', monthKey)}</td>
       <td class="col-hide-all" style="padding:4px 6px;">${mkTextMK(r.retour||'', i, 'retour', 'Retour…', '100%', monthKey)}</td>
@@ -7823,12 +7835,13 @@ function updateFieldMK(idx, field, value, type, monthKey) {
   if (field === 'commission') value = parseFloat(value) || 0;
   // Conversion spéciale pour oneshot : on stocke 'O'/'N' (un seul caractère)
   if (field === 'oneshot') value = (value === 'Oui') ? 'O' : 'N';
+  if (field === 'partage') value = (value === 'Oui') ? 'O' : '';
   const _avant = rows[idx][field];
   rows[idx][field] = value;
   if (field === 'result' && value !== 'Non signé' && value !== 'Promo') delete rows[idx].nosignRaison;
   if (field === 'result' && value === 'Promo') { rows[idx].result = 'Non signé'; rows[idx].nosignRaison = 'promo'; }
-  if (rows[idx].source === 'R2' && ['pack', 'freq', 'tier', 'fms', 'remise', 'carte', 'oneshot', 'dateSignature', 'result'].indexOf(field) >= 0) { try { sdReporterSignatureR2(store, rows[idx]); } catch (e) {} } /* 1er nov. 2026 : la ligne R1 porte la vente, une correction sur la R2 doit la suivre */
-  if (field === 'carte' && rows[idx].source !== 'R2' && rows[idx].signeViaR2) { var _nC = fcNormNom(rows[idx].client || ''), _dC = rows[idx].signeViaR2; Object.keys(store).forEach(function(k) { if (/^\d{4}-\d{2}$/.test(k) && Array.isArray(store[k])) store[k].forEach(function(x) { if (x && x.source === 'R2' && x.date === _dC && fcNormNom(x.client || '') === _nC && Object.prototype.hasOwnProperty.call(x, 'carte')) x.carte = value; }); }); } // sinon la carte de la ligne R2 reviendrait sur le R1 au prochain chargement
+  if (rows[idx].source === 'R2' && ['pack', 'freq', 'tier', 'fms', 'remise', 'carte', 'partage', 'oneshot', 'dateSignature', 'result'].indexOf(field) >= 0) { try { sdReporterSignatureR2(store, rows[idx]); } catch (e) {} } /* 1er nov. 2026 : la ligne R1 porte la vente, une correction sur la R2 doit la suivre */
+  if ((field === 'carte' || field === 'partage') && rows[idx].source !== 'R2') sdAlignerR2(store, rows[idx]);
   var _emRent = String(rows[idx].email || '').toLowerCase().trim(), _ovrRent = ''; // source RENT (9 nov. 2026) : un RDV pris au salon sur le lien perso sort aussi des compteurs outbound (jour, semaine, bilan), qui lisent Calendly + les reclassements par e-mail
   if (field === 'source' && _emRent && String(_avant || '') !== String(value || '')) {
     if (value === 'RENT') { if (_avant === 'Outbound' && !rows[idx].sourceOrigine) rows[idx].sourceOrigine = 'Outbound'; _ovrRent = 'RENT'; }
@@ -10625,7 +10638,7 @@ function sdPerfListe(cle) {
   var fr = function(d) { return String(d || '').slice(0, 5); };
   var ligne = function(r) {
     var nom = sdNomLien(r.client, r.email || '', 'fermerModalDoublon();'), info = [], badge = '';
-    if (mode === 'vente') { info.push([r.pack, r.freq, r.carte ? 'carte ' + r.carte : ''].filter(Boolean).join(' · ')); info.push('signé le ' + fr(r.dateSignature || r.date)); info.push('R1 le ' + fr(r.date)); var dj = r.dateSignature ? sdJoursR1Signature(r) : null; badge = (r.dateSignature ? (dj === 0 ? '<span class="pf-b ok">one shot</span>' : '<span class="pf-b mu">' + (dj === null ? '?' : (dj > 0 ? 'J+' + dj : 'date à vérifier')) + '</span>') : '<span class="pf-b mu">sans date de signature</span>') + '<b>' + Math.round(getComm(r) || 0).toLocaleString('fr-FR') + ' €</b>'; }
+    if (mode === 'vente') { info.push([r.pack, r.freq, r.carte ? 'carte ' + r.carte : '', r.partage === 'O' ? 'partage 50 %' : ''].filter(Boolean).join(' · ')); info.push('signé le ' + fr(r.dateSignature || r.date)); info.push('R1 le ' + fr(r.date)); var dj = r.dateSignature ? sdJoursR1Signature(r) : null; badge = (r.dateSignature ? (dj === 0 ? '<span class="pf-b ok">one shot</span>' : '<span class="pf-b mu">' + (dj === null ? '?' : (dj > 0 ? 'J+' + dj : 'date à vérifier')) + '</span>') : '<span class="pf-b mu">sans date de signature</span>') + '<b>' + Math.round(getComm(r) || 0).toLocaleString('fr-FR') + ' €</b>'; }
     else if (mode === 'outbound') { var c0 = String(r.email || '').toLowerCase().trim() || fcNormNom(r.client || ''); info.push('pris le ' + fr(r.datePrise || r.date)); info.push('RDV le ' + fr(r.date)); info.push(r.type || ''); var e = etat(r); badge = (doublons[c0] ? '<span class="pf-b mu">2 RDV ce mois</span>' : '') + '<span class="pf-b ' + e[1] + '">' + escapeHtml(e[0]) + '</span>'; }
     else { info.push(fr(r.date) + (r.heure ? ' ' + r.heure : '')); info.push(r.source || ''); info.push(r.type || ''); var e2 = etat(r); badge = '<span class="pf-b ' + e2[1] + '">' + escapeHtml(e2[0]) + '</span>'; }
     return '<div class="pf-l"><span class="n">' + nom + '<small>' + escapeHtml(info.filter(Boolean).join(' · ')) + '</small></span><span class="b">' + badge + '</span></div>'; };
@@ -10664,7 +10677,7 @@ function ckDetailHtml(c) {
     + kpi('Closing', pfL('closing', k.shows ? k.closing + ' %' : '—'), pfL('closing', u.signes + ' / ' + k.shows + ' R1 tenus ce mois') + moyTxt(nb3 ? Math.round(s3.closingRate) : null, ' %'))
     + kpi('Commission', eur(c.comm), (ventes.filter(function(v) { return sdFreqVente(v) === 'Mensuelle'; }).length) + ' mensuelle' + (ventes.filter(function(v) { return sdFreqVente(v) === 'Mensuelle'; }).length > 1 ? 's' : '') + ' · ' + (ventes.filter(function(v) { return sdFreqVente(v) === 'Annuelle'; }).length) + ' annuelle' + (ventes.filter(function(v) { return sdFreqVente(v) === 'Annuelle'; }).length > 1 ? 's' : ''), 'au')
     + kpi('One shot', pfL('oneshot', os1.pct === null ? '—' : os1.pct + ' %'), pfL('oneshot', os1.n + ' / ' + os1.total + ' signée' + (os1.n > 1 ? 's' : '') + ' le jour du R1') + (os3 !== null ? ' · moy. ' + os3 + ' %' : '')) + '</div>'
-    + (ventes.length ? ventes.map(function(v) { return '<div class="ck-deal"><span><b>' + sdNomLien(v.client, v.email || '') + '</b> <small>' + escapeHtml([v.pack, v.freq, v.carte ? 'carte ' + v.carte : ''].filter(Boolean).join(' · ')) + '</small></span><b>' + eur(getComm(v)) + '</b></div>'; }).join('') : '<div class="ck-note">Aucune vente signée ce mois.</div>') + '</div>';
+    + (ventes.length ? ventes.map(function(v) { return '<div class="ck-deal"><span><b>' + sdNomLien(v.client, v.email || '') + '</b> <small>' + escapeHtml([v.pack, v.freq, v.carte ? 'carte ' + v.carte : '', v.partage === 'O' ? 'partage 50 %' : ''].filter(Boolean).join(' · ')) + '</small></span><b>' + eur(getComm(v)) + '</b></div>'; }).join('') : '<div class="ck-note">Aucune vente signée ce mois.</div>') + '</div>';
   // rythme et suivi
   var suivi = (document.getElementById('kpi-suivi') || {}).textContent || '—', suiviSub = (document.getElementById('kpi-suivi-sub') || {}).textContent || '', suiviSans = (document.getElementById('kpi-suivi-sans') || {}).textContent || '';
   h += '<div class="ck-card"><h3>⏱ Rythme et suivi</h3><div class="ck-k4">'
