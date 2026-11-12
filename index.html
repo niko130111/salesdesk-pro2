@@ -7902,6 +7902,7 @@ function cleSupprime(client, date) { return String(client || '').toLowerCase().t
 function marquerSupprime(store, row) { if (!row || !row.client) return; if (!store._supprimes) store._supprimes = {}; store._supprimes[cleSupprime(row.client, row.date)] = Date.now(); }
 function estSupprime(store, client, date) { return !!(store._supprimes && store._supprimes[cleSupprime(client, date)]); }
 function oublierSupprime(store, client, date) { if (store._supprimes) delete store._supprimes[cleSupprime(client, date)]; }
+function estSupprimeNom(store, nom, date) { if (!store || !store._supprimes) return false; var n = fcNormNom(nom || ''), d = String(date || '').trim(); return Object.keys(store._supprimes).some(function(k) { var i = k.lastIndexOf('|'); return k.slice(i + 1) === d && fcNormNom(k.slice(0, i)) === n; }); } // 12 nov. 2026 : même test que estSupprime, nom normalisé (carte Calendly d'un RDV supprimé à la main)
 function deleteRowMK(idx, monthKey) {
   if (!confirm('Supprimer ce RDV ?')) return;
   const store = loadStore();
@@ -13289,7 +13290,7 @@ function aujRdvsDu(iso) {
     var n = fcNormNom(e.name), em = String(e.email || '').toLowerCase(), heure = e.start.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
     var x = out.find(function(o) { return (fcNormNom(o.nom) === n || (em && o.email === em)) && (!!o.r2 === !!e.isR2 || !o.heure || o.heure === heure); });
     if (x) { x.join = e.join || ''; x.start = e.start; x.end = e.end; if (x.heure !== heure) { x.heure = heure; if (x.row) aujMajHeureLigne(x.row, heure); } x.uri = e.uri; if (x.row && String(x.row.presence || '').trim() === 'Annulé' && !/autre BDR/i.test(String(x.row.retour || '')) && /d[ée]plac|reschedul|reprogramm/i.test(String(x.row.annuleRaison || '')) && e.start && +e.start > Date.now()) aujReparerDeplace(x.row); } // l'heure Calendly fait foi (RDV décalé dans la journée) : la ligne SalesDesk suit
-    else out.push({ nom: e.name, email: em, heure: heure, source: e.source, r2: !!e.isR2, row: null, join: e.join || '', start: e.start, end: e.end, uri: e.uri });
+    else if (!estSupprimeNom(st, e.name, fr)) out.push({ nom: e.name, email: em, heure: heure, source: e.source, r2: !!e.isR2, row: null, join: e.join || '', start: e.start, end: e.end, uri: e.uri }); // 12 nov. 2026 : RDV supprimé à la main (donné à un collègue) → la carte Calendly ne revient pas
   });
   out.forEach(function(o) { if (!o.heure && o.row) aujHeureClose(o, iso); });
   out.sort(function(a, b) { return (a.heure || '99').localeCompare(b.heure || '99'); });
