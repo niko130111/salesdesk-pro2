@@ -5782,7 +5782,9 @@ function rlAction(ix, action, btn, opts) { opts = opts || {};
   if (action === 'pas_interesse') {
     sdDemanderConfirmation(it.nom + ' : pas intéressé ?', 'La fiche Close passe en « Not interested », l\'opportunité en perdue, la tâche est terminée.', { ok: '✋ Pas intéressé', danger: true }).then(function(ok) { if (!ok) return;
     occupe(true);
-    terminerClose().then(function() { try { sdStatutClose({ client: it.nom, email: id.email || '', closeLead: id.lead || '' }, 'pas_interesse'); } catch (e) {} rlPoserSuivi(it, { col: it.col, dernier: 'pas_interesse' }); rlPost('/sms/annuler-pour', { nom: it.nom, raison: 'pas intéressé' }).catch(function() {}); return rlMajRelance(it, 'abandon', ''); }).then(function() { fini('✋ Pas intéressé · Close à jour, tâche terminée'); }).catch(echec); });
+    terminerClose().then(function() { try { sdStatutClose({ client: it.nom, email: id.email || '', closeLead: id.lead || '' }, 'pas_interesse'); } catch (e) {} rlPoserSuivi(it, { col: it.col, dernier: 'pas_interesse' }); rlPost('/sms/annuler-pour', { nom: it.nom, raison: 'pas intéressé' }).catch(function() {}); return rlMajRelance(it, 'abandon', ''); })
+      .then(function() { try { var st = loadStore(), n = 0; sdLignesPersonne(it).forEach(function(x) { var row = (st[x._monthKey] || [])[x._storeKey]; if (!row || fcNormNom(row.client || '') !== fcNormNom(x.client || '')) return; if (String(row.result || '').trim() !== 'Signé' && (SD_INTERESSE.indexOf(String(row.result || '').trim()) >= 0 || row.attenteSignature)) { sdPasInteresseLigne(row, null, { sansClose: true }); n++; } }); if (n) saveStore(st); } catch (e) {} }) // 13 nov. 2026 (Charline Teixeira) : ses lignes « Intéressé » passent en « Non signé · pas intéressé », sinon la priorité « Prochaine étape à définir » revenait
+      .then(function() { fini('✋ Pas intéressé · Close à jour, tâche terminée'); }).catch(echec); });
     return;
   }
   if (action === 'manager') { rlEscalader(it, id, suivi); return; }
@@ -6463,14 +6465,35 @@ function fcRechercheClavier(ev) {
 }
 document.addEventListener('click', function(ev) { if (!ev.target.closest('#fc-search')) fcFermerRecherche(); });
 // Intéressé = obligatoirement une suite : R2 planifié (date) ou relance (date + condition). Popup depuis le Pipeline, la fiche, ou le dépôt dans Intéressés.
+// 13 nov. 2026 (Charline Teixeira) : « pas intéressé » posé depuis le Suivi ou « Définir la suite » → la ligne SalesDesk suit (avant, elle restait « Intéressé » et la priorité « Prochaine étape à définir » revenait). dRel facultatif = le rappeler plus tard : tâche Close « Rappel » posée d'abord, les autres tâches du dossier clôturées ensuite, le rappel gardé. opts.sansClose : Close déjà traité par l'appelant.
+function sdPasInteresseLigne(r, dRel, opts) {
+  if (!r) return; r.result = 'Non signé'; r.nosignRaison = 'pasinteresse'; delete r.attenteSignature; delete r.attenteDepuis;
+  if (dRel) { r.relanceDate = dRel; r.relanceFait = false; r.relanceCond = 'Pas intéressé pour l\'instant, à rappeler'; delete r.relanceDernier; delete r.relanceDernierAt; delete r.relanceResultat; }
+  else { delete r.relanceDate; delete r.relanceCond; r.relanceFait = true; }
+  if (opts && opts.sansClose) return;
+  var copie = Object.assign({}, r);
+  try { rlPost('/sms/annuler-pour', { nom: r.client, raison: 'pas intéressé' }).catch(function() {}); } catch (e) {}
+  try { sdStatutClose(copie, 'pas_interesse', dRel ? { sansCloture: true } : undefined); } catch (e) {}
+  if (dRel && typeof rlPost === 'function') rlPost('/close/taches', { nom: r.client, email: r.email || '', lead: r.closeLead || '', date: dRel, texte: 'Rappel : pas intéressé pour l\'instant', motif: 'pas intéressé, rappel' }).then(function(j) { if (j && j.tache && j.tache.id) { try { sdCloreTachesDossier(copie, j.tache.id); } catch (e) {} } if (typeof showCopyToast === 'function') showCopyToast('📌 Rappel Close posé au ' + fcFrDepuisIso(dRel)); if (typeof chargerTachesClose === 'function') try { chargerTachesClose(rlPlus(_rlLundi || rlLundiDe(rlIso(new Date())), -7), rlPlus(_rlLundi || rlLundiDe(rlIso(new Date())), 13), true); } catch (e) {} }).catch(function(e) { if (typeof showCopyToast === 'function') showCopyToast('⚠️ ' + r.client + ' : tâche de rappel non créée dans Close (' + (e && e.message || e) + ')'); });
+}
+function fcSuiviPasInteresse() {
+  var sv = window._fcSuivi; if (!sv) return; var store = loadStore(), r = (store[sv.monthKey] || [])[sv.idx]; if (!r) return;
+  var d = (document.getElementById('fc-suivi-pi') || {}).value || null;
+  sdPasInteresseLigne(r, d); saveStore(store); fermerModalDoublon(); window._fcSuivi = null;
+  if (typeof showCopyToast === 'function') showCopyToast('✗ ' + r.client + ' : pas intéressé · Close en Not interested' + (d ? ' · rappel le ' + fcFrDepuisIso(d) : ''));
+  refreshAll();
+  try { var fo = document.getElementById('fc-overlay'); if (fo && fo.classList.contains('open') && _fc && _fc.nom) { _fc.rows = fcLignesFiche(); fcRendre(); } } catch (e) {}
+  try { sdChaineSuite(); } catch (e) {}
+}
 function fcPopupSuivi(monthKey, idx, retourSiAnnule) {
   var store = loadStore(), r = (store[monthKey] || [])[idx]; if (!r) return;
   var html = '<div class="fc-dup"><div style="font-size:16px;font-weight:700;margin-bottom:2px;">' + escapeHtml(r.client) + ' — quelle suite ?</div>'
-    + '<div style="font-size:12px;color:var(--text3);margin-bottom:12px;">Un intéressé a toujours une suite : un R2 calé ou une relance datée.</div>'
+    + '<div style="font-size:12px;color:var(--text3);margin-bottom:12px;">Un intéressé a toujours une suite : un R2 calé, une relance datée, ou pas intéressé.</div>'
     + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">'
     + '<label style="display:block;border:1px solid var(--border);border-radius:var(--radius);padding:12px;background:var(--purple-bg);cursor:pointer;"><div style="font-weight:700;color:var(--purple);margin-bottom:6px;">📅 R2 planifié</div><input type="date" id="fc-suivi-r2" value="' + escapeHtml(fcIsoDepuisFr(r.dateR2 || '')) + '" style="width:100%;font-family:var(--mono);font-size:12px;padding:5px 6px;border:1px solid var(--border);border-radius:6px;"></label>'
     + '<label style="display:block;border:1px solid var(--border);border-radius:var(--radius);padding:12px;background:var(--orange-bg);cursor:pointer;"><div style="font-weight:700;color:var(--orange);margin-bottom:6px;">📞 Relance</div><input type="date" id="fc-suivi-rel" value="' + escapeHtml(r.relanceDate || '') + '" style="width:100%;font-family:var(--mono);font-size:12px;padding:5px 6px;border:1px solid var(--border);border-radius:6px;margin-bottom:6px;"><input type="text" id="fc-suivi-cond" placeholder="Condition (si promo, après l\'été…)" value="' + escapeHtml(r.relanceCond || '') + '" style="width:100%;font-family:var(--font);font-size:12px;padding:5px 6px;border:1px solid var(--border);border-radius:6px;box-sizing:border-box;"></label>'
     + '</div>'
+    + '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;margin-top:10px;"><button class="btn btn-sm" style="color:var(--red);border-color:var(--red);" onclick="fcSuiviPasInteresse()">✗ Pas intéressé</button><input type="date" id="fc-suivi-pi" min="' + rlIso(new Date()) + '" title="Facultatif : date à laquelle le rappeler" style="font-family:var(--mono);font-size:12px;padding:5px 6px;border:1px solid var(--border);border-radius:6px;"><span style="font-size:12px;color:var(--text3);flex:1;min-width:160px;">Close passe en Not interested. Mets une date pour garder une tâche de rappel, sinon aucun rappel.</span></div>' // 13 nov. 2026 (Charline Teixeira)
     + '<div style="display:flex;justify-content:flex-end;gap:6px;margin-top:12px;"><button class="btn btn-sm" onclick="fcSuiviAnnuler()">Annuler</button><button class="btn btn-sm btn-primary" onclick="fcSuiviEnregistrer()">Enregistrer</button></div></div>';
   window._fcSuivi = { monthKey: monthKey, idx: idx, retour: retourSiAnnule || null };
   var ov = document.getElementById('fc-dup-overlay');
@@ -13594,7 +13617,7 @@ function sdReprisesAuto() {
 function sdRelancesLointainesVersClose() {
   if (typeof COPILOT_URL === 'undefined') return; var st = loadStore(), today = rlIso(new Date()), lim = rlPlus(today, 15), init = !st._relanceLointaineInit, touche = false, n = 0, nP = 0;
   Object.keys(st).forEach(function(k) { if (!/^\d{4}-\d{2}$/.test(k) || !Array.isArray(st[k])) return; st[k].forEach(function(r) {
-    if (!r || r.source === 'R2' || String(r.presence || '').trim() !== 'Show' || String(r.result || '').trim() !== 'Non signé' || !r.relanceDate || r.relanceFait || r.closeLointaine) return; if (r.relanceDate < today) return; // 9 nov. 2026 : RDV tenu seulement — un RDV annulé « pas intéressé + rappel » ne doit jamais partir en Offer Sent
+    if (!r || r.source === 'R2' || String(r.presence || '').trim() !== 'Show' || String(r.result || '').trim() !== 'Non signé' || r.nosignRaison === 'pasinteresse' || r.nosignRaison === 'ghost' || !r.relanceDate || r.relanceFait || r.closeLointaine) return; // 13 nov. 2026 : un « pas intéressé » avec rappel ne repasse jamais en Offer Sent if (r.relanceDate < today) return; // 9 nov. 2026 : RDV tenu seulement — un RDV annulé « pas intéressé + rappel » ne doit jamais partir en Offer Sent
     if (init) { r.closeLointaine = 'init'; touche = true; return; }
     var proche = r.relanceDate <= lim; r.closeLointaine = today + (proche ? ' proche' : ' lointain'); touche = true; if (proche) nP++; else n++; try { sdStatutClose(Object.assign({}, r), proche ? 'relance_proche' : 'relance_lointaine'); } catch (e) {} }); });
   if (init) { st._relanceLointaineInit = today; touche = true; }
