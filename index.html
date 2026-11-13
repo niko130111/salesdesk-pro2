@@ -4377,14 +4377,16 @@ function rentHtmlRayons() {
   var j = _rent.rayons, nb = function(n) { return Number(n || 0).toLocaleString('fr-FR'); }, court = function(n) { return String(n || '').split('|')[0].trim(); };
   var t = '<div class="fc-card-t"><span>📍 Rareté · ' + escapeHtml((j && j.ville) || '') + ' ' + escapeHtml(_rent.cp) + '</span><span class="fc-muted" style="font-weight:500;">vendeurs déclarés · partenaires = annuaire RealAdvisor</span></div>';
   if (!j) return '<div class="fc-card">' + t + '<div class="fc-muted">Comptage par rayon (5 à 20 s la première fois)…</div></div>';
-  if (!j.ok) return '<div class="fc-card">' + t + '<div class="fc-muted">CRM indisponible : ' + escapeHtml(j.error || '') + '</div></div>';
+  if (!j.ok) return '<div class="fc-card">' + t + '<div class="fc-muted">CRM indisponible : ' + escapeHtml(j.error || '') + '</div>' + ((Array.isArray(j.proposees) && j.proposees.length) ? '<div class="fc-muted" style="margin-top:6px;">Calculer depuis : ' + j.proposees.map(function(v) { return '<a style="color:var(--accent);cursor:pointer;margin-right:10px;" onclick="rentRayonsAvecVille(' + escapeHtml(JSON.stringify(v)) + ')">' + escapeHtml(v) + '</a>'; }).join('') + '</div>' : '') + '</div>';
   var ray = j.rayons || {}, noms = [], r10 = ray[10] || {};
   var lignes = [5, 10, 15, 20].map(function(km) { var r = ray[km] || {}; if (r.noms && r.noms.length) noms.push(km + ' km : ' + r.noms.map(court).join(', '));
     return '<tr><td><b>' + km + ' km</b></td><td class="n"><b>' + nb(r.demandes30) + '</b></td><td class="n">' + nb(r.demandesAn) + '</td><td class="conc">' + nb(r.partenaires) + '</td></tr>'; }).join('');
   var phrase = r10.demandes30 != null ? '<div style="font-size:18px;font-weight:800;color:var(--accent);margin:10px 0 2px;line-height:1.3;">« À 10 km autour de ' + escapeHtml(j.ville || _rent.cp) + ' : <u>' + nb(r10.demandes30) + ' vendeurs</u> ont demandé une estimation ces 30 jours, pour ' + nb(r10.partenaires) + ' partenaire' + (r10.partenaires > 1 ? 's' : '') + ' en place. »</div>' : '';
   return '<div class="fc-card">' + t + phrase + '<table class="fc-av-tab"><thead><tr><th>Rayon</th><th class="n">30 jours</th><th class="n">Depuis le 1er janv.</th><th class="n">Partenaires</th></tr></thead><tbody>' + lignes + '</tbody></table>'
-    + (noms.length ? '<div class="fc-muted" style="margin-top:8px;line-height:1.5;">' + escapeHtml(noms.join(' · ')) + '</div>' : '') + '</div>';
+    + (noms.length ? '<div class="fc-muted" style="margin-top:8px;line-height:1.5;">' + escapeHtml(noms.join(' · ')) + '</div>' : '')
+    + (j.remplacee ? '<div class="fc-muted" style="margin-top:6px;">' + (j.repli === 'horsCrm' ? 'ℹ️ « ' + escapeHtml(j.ville) + ' » est absente du CRM RealAdvisor (commune nouvelle ?) · position prise dans l\'annuaire officiel.' : '⚠️ Ville « ' + escapeHtml(j.villeClose) + ' » non reconnue · secteur calculé depuis le ' + escapeHtml(j.cp || _rent.cp) + ' (' + escapeHtml(j.ville) + ').') + '</div>' : '') + '</div>';
 }
+function rentRayonsAvecVille(v) { _rent.ville = v; _rent.rayons = null; rentRendre(); rentGet('/secteur/rayons?' + new URLSearchParams({ cp: _rent.cp, ville: v }), 'rayons'); } // 13 nov. 2026 : commune choisie à la main quand la ville n'est pas reconnue
 function rentHtmlCsm() {
   var j = _rent.csm, t = '<div class="fc-card-t"><span>🗣️ Ce que disent les CSM · #france-sales-team</span><span class="fc-muted" style="font-weight:500;">' + (j && j.ok ? 'même réseau, puis département, puis région · base du ' + escapeHtml(j.misAJour || '') : '') + '</span></div>';
   if (!j) return '<div class="fc-card">' + t + '<div class="fc-muted">Lecture des retours…</div></div>';
@@ -5948,6 +5950,8 @@ function fcChargerDossiers() {
 }
 // ── Onglet « Avant d'appeler » (31 oct. 2026) : ce qu'il faut avoir sous les yeux avant de décrocher — l'objectif de l'appel, le dernier mot du client, les alertes, de quoi ouvrir, son secteur par rayons (demandes 30 j / année, concurrents), les derniers échanges. Ouvert par défaut depuis le Suivi. ──
 var _fcRayons = {}; // (cp|ville) → { enCours, data } — GET /secteur/rayons du copilot (cache 24 h côté copilot)
+var _fcRayonsVille = {}; // (cp|ville) → commune choisie à la main quand la ville Close n'est pas reconnue (13 nov. 2026)
+function fcRayonsAvecVille(k, v) { _fcRayonsVille[k] = v; delete _fcRayons[k]; fcRendre(); }
 function fcAvantRafraichir(cle) { // une donnée est arrivée : on redessine la fiche si elle est ouverte sur cet onglet, sinon le panneau du Suivi
   try { if (document.querySelector('#fc-overlay.open')) { if (_fc && _fc.cle === cle && (_fc.tab === 'avant' || _fc.tab === 'synthese')) fcRendre(); return; }
     var pg = document.getElementById('page-relances'); if (pg && pg.classList.contains('active') && typeof renderRelancesPage === 'function') renderRelancesPage(); } catch (e) {}
@@ -5974,7 +5978,7 @@ function fcAvantEchanges(j, n) { // les n derniers échanges, RDV SalesDesk et j
 function fcChargerRayons() { // demandes de vendeurs à 5 / 10 / 15 / 20 km (30 jours, année) et partenaires RealAdvisor (= concurrents) — lieu résolu par le copilot (fiche Close), puis GET /secteur/rayons
   if (typeof COPILOT_URL === 'undefined') return null; var cle = _fc.cle, sync = true, S = null;
   sdSecteurChiffres({ lead: _fc.leadChoisi || '', nom: _fc.nom, email: _fc.email || '' }, function(x) { S = x; var k = fcRayonsCle(x); if (k && !_fcRayons[k]) { _fcRayons[k] = { enCours: true, data: null };
-      fetch(COPILOT_URL + '/secteur/rayons?' + new URLSearchParams({ ville: x.ville || '', cp: x.cp || '' }), { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).catch(function() { return null; })
+      fetch(COPILOT_URL + '/secteur/rayons?' + new URLSearchParams({ ville: _fcRayonsVille[k] || x.ville || '', cp: x.cp || '' }), { mode: 'cors', cache: 'no-store' }).then(function(r) { return r.json(); }).catch(function() { return null; })
         .then(function(j) { _fcRayons[k] = { enCours: false, data: j && j.ok ? j : { ok: false, error: (j && j.error) || 'copilot sans réponse' } }; fcAvantRafraichir(cle); }); }
     if (!sync) fcAvantRafraichir(cle); });
   sync = false; return S;
@@ -5986,12 +5990,15 @@ function fcHtmlRayons() {
   if (!S) return '<div class="fc-card">' + titre + '<div class="fc-muted">Lecture du secteur…</div></div>';
   if (!S.trouve || !k) return '<div class="fc-card">' + titre + '<div class="fc-muted">Lieu inconnu : pas d\'adresse ni de ville sur la fiche Close.</div></div>';
   if (!R || R.enCours) return '<div class="fc-card">' + titre + '<div class="fc-muted">Comptage par rayon (5 à 20 s la première fois)…</div></div>';
-  var j = R.data; if (!j || !j.ok) return '<div class="fc-card">' + titre + '<div class="fc-muted">CRM indisponible : ' + escapeHtml((j && j.error) || '') + ' · <a style="color:var(--accent);cursor:pointer" onclick="delete _fcRayons[' + JSON.stringify(k).replace(/"/g, '&quot;') + '];fcRendre()">Réessayer</a></div></div>';
+  var j = R.data, props = (j && Array.isArray(j.proposees)) ? j.proposees : [];
+  var choix = props.length ? '<div class="fc-muted" style="margin-top:6px;">Calculer depuis : ' + props.map(function(v) { return '<a style="color:var(--accent);cursor:pointer;margin-right:10px;" onclick="fcRayonsAvecVille(' + escapeHtml(JSON.stringify(k)) + ',' + escapeHtml(JSON.stringify(v)) + ')">' + escapeHtml(v) + '</a>'; }).join('') + '</div>' : ''; // 13 nov. 2026 : ville Close inconnue → communes proposées cliquables
+  if (!j || !j.ok) return '<div class="fc-card">' + titre + '<div class="fc-muted">CRM indisponible : ' + escapeHtml((j && j.error) || '') + ' · <a style="color:var(--accent);cursor:pointer" onclick="delete _fcRayons[' + JSON.stringify(k).replace(/"/g, '&quot;') + '];fcRendre()">Réessayer</a></div>' + choix + '</div>';
   var ray = j.rayons || {}, noms = [];
   var lignes = [5, 10, 15, 20].map(function(km) { var r = ray[km] || {}; if (r.noms && r.noms.length) noms.push(km + ' km : ' + r.noms.map(court).join(', '));
     return '<tr><td><b>' + km + ' km</b></td><td class="n"><b>' + nb(r.demandes30) + '</b></td><td class="n">' + nb(r.demandesAn) + '</td><td class="conc">' + nb(r.partenaires) + '</td></tr>'; }).join('');
   return '<div class="fc-card">' + titre + '<table class="fc-av-tab"><thead><tr><th>Rayon</th><th class="n">30 derniers jours</th><th class="n">Depuis le 1er janv.</th><th class="n">Concurrents (partenaires RA)</th></tr></thead><tbody>' + lignes + '</tbody></table>'
-    + (noms.length ? '<div class="fc-muted" style="font-size:12px;margin-top:8px;line-height:1.5;">' + escapeHtml(noms.join(' · ')) + '</div>' : '') + '</div>';
+    + (noms.length ? '<div class="fc-muted" style="font-size:12px;margin-top:8px;line-height:1.5;">' + escapeHtml(noms.join(' · ')) + '</div>' : '')
+    + (j.remplacee ? '<div class="fc-muted" style="font-size:12px;margin-top:6px;">' + (j.repli === 'horsCrm' ? 'ℹ️ « ' + escapeHtml(j.ville) + ' » est absente du CRM RealAdvisor (commune nouvelle ?) · position prise dans l\'annuaire officiel des communes.' : '⚠️ Ville Close « ' + escapeHtml(j.villeClose) + ' » non reconnue · secteur calculé depuis le ' + escapeHtml(j.cp || '') + ' (' + escapeHtml(j.ville) + '). À corriger dans Close.') + '</div>' : (_fcRayonsVille[k] ? '<div class="fc-muted" style="font-size:12px;margin-top:6px;">Secteur calculé depuis ' + escapeHtml(j.ville || _fcRayonsVille[k]) + ' (commune choisie à la main).</div>' : '')) + '</div>';
 }
 function fcHtmlAvant() {
   var j = _fc.dernier || null, today = rlIso(new Date());
