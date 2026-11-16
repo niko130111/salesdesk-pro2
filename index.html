@@ -4872,8 +4872,8 @@ function fcMailEnvoyer(reel) {
     _fcMails = { cle: null, data: null, erreur: '', redige: false, b: { to: '', objet: '', texte: '' }, ouverts: {}, enCours: false }; fcRendre();
   }).catch(function(e) { M.enCours = false; fcRendre(); alert((reel ? 'Mail non envoyé : ' : 'Brouillon non créé : ') + e.message + '\nTon texte est conservé.'); });
 }
-// Toutes les ouvertures de Close passent par UNE seule fenêtre (nommée « close ») : la fiche suivante remplace la précédente au lieu d'ouvrir un onglet de plus à chaque clic
-function sdOuvrirClose(url) { window.location.href = String(url).replace(/^https:\/\/app\.close\.com/, 'closeio://app.close.com'); } // l'application Close (pas le navigateur) ; elle navigue dans sa fenêtre
+// Toutes les ouvertures de Close passent par l'application Close (closeio://), jamais par un onglet — sauf depuis l'Air, où l'appli tourne sur l'autre Mac (16 nov. 2026)
+function sdOuvrirClose(url) { url = String(url || ''); if (!/^https:\/\/app\.close\.com\//.test(url)) return; if (typeof sdPosteDistant === 'function' && sdPosteDistant()) { try { window.open(url, '_blank', 'noopener'); } catch (e) {} return; } window.location.href = url.replace(/^https:\/\/app\.close\.com/, 'closeio://app.close.com'); } // l'application Close (pas le navigateur) ; elle navigue dans sa fenêtre
 document.addEventListener('click', function(ev) { var a = ev.target && ev.target.closest ? ev.target.closest('a[href*="app.close.com"]') : null; if (!a || ev.altKey || ev.metaKey || ev.ctrlKey) return; ev.preventDefault(); sdOuvrirClose(a.href); }, true);
 // Appeler : l'appli Close ne prend pas les liens tel:, donc on ouvre la fiche DANS l'application Close (closeio://) avec le numéro copié ;
 // l'appel passé là-bas est loggé et enregistré (ce qui nourrit « avant d'appeler », le compteur, l'escalade). Alt+clic = tel: classique.
@@ -5084,7 +5084,7 @@ function fcBoutonsSuivi(it) {
   var appeler = '<button class="btn btn-sm btn-primary" title="Close ouvre la fiche et compose ; Alt + clic = appel via le Mac" onclick="fcAppelerFiche(event,' + cleJs + ')">' + aujIco('phone') + 'Appeler</button>';
   // 17 oct. 2026 (tâches, étape 3) : la fiche Close et « Prioritaire » partout où il y a la barre (Suivi, fiche, agenda), plus besoin de cliquer sur le nom
   var leadB = (it.t && it.t.lead) || it.lead || row.closeLead || sdLeadPour(it.nom || row.client || '', it.email || row.email || '') || '';
-  var ficheCloseBtn = B(leadB ? 'event.stopPropagation();window.open(' + JSON.stringify('https://app.close.com/lead/' + leadB + '/').replace(/"/g, '&quot;') + ',\'_blank\',\'noopener\')' : 'fcOuvrirClose(' + nomJs + ',' + emailJs + ',event)', aujIco('link') + 'Close ↗', '', 'Ouvrir sa fiche dans Close');
+  var ficheCloseBtn = B(leadB ? 'event.stopPropagation();sdOuvrirClose(' + JSON.stringify('https://app.close.com/lead/' + leadB + '/').replace(/"/g, '&quot;') + ')' : 'fcOuvrirClose(' + nomJs + ',' + emailJs + ',event)', aujIco('link') + 'Close ↗', '', 'Ouvrir sa fiche dans Close');
   var prioOn = !!(it.t && (loadStore()._tachesPrio || {})[it.t.id]);
   var prio = it.t && copilot ? '<button class="btn btn-sm" title="' + (prioOn ? 'Retirer la priorité' : 'Remonter en tête de Mes priorités et du Suivi') + '" style="' + (prioOn ? 'background:var(--red) !important;color:#fff !important;border-color:var(--red) !important;' : 'color:var(--red) !important;border-color:var(--red) !important;') + '" onclick="event.stopPropagation();sdPrioToggle(' + cleJs + ')">' + (prioOn ? '✓ Prioritaire' : 'Prioritaire') + '</button>' : '';
   var isoR = frVersIsoSd((r2 ? r2.date : row.date) || '') || '';
@@ -5928,17 +5928,16 @@ function fcOuvrirClose(nom, email, ev) {
   if (ev) ev.stopPropagation();
   nom = String(nom || '').trim(); email = String(email || '').toLowerCase().trim();
   var cle = fcCle(nom, email), cl = fcClients(loadStore())[cle];
-  if (cl && cl.closeUrl) { window.open(cl.closeUrl, '_blank', 'noopener'); return; }
-  var w = window.open('about:blank', '_blank');
+  if (cl && cl.closeUrl) { sdOuvrirClose(cl.closeUrl); return; } // 16 nov. 2026 (Nicolas) : toujours l'application Close, jamais un onglet
   var ctrl = new AbortController(); setTimeout(function() { ctrl.abort(); }, 12000);
   fetch(COPILOT_URL + '/close/contact?' + new URLSearchParams({ email: email, nom: nom }), { mode: 'cors', cache: 'no-store', signal: ctrl.signal })
     .then(function(r) { return r.json(); }).then(function(j) {
       fcMemoriserClose(cle, nom, email, j);
       var url = j && j.leads && j.leads.length ? j.leads[0].url : '';
-      if (url) { if (w) w.location = url; else window.open(url, '_blank', 'noopener'); }
-      else { if (w) w.close(); if (typeof showCopyToast === 'function') showCopyToast(j && j.configure === false ? 'Close : clé absente' : 'Close : aucune fiche pour ' + nom); }
+      if (url) sdOuvrirClose(url);
+      else { if (typeof showCopyToast === 'function') showCopyToast(j && j.configure === false ? 'Close : clé absente' : 'Close : aucune fiche pour ' + nom); }
     })
-    .catch(function() { if (w) w.close(); if (typeof showCopyToast === 'function') showCopyToast('Close : copilot éteint'); });
+    .catch(function() { if (typeof showCopyToast === 'function') showCopyToast('Close : copilot éteint'); });
 }
 function fcChargerDossiers() {
   var cle = _fc.cle;
@@ -14086,7 +14085,7 @@ function renderAujourdhui() {
   var actionsDe = function(r, m, p, estProchain) { // une action principale par ligne selon l'état réel, le reste sous « ··· »
     var row = r.row || {}, pres = presDe(r), nomJs = Q(r.nom), emailJs = Q(r.email || '');
     var fiche = Bt('ouvrirFicheClient(' + nomJs + ',' + emailJs + ')', 'Ouvrir la fiche');
-    var leadA = row.closeLead || sdLeadPour(r.nom, r.email || '') || '', closeB = Bt(leadA ? 'window.open(' + Q('https://app.close.com/lead/' + leadA + '/') + ',\'_blank\',\'noopener\')' : 'fcOuvrirClose(' + nomJs + ',' + emailJs + ',event)', 'Close ↗', '', 'Ouvrir sa fiche dans Close'); // 17 oct. 2026 : la fiche Close partout
+    var leadA = row.closeLead || sdLeadPour(r.nom, r.email || '') || '', closeB = Bt(leadA ? 'sdOuvrirClose(' + Q('https://app.close.com/lead/' + leadA + '/') + ')' : 'fcOuvrirClose(' + nomJs + ',' + emailJs + ',event)', 'Close ↗', '', 'Ouvrir sa fiche dans Close'); // 17 oct. 2026 : la fiche Close partout
     var resultat = r.row ? Bt('sdResultatRdv(' + Q(row._monthKey) + ',' + row._storeKey + ')', (m.passe || m.enCours) ? 'Résultat du RDV' : 'Annulé ou reprogrammé', '', (m.passe || m.enCours) ? 'Show, No show, Annulé ou Reprogrammé' : 'Le prospect annule ou déplace son rendez-vous')
       : (r.r2 ? Bt('sdResultatR2Sans(' + nomJs + ',' + emailJs + ',' + Q(jour) + ',' + Q(r.heure || '') + ')', (m.passe || m.enCours) ? 'Résultat du RDV' : 'Annulé ou reprogrammé', '', 'R2 pris dans Calendly sans ligne SalesDesk : la ligne R2 est créée, puis Show, No show, Annulé ou Reprogrammé') : ''); // un R2 Calendly sans ligne : on la crée au moment du résultat
     var prepa = r.r2 ? Bt('ouvrirFicheClient(' + nomJs + ',' + emailJs + ')', 'Revoir le dossier', '', 'Tout ce qui s\'est dit au R1 et depuis') : Bt(cible(r.nom, r.email, jour), p.etat === 'ok' ? 'Voir la préparation' : 'Préparer', '', 'La préparation du rendez-vous dans le copilot');
@@ -14207,7 +14206,7 @@ function renderAujourdhui() {
   var depuisTache = function(i, enRetard) { var h = hDe(i), id = identite(i), arrivee = estAuj && h && h <= hhmm;
     var ech = enRetard ? '<span class="late">en retard depuis le ' + escapeHtml(new Date(i.date + 'T12:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) + (h ? ' à ' + h : '')) + '</span>' : (h ? (arrivee ? '<span class="late">prévu à ' + escapeHtml(h) + '</span>' : 'à ' + escapeHtml(h)) : (estAuj ? 'aujourd\'hui' : 'ce jour'));
     var raison = [!estConfig(i) && !texteDe(i) ? LIBC[i.col] || '' : '', tent(i)].filter(Boolean).join(' · ');
-    return { cle: 'tache|' + i.cle, titre: titreTache(i), det: '<a onclick="ouvrirFicheClient(' + Q(id.nom) + ',' + Q(id.email) + ',\'\',' + Q((i.t && i.t.lead) || '') + ')">' + escapeHtml(nomAff(id.nom)) + '</a> · ' + ech + (raison ? ' · ' + escapeHtml(raison) : ''), btn: boutonTache(i), btn2: (i.t || (i.rel && i.rel.r)) ? { lib: i.t ? 'Déplacer la tâche' : 'Déplacer le rappel', on: 'sdDeplacerTache(' + Q(i.cle) + ')', titre: i.t ? 'Date, heure, texte et motif de la tâche Close' : 'Date et motif du rappel' } : null, btn3: (function() { var ld = (i.t && i.t.lead) || (i.row && i.row.closeLead) || ''; return { lib: 'Close ↗', on: ld ? 'window.open(' + Q('https://app.close.com/lead/' + ld + '/') + ',\'_blank\',\'noopener\')' : 'fcOuvrirClose(' + Q(id.nom) + ',' + Q(id.email) + ',event)', titre: 'Ouvrir sa fiche dans Close' }; })(), btn4: i.t ? { lib: (st._tachesPrio || {})[i.t.id] ? '✓ Prioritaire' : 'Prioritaire', on: 'sdPrioToggle(' + Q(i.cle) + ')', titre: (st._tachesPrio || {})[i.t.id] ? 'Retirer la priorité' : 'Remonter en tête', rouge: true } : null, rang: enRetard ? (i.col === 'r2' ? 0.5 : 1) : (h ? (arrivee ? 0 : 5) : (i.col === 'r2' ? 2 : (estConfig(i) ? 3 : 4))) }; }; // R2 sans réponse : avant les autres relances
+    return { cle: 'tache|' + i.cle, titre: titreTache(i), det: '<a onclick="ouvrirFicheClient(' + Q(id.nom) + ',' + Q(id.email) + ',\'\',' + Q((i.t && i.t.lead) || '') + ')">' + escapeHtml(nomAff(id.nom)) + '</a> · ' + ech + (raison ? ' · ' + escapeHtml(raison) : ''), btn: boutonTache(i), btn2: (i.t || (i.rel && i.rel.r)) ? { lib: i.t ? 'Déplacer la tâche' : 'Déplacer le rappel', on: 'sdDeplacerTache(' + Q(i.cle) + ')', titre: i.t ? 'Date, heure, texte et motif de la tâche Close' : 'Date et motif du rappel' } : null, btn3: (function() { var ld = (i.t && i.t.lead) || (i.row && i.row.closeLead) || ''; return { lib: 'Close ↗', on: ld ? 'sdOuvrirClose(' + Q('https://app.close.com/lead/' + ld + '/') + ')' : 'fcOuvrirClose(' + Q(id.nom) + ',' + Q(id.email) + ',event)', titre: 'Ouvrir sa fiche dans Close' }; })(), btn4: i.t ? { lib: (st._tachesPrio || {})[i.t.id] ? '✓ Prioritaire' : 'Prioritaire', on: 'sdPrioToggle(' + Q(i.cle) + ')', titre: (st._tachesPrio || {})[i.t.id] ? 'Retirer la priorité' : 'Remonter en tête', rouge: true } : null, rang: enRetard ? (i.col === 'r2' ? 0.5 : 1) : (h ? (arrivee ? 0 : 5) : (i.col === 'r2' ? 2 : (estConfig(i) ? 3 : 4))) }; }; // R2 sans réponse : avant les autres relances
   // 16 oct. 2026 (Nicolas) : tâches marquées « Prioritaire » à leur création → en tête de Mes priorités dès leur jour
   try { var prioT = st._tachesPrio || {}; items.filter(function(i) { return i.t && prioT[i.t.id] && i.date && i.date <= todayIso; }).sort(function(a, b) { return (a.date + hDe(a)).localeCompare(b.date + hDe(b)); }).forEach(function(i) { var pp = depuisTache(i, i.date < todayIso); pp.prio = true; pp.rang = -1000 + (pp.rang || 0) / 1000; ajoute(pp); }); } catch (e) {}
   try { var nR2Q = sdR2AQualifier(st, '2026-05-01', rlPlus(todayIso, -11)).length; if (nR2Q) ajoute({ cle: 'r2aq', titre: 'R2 passés à qualifier', det: nR2Q + ' R2 notés sur un R1 sans présence depuis mai · ils manquent au suivi R2', btn: { lib: 'Voir', on: 'sdPopupR2AQualifier()', titre: 'La liste, un clic par R2 pour noter Show / No show' }, rang: 50 }); } catch (e) {}
