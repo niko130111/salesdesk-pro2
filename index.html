@@ -12466,11 +12466,17 @@ function sdAppliquerLiensClose(liens) { // lignes rapprochées d'un RDV Close pa
     if (r && !r.closeLead && /^lead_/.test(String(l.lead || ''))) { r.closeLead = l.lead; nb++; nb += sdMemoriserLead(r.client, r.email || '', l.lead, st); } });
   if (nb) { saveStore(st); console.log('[identité Close] ' + nb + ' ligne(s) reliées à leur fiche'); }
 }
+// 17 nov. 2026 (L'Adresse Saint-Julien comptée deux fois) : une vente Close dont la fiche a déjà une ligne Signé à moins de 45 jours n'est plus proposée comme « vente manquante », même si le nom ou le mail diffèrent
+function sdVenteDejaLa(st, x) {
+  if (!x || !/^lead_/.test(String(x.lead || ''))) return false;
+  var t = function(d) { var m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(String(d || '')); return m ? new Date(+m[3], +m[2] - 1, +m[1], 12).getTime() : NaN; }, tv = t(x.dateSignature); if (isNaN(tv)) return false;
+  return Object.keys(st || {}).some(function(k) { return /^\d{4}-\d{2}$/.test(k) && Array.isArray(st[k]) && st[k].some(function(r) { if (!r || r.result !== 'Signé' || r.closeLead !== x.lead) return false; var tr = t(r.dateSignature || r.date); return !isNaN(tr) && Math.abs(tr - tv) < 45 * 86400000; }); });
+}
 function sdVerifCloseCle(x) { return x.champ ? ['e', x.date, x.client, x.champ, x.close].join('|') : ['v', x.dateSignature, x.client].join('|'); }
 function sdVerifCloseRestants() {
   if (!_verifClose) return [];
   var vus = loadStore()._verifCloseVus || {};
-  return (_verifClose.ecarts || []).concat((_verifClose.ventes || []).map(function(v) { return Object.assign({ vente: true }, v); })).filter(function(x) { return !vus[sdVerifCloseCle(x)] && !(x.champ === 'source' && x.sd === 'RENT'); }); // RENT = choix de Nicolas, Close ne connaît qu'Inbound / Outbound / PUB
+  var st = loadStore(); return (_verifClose.ecarts || []).concat((_verifClose.ventes || []).map(function(v) { return Object.assign({ vente: true }, v); })).filter(function(x) { return !vus[sdVerifCloseCle(x)] && !(x.champ === 'source' && x.sd === 'RENT') && !(x.vente && sdVenteDejaLa(st, x)); }); // RENT = choix de Nicolas, Close ne connaît qu'Inbound / Outbound / PUB
 }
 function sdPopupVerifClose() {
   var items = sdVerifCloseRestants(), nf = (_verifClose && _verifClose.nonTrouves) || [];
@@ -12505,7 +12511,7 @@ function sdVerifCloseAppliquer(ignorerAussi) {
     if (x.vente) {
       var ds = x.dateSignature, mkS = ds.slice(6) + '-' + ds.slice(3, 5), mkR1 = x.dateR1 ? x.dateR1.slice(6) + '-' + x.dateR1.slice(3, 5) : '';
       var r1 = mkR1 ? (store[mkR1] || []).find(function(r) { return r && r.date === x.dateR1 && fcNormNom(r.client) === fcNormNom(x.client); }) : null;
-      if (r1 && mkR1 === mkS) { r1.result = 'Signé'; r1.presence = 'Show'; if (x.pack) r1.pack = x.pack; if (x.tier) r1.tier = x.tier; if (x.freq) r1.freq = x.freq; r1.dateSignature = ds; r1.dateSignatureSource = 'close'; delete r1.nosignRaison; }
+      if (r1 && mkR1 === mkS) { r1.result = 'Signé'; r1.presence = 'Show'; if (x.pack) r1.pack = x.pack; if (x.tier) r1.tier = x.tier; if (x.freq) r1.freq = x.freq; r1.dateSignature = ds; r1.dateSignatureSource = 'close'; delete r1.nosignRaison; if (x.lead && !r1.closeLead) r1.closeLead = x.lead; /* la ligne garde sa fiche Close : la vente ne sera pas reproposée (sdVenteDejaLa) */ }
       else {
         if (!Array.isArray(store[mkS])) store[mkS] = [];
         store[mkS].push({ date: ds, datePrise: x.dateR1 || '', client: x.client, email: x.email || '', presence: 'Show', result: 'Signé', source: (r1 && r1.source) || 'Inbound', type: x.type || (r1 && r1.type) || 'Mandataire', pack: x.pack || '', freq: x.freq || '', tier: x.tier || '', fms: '', oneshot: 'N', commission: 0, dateSignature: ds, dateSignatureSource: 'close', importClose: new Date().toISOString().slice(0, 10), closeLead: x.lead || '', retour: 'Vente vue dans Close' + (x.dateR1 ? ' (R1 du ' + x.dateR1 + ')' : '') });
