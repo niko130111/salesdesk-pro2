@@ -4114,6 +4114,11 @@ async function sdInitFromSupabase() {
 
 // FIX SD-17 : le quota localStorage saturé ne doit plus échouer en silence.
 function _signalerQuotaPlein(e) {
+  /* 27 nov. 2026 (Nicolas, alerte « stockage plein » après trois corrections d'affilée) : avant d'alerter, on retire les copies de sécurité locales (salesdesk_rdvs_backup_*, ~1,4 Mo chacune) et on réécrit le store courant ; l'alerte ne sort que si ça ne suffit pas */
+  try { var _clesB = []; for (var _i = 0; _i < localStorage.length; _i++) { var _k = localStorage.key(_i); if (_k && _k.indexOf('salesdesk_rdvs_backup_') === 0) _clesB.push(_k); }
+    if (_clesB.length && _sessionStore) { _clesB.sort(); var _json = JSON.stringify(_sessionStore, function(k, v) { return (k === '_monthKey' || k === '_storeKey') ? undefined : v; }), _nbR = 0;
+      while (_clesB.length) { localStorage.removeItem(_clesB.shift()); _nbR++; /* la plus ancienne d'abord : la copie la plus récente survit quand la place suffit */
+        try { localStorage.setItem('salesdesk_rdvs', _json); console.warn('[stockage] plein : ' + _nbR + ' copie(s) de sécurité locale(s) retirée(s), store réécrit'); return; } catch (e2) { e = e2; } } } } catch (e3) { e = e3; }
   console.error('Ecriture localStorage impossible :', e);
   document.querySelectorAll('.sync-status').forEach(function(el) {
     el.textContent = '⚠️ Stockage local plein'; el.style.color = 'var(--red)';
@@ -4122,8 +4127,7 @@ function _signalerQuotaPlein(e) {
     window._quotaDejaSignale = true;
     alert("⚠️ Le stockage local du navigateur est plein.\n\n"
         + "Tes données continuent d'être sauvegardées dans le cloud, mais plus en local.\n"
-        + "Fais un backup (Objectifs & Config → Sauvegarde) et purge les transcriptions "
-        + "des anciens RDV pour libérer de la place.");
+        + "Exporte un backup (Objectifs & Config → Sauvegarde), puis recharge la page.");
   }
 }
 
@@ -7076,12 +7080,13 @@ function fcDetecterDoublonsPipeline(cols) {
 function sdBackupStore(store) {
   try {
     var cles = []; for (var i = 0; i < localStorage.length; i++) { var k = localStorage.key(i); if (k && k.indexOf('salesdesk_rdvs_backup_') === 0) cles.push(k); }
-    cles.sort(); while (cles.length > 2) localStorage.removeItem(cles.shift()); // audit 17 oct. : deux opérations d'affilée gardent chacune leur filet
-    localStorage.setItem('salesdesk_rdvs_backup_' + Date.now(), JSON.stringify(store));
+    cles.sort(); while (cles.length > 1) localStorage.removeItem(cles.shift()); // deux copies au plus, la nouvelle comprise (27 nov. 2026 : trois copies de 1,4 Mo + le store dépassaient le quota du navigateur)
+    var json = JSON.stringify(store), cle = 'salesdesk_rdvs_backup_' + Date.now();
+    try { localStorage.setItem(cle, json); } catch (e1) { if (!cles.length) throw e1; localStorage.removeItem(cles.shift()); localStorage.setItem(cle, json); } /* 27 nov. 2026 : plus de place → on lâche l'ancienne copie pour garder celle de maintenant */
   } catch (e) { console.warn('[backup] impossible (stockage plein ?) :', e && e.message); }
 }
 // Au chargement : on purge les vieilles sauvegardes qui saturent le stockage du navigateur (on garde les 2 dernières)
-try { (function() { var cles = []; for (var i = 0; i < localStorage.length; i++) { var k = localStorage.key(i); if (k && k.indexOf('salesdesk_rdvs_backup_') === 0) cles.push(k); } cles.sort(); while (cles.length > 3) localStorage.removeItem(cles.shift()); })(); } catch (e) {}
+try { (function() { var cles = []; for (var i = 0; i < localStorage.length; i++) { var k = localStorage.key(i); if (k && k.indexOf('salesdesk_rdvs_backup_') === 0) cles.push(k); } cles.sort(); while (cles.length > 2) localStorage.removeItem(cles.shift()); })(); } catch (e) {}
 function fcSupprimerAnciens(i) {
   var g = (window._fcGroupes || [])[i]; if (!g) return;
   var store = loadStore(), n = 0;
